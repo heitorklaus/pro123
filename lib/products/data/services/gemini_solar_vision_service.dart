@@ -147,7 +147,10 @@ Regras de classificação dos componentes ("componentType"):
       try {
         final res = await http.post(
           uri,
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
           body: jsonEncode(requestBody),
         );
 
