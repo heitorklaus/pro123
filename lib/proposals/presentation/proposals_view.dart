@@ -504,7 +504,7 @@ class _ProposalTableHeader extends StatelessWidget {
           _col('VALOR TOTAL', flex: 2),
           _col('CONDIÇÃO / VALIDADE', flex: 3),
           _col('STATUS', flex: 2),
-          const SizedBox(width: 140), // Coluna de Ações
+          const SizedBox(width: 160), // Coluna de Ações
         ],
       ),
     );
@@ -699,26 +699,35 @@ class _ProposalRow extends StatelessWidget {
 
           // 5. Ações (PDF, Editar, Mudar Status, Excluir)
           SizedBox(
-            width: 140,
+            width: 160,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   tooltip: 'Visualizar / Baixar PDF',
                   icon: const Icon(Icons.picture_as_pdf_outlined,
-                      color: Color(0xFFDC2626), size: 19),
+                      color: Color(0xFFDC2626), size: 18),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  visualDensity: VisualDensity.compact,
                   onPressed: onPreviewPdf,
                 ),
                 IconButton(
                   tooltip: 'Editar Proposta',
                   icon: const Icon(Icons.edit_outlined,
-                      color: Color(0xFF6366F1), size: 19),
+                      color: Color(0xFF6366F1), size: 18),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  visualDensity: VisualDensity.compact,
                   onPressed: onEdit,
                 ),
                 PopupMenuButton<ProposalStatus>(
                   tooltip: 'Alterar Status',
                   icon: const Icon(Icons.swap_horiz_rounded,
-                      color: Color(0xFF64748B), size: 20),
+                      color: Color(0xFF64748B), size: 19),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   onSelected: onStatusChange,
                   itemBuilder: (ctx) => ProposalStatus.values.map((s) {
                     return PopupMenuItem(
@@ -743,7 +752,10 @@ class _ProposalRow extends StatelessWidget {
                 IconButton(
                   tooltip: 'Excluir',
                   icon: const Icon(Icons.delete_outline_rounded,
-                      color: Color(0xFFEF4444), size: 19),
+                      color: Color(0xFFEF4444), size: 18),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  visualDensity: VisualDensity.compact,
                   onPressed: onDelete,
                 ),
               ],

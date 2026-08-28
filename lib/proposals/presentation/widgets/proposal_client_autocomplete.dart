@@ -473,25 +473,24 @@ class _ProposalClientAutocompleteState extends State<ProposalClientAutocomplete>
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (selectedClient.document != null && selectedClient.document!.isNotEmpty) ...[
                         Text(
                           selectedClient.document!,
                           style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF475569), fontWeight: FontWeight.w500),
                         ),
-                        const SizedBox(width: 8),
                         const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-                        const SizedBox(width: 8),
                       ],
                       Text(
                         selectedClient.email,
                         style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
                       ),
                       if (selectedClient.phone != null && selectedClient.phone!.isNotEmpty) ...[
-                        const SizedBox(width: 8),
                         const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-                        const SizedBox(width: 8),
                         Text(
                           selectedClient.phone!,
                           style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
