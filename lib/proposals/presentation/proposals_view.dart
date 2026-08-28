@@ -13,6 +13,7 @@ import '../../products/domain/models/category_model.dart';
 import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/solar_plant_form_card.dart';
 import '../../clients/presentation/widgets/client_form_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/proposal_client_autocomplete.dart';
 import 'widgets/proposal_pdf_preview_dialog.dart';
 import 'widgets/proposal_product_picker_dialog.dart';
@@ -895,6 +896,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   String? _errorMessage;
   String? _companyId;
 
+  static const _cleanProposalStorageKey = 'mavis_proposal_clean_mode';
+
   // Switch para exibir apenas Inversor e Módulo na Composição da Usina Solar
   bool _showOnlyModulesAndInverters = false;
 
@@ -1022,6 +1025,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _clientRepo = ClientRepository();
     }
     _loadCompanyId();
+    _loadCleanModePreference();
 
     if (_isEditing) {
       final p = widget.proposal!;
@@ -1059,6 +1063,28 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       }
       final cid = await auth.getCurrentCompanyId();
       if (mounted) setState(() => _companyId = cid);
+    } catch (_) {}
+  }
+
+  Future<void> _loadCleanModePreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getBool(_cleanProposalStorageKey);
+      if (saved != null && mounted) {
+        setState(() {
+          _showOnlyModulesAndInverters = saved;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _onCleanModeChanged(bool val) async {
+    setState(() {
+      _showOnlyModulesAndInverters = val;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_cleanProposalStorageKey, val);
     } catch (_) {}
   }
 
@@ -2391,11 +2417,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       const SizedBox(width: 12),
                       Switch.adaptive(
                         value: _showOnlyModulesAndInverters,
-                        onChanged: (val) {
-                          setState(() {
-                            _showOnlyModulesAndInverters = val;
-                          });
-                        },
+                        onChanged: _onCleanModeChanged,
                         activeTrackColor: const Color(0xFFD97706),
                         activeThumbColor: Colors.white,
                       ),
