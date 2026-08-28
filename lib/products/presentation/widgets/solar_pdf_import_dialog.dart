@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -58,9 +59,9 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
     final key = await GeminiSolarVisionService.getSavedApiKey();
     if (mounted) {
       setState(() {
-        _savedApiKey = key;
+        _savedApiKey = key.isNotEmpty ? key : null;
         _apiKeyController.text = key;
-        _showApiKeyConfig = false;
+        _showApiKeyConfig = key.isEmpty;
       });
     }
   }
@@ -72,11 +73,18 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
       setState(() {
         _savedApiKey = null;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Chave removida.'),
+          backgroundColor: Color(0xFF64748B),
+        ));
+      }
     } else {
       await GeminiSolarVisionService.saveApiKey(key);
       setState(() {
         _savedApiKey = key;
         _showApiKeyConfig = false;
+        _errorMessage = null;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -95,67 +103,101 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'txt'],
       );
 
-      if (files.isNotEmpty) {
-        final file = files.first;
+      if (files.isEmpty) {
+        return;
+      }
+
+      final file = files.first;
+
+      final Uint8List bytes;
+      try {
+        bytes = await file.readAsBytes();
+      } catch (e) {
         setState(() {
-          _selectedFileName = file.name;
-          _isAnalyzing = true;
-          _errorMessage = null;
+          _errorMessage = 'Erro ao ler arquivo: $e';
         });
+        return;
+      }
 
-        final bytes = await file.readAsBytes();
-        final ext = file.extension?.toLowerCase() ?? 'pdf';
+      if (bytes.isEmpty) {
+        setState(() {
+          _errorMessage = 'O arquivo selecionado está vazio.';
+        });
+        return;
+      }
 
-        // Se tem chave API do Gemini, usa a IA multimodal do Gemini
-        if (_savedApiKey != null && _savedApiKey!.isNotEmpty) {
-          try {
-            final parsed = await GeminiSolarVisionService.analyzeSolarProposal(
-              fileBytes: bytes,
-              fileExtension: ext,
-              customApiKey: _savedApiKey,
-            );
+      setState(() {
+        _selectedFileName = file.name;
+        _isAnalyzing = true;
+        _errorMessage = null;
+      });
 
+      final ext = file.extension?.toLowerCase() ?? 'pdf';
+
+      // 1. Obtém chave ativa
+      final activeKey = (_savedApiKey != null && _savedApiKey!.trim().isNotEmpty)
+          ? _savedApiKey!.trim()
+          : await GeminiSolarVisionService.getSavedApiKey();
+
+      // 2. Se tem chave API do Gemini, usa a IA multimodal do Gemini
+      if (activeKey.isNotEmpty) {
+        try {
+          final parsed = await GeminiSolarVisionService.analyzeSolarProposal(
+            fileBytes: bytes,
+            fileExtension: ext,
+            customApiKey: activeKey,
+          );
+
+          if (mounted) {
             setState(() {
               _parsedResult = parsed;
               _isAnalyzing = false;
             });
-            return;
-          } catch (geminiError) {
-            // Se der erro na API, exibe o aviso
+          }
+          return;
+        } catch (geminiError) {
+          if (mounted) {
             setState(() {
               _errorMessage = 'Erro ao processar com IA Gemini: $geminiError';
               _isAnalyzing = false;
+              _showApiKeyConfig = true;
             });
-            return;
           }
+          return;
         }
+      }
 
-        // Caso não tenha chave API, usa o extrator de texto local como fallback
-        String extractedText = '';
-        if (ext == 'pdf') {
-          extractedText = SolarProposalParserService.extractTextFromPdfBytes(bytes);
-        }
+      // 3. Caso não tenha chave API, usa o extrator de texto local como fallback
+      String extractedText = '';
+      if (ext == 'pdf') {
+        extractedText = SolarProposalParserService.extractTextFromPdfBytes(bytes);
+      }
 
-        if (extractedText.trim().isNotEmpty) {
-          _textController.text = extractedText;
-          final parsed = SolarProposalParserService.parseRawText(extractedText);
+      if (extractedText.trim().isNotEmpty) {
+        _textController.text = extractedText;
+        final parsed = SolarProposalParserService.parseRawText(extractedText);
+        if (mounted) {
           setState(() {
             _parsedResult = parsed;
             _isAnalyzing = false;
           });
-        } else {
+        }
+      } else {
+        if (mounted) {
           setState(() {
             _isAnalyzing = false;
             _showApiKeyConfig = true;
-            _errorMessage = 'Para analisar arquivos PDF complexos ou imagens diretamente, configure sua chave da API do Google Gemini (gratuita) abaixo.';
+            _errorMessage = 'Para a IA analisar PDFs e imagens com máxima precisão, insira sua chave da API do Google Gemini (gratuita) abaixo.';
           });
         }
       }
     } catch (e) {
-      setState(() {
-        _isAnalyzing = false;
-        _errorMessage = 'Erro ao carregar arquivo: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+          _errorMessage = 'Erro ao carregar arquivo: $e';
+        });
+      }
     }
   }
 
