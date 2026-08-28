@@ -924,28 +924,48 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
         lower.contains('apsystems') ||
         lower.contains('enphase');
 
-    // 2. Identificação de Módulo / Painel / Placa
+    if (isInverter) return true;
+
+    // 2. Identificação prioritária de Módulo / Painel / Placa Solar
     final isModule = lower.contains('módulo') ||
         lower.contains('modulo') ||
         lower.contains('painel') ||
         lower.contains('placa') ||
-        lower.contains('cel.') ||
-        lower.contains('half-cell') ||
         lower.contains('bifacial') ||
+        lower.contains('monofacial') ||
         lower.contains('n-type') ||
         lower.contains('n type') ||
+        lower.contains('p-type') ||
+        lower.contains('half-cell') ||
+        lower.contains('half cell') ||
+        lower.contains('cel.') ||
+        lower.contains('celulas') ||
+        lower.contains('células') ||
         lower.contains('monocristalino') ||
         lower.contains('policristalino') ||
-        (RegExp(r'\b\d{3,4}\s*(?:w|watts|wp)\b', caseSensitive: false).hasMatch(lower) && !lower.contains('inversor'));
+        lower.contains('tcl solar') ||
+        lower.contains('ja solar') ||
+        lower.contains('jinko') ||
+        lower.contains('longi') ||
+        lower.contains('canadian') ||
+        lower.contains('trina') ||
+        lower.contains('risen') ||
+        lower.contains('astronergy') ||
+        lower.contains('dah solar') ||
+        lower.contains('osda') ||
+        lower.contains('znshine') ||
+        lower.contains('sunova') ||
+        (RegExp(r'\b\d{3,4}\s*(?:w|watts|wp)\b', caseSensitive: false).hasMatch(lower) &&
+            !lower.contains('perfil') &&
+            !lower.contains('suporte') &&
+            !lower.contains('grampo'));
 
-    // 3. Exclusão explícita de ferragens, cabos, conectores, garras, grampos e suportes
-    if (lower.contains('cabo') ||
-        lower.contains('conector') ||
-        lower.contains('garra') ||
-        lower.contains('grampo') ||
-        lower.contains('suporte') ||
+    // 3. Se tiver palavras explícitas de estrutura/ferragem (ex: "PERFIL FIXACAO MODULO"), exclui
+    if (lower.contains('perfil') ||
         lower.contains('gancho') ||
-        lower.contains('perfil') ||
+        lower.contains('suporte') ||
+        lower.contains('grampo') ||
+        lower.contains('garra') ||
         lower.contains('juncao') ||
         lower.contains('junção') ||
         lower.contains('trilho') ||
@@ -954,25 +974,36 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
         lower.contains('fixação') ||
         lower.contains('parafuso') ||
         lower.contains('emenda') ||
+        lower.contains('estrutura') ||
+        lower.contains('telha') ||
         lower.contains('dps') ||
-        lower.contains('terminal') ||
-        lower.contains('disjuntor')) {
-      if (lower.contains('perfil') ||
-          lower.contains('grampo') ||
-          lower.contains('suporte') ||
-          lower.contains('gancho') ||
-          lower.contains('fixacao') ||
-          lower.contains('fixação') ||
-          lower.contains('garra') ||
-          lower.contains('juncao') ||
-          lower.contains('junção') ||
-          lower.contains('cabo') ||
-          lower.contains('conector')) {
-        return false;
-      }
+        lower.contains('string box') ||
+        lower.contains('stringbox') ||
+        lower.contains('disjuntor') ||
+        lower.contains('serviço') ||
+        lower.contains('servico') ||
+        lower.contains('homologação') ||
+        lower.contains('homologacao') ||
+        lower.contains('engenharia') ||
+        lower.contains('instalacao') ||
+        lower.contains('instalação')) {
+      return false;
     }
 
-    return isInverter || isModule;
+    // 4. Se for rolo/metro de cabo isolado ou lote de conectores (não o cabo do módulo)
+    if (lower.contains('cabo solar 4mm') ||
+        lower.contains('cabo solar 6mm') ||
+        lower.contains('cabo solar 10mm') ||
+        lower.contains('0.6/1kv') ||
+        lower.contains('1.8kv dc') ||
+        lower.contains('conector solar') ||
+        lower.contains('conector mc4') ||
+        lower.contains('macho e femea') ||
+        lower.contains('macho e fêmea')) {
+      return false;
+    }
+
+    return isModule;
   }
 
   bool get _isEditing => widget.proposal != null;
