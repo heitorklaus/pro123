@@ -268,6 +268,8 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
   6. **Padrões de Cores do PDF:** Seletor de 6 paletas temáticas executivas (Indigo, Azul Executivo, Esmeralda, Grafite Slate, Rubi, Âmbar).
   7. **Motor de PDF Vetorial (`ProposalPdfService`):** Layout executivo em página A4, tabela zebrada com renderização detalhada de Usinas Solares (com equipamentos inclusos) e valor único por usina, resumo de valores e campo de aceite formal.
   8. **Pré-Visualização & Impressão Interativa (`ProposalPdfPreviewDialog`):** Modal de alta resolução (`PdfPreview`) com atalhos de impressão direta e download do PDF gerado.
+  9. **Criação Direta de Usinas Solares no Formulário de Propostas:** Botão com gradiente solar `"CRIAR USINA SOLAR"` na seção de Itens & Produtos da proposta que abre diretamente o `SolarPlantFormCard` em modal (com suporte a IA Gemini Vision OCR), permitindo montar uma nova usina ou importar cotação em PDF e inseri-la instantaneamente na proposta em edição com 1 clique através do botão `"ADICIONAR À PROPOSTA"`.
+
 
 ### 9. `SettingsModule` / `SettingsView` (`lib/settings/presentation/settings_view.dart`)
 - **`settings_view.dart` & `settings_service.dart`:** Gestão de preferências e nicho do CRM:

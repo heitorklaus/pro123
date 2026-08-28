@@ -9,6 +9,9 @@ import '../../clients/domain/models/client_model.dart';
 import '../data/repositories/proposal_repository.dart';
 import '../domain/models/proposal_item_model.dart';
 import '../domain/models/proposal_model.dart';
+import '../../products/domain/models/category_model.dart';
+import '../../products/domain/models/product_model.dart';
+import '../../products/presentation/solar_plant_form_card.dart';
 import 'widgets/proposal_pdf_preview_dialog.dart';
 import 'widgets/proposal_product_picker_dialog.dart';
 
@@ -890,6 +893,46 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     );
   }
 
+  void _openSolarPlantDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 1080,
+            maxHeight: MediaQuery.of(context).size.height * 0.92,
+          ),
+          child: SingleChildScrollView(
+            child: SolarPlantFormCard(
+              category: CategoryModel.fromSector(ProductSector.solarPlant),
+              product: null,
+              onBack: () => Navigator.pop(dialogCtx),
+              onSuccess: () => Navigator.pop(dialogCtx),
+              customProceedDescription: 'Deseja adicionar esta Usina Solar à sua proposta comercial atual?',
+              customProceedActionLabel: 'ADICIONAR À PROPOSTA',
+              onProceedToProposal: (solarItem) {
+                Navigator.pop(dialogCtx);
+                setState(() {
+                  _items.add(solarItem);
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Usina "${solarItem.name}" adicionada à proposta com sucesso!'),
+                    backgroundColor: const Color(0xFF10B981),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _updateItemQuantity(int index, double newQty) {
     if (newQty <= 0) return;
     setState(() {
@@ -1415,30 +1458,76 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _sectionHeader(Icons.inventory_2_outlined, 'Itens & Produtos da Proposta', 'Adicione quantos produtos do catálogo desejar ou crie sob medida'),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _openProductPicker,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      // Botão Criar Usina Solar
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openSolarPlantDialog,
                           borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
-                            const SizedBox(width: 8),
-                            Text(
-                              'ADICIONAR ITEM / PRODUTO',
-                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFEA580C).withValues(alpha: 0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
-                          ],
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.solar_power_rounded, color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'CRIAR USINA SOLAR',
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+
+                      // Botão Adicionar Item / Produto
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openProductPicker,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'ADICIONAR ITEM / PRODUTO',
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

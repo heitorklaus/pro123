@@ -82,6 +82,8 @@ class SolarPlantFormCard extends StatefulWidget {
   final VoidCallback? onChangeSector;
   final VoidCallback onSuccess;
   final ValueChanged<ProposalItemModel>? onProceedToProposal;
+  final String? customProceedDescription;
+  final String? customProceedActionLabel;
 
   const SolarPlantFormCard({
     super.key,
@@ -91,6 +93,8 @@ class SolarPlantFormCard extends StatefulWidget {
     this.onChangeSector,
     required this.onSuccess,
     this.onProceedToProposal,
+    this.customProceedDescription,
+    this.customProceedActionLabel,
   });
 
   @override
@@ -506,7 +510,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Deseja prosseguir com essa usina em uma nova proposta comercial?',
+              widget.customProceedDescription ??
+                  'Deseja prosseguir com essa usina em uma nova proposta comercial?',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,
@@ -603,7 +608,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                         const Icon(Icons.note_add_rounded, size: 16, color: Colors.white),
                         const SizedBox(width: 6),
                         Text(
-                          'SIM, CRIAR PROPOSTA',
+                          widget.customProceedActionLabel ?? 'SIM, CRIAR PROPOSTA',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.bold,
                             fontSize: 11.5,
