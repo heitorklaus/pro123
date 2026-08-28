@@ -264,7 +264,11 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
   1. **Suporte Especial a Usinas Solares:** Ao selecionar uma Usina Solar no seletor de produtos, o item é adicionado destacando o nome da usina com badge `☀️ USINA SOLAR FOTOVOLTAICA`, potência (kWp), tipo de telhado/cobertura e a lista completa de equipamentos/serviços inclusos no kit.
   2. **Valor Único por Usina Solar:** Conforme a regra de negócio comercial, não são exibidos valores individuais por componente — apenas a listagem dos equipamentos que compõem o kit e o valor total único da usina solar.
   3. **Múltiplas Usinas por Proposta:** Permite adicionar mais de uma usina solar na mesma proposta, além de produtos avulsos do catálogo ou itens sob medida.
-  4. **Vínculo com Cliente ou Proposta Avulsa:** Seletor interativo para associar a proposta a um cliente cadastrado (autocompletando CPF/CNPJ, e-mail, telefone e endereço) ou emitir rapidamente para consumidor avulso/prospect.
+  4. **Vínculo com Cliente via Autocomplete Inteligente & Cadastro Rápido (`ProposalClientAutocomplete` & `ClientFormDialog`):**
+     - **Autocomplete com Histórico Recente:** Ao clicar no campo de busca, exibe instantaneamente os clientes cadastrados mais recentes com avatares, CPF/CNPJ, e-mail, cidade/UF e badges PF/PJ. Conforme o usuário digita, filtra em tempo real por nome, documento, e-mail, telefone ou empresa.
+     - **Card de Cliente Selecionado:** Exibe os dados do cliente com destaque visual e botões para *"Trocar Cliente"* ou cadastrar novo.
+     - **Botão `+` ("NOVO CLIENTE"):** Abre diretamente o modal `ClientFormDialog` com formulário completo e busca automática de endereço via **ViaCEP**. Ao salvar o cliente no Firestore, ele é **automaticamente selecionado e todos os campos são preenchidos na proposta** com 1 clique!
+     - **Modo Consumidor Avulso:** Permite alternar para emissão rápida sem vínculo cadastral digitando diretamente os dados do destinatário.
   5. **Condições Comerciais & Pagamento:** Configuração de formas de pagamento (PIX, Boleto 30/60DD, Cartão), prazo de validade (dias), prazo de entrega, descontos e frete com totalizador em tempo real.
   6. **Padrões de Cores do PDF:** Seletor de 6 paletas temáticas executivas (Indigo, Azul Executivo, Esmeralda, Grafite Slate, Rubi, Âmbar).
   7. **Motor de PDF Vetorial (`ProposalPdfService`):** Layout executivo em página A4, tabela zebrada com renderização detalhada de Usinas Solares (com equipamentos inclusos) e valor único por usina, resumo de valores e campo de aceite formal.

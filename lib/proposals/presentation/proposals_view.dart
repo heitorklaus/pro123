@@ -12,6 +12,8 @@ import '../domain/models/proposal_model.dart';
 import '../../products/domain/models/category_model.dart';
 import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/solar_plant_form_card.dart';
+import '../../clients/presentation/widgets/client_form_dialog.dart';
+import 'widgets/proposal_client_autocomplete.dart';
 import 'widgets/proposal_pdf_preview_dialog.dart';
 import 'widgets/proposal_product_picker_dialog.dart';
 
@@ -50,7 +52,8 @@ class _ProposalsViewState extends State<ProposalsView> {
   @override
   void didUpdateWidget(covariant ProposalsView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialItem != null && widget.initialItem != oldWidget.initialItem) {
+    if (widget.initialItem != null &&
+        widget.initialItem != oldWidget.initialItem) {
       setState(() {
         _isCreatingOrEditing = true;
         _proposalToEdit = null;
@@ -175,14 +178,17 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+            const Icon(Icons.warning_amber_rounded,
+                color: Color(0xFFEF4444), size: 24),
             const SizedBox(width: 8),
-            Text('Excluir Proposta', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            Text('Excluir Proposta',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
           ],
         ),
         content: Text(
           'Deseja excluir a proposta "${proposal.proposalNumber} - ${proposal.clientName}"?\nEssa ação não poderá ser desfeita.',
-          style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
+          style:
+              GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
         ),
         actions: [
           Material(
@@ -191,8 +197,12 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
               onTap: () => Navigator.pop(ctx),
               borderRadius: BorderRadius.circular(10),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Text('CANCELAR', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Text('CANCELAR',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF64748B))),
               ),
             ),
           ),
@@ -212,9 +222,16 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
               },
               borderRadius: BorderRadius.circular(10),
               child: Ink(
-                decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Text('EXCLUIR', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Text('EXCLUIR',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.white)),
               ),
             ),
           ),
@@ -252,12 +269,16 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                 children: [
                   Text(
                     'Propostas Comerciais & Orçamentos',
-                    style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                    style: GoogleFonts.outfit(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A)),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Emissão inteligente de orçamentos com múltiplos itens e geração de PDF profissional',
-                    style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B)),
+                    style: GoogleFonts.inter(
+                        fontSize: 14, color: const Color(0xFF64748B)),
                   ),
                 ],
               ),
@@ -278,15 +299,20 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.note_add_rounded, size: 18, color: Colors.white),
+                        const Icon(Icons.note_add_rounded,
+                            size: 18, color: Colors.white),
                         const SizedBox(width: 8),
                         Text(
                           'NOVA PROPOSTA',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5),
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5),
                         ),
                       ],
                     ),
@@ -306,16 +332,25 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                 flex: 3,
                 child: TextField(
                   controller: _searchCtrl,
-                  onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+                  onChanged: (v) =>
+                      setState(() => _query = v.trim().toLowerCase()),
                   decoration: InputDecoration(
-                    hintText: 'Buscar por número da proposta, cliente ou título...',
-                    hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                    hintText:
+                        'Buscar por número da proposta, cliente ou título...',
+                    hintStyle: GoogleFonts.inter(
+                        fontSize: 13, color: const Color(0xFF94A3B8)),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        color: Color(0xFF64748B), size: 20),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.border)),
                   ),
                 ),
               ),
@@ -334,18 +369,25 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<ProposalStatus?>(
                       value: _filterStatus,
-                      hint: Text('Todos os Status', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+                      hint: Text('Todos os Status',
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: const Color(0xFF64748B))),
                       isExpanded: true,
-                      icon: const Icon(Icons.filter_list_rounded, size: 18, color: Color(0xFF64748B)),
+                      icon: const Icon(Icons.filter_list_rounded,
+                          size: 18, color: Color(0xFF64748B)),
                       items: [
                         DropdownMenuItem<ProposalStatus?>(
                           value: null,
-                          child: Text('Todos os Status', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                          child: Text('Todos os Status',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
                         ),
-                        ...ProposalStatus.values.map((s) => DropdownMenuItem<ProposalStatus?>(
-                              value: s,
-                              child: Text(s.label, style: GoogleFonts.inter(fontSize: 13)),
-                            )),
+                        ...ProposalStatus.values
+                            .map((s) => DropdownMenuItem<ProposalStatus?>(
+                                  value: s,
+                                  child: Text(s.label,
+                                      style: GoogleFonts.inter(fontSize: 13)),
+                                )),
                       ],
                       onChanged: (val) => setState(() => _filterStatus = val),
                     ),
@@ -382,23 +424,31 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                       child: StreamBuilder<List<ProposalModel>>(
                         stream: _repo.getProposalsStream(companyId: _companyId),
                         builder: (ctx, snap) {
-                          if (_companyId == null || snap.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                          if (_companyId == null ||
+                              snap.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                                child: CircularProgressIndicator(
+                                    color: AppColors.primary));
                           }
                           if (snap.hasError) {
                             return Center(
-                              child: Text('Erro ao carregar propostas:\n${snap.error}', textAlign: TextAlign.center),
+                              child: Text(
+                                  'Erro ao carregar propostas:\n${snap.error}',
+                                  textAlign: TextAlign.center),
                             );
                           }
 
                           final all = snap.data ?? [];
                           final filtered = all.where((p) {
                             final matchesQuery = _query.isEmpty ||
-                                p.proposalNumber.toLowerCase().contains(_query) ||
+                                p.proposalNumber
+                                    .toLowerCase()
+                                    .contains(_query) ||
                                 p.clientName.toLowerCase().contains(_query) ||
                                 p.title.toLowerCase().contains(_query);
 
-                            final matchesStatus = _filterStatus == null || p.status == _filterStatus;
+                            final matchesStatus = _filterStatus == null ||
+                                p.status == _filterStatus;
                             return matchesQuery && matchesStatus;
                           }).toList();
 
@@ -411,7 +461,8 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
 
                           return ListView.separated(
                             itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
+                            separatorBuilder: (_, __) => const Divider(
+                                height: 1, color: AppColors.divider),
                             itemBuilder: (_, i) {
                               final proposal = filtered[i];
                               return _ProposalRow(
@@ -419,7 +470,8 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                                 onPreviewPdf: () => _showPdfPreview(proposal),
                                 onEdit: () => widget.onEdit(proposal),
                                 onDelete: () => _confirmDelete(proposal),
-                                onStatusChange: (s) => _changeStatus(proposal, s),
+                                onStatusChange: (s) =>
+                                    _changeStatus(proposal, s),
                               );
                             },
                           );
@@ -512,10 +564,12 @@ class _ProposalRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: themeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: themeColor.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: themeColor.withValues(alpha: 0.3)),
                   ),
                   child: Center(
-                    child: Icon(Icons.description_outlined, color: themeColor, size: 20),
+                    child: Icon(Icons.description_outlined,
+                        color: themeColor, size: 20),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -527,7 +581,8 @@ class _ProposalRow extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(4),
@@ -547,7 +602,10 @@ class _ProposalRow extends StatelessWidget {
                               proposal.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), fontSize: 13),
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF0F172A),
+                                  fontSize: 13),
                             ),
                           ),
                         ],
@@ -557,7 +615,8 @@ class _ProposalRow extends StatelessWidget {
                         'Cliente: ${proposal.clientName}${proposal.isClientLinked ? ' (Cadastrado)' : ' (Avulso)'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                        style: GoogleFonts.inter(
+                            fontSize: 11.5, color: const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -583,7 +642,8 @@ class _ProposalRow extends StatelessWidget {
                 ),
                 Text(
                   '${proposal.items.length} ${proposal.items.length == 1 ? 'item' : 'itens'}',
-                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: const Color(0xFF94A3B8)),
                 ),
               ],
             ),
@@ -600,11 +660,15 @@ class _ProposalRow extends StatelessWidget {
                   proposal.paymentTerms,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF334155)),
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF334155)),
                 ),
                 Text(
                   'Validade: ${dateFormat.format(proposal.expirationDate)} (${proposal.validityDays}d)',
-                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: const Color(0xFF64748B)),
                 ),
               ],
             ),
@@ -641,26 +705,36 @@ class _ProposalRow extends StatelessWidget {
               children: [
                 IconButton(
                   tooltip: 'Visualizar / Baixar PDF',
-                  icon: const Icon(Icons.picture_as_pdf_outlined, color: Color(0xFFDC2626), size: 19),
+                  icon: const Icon(Icons.picture_as_pdf_outlined,
+                      color: Color(0xFFDC2626), size: 19),
                   onPressed: onPreviewPdf,
                 ),
                 IconButton(
                   tooltip: 'Editar Proposta',
-                  icon: const Icon(Icons.edit_outlined, color: Color(0xFF6366F1), size: 19),
+                  icon: const Icon(Icons.edit_outlined,
+                      color: Color(0xFF6366F1), size: 19),
                   onPressed: onEdit,
                 ),
                 PopupMenuButton<ProposalStatus>(
                   tooltip: 'Alterar Status',
-                  icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF64748B), size: 20),
+                  icon: const Icon(Icons.swap_horiz_rounded,
+                      color: Color(0xFF64748B), size: 20),
                   onSelected: onStatusChange,
                   itemBuilder: (ctx) => ProposalStatus.values.map((s) {
                     return PopupMenuItem(
                       value: s,
                       child: Row(
                         children: [
-                          Container(width: 8, height: 8, decoration: BoxDecoration(color: s.textColor, shape: BoxShape.circle)),
+                          Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                  color: s.textColor, shape: BoxShape.circle)),
                           const SizedBox(width: 8),
-                          Text(s.label, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF0F172A))),
+                          Text(s.label,
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xFF0F172A))),
                         ],
                       ),
                     );
@@ -668,7 +742,8 @@ class _ProposalRow extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Excluir',
-                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 19),
+                  icon: const Icon(Icons.delete_outline_rounded,
+                      color: Color(0xFFEF4444), size: 19),
                   onPressed: onDelete,
                 ),
               ],
@@ -694,18 +769,28 @@ class _ProposalEmptyState extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(color: Color(0xFFEEF2FF), shape: BoxShape.circle),
-            child: const Icon(Icons.description_outlined, color: AppColors.primary, size: 40),
+            decoration: const BoxDecoration(
+                color: Color(0xFFEEF2FF), shape: BoxShape.circle),
+            child: const Icon(Icons.description_outlined,
+                color: AppColors.primary, size: 40),
           ),
           const SizedBox(height: 16),
           Text(
-            isEmpty ? 'Nenhuma proposta emitida ainda' : 'Nenhuma proposta encontrada',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 17, color: const Color(0xFF1E293B)),
+            isEmpty
+                ? 'Nenhuma proposta emitida ainda'
+                : 'Nenhuma proposta encontrada',
+            style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                color: const Color(0xFF1E293B)),
           ),
           const SizedBox(height: 6),
           Text(
-            isEmpty ? 'Crie orçamentos profissionais e gere documentos PDF para seus clientes.' : 'Tente buscar por outro termo ou status.',
-            style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+            isEmpty
+                ? 'Crie orçamentos profissionais e gere documentos PDF para seus clientes.'
+                : 'Tente buscar por outro termo ou status.',
+            style:
+                GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
           ),
           if (isEmpty) ...[
             const SizedBox(height: 20),
@@ -715,14 +800,21 @@ class _ProposalEmptyState extends StatelessWidget {
                 onTap: onAdd,
                 borderRadius: BorderRadius.circular(12),
                 child: Ink(
-                  decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.note_add_rounded, size: 18, color: Colors.white),
+                      const Icon(Icons.note_add_rounded,
+                          size: 18, color: Colors.white),
                       const SizedBox(width: 8),
-                      Text('Criar Primeira Proposta', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('Criar Primeira Proposta',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
                     ],
                   ),
                 ),
@@ -760,7 +852,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   late final ClientRepository _clientRepo;
 
   // Controllers de Cabeçalho & Cliente
-  final _titleCtrl = TextEditingController(text: 'Proposta Comercial de Fornecimento');
+  final _titleCtrl =
+      TextEditingController(text: 'Proposta Comercial de Fornecimento');
   final _clientNameCtrl = TextEditingController();
   final _clientEmailCtrl = TextEditingController();
   final _clientPhoneCtrl = TextEditingController();
@@ -774,9 +867,11 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   final List<ProposalItemModel> _items = [];
 
   // Condições Comerciais & Financeiras
-  final _paymentTermsCtrl = TextEditingController(text: 'À vista via PIX (5% desc) ou Boleto 30DD');
+  final _paymentTermsCtrl =
+      TextEditingController(text: 'À vista via PIX (5% desc) ou Boleto 30DD');
   final _validityDaysCtrl = TextEditingController(text: '15');
-  final _deliveryTimeCtrl = TextEditingController(text: 'Imediata / 3 a 5 dias úteis');
+  final _deliveryTimeCtrl =
+      TextEditingController(text: 'Imediata / 3 a 5 dias úteis');
   final _discountCtrl = TextEditingController(text: '0');
   final _shippingCtrl = TextEditingController(text: '0');
   final _notesCtrl = TextEditingController();
@@ -862,10 +957,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   }
 
   // Cálculos Financeiros Dinâmicos
-  double get _subtotal => _items.fold(0.0, (acc, item) => acc + item.totalPrice);
-  double get _discount => double.tryParse(_discountCtrl.text.replaceAll(',', '.')) ?? 0.0;
-  double get _shipping => double.tryParse(_shippingCtrl.text.replaceAll(',', '.')) ?? 0.0;
-  double get _totalAmount => (_subtotal - _discount + _shipping).clamp(0.0, double.infinity);
+  double get _subtotal =>
+      _items.fold(0.0, (acc, item) => acc + item.totalPrice);
+  double get _discount =>
+      double.tryParse(_discountCtrl.text.replaceAll(',', '.')) ?? 0.0;
+  double get _shipping =>
+      double.tryParse(_shippingCtrl.text.replaceAll(',', '.')) ?? 0.0;
+  double get _totalAmount =>
+      (_subtotal - _discount + _shipping).clamp(0.0, double.infinity);
 
   void _onClientSelected(ClientModel client) {
     setState(() {
@@ -874,10 +973,41 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _clientEmailCtrl.text = client.email;
       _clientPhoneCtrl.text = client.phone ?? '';
       _clientDocCtrl.text = client.document ?? '';
-      _clientAddrCtrl.text = client.city != null && client.city!.isNotEmpty
-          ? '${client.street ?? ''}, ${client.addressNumber ?? ''} - ${client.city!}/${client.state ?? ''}'
-          : '';
+      
+      final addrParts = <String>[];
+      if (client.street != null && client.street!.isNotEmpty) {
+        addrParts.add(client.street!);
+      }
+      if (client.addressNumber != null && client.addressNumber!.isNotEmpty) {
+        addrParts.add('nº ${client.addressNumber!}');
+      }
+      if (client.neighborhood != null && client.neighborhood!.isNotEmpty) {
+        addrParts.add(client.neighborhood!);
+      }
+      if (client.city != null && client.city!.isNotEmpty) {
+        addrParts.add('${client.city!}${client.state != null ? "/${client.state}" : ""}');
+      }
+      _clientAddrCtrl.text = addrParts.join(', ');
     });
+  }
+
+  void _openNewClientDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => ClientFormDialog(
+        onClientSaved: (newClient) {
+          _onClientSelected(newClient);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cliente "${newClient.name}" cadastrado e selecionado com sucesso!'),
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _openProductPicker() {
@@ -911,7 +1041,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               product: null,
               onBack: () => Navigator.pop(dialogCtx),
               onSuccess: () => Navigator.pop(dialogCtx),
-              customProceedDescription: 'Deseja adicionar esta Usina Solar à sua proposta comercial atual?',
+              customProceedDescription:
+                  'Deseja adicionar esta Usina Solar à sua proposta comercial atual?',
               customProceedActionLabel: 'ADICIONAR À PROPOSTA',
               onProceedToProposal: (solarItem) {
                 Navigator.pop(dialogCtx);
@@ -920,7 +1051,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Usina "${solarItem.name}" adicionada à proposta com sucesso!'),
+                    content: Text(
+                        'Usina "${solarItem.name}" adicionada à proposta com sucesso!'),
                     backgroundColor: const Color(0xFF10B981),
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -1022,17 +1154,20 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     }
 
     if (!_isClientLinked && clientName.isEmpty) {
-      setState(() => _errorMessage = 'Informe o nome do cliente / destinatário.');
+      setState(
+          () => _errorMessage = 'Informe o nome do cliente / destinatário.');
       return;
     }
 
     if (_isClientLinked && _selectedClientId == null && clientName.isEmpty) {
-      setState(() => _errorMessage = 'Selecione um cliente cadastrado ou preencha o nome.');
+      setState(() => _errorMessage =
+          'Selecione um cliente cadastrado ou preencha o nome.');
       return;
     }
 
     if (_items.isEmpty) {
-      setState(() => _errorMessage = 'Adicione ao menos um produto ou item à proposta.');
+      setState(() =>
+          _errorMessage = 'Adicione ao menos um produto ou item à proposta.');
       return;
     }
 
@@ -1091,21 +1226,28 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       if (mounted) {
         widget.onSaved();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_isEditing ? 'Proposta atualizada com sucesso!' : 'Proposta cadastrada com sucesso!'),
+          content: Text(_isEditing
+              ? 'Proposta atualizada com sucesso!'
+              : 'Proposta cadastrada com sucesso!'),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
         ));
       }
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = 'Erro ao salvar proposta: $e');
+      if (mounted) {
+        setState(() => _errorMessage = 'Erro ao salvar proposta: $e');
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final currencyFormat =
+        NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
@@ -1140,14 +1282,17 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           gradient: AppColors.primaryGradient,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.note_add_rounded, color: Colors.white, size: 24),
+                        child: const Icon(Icons.note_add_rounded,
+                            color: Colors.white, size: 24),
                       ),
                       const SizedBox(width: 14),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isEditing ? 'Editar Proposta Comercial' : 'Cadastrar Nova Proposta Comercial',
+                            _isEditing
+                                ? 'Editar Proposta Comercial'
+                                : 'Cadastrar Nova Proposta Comercial',
                             style: GoogleFonts.outfit(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
@@ -1156,7 +1301,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           ),
                           Text(
                             'Preencha os dados do cliente, itens do orçamento e gere o PDF executivo',
-                            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: const Color(0xFF64748B)),
                           ),
                         ],
                       ),
@@ -1173,11 +1319,13 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: AppColors.border),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.arrow_back_rounded, size: 18, color: Color(0xFF64748B)),
+                            const Icon(Icons.arrow_back_rounded,
+                                size: 18, color: Color(0xFF64748B)),
                             const SizedBox(width: 8),
                             Text(
                               'Voltar à Tabela',
@@ -1201,7 +1349,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
 
               if (_errorMessage != null) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(10),
@@ -1209,12 +1358,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                      const Icon(Icons.error_outline_rounded,
+                          color: Color(0xFFEF4444), size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: GoogleFonts.inter(color: const Color(0xFF991B1B), fontSize: 13, fontWeight: FontWeight.w500),
+                          style: GoogleFonts.inter(
+                              color: const Color(0xFF991B1B),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500),
                         ),
                       ),
                     ],
@@ -1224,7 +1377,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               ],
 
               // ── SEÇÃO 1: IDENTIFICAÇÃO & DESTINATÁRIO ──────────────────────
-              _sectionHeader(Icons.business_center_rounded, 'Identificação & Cliente', 'Vincule a um cliente cadastrado ou emita para cliente avulso'),
+              _sectionHeader(
+                  Icons.business_center_rounded,
+                  'Identificação & Cliente',
+                  'Vincule a um cliente cadastrado ou emita para cliente avulso'),
               const SizedBox(height: 14),
 
               // Título da Proposta
@@ -1233,8 +1389,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               TextFormField(
                 controller: _titleCtrl,
                 decoration: const InputDecoration(
-                  hintText: 'Ex: Fornecimento de Materiais de Limpeza, Prestação de Serviços de TI...',
-                  prefixIcon: Icon(Icons.title_rounded, color: Color(0xFF64748B)),
+                  hintText:
+                      'Ex: Fornecimento de Materiais de Limpeza, Prestação de Serviços de TI...',
+                  prefixIcon:
+                      Icon(Icons.title_rounded, color: Color(0xFF64748B)),
                 ),
               ),
               const SizedBox(height: 14),
@@ -1247,20 +1405,29 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       onTap: () => setState(() => _isClientLinked = true),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: _isClientLinked ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
+                          color: _isClientLinked
+                              ? AppColors.primary.withValues(alpha: 0.08)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: _isClientLinked ? AppColors.primary : AppColors.border,
+                            color: _isClientLinked
+                                ? AppColors.primary
+                                : AppColors.border,
                             width: _isClientLinked ? 1.8 : 1,
                           ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              _isClientLinked ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                              color: _isClientLinked ? AppColors.primary : const Color(0xFF94A3B8),
+                              _isClientLinked
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              color: _isClientLinked
+                                  ? AppColors.primary
+                                  : const Color(0xFF94A3B8),
                               size: 20,
                             ),
                             const SizedBox(width: 10),
@@ -1273,12 +1440,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
-                                      color: _isClientLinked ? AppColors.primary : const Color(0xFF0F172A),
+                                      color: _isClientLinked
+                                          ? AppColors.primary
+                                          : const Color(0xFF0F172A),
                                     ),
                                   ),
                                   Text(
                                     'Carrega dados cadastrais automaticamente',
-                                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        color: const Color(0xFF64748B)),
                                   ),
                                 ],
                               ),
@@ -1294,20 +1465,29 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       onTap: () => setState(() => _isClientLinked = false),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: !_isClientLinked ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
+                          color: !_isClientLinked
+                              ? AppColors.primary.withValues(alpha: 0.08)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: !_isClientLinked ? AppColors.primary : AppColors.border,
+                            color: !_isClientLinked
+                                ? AppColors.primary
+                                : AppColors.border,
                             width: !_isClientLinked ? 1.8 : 1,
                           ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              !_isClientLinked ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                              color: !_isClientLinked ? AppColors.primary : const Color(0xFF94A3B8),
+                              !_isClientLinked
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              color: !_isClientLinked
+                                  ? AppColors.primary
+                                  : const Color(0xFF94A3B8),
                               size: 20,
                             ),
                             const SizedBox(width: 10),
@@ -1320,12 +1500,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
-                                      color: !_isClientLinked ? AppColors.primary : const Color(0xFF0F172A),
+                                      color: !_isClientLinked
+                                          ? AppColors.primary
+                                          : const Color(0xFF0F172A),
                                     ),
                                   ),
                                   Text(
                                     'Emita rapidamente digitando dados avulsos',
-                                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        color: const Color(0xFF64748B)),
                                   ),
                                 ],
                               ),
@@ -1340,31 +1524,28 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               const SizedBox(height: 14),
 
               if (_isClientLinked) ...[
-                // Dropdown de Clientes Cadastrados
-                _label('Selecione o Cliente Cadastrado *'),
+                // Autocomplete Inteligente de Clientes Cadastrados
+                _label('Selecione ou Busque o Cliente Cadastrado *'),
                 const SizedBox(height: 6),
                 StreamBuilder<List<ClientModel>>(
                   stream: _clientRepo.getClientsStream(companyId: _companyId),
                   builder: (ctx, snap) {
                     final clients = snap.data ?? [];
-                    return DropdownButtonFormField<String?>(
-                      initialValue: _selectedClientId,
-                      decoration: const InputDecoration(
-                        hintText: 'Selecione um cliente da base...',
-                        prefixIcon: Icon(Icons.person_search_rounded, color: Color(0xFF64748B)),
-                      ),
-                      items: clients.map((c) {
-                        return DropdownMenuItem<String?>(
-                          value: c.id,
-                          child: Text('${c.name} • ${c.email}'),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          final selected = clients.firstWhere((c) => c.id == val);
-                          _onClientSelected(selected);
-                        }
+                    return ProposalClientAutocomplete(
+                      clients: clients,
+                      selectedClientId: _selectedClientId,
+                      onClientSelected: _onClientSelected,
+                      onClearClient: () {
+                        setState(() {
+                          _selectedClientId = null;
+                          _clientNameCtrl.clear();
+                          _clientEmailCtrl.clear();
+                          _clientPhoneCtrl.clear();
+                          _clientDocCtrl.clear();
+                          _clientAddrCtrl.clear();
+                        });
                       },
+                      onAddNewClient: _openNewClientDialog,
                     );
                   },
                 ),
@@ -1385,7 +1566,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           controller: _clientNameCtrl,
                           decoration: const InputDecoration(
                             hintText: 'Ex: Supermercados Estrela Ltda',
-                            prefixIcon: Icon(Icons.person_outline, color: Color(0xFF64748B)),
+                            prefixIcon: Icon(Icons.person_outline,
+                                color: Color(0xFF64748B)),
                           ),
                         ),
                       ],
@@ -1403,7 +1585,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           controller: _clientDocCtrl,
                           decoration: const InputDecoration(
                             hintText: '00.000.000/0001-00',
-                            prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
+                            prefixIcon: Icon(Icons.badge_outlined,
+                                color: Color(0xFF64748B)),
                           ),
                         ),
                       ],
@@ -1425,7 +1608,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           controller: _clientEmailCtrl,
                           decoration: const InputDecoration(
                             hintText: 'contato@cliente.com.br',
-                            prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
+                            prefixIcon: Icon(Icons.email_outlined,
+                                color: Color(0xFF64748B)),
                           ),
                         ),
                       ],
@@ -1442,7 +1626,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           controller: _clientPhoneCtrl,
                           decoration: const InputDecoration(
                             hintText: '(11) 98765-4321',
-                            prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
+                            prefixIcon: Icon(Icons.phone_outlined,
+                                color: Color(0xFF64748B)),
                           ),
                         ),
                       ],
@@ -1457,7 +1642,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _sectionHeader(Icons.inventory_2_outlined, 'Itens & Produtos da Proposta', 'Adicione quantos produtos do catálogo desejar ou crie sob medida'),
+                  _sectionHeader(
+                      Icons.inventory_2_outlined,
+                      'Itens & Produtos da Proposta',
+                      'Adicione quantos produtos do catálogo desejar ou crie sob medida'),
                   Wrap(
                     spacing: 10,
                     runSpacing: 8,
@@ -1479,21 +1667,27 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFEA580C).withValues(alpha: 0.25),
+                                  color: const Color(0xFFEA580C)
+                                      .withValues(alpha: 0.25),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
                                 ),
                               ],
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.solar_power_rounded, color: Colors.white, size: 16),
+                                const Icon(Icons.solar_power_rounded,
+                                    color: Colors.white, size: 16),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'CRIAR USINA SOLAR',
-                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                  'MONTAR USINA SOLAR',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
                                 ),
                               ],
                             ),
@@ -1512,15 +1706,20 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               gradient: AppColors.primaryGradient,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
+                                const Icon(Icons.add_shopping_cart_rounded,
+                                    color: Colors.white, size: 16),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'ADICIONAR ITEM / PRODUTO',
-                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                  'ADICIONAR USINA EXISTENTE / PRODUTO',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
                                 ),
                               ],
                             ),
@@ -1545,17 +1744,67 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                     children: [
                       // Cabeçalho da Tabela de Itens
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         color: const Color(0xFFF8FAFC),
                         child: Row(
                           children: [
-                            const SizedBox(width: 28, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
-                            const Expanded(flex: 5, child: Text('ITEM / DESCRIÇÃO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
-                            const SizedBox(width: 70, child: Center(child: Text('QTD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                            const SizedBox(width: 45, child: Center(child: Text('UNID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                            const SizedBox(width: 110, child: Align(alignment: Alignment.centerRight, child: Text('UNITÁRIO (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                            const SizedBox(width: 80, child: Center(child: Text('DESC %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                            const SizedBox(width: 110, child: Align(alignment: Alignment.centerRight, child: Text('TOTAL (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
+                            const SizedBox(
+                                width: 28,
+                                child: Text('#',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B)))),
+                            const Expanded(
+                                flex: 5,
+                                child: Text('ITEM / DESCRIÇÃO',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B)))),
+                            const SizedBox(
+                                width: 70,
+                                child: Center(
+                                    child: Text('QTD',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B))))),
+                            const SizedBox(
+                                width: 45,
+                                child: Center(
+                                    child: Text('UNID',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B))))),
+                            const SizedBox(
+                                width: 110,
+                                child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text('UNITÁRIO (R\$)',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B))))),
+                            const SizedBox(
+                                width: 80,
+                                child: Center(
+                                    child: Text('DESC %',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B))))),
+                            const SizedBox(
+                                width: 110,
+                                child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text('TOTAL (R\$)',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B))))),
                             const SizedBox(width: 45), // Botão de Remover
                           ],
                         ),
@@ -1567,11 +1816,19 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           padding: const EdgeInsets.all(32),
                           child: Column(
                             children: [
-                              const Icon(Icons.add_shopping_cart_rounded, size: 36, color: Color(0xFF94A3B8)),
+                              const Icon(Icons.add_shopping_cart_rounded,
+                                  size: 36, color: Color(0xFF94A3B8)),
                               const SizedBox(height: 8),
-                              Text('Nenhum item adicionado à proposta', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                              Text('Nenhum item adicionado à proposta',
+                                  style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF64748B))),
                               const SizedBox(height: 4),
-                              Text('Clique no botão acima para escolher itens do catálogo ou sob medida.', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8))),
+                              Text(
+                                  'Clique no botão acima para escolher itens do catálogo ou sob medida.',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: const Color(0xFF94A3B8))),
                             ],
                           ),
                         )
@@ -1580,69 +1837,110 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _items.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
+                          separatorBuilder: (_, __) => const Divider(
+                              height: 1, color: AppColors.divider),
                           itemBuilder: (ctx, idx) {
                             final item = _items[idx];
                             return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                               child: Row(
                                 children: [
                                   SizedBox(
                                     width: 28,
-                                    child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF64748B), fontSize: 12)),
+                                    child: Text('${idx + 1}',
+                                        style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF64748B),
+                                            fontSize: 12)),
                                   ),
                                   // Descrição
                                   Expanded(
                                     flex: 5,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         if (item.isSolarPlant) ...[
                                           Row(
                                             children: [
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFFEF3C7),
-                                                  borderRadius: BorderRadius.circular(5),
-                                                  border: Border.all(color: const Color(0xFFFCD34D)),
+                                                  color:
+                                                      const Color(0xFFFEF3C7),
+                                                  borderRadius:
+                                                      BorderRadius.circular(5),
+                                                  border: Border.all(
+                                                      color: const Color(
+                                                          0xFFFCD34D)),
                                                 ),
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: const [
-                                                    Icon(Icons.solar_power_rounded, size: 13, color: Color(0xFFD97706)),
+                                                    Icon(
+                                                        Icons
+                                                            .solar_power_rounded,
+                                                        size: 13,
+                                                        color:
+                                                            Color(0xFFD97706)),
                                                     SizedBox(width: 4),
                                                     Text(
                                                       'USINA SOLAR FOTOVOLTAICA',
                                                       style: TextStyle(
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Color(0xFF92400E),
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color:
+                                                            Color(0xFF92400E),
                                                         letterSpacing: 0.3,
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                               ),
-                                              if (item.solarKilowatts != null && item.solarKilowatts! > 0) ...[
+                                              if (item.solarKilowatts != null &&
+                                                  item.solarKilowatts! > 0) ...[
                                                 const SizedBox(width: 6),
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: const Color(0xFFF1F5F9),
-                                                    borderRadius: BorderRadius.circular(5),
+                                                    color:
+                                                        const Color(0xFFF1F5F9),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            5),
                                                   ),
                                                   child: Text(
                                                     '${item.solarKilowatts!.toStringAsFixed(1)} kWp',
-                                                    style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF334155)),
+                                                    style: GoogleFonts.inter(
+                                                        fontSize: 10.5,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: const Color(
+                                                            0xFF334155)),
                                                   ),
                                                 ),
                                               ],
-                                              if (item.solarRoofType != null && item.solarRoofType!.isNotEmpty) ...[
+                                              if (item.solarRoofType != null &&
+                                                  item.solarRoofType!
+                                                      .isNotEmpty) ...[
                                                 const SizedBox(width: 6),
                                                 Text(
                                                   '|  Telhado ${item.solarRoofType}',
-                                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                                  style: GoogleFonts.inter(
+                                                      fontSize: 11,
+                                                      color: const Color(
+                                                          0xFF64748B),
+                                                      fontWeight:
+                                                          FontWeight.w500),
                                                 ),
                                               ],
                                             ],
@@ -1652,50 +1950,92 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                         Text(
                                           item.name,
                                           style: GoogleFonts.inter(
-                                            fontWeight: item.isSolarPlant ? FontWeight.bold : FontWeight.w600,
-                                            fontSize: item.isSolarPlant ? 13.5 : 13,
+                                            fontWeight: item.isSolarPlant
+                                                ? FontWeight.bold
+                                                : FontWeight.w600,
+                                            fontSize:
+                                                item.isSolarPlant ? 13.5 : 13,
                                             color: const Color(0xFF0F172A),
                                           ),
                                         ),
-                                        if (item.sku != null && item.sku!.isNotEmpty)
-                                          Text('SKU: ${item.sku}', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B))),
+                                        if (item.sku != null &&
+                                            item.sku!.isNotEmpty)
+                                          Text('SKU: ${item.sku}',
+                                              style: GoogleFonts.inter(
+                                                  fontSize: 11,
+                                                  color:
+                                                      const Color(0xFF64748B))),
 
                                         // Lista dos equipamentos/produtos inclusos na Usina Solar
-                                        if (item.isSolarPlant && item.solarComponents != null && item.solarComponents!.isNotEmpty) ...[
+                                        if (item.isSolarPlant &&
+                                            item.solarComponents != null &&
+                                            item.solarComponents!
+                                                .isNotEmpty) ...[
                                           const SizedBox(height: 6),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 8),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFFFFBEB),
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: const Color(0xFFFDE68A)),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                  color:
+                                                      const Color(0xFFFDE68A)),
                                             ),
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Row(
                                                   children: const [
-                                                    Icon(Icons.inventory_2_outlined, size: 13, color: Color(0xFFD97706)),
+                                                    Icon(
+                                                        Icons
+                                                            .inventory_2_outlined,
+                                                        size: 13,
+                                                        color:
+                                                            Color(0xFFD97706)),
                                                     SizedBox(width: 5),
                                                     Text(
                                                       'Composição do Conjunto da Usina:',
-                                                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                                                      style: TextStyle(
+                                                          fontSize: 10.5,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Color(
+                                                              0xFF92400E)),
                                                     ),
                                                   ],
                                                 ),
                                                 const SizedBox(height: 4),
                                                 ...item.solarComponents!.map(
                                                   (comp) => Padding(
-                                                    padding: const EdgeInsets.only(left: 2, bottom: 3),
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            left: 2, bottom: 3),
                                                     child: Row(
-                                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .center,
                                                       children: [
-                                                        const Icon(Icons.check_circle_outline_rounded, size: 12, color: Color(0xFFD97706)),
-                                                        const SizedBox(width: 6),
+                                                        const Icon(
+                                                            Icons
+                                                                .check_circle_outline_rounded,
+                                                            size: 12,
+                                                            color: Color(
+                                                                0xFFD97706)),
+                                                        const SizedBox(
+                                                            width: 6),
                                                         Expanded(
                                                           child: Text(
                                                             comp,
-                                                            style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF451A03), fontWeight: FontWeight.w500),
+                                                            style: GoogleFonts.inter(
+                                                                fontSize: 11.5,
+                                                                color: const Color(
+                                                                    0xFF451A03),
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500),
                                                           ),
                                                         ),
                                                       ],
@@ -1713,13 +2053,21 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                   SizedBox(
                                     width: 70,
                                     child: TextFormField(
-                                      initialValue: item.quantity % 1 == 0 ? item.quantity.toInt().toString() : item.quantity.toString(),
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      initialValue: item.quantity % 1 == 0
+                                          ? item.quantity.toInt().toString()
+                                          : item.quantity.toString(),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.inter(fontSize: 12.5),
-                                      decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8)),
+                                      decoration: const InputDecoration(
+                                          contentPadding: EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 8)),
                                       onChanged: (val) {
-                                        final q = double.tryParse(val.replaceAll(',', '.')) ?? 1.0;
+                                        final q = double.tryParse(
+                                                val.replaceAll(',', '.')) ??
+                                            1.0;
                                         _updateItemQuantity(idx, q);
                                       },
                                     ),
@@ -1728,20 +2076,31 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                   SizedBox(
                                     width: 45,
                                     child: Center(
-                                      child: Text(item.unit, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFF64748B))),
+                                      child: Text(item.unit,
+                                          style: GoogleFonts.inter(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: const Color(0xFF64748B))),
                                     ),
                                   ),
                                   // Preço Unitário
                                   SizedBox(
                                     width: 110,
                                     child: TextFormField(
-                                      initialValue: item.unitPrice.toStringAsFixed(2),
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      initialValue:
+                                          item.unitPrice.toStringAsFixed(2),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
                                       textAlign: TextAlign.right,
                                       style: GoogleFonts.inter(fontSize: 12.5),
-                                      decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8)),
+                                      decoration: const InputDecoration(
+                                          contentPadding: EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 8)),
                                       onChanged: (val) {
-                                        final p = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                                        final p = double.tryParse(
+                                                val.replaceAll(',', '.')) ??
+                                            0.0;
                                         _updateItemPrice(idx, p);
                                       },
                                     ),
@@ -1750,13 +2109,21 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                   SizedBox(
                                     width: 80,
                                     child: TextFormField(
-                                      initialValue: item.discountPercent.toStringAsFixed(0),
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      initialValue: item.discountPercent
+                                          .toStringAsFixed(0),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.inter(fontSize: 12.5),
-                                      decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8), suffixText: '%'),
+                                      decoration: const InputDecoration(
+                                          contentPadding: EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 8),
+                                          suffixText: '%'),
                                       onChanged: (val) {
-                                        final d = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                                        final d = double.tryParse(
+                                                val.replaceAll(',', '.')) ??
+                                            0.0;
                                         _updateItemDiscount(idx, d);
                                       },
                                     ),
@@ -1768,7 +2135,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                       alignment: Alignment.centerRight,
                                       child: Text(
                                         currencyFormat.format(item.totalPrice),
-                                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF0F172A)),
+                                        style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: const Color(0xFF0F172A)),
                                       ),
                                     ),
                                   ),
@@ -1777,7 +2147,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                     width: 45,
                                     child: IconButton(
                                       tooltip: 'Remover Item',
-                                      icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                                      icon: const Icon(
+                                          Icons.delete_outline_rounded,
+                                          color: Color(0xFFEF4444),
+                                          size: 18),
                                       onPressed: () => _removeItem(idx),
                                     ),
                                   ),
@@ -1794,7 +2167,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               const SizedBox(height: 28),
 
               // ── SEÇÃO 3: CONDIÇÕES COMERCIAIS & FINANCEIRO ─────────────────
-              _sectionHeader(Icons.payments_outlined, 'Condições Comerciais & Pagamento', 'Defina os termos de pagamento, prazos de entrega e validade'),
+              _sectionHeader(
+                  Icons.payments_outlined,
+                  'Condições Comerciais & Pagamento',
+                  'Defina os termos de pagamento, prazos de entrega e validade'),
               const SizedBox(height: 14),
 
               Row(
@@ -1811,12 +2187,13 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         TextFormField(
                           controller: _paymentTermsCtrl,
                           decoration: const InputDecoration(
-                            hintText: 'Ex: À vista via PIX com 5% de desconto, Boleto 30/60DD...',
-                            prefixIcon: Icon(Icons.credit_card_rounded, color: Color(0xFF64748B)),
+                            hintText:
+                                'Ex: À vista via PIX com 5% de desconto, Boleto 30/60DD...',
+                            prefixIcon: Icon(Icons.credit_card_rounded,
+                                color: Color(0xFF64748B)),
                           ),
                         ),
                         const SizedBox(height: 12),
-
                         Row(
                           children: [
                             Expanded(
@@ -1830,7 +2207,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                     keyboardType: TextInputType.number,
                                     decoration: const InputDecoration(
                                       hintText: '15',
-                                      prefixIcon: Icon(Icons.event_available_rounded, color: Color(0xFF64748B)),
+                                      prefixIcon: Icon(
+                                          Icons.event_available_rounded,
+                                          color: Color(0xFF64748B)),
                                     ),
                                   ),
                                 ],
@@ -1846,8 +2225,11 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                   TextFormField(
                                     controller: _deliveryTimeCtrl,
                                     decoration: const InputDecoration(
-                                      hintText: 'Ex: Imediata ou 3 a 5 dias úteis',
-                                      prefixIcon: Icon(Icons.local_shipping_outlined, color: Color(0xFF64748B)),
+                                      hintText:
+                                          'Ex: Imediata ou 3 a 5 dias úteis',
+                                      prefixIcon: Icon(
+                                          Icons.local_shipping_outlined,
+                                          color: Color(0xFF64748B)),
                                     ),
                                   ),
                                 ],
@@ -1856,15 +2238,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           ],
                         ),
                         const SizedBox(height: 12),
-
                         _label('Observações & Termos Gerais da Proposta'),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _notesCtrl,
                           maxLines: 3,
                           decoration: const InputDecoration(
-                            hintText: 'Ex: Frete CIF incluso para Grande SP. Garantia de 90 dias contra defeitos de fabricação.',
-                            prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
+                            hintText:
+                                'Ex: Frete CIF incluso para Grande SP. Garantia de 90 dias contra defeitos de fabricação.',
+                            prefixIcon: Icon(Icons.notes_rounded,
+                                color: Color(0xFF64748B)),
                           ),
                         ),
                       ],
@@ -1888,25 +2271,40 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         children: [
                           Text(
                             'RESUMO FINANCEIRO',
-                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF475569), letterSpacing: 0.5),
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF475569),
+                                letterSpacing: 0.5),
                           ),
                           const SizedBox(height: 12),
 
-                          _financeRow('Subtotal dos Itens:', currencyFormat.format(_subtotal)),
+                          _financeRow('Subtotal dos Itens:',
+                              currencyFormat.format(_subtotal)),
                           const SizedBox(height: 8),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Desconto Geral (R\$):', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+                              Text('Desconto Geral (R\$):',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: const Color(0xFF64748B))),
                               SizedBox(
                                 width: 100,
                                 child: TextFormField(
                                   controller: _discountCtrl,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
                                   textAlign: TextAlign.right,
-                                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF059669)),
-                                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF059669)),
+                                  decoration: const InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 6)),
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
@@ -1917,15 +2315,24 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Frete / Entrega (R\$):', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+                              Text('Frete / Entrega (R\$):',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: const Color(0xFF64748B))),
                               SizedBox(
                                 width: 100,
                                 child: TextFormField(
                                   controller: _shippingCtrl,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
                                   textAlign: TextAlign.right,
-                                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
-                                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold),
+                                  decoration: const InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 6)),
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
@@ -1943,7 +2350,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.25),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.25),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -1952,11 +2360,18 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('TOTAL DA PROPOSTA', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70)),
+                                Text('TOTAL DA PROPOSTA',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white70)),
                                 const SizedBox(height: 2),
                                 Text(
                                   currencyFormat.format(_totalAmount),
-                                  style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
                                 ),
                               ],
                             ),
@@ -1971,7 +2386,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               const SizedBox(height: 28),
 
               // ── SEÇÃO 4: PERSONALIZAÇÃO DE CORES DO PDF ───────────────────
-              _sectionHeader(Icons.palette_outlined, 'Padrão Visual do PDF', 'Escolha a cor do tema para o cabeçalho e destaques do documento'),
+              _sectionHeader(Icons.palette_outlined, 'Padrão Visual do PDF',
+                  'Escolha a cor do tema para o cabeçalho e destaques do documento'),
               const SizedBox(height: 12),
 
               Wrap(
@@ -1980,12 +2396,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 children: ProposalPdfThemeOption.allThemes.map((t) {
                   final isSelected = t.primaryColorValue == _themeColorValue;
                   return InkWell(
-                    onTap: () => setState(() => _themeColorValue = t.primaryColorValue),
+                    onTap: () =>
+                        setState(() => _themeColorValue = t.primaryColorValue),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? t.primaryColor.withValues(alpha: 0.1) : Colors.white,
+                        color: isSelected
+                            ? t.primaryColor.withValues(alpha: 0.1)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected ? t.primaryColor : AppColors.border,
@@ -2008,8 +2428,12 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                             t.label,
                             style: GoogleFonts.inter(
                               fontSize: 12.5,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? t.primaryColor : const Color(0xFF334155),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? t.primaryColor
+                                  : const Color(0xFF334155),
                             ),
                           ),
                         ],
@@ -2033,10 +2457,13 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       onTap: widget.onCancel,
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 12),
                         child: Text(
                           'CANCELAR',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF64748B)),
                         ),
                       ),
                     ),
@@ -2053,13 +2480,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF0F172A), width: 1.2),
+                          border: Border.all(
+                              color: const Color(0xFF0F172A), width: 1.2),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 13),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.picture_as_pdf_outlined, size: 18, color: Color(0xFF0F172A)),
+                            const Icon(Icons.picture_as_pdf_outlined,
+                                size: 18, color: Color(0xFF0F172A)),
                             const SizedBox(width: 8),
                             Text(
                               'PRÉ-VISUALIZAR PDF',
@@ -2094,20 +2524,25 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                             ),
                           ],
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 28, vertical: 14),
                         child: _isLoading
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
                               )
                             : Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                                  const Icon(Icons.check_circle_outline_rounded,
+                                      color: Colors.white, size: 18),
                                   const SizedBox(width: 8),
                                   Text(
-                                    _isEditing ? 'SALVAR ALTERAÇÕES' : 'SALVAR E GERAR PROPOSTA',
+                                    _isEditing
+                                        ? 'SALVAR ALTERAÇÕES'
+                                        : 'SALVAR E GERAR PROPOSTA',
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
@@ -2137,8 +2572,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
-            Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+            Text(title,
+                style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A))),
+            Text(subtitle,
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: const Color(0xFF64748B))),
           ],
         ),
       ],
@@ -2148,7 +2589,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   Widget _label(String text) {
     return Text(
       text,
-      style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+      style: GoogleFonts.inter(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF334155)),
     );
   }
 
@@ -2156,8 +2600,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
-        Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 13, color: const Color(0xFF64748B))),
+        Text(value,
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0F172A))),
       ],
     );
   }

@@ -27,7 +27,7 @@ class ClientRepository {
   }
 
   // ── Criar Cliente ─────────────────────────────────────────────────────────
-  Future<void> createClient({
+  Future<ClientModel> createClient({
     required String name,
     required String email,
     String? phone,
@@ -70,6 +70,7 @@ class ClientRepository {
     );
 
     await ref.set(client.toMap());
+    return client;
   }
 
   // ── Atualizar Cliente ─────────────────────────────────────────────────────
