@@ -293,8 +293,9 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
   5. **Menu Lateral Reativo:** Ao definir o nicho como **Usina Solar**, o menu lateral `Produtos` é transformado automaticamente e em tempo real para `☀️ Usinas Solares` com ícone temático (`solar_power_rounded`).
 
 ### 10. `AppSidebar` (`lib/app/layout/app_sidebar.dart`)
-- **Menu Lateral Retrátil / Colapsável (AnimatedContainer):**
-  - **Largura Dinâmica e Fluida:** Alterna entre `250px` (expandido) e `76px` (colapsado) com animação suave de 250ms (`Curves.easeInOutCubic`), expandindo o espaço útil do miolo central para tabelas, formulários e relatórios.
+- **Menu Lateral Retrátil / Colapsável (Desktop) & Drawer Nativo (Mobile):**
+  - **Adaptação Mobile Automática:** Em telas com largura `< 768px` (celulares Android/iOS), o layout oculta o menu lateral fixo da tela principal e transforma-o em um **Drawer lateral nativo** acessível pelo botão de menu da `AppBar`. O miolo dinâmico passa a ocupar 100% da largura da tela do celular sem quebras de layout.
+  - **Largura Dinâmica e Fluida (Desktop):** Alterna entre `250px` (expandido) e `76px` (colapsado) com animação suave de 250ms (`Curves.easeInOutCubic`).
   - **Modo Colapsado:** Exibe ícones perfeitamente centralizados em containers de 48px com `Tooltip` rico mostrando o nome de cada módulo ao passar o mouse.
   - **Controles de Alternância (Toggle):** Botão estilizado no topo da Sidebar (`keyboard_double_arrow_left/right`) e botão de menu na AppBar (`menu/menu_open`).
   - **Itens Dinâmicos:** Suporte a títulos e ícones reativos por nicho (ex: "Usinas Solares").
