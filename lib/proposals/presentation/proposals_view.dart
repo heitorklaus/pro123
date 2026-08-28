@@ -895,6 +895,86 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   String? _errorMessage;
   String? _companyId;
 
+  // Switch para exibir apenas Inversor e Módulo na Composição da Usina Solar
+  bool _showOnlyModulesAndInverters = false;
+
+  bool _isModuleOrInverterComponent(String text) {
+    final lower = text.toLowerCase();
+
+    // 1. Identificação prioritária de Inversor / Microinversor
+    final isInverter = lower.contains('inversor') ||
+        lower.contains('microinversor') ||
+        lower.contains('micro-inversor') ||
+        lower.contains('invers.') ||
+        lower.contains('auxsol') ||
+        lower.contains('deye') ||
+        lower.contains('growatt') ||
+        lower.contains('solis') ||
+        lower.contains('sungrow') ||
+        lower.contains('fronius') ||
+        lower.contains('goodwe') ||
+        lower.contains('hoymiles') ||
+        lower.contains('huawei') ||
+        lower.contains('sofar') ||
+        lower.contains('tsun') ||
+        lower.contains('kehua') ||
+        lower.contains('chint') ||
+        lower.contains('livoltek') ||
+        lower.contains('ap systems') ||
+        lower.contains('apsystems') ||
+        lower.contains('enphase');
+
+    // 2. Identificação de Módulo / Painel / Placa
+    final isModule = lower.contains('módulo') ||
+        lower.contains('modulo') ||
+        lower.contains('painel') ||
+        lower.contains('placa') ||
+        lower.contains('cel.') ||
+        lower.contains('half-cell') ||
+        lower.contains('bifacial') ||
+        lower.contains('n-type') ||
+        lower.contains('n type') ||
+        lower.contains('monocristalino') ||
+        lower.contains('policristalino') ||
+        (RegExp(r'\b\d{3,4}\s*(?:w|watts|wp)\b', caseSensitive: false).hasMatch(lower) && !lower.contains('inversor'));
+
+    // 3. Exclusão explícita de ferragens, cabos, conectores, garras, grampos e suportes
+    if (lower.contains('cabo') ||
+        lower.contains('conector') ||
+        lower.contains('garra') ||
+        lower.contains('grampo') ||
+        lower.contains('suporte') ||
+        lower.contains('gancho') ||
+        lower.contains('perfil') ||
+        lower.contains('juncao') ||
+        lower.contains('junção') ||
+        lower.contains('trilho') ||
+        lower.contains('aterramento') ||
+        lower.contains('fixacao') ||
+        lower.contains('fixação') ||
+        lower.contains('parafuso') ||
+        lower.contains('emenda') ||
+        lower.contains('dps') ||
+        lower.contains('terminal') ||
+        lower.contains('disjuntor')) {
+      if (lower.contains('perfil') ||
+          lower.contains('grampo') ||
+          lower.contains('suporte') ||
+          lower.contains('gancho') ||
+          lower.contains('fixacao') ||
+          lower.contains('fixação') ||
+          lower.contains('garra') ||
+          lower.contains('juncao') ||
+          lower.contains('junção') ||
+          lower.contains('cabo') ||
+          lower.contains('conector')) {
+        return false;
+      }
+    }
+
+    return isInverter || isModule;
+  }
+
   bool get _isEditing => widget.proposal != null;
 
   @override
@@ -1114,6 +1194,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
 
     final validity = int.tryParse(_validityDaysCtrl.text) ?? 15;
 
+    final itemsToUse = _items.map((item) {
+      if (item.isSolarPlant && item.solarComponents != null && _showOnlyModulesAndInverters) {
+        final filtered = item.solarComponents!.where(_isModuleOrInverterComponent).toList();
+        if (filtered.isNotEmpty) {
+          return item.copyWith(solarComponents: filtered);
+        }
+      }
+      return item;
+    }).toList();
+
     return ProposalModel(
       id: widget.proposal?.id ?? 'preview_id',
       proposalNumber: widget.proposal?.proposalNumber ?? 'PROP-2026-PREVIEW',
@@ -1124,7 +1214,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       clientPhone: _clientPhoneCtrl.text.trim(),
       clientDocument: _clientDocCtrl.text.trim(),
       clientAddress: _clientAddrCtrl.text.trim(),
-      items: _items,
+      items: itemsToUse,
       subtotal: _subtotal,
       discount: _discount,
       shippingFee: _shipping,
@@ -1191,6 +1281,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     try {
       final validity = int.tryParse(_validityDaysCtrl.text) ?? 15;
 
+      final itemsToSave = _items.map((item) {
+        if (item.isSolarPlant && item.solarComponents != null && _showOnlyModulesAndInverters) {
+          final filtered = item.solarComponents!.where(_isModuleOrInverterComponent).toList();
+          if (filtered.isNotEmpty) {
+            return item.copyWith(solarComponents: filtered);
+          }
+        }
+        return item;
+      }).toList();
+
       if (_isEditing) {
         final updated = widget.proposal!.copyWith(
           title: title,
@@ -1200,7 +1300,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           clientPhone: _clientPhoneCtrl.text.trim(),
           clientDocument: _clientDocCtrl.text.trim(),
           clientAddress: _clientAddrCtrl.text.trim(),
-          items: _items,
+          items: itemsToSave,
           subtotal: _subtotal,
           discount: _discount,
           shippingFee: _shipping,
@@ -1221,7 +1321,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           clientPhone: _clientPhoneCtrl.text.trim(),
           clientDocument: _clientDocCtrl.text.trim(),
           clientAddress: _clientAddrCtrl.text.trim(),
-          items: _items,
+          items: itemsToSave,
           subtotal: _subtotal,
           discount: _discount,
           shippingFee: _shipping,
@@ -2021,40 +2121,47 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                   ],
                                                 ),
                                                 const SizedBox(height: 4),
-                                                ...item.solarComponents!.map(
-                                                  (comp) => Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                            left: 2, bottom: 3),
-                                                    child: Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        const Icon(
-                                                            Icons
-                                                                .check_circle_outline_rounded,
-                                                            size: 12,
-                                                            color: Color(
-                                                                0xFFD97706)),
-                                                        const SizedBox(
-                                                            width: 6),
-                                                        Expanded(
-                                                          child: Text(
-                                                            comp,
-                                                            style: GoogleFonts.inter(
-                                                                fontSize: 11.5,
-                                                                color: const Color(
-                                                                    0xFF451A03),
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500),
+                                                ...(() {
+                                                  final rawComps = item.solarComponents!;
+                                                  final filtered = _showOnlyModulesAndInverters
+                                                      ? rawComps.where(_isModuleOrInverterComponent).toList()
+                                                      : rawComps;
+                                                  final displayList = filtered.isNotEmpty ? filtered : rawComps;
+                                                  return displayList.map(
+                                                    (comp) => Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              left: 2, bottom: 3),
+                                                      child: Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          const Icon(
+                                                              Icons
+                                                                  .check_circle_outline_rounded,
+                                                              size: 12,
+                                                              color: Color(
+                                                                  0xFFD97706)),
+                                                          const SizedBox(
+                                                              width: 6),
+                                                          Expanded(
+                                                            child: Text(
+                                                              comp,
+                                                              style: GoogleFonts.inter(
+                                                                  fontSize: 11.5,
+                                                                  color: const Color(
+                                                                      0xFF451A03),
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500),
+                                                            ),
                                                           ),
-                                                        ),
-                                                      ],
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                ),
+                                                  );
+                                                })(),
                                               ],
                                             ),
                                           ),
@@ -2178,6 +2285,93 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               ),
 
               const SizedBox(height: 28),
+
+              // ── SWITCH: MODO RESUMIDO DE USINA SOLAR (APENAS MÓDULOS E INVERSORES) ──
+              if (_items.any((it) => it.isSolarPlant && it.solarComponents != null && it.solarComponents!.isNotEmpty)) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: _showOnlyModulesAndInverters ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _showOnlyModulesAndInverters ? const Color(0xFFFDE68A) : AppColors.border,
+                      width: _showOnlyModulesAndInverters ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _showOnlyModulesAndInverters ? const Color(0xFFFEF3C7) : const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.solar_power_rounded,
+                          color: _showOnlyModulesAndInverters ? const Color(0xFFD97706) : const Color(0xFF6366F1),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Usar na proposta apenas Inversor e Módulo',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: _showOnlyModulesAndInverters ? const Color(0xFF92400E) : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: _showOnlyModulesAndInverters ? const Color(0xFFFEF3C7) : const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'PROPOSTA LIMPA',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: _showOnlyModulesAndInverters ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Oculta itens secundários (cabos, conectores, perfis, grampos) e exibe apenas módulos e inversores na proposta e no PDF.',
+                              style: GoogleFonts.inter(
+                                fontSize: 11.5,
+                                color: _showOnlyModulesAndInverters ? const Color(0xFFB45309) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Switch.adaptive(
+                        value: _showOnlyModulesAndInverters,
+                        onChanged: (val) {
+                          setState(() {
+                            _showOnlyModulesAndInverters = val;
+                          });
+                        },
+                        activeTrackColor: const Color(0xFFD97706),
+                        activeThumbColor: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               // ── SEÇÃO 3: CONDIÇÕES COMERCIAIS & FINANCEIRO ─────────────────
               _sectionHeader(

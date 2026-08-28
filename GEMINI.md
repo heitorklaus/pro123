@@ -281,6 +281,7 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
   7. **Motor de PDF Vetorial (`ProposalPdfService`):** Layout executivo em página A4, tabela zebrada com renderização detalhada de Usinas Solares (com equipamentos inclusos) e valor único por usina, resumo de valores e campo de aceite formal.
   8. **Pré-Visualização & Impressão Interativa (`ProposalPdfPreviewDialog`):** Modal de alta resolução (`PdfPreview`) com atalhos de impressão direta e download do PDF gerado.
   9. **Criação Direta de Usinas Solares no Formulário de Propostas:** Botão com gradiente solar `"CRIAR USINA SOLAR"` na seção de Itens & Produtos da proposta que abre diretamente o `SolarPlantFormCard` em modal (com suporte a IA Gemini Vision OCR), permitindo montar uma nova usina ou importar cotação em PDF e inseri-la instantaneamente na proposta em edição com 1 clique através do botão `"ADICIONAR À PROPOSTA"`.
+  10. **Switch de Proposta Limpa (Apenas Inversor e Módulo):** Switch posicionado estrategicamente logo acima de *Condições Comerciais & Pagamento*. Ao ser acionado, oculta itens secundários da cotação (cabos, conectores MC4, perfis de fixação, grampos, junções e garras de aterramento) e exibe apenas os equipamentos principais (**Módulos e Inversores/Microinversores**) tanto na tabela de itens do formulário quanto no documento PDF final exportado para o cliente, gerando uma apresentação comercial muito mais limpa, executiva e de fácil leitura.
 
 
 ### 9. `SettingsModule` / `SettingsView` (`lib/settings/presentation/settings_view.dart`)
