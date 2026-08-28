@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funções Auxiliares de Autenticação e Permissão
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+
+    function isManager() {
+      return isSignedIn() && (getUserData().role == 'manager' || getUserData().role == 'admin');
+    }
+
+    function isSameCompany(companyId) {
+      return isSignedIn() && getUserData().companyId == companyId;
+    }
+
+    // Regras para a Coleção de Usuários
+    match /users/{userId} {
+      // Leitura: Permitida se for o próprio usuário, ou se for Admin/Manager, ou se pertencer à mesma empresa
+      allow read: if isOwner(userId) || isManager() || (isSignedIn() && resource.data.companyId == getUserData().companyId);
+
+      // Criação (Cadastro inicial): Usuário autenticado criando seu próprio registro
+      // Garante que novos cadastros comuns não se auto-promovam a 'admin'
+      allow create: if isOwner(userId) && 
+        (request.resource.data.role == 'user' || isAdmin()) &&
+        request.resource.data.email == request.auth.token.email;
+
+      // Edição: O próprio usuário pode editar dados básicos (nome, telefone, avatar).
+      // Apenas Admin pode alterar papéis ('role'), permissões ('permissions') ou status.
+      allow update: if (isOwner(userId) && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'status'])) 
+        || isAdmin();
+
+      // Exclusão: Exclusiva para Administradores
+      allow delete: if isAdmin();
+    }
+
+    // Regras Padrão para Coleções Gerais do CRM (Leads, Clientes, Tarefas, etc.)
+    match /{document=**} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

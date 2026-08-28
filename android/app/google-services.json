@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "440920170749",
+    "project_id": "mavis-crm-80885",
+    "storage_bucket": "mavis-crm-80885.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:440920170749:android:eaedc262c8876e21dd1e94",
+        "android_client_info": {
+          "package_name": "com.mavis.mavis"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlFzu2D-t2m0CPGVCxpU2TbvRU0EN4fqA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
