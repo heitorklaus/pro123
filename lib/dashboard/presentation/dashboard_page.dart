@@ -73,20 +73,50 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isSolar = _preferredSector == ProductSector.solarPlant;
+    final productsTitle = isSolar ? 'Usinas Solares' : 'Produtos';
+    final productsIcon = isSolar ? Icons.solar_power_rounded : Icons.inventory_2_outlined;
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: isMobile
+          ? Drawer(
+              backgroundColor: const Color(0xFF0F172A),
+              child: SafeArea(
+                child: AppSidebar(
+                  activeItem: _activeItem,
+                  isCollapsed: false,
+                  productsTitle: productsTitle,
+                  productsIcon: productsIcon,
+                  onItemSelected: (item) {
+                    setState(() {
+                      _activeItem = item;
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            )
+          : null,
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          tooltip: _isSidebarCollapsed ? 'Expandir Menu Lateral' : 'Recolher Menu Lateral',
-          icon: Icon(
-            _isSidebarCollapsed ? Icons.menu_rounded : Icons.menu_open_rounded,
-            color: Colors.white,
-            size: 22,
+        leading: Builder(
+          builder: (appBarCtx) => IconButton(
+            tooltip: isMobile
+                ? 'Abrir Menu'
+                : (_isSidebarCollapsed ? 'Expandir Menu Lateral' : 'Recolher Menu Lateral'),
+            icon: Icon(
+              isMobile
+                  ? Icons.menu_rounded
+                  : (_isSidebarCollapsed ? Icons.menu_rounded : Icons.menu_open_rounded),
+              color: Colors.white,
+              size: 22,
+            ),
+            onPressed: isMobile ? () => Scaffold.of(appBarCtx).openDrawer() : _toggleSidebar,
           ),
-          onPressed: _toggleSidebar,
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -108,7 +138,7 @@ class _DashboardPageState extends State<DashboardPage> {
               'Mavis CRM',
               style: GoogleFonts.outfit(
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: isMobile ? 18 : 20,
               ),
             ),
           ],
@@ -121,34 +151,11 @@ class _DashboardPageState extends State<DashboardPage> {
               Modular.to.navigate('/auth/login');
             },
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
-      body: Row(
-        children: [
-          // Sidebar / Menu Lateral com troca dinâmica de módulo e recolhimento suave
-          Builder(builder: (context) {
-            final isSolar = _preferredSector == ProductSector.solarPlant;
-            final productsTitle = isSolar ? 'Usinas Solares' : 'Produtos';
-            final productsIcon = isSolar ? Icons.solar_power_rounded : Icons.inventory_2_outlined;
-
-            return AppSidebar(
-              activeItem: _activeItem,
-              isCollapsed: _isSidebarCollapsed,
-              onToggleCollapse: _toggleSidebar,
-              productsTitle: productsTitle,
-              productsIcon: productsIcon,
-              onItemSelected: (item) {
-                setState(() {
-                  _activeItem = item;
-                });
-              },
-            );
-          }),
-
-          // Miolo Central Dinâmico — LayoutBuilder garante bounds finitos
-          Expanded(
-            child: LayoutBuilder(
+      body: isMobile
+          ? LayoutBuilder(
               builder: (context, constraints) {
                 return SizedBox(
                   width: constraints.maxWidth,
@@ -156,10 +163,34 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: _buildMiolo(),
                 );
               },
+            )
+          : Row(
+              children: [
+                AppSidebar(
+                  activeItem: _activeItem,
+                  isCollapsed: _isSidebarCollapsed,
+                  onToggleCollapse: _toggleSidebar,
+                  productsTitle: productsTitle,
+                  productsIcon: productsIcon,
+                  onItemSelected: (item) {
+                    setState(() {
+                      _activeItem = item;
+                    });
+                  },
+                ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SizedBox(
+                        width: constraints.maxWidth,
+                        height: constraints.maxHeight,
+                        child: _buildMiolo(),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 

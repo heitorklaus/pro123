@@ -3,6 +3,8 @@
     <!-- Permissões de rede (Firebase, Firestore, Google Sign-In, ViaCEP) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Permissão para seleção de arquivos e PDFs em Android 12 ou inferior -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <application
         android:label="mavis"
         android:name="${applicationName}"
