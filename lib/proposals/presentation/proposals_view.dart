@@ -1546,6 +1546,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                     return ProposalClientAutocomplete(
                       clients: clients,
                       selectedClientId: _selectedClientId,
+                      initialClientName: _clientNameCtrl.text,
                       onClientSelected: _onClientSelected,
                       onClearClient: () {
                         setState(() {
