@@ -342,13 +342,19 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 640;
+    final dialogWidth = (screenSize.width * 0.95).clamp(320.0, 820.0);
+    final dialogHeight = (screenSize.height * 0.92).clamp(460.0, 680.0);
+
     return Dialog(
       backgroundColor: Colors.white,
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 24, vertical: isMobile ? 12 : 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: 820,
-        height: 680,
-        padding: const EdgeInsets.all(24),
+        width: dialogWidth,
+        height: dialogHeight,
+        padding: EdgeInsets.all(isMobile ? 14 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

@@ -631,6 +631,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     const solarColor = Color(0xFFF59E0B);
+    final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 1040),
@@ -646,80 +647,62 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 14 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Cabeçalho do Formulário de Usina Solar ────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: solarColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: solarColor.withValues(alpha: 0.4)),
-                      ),
-                      child: const Icon(Icons.solar_power_rounded, color: Color(0xFFD97706), size: 28),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  _isEditing ? 'Editar Usina Solar' : 'Cadastro de Usina Solar',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF0F172A),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: solarColor.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'CONJUNTO DE PRODUTOS',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFFD97706),
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            'Monte o kit com inversor, módulos fotovoltaicos, estruturas, cabeamento e serviços',
-                            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+          if (isMobile) ...[
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: solarColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: solarColor.withValues(alpha: 0.4)),
+                  ),
+                  child: const Icon(Icons.solar_power_rounded, color: Color(0xFFD97706), size: 24),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Material(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isEditing ? 'Editar Usina Solar' : 'Cadastro de Usina',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: solarColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'KIT COMPLETO',
+                          style: GoogleFonts.inter(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFD97706),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: _openPdfImportDialog,
@@ -730,77 +713,200 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                             colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
                           ),
                           borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFEA580C).withValues(alpha: 0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.document_scanner_rounded, color: Colors.white, size: 16),
-                            SizedBox(width: 8),
+                            Icon(Icons.document_scanner_rounded, color: Colors.white, size: 15),
+                            SizedBox(width: 6),
                             Text(
-                              'IMPORTAR COTAÇÃO (PDF / IA)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                letterSpacing: 0.3,
-                              ),
+                              'IMPORTAR PDF / IA',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
                             ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: widget.onBack,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Ink(
+                ),
+                const SizedBox(width: 8),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: widget.onBack,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF64748B)),
+                          const SizedBox(width: 4),
+                          Text('Voltar', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12, color: const Color(0xFF64748B))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
+                          color: solarColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: solarColor.withValues(alpha: 0.4)),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        child: const Icon(Icons.solar_power_rounded, color: Color(0xFFD97706), size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.arrow_back_rounded, size: 18, color: Color(0xFF64748B)),
-                            const SizedBox(width: 8),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    _isEditing ? 'Editar Usina Solar' : 'Cadastro de Usina Solar',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: solarColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'CONJUNTO DE PRODUTOS',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFFD97706),
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                             Text(
-                              'Voltar ao Catálogo',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                                color: const Color(0xFF64748B),
-                              ),
+                              'Monte o kit com inversor, módulos fotovoltaicos, estruturas, cabeamento e serviços',
+                              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                const SizedBox(width: 14),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _openPdfImportDialog,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFEA580C).withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.document_scanner_rounded, color: Colors.white, size: 16),
+                              SizedBox(width: 8),
+                              Text(
+                                'IMPORTAR COTAÇÃO (PDF / IA)',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onBack,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.arrow_back_rounded, size: 18, color: Color(0xFF64748B)),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Voltar ao Catálogo',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
 
-          const SizedBox(height: 20),
-          const Divider(color: AppColors.divider),
           const SizedBox(height: 16),
+          const Divider(color: AppColors.divider),
+          const SizedBox(height: 14),
 
           // ── Banner de Importação Automática de Proposta / PDF ───────────────
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            padding: EdgeInsets.all(isMobile ? 12 : 16),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
@@ -810,62 +916,118 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFFDE68A)),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'Importe sua cotação em PDF ou Imagem (BelEnergy, Edeltec, Fortlev, WEG, etc.)',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF92400E)),
-                      ),
-                      Text(
-                        'O sistema analisa os dados, explode o kit com todos os equipamentos e cadastra tudo no catálogo automaticamente.',
-                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFB45309)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _openPdfImportDialog,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.file_upload_outlined, color: Colors.white, size: 15),
-                          SizedBox(width: 6),
-                          Text(
-                            'ENVIAR PDF / COTAÇÃO',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Importe sua cotação em PDF / Foto',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF92400E)),
+                            ),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'A IA analisa os dados, explode o kit com todos os equipamentos e cadastra tudo.',
+                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFB45309)),
+                      ),
+                      const SizedBox(height: 10),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openPdfImportDialog,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.file_upload_outlined, color: Colors.white, size: 15),
+                                SizedBox(width: 6),
+                                Text(
+                                  'ENVIAR PDF / COTAÇÃO',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Importe sua cotação em PDF ou Imagem (BelEnergy, Edeltec, Fortlev, WEG, etc.)',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF92400E)),
+                            ),
+                            Text(
+                              'O sistema analisa os dados, explode o kit com todos os equipamentos e cadastra tudo no catálogo automaticamente.',
+                              style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFB45309)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openPdfImportDialog,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.file_upload_outlined, color: Colors.white, size: 15),
+                                SizedBox(width: 6),
+                                Text(
+                                  'ENVIAR PDF / COTAÇÃO',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
           if (_errorMessage != null) ...[
             Container(
@@ -895,180 +1057,278 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           _sectionHeader(Icons.info_outline_rounded, '1. Identificação & Estrutura da Usina', 'Defina a descrição, tipo de telhado/cobertura e a potência da usina'),
           const SizedBox(height: 14),
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1 Descrição Usina
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('1. Descrição da Usina *'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _nameCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: Usina Solar 5.5 kWp Residencial - Microinversor Deye + 10x Módulos 550W',
-                        prefixIcon: Icon(Icons.wb_sunny_outlined, color: Color(0xFFD97706)),
-                      ),
-                    ),
-                  ],
-                ),
+          if (isMobile) ...[
+            _label('1. Descrição da Usina *'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Ex: Usina Solar 5.5 kWp Residencial - Microinversor Deye + 10x Módulos 550W',
+                prefixIcon: Icon(Icons.wb_sunny_outlined, color: Color(0xFFD97706)),
               ),
-              const SizedBox(width: 14),
-
-              // SKU / Código do Kit
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Código SKU do Kit (Opcional)'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _skuCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: KIT-SOLAR-55',
-                        prefixIcon: Icon(Icons.qr_code_rounded, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('Código SKU do Kit (Opcional)'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _skuCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Ex: KIT-SOLAR-55',
+                prefixIcon: Icon(Icons.qr_code_rounded, color: Color(0xFF64748B)),
               ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              // 2. Tipo de Cobertura (DROPDOWN)
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('2. Tipo de Cobertura / Telhado *'),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedRoofType,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.roofing_rounded, color: Color(0xFF64748B)),
-                      ),
-                      items: _roofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedRoofType = val);
-                      },
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('2. Tipo de Cobertura / Telhado *'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedRoofType,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.roofing_rounded, color: Color(0xFF64748B)),
               ),
-              const SizedBox(width: 14),
-
-              // Potência da Usina (kWp) - Recebe o valor importado da cotação
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Potência da Usina (kWp) *'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _kilowattsCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: 25.83',
-                        prefixIcon: Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B)),
-                        suffixText: 'kWp',
-                      ),
-                    ),
-                  ],
-                ),
+              items: _roofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedRoofType = val);
+              },
+            ),
+            const SizedBox(height: 12),
+            _label('Potência da Usina (kWp) *'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _kilowattsCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                hintText: 'Ex: 25.83',
+                prefixIcon: Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B)),
+                suffixText: 'kWp',
               ),
-              const SizedBox(width: 14),
-
-              // 4. Geração Estimada em kWh (kWh/mês) - Informado pelo usuário
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('4. Geração Estimada (kWh/mês)'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _generationKwhCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: 3200',
-                        prefixIcon: Icon(Icons.electric_meter_rounded, color: Color(0xFF0284C7)),
-                        suffixText: 'kWh/mês',
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('4. Geração Estimada (kWh/mês)'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _generationKwhCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                hintText: 'Ex: 3200',
+                prefixIcon: Icon(Icons.electric_meter_rounded, color: Color(0xFF0284C7)),
+                suffixText: 'kWh/mês',
               ),
-              const SizedBox(width: 14),
-
-              // Quantidade de Usinas em Estoque / Disponibilidade
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Kits em Estoque'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _stockCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        hintText: '1',
-                        prefixIcon: Icon(Icons.inventory_2_outlined, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('Kits em Estoque'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _stockCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                hintText: '1',
+                prefixIcon: Icon(Icons.inventory_2_outlined, color: Color(0xFF64748B)),
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1 Descrição Usina
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('1. Descrição da Usina *'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _nameCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex: Usina Solar 5.5 kWp Residencial - Microinversor Deye + 10x Módulos 550W',
+                          prefixIcon: Icon(Icons.wb_sunny_outlined, color: Color(0xFFD97706)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
 
-          const SizedBox(height: 28),
+                // SKU / Código do Kit
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Código SKU do Kit (Opcional)'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _skuCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex: KIT-SOLAR-55',
+                          prefixIcon: Icon(Icons.qr_code_rounded, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                // 2. Tipo de Cobertura (DROPDOWN)
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('2. Tipo de Cobertura / Telhado *'),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedRoofType,
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.roofing_rounded, color: Color(0xFF64748B)),
+                        ),
+                        items: _roofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedRoofType = val);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Potência da Usina (kWp) - Recebe o valor importado da cotação
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Potência da Usina (kWp) *'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _kilowattsCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          hintText: 'Ex: 25.83',
+                          prefixIcon: Icon(Icons.bolt_rounded, color: Color(0xFFF59E0B)),
+                          suffixText: 'kWp',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // 4. Geração Estimada em kWh (kWh/mês) - Informado pelo usuário
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('4. Geração Estimada (kWh/mês)'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _generationKwhCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          hintText: 'Ex: 3200',
+                          prefixIcon: Icon(Icons.electric_meter_rounded, color: Color(0xFF0284C7)),
+                          suffixText: 'kWh/mês',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Quantidade de Usinas em Estoque / Disponibilidade
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Kits em Estoque'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _stockCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          hintText: '1',
+                          prefixIcon: Icon(Icons.inventory_2_outlined, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 24),
 
           // ── 3. ESCOLHA DOS PRODUTOS DO CONJUNTO ───────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionHeader(Icons.format_list_bulleted_rounded, '3. Equipamentos & Produtos do Conjunto', 'Adicione inversores, painéis solares, estruturas de fixação e cabeamento'),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _openProductPicker,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          'ADICIONAR PRODUTO AO CONJUNTO',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                      ],
-                    ),
+          if (isMobile) ...[
+            _sectionHeader(Icons.format_list_bulleted_rounded, '3. Equipamentos do Kit', 'Inversores, painéis solares, estruturas e cabos'),
+            const SizedBox(height: 10),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _openProductPicker,
+                borderRadius: BorderRadius.circular(10),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'ADICIONAR EQUIPAMENTO',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _sectionHeader(Icons.format_list_bulleted_rounded, '3. Equipamentos & Produtos do Conjunto', 'Adicione inversores, painéis solares, estruturas de fixação e cabeamento'),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _openProductPicker,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'ADICIONAR PRODUTO AO CONJUNTO',
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
 
-          // Tabela de Produtos do Kit
+          // Tabela / Cards de Produtos do Kit
           Container(
             decoration: BoxDecoration(
               border: Border.all(color: AppColors.border),
@@ -1078,33 +1338,35 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
               borderRadius: BorderRadius.circular(12),
               child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    color: const Color(0xFFF8FAFC),
-                    child: Row(
-                      children: const [
-                        SizedBox(width: 28, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
-                        Expanded(flex: 5, child: Text('PRODUTO / EQUIPAMENTO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
-                        SizedBox(width: 80, child: Center(child: Text('QTD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                        SizedBox(width: 50, child: Center(child: Text('UNID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                        SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('UNITÁRIO (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                        SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('TOTAL (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                        SizedBox(width: 45), // Lixeira
-                      ],
+                  if (!isMobile) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      color: const Color(0xFFF8FAFC),
+                      child: Row(
+                        children: const [
+                          SizedBox(width: 28, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
+                          Expanded(flex: 5, child: Text('PRODUTO / EQUIPAMENTO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
+                          SizedBox(width: 80, child: Center(child: Text('QTD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
+                          SizedBox(width: 50, child: Center(child: Text('UNID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
+                          SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('UNITÁRIO (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
+                          SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('TOTAL (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
+                          SizedBox(width: 45), // Lixeira
+                        ],
+                      ),
                     ),
-                  ),
-                  const Divider(height: 1, color: AppColors.divider),
+                    const Divider(height: 1, color: AppColors.divider),
+                  ],
 
                   if (_items.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.all(28),
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
                           const Icon(Icons.solar_power_outlined, size: 36, color: Color(0xFF94A3B8)),
                           const SizedBox(height: 8),
-                          Text('Nenhum equipamento adicionado ao conjunto ainda', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                          Text('Nenhum equipamento adicionado ainda', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B), fontSize: 13)),
                           const SizedBox(height: 4),
-                          Text('Clique no botão acima para adicionar inversores, placas, cabos e estruturas.', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8))),
+                          Text('Clique no botão para adicionar módulos, inversores ou estruturas.', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
                         ],
                       ),
                     )
@@ -1117,6 +1379,105 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                       itemBuilder: (ctx, idx) {
                         final item = _items[idx];
                         final qtyStr = item.quantity % 1 == 0 ? item.quantity.toInt().toString() : item.quantity.toString();
+
+                        if (isMobile) {
+                          return Padding(
+                            key: ValueKey('solar_item_mobile_${item.productId ?? ""}_${item.name}_$idx'),
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Center(
+                                        child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF475569), fontSize: 11)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A))),
+                                          if (item.sku != null && item.sku!.isNotEmpty)
+                                            Text('SKU: ${item.sku}', style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B))),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Remover',
+                                      icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      onPressed: () => _removeItem(idx),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 70,
+                                      child: TextFormField(
+                                        key: ValueKey('qty_${item.productId ?? ""}_${item.name}_${item.quantity}'),
+                                        initialValue: qtyStr,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.inter(fontSize: 12),
+                                        decoration: const InputDecoration(
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                          labelText: 'Qtd',
+                                        ),
+                                        onChanged: (val) {
+                                          final q = double.tryParse(val.replaceAll(',', '.')) ?? 1.0;
+                                          _updateItemQuantity(idx, q);
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: TextFormField(
+                                        key: ValueKey('price_${item.productId ?? ""}_${item.name}_${item.unitPrice}'),
+                                        initialValue: item.unitPrice.toStringAsFixed(2),
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        textAlign: TextAlign.right,
+                                        style: GoogleFonts.inter(fontSize: 12),
+                                        decoration: const InputDecoration(
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                                          labelText: 'Unitário (R\$)',
+                                        ),
+                                        onChanged: (val) {
+                                          final p = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                                          _updateItemPrice(idx, p);
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text('Total', style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF64748B))),
+                                        Text(
+                                          currencyFormat.format(item.totalPrice),
+                                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
                         return Padding(
                           key: ValueKey('solar_item_row_${item.productId ?? ""}_${item.name}_${item.quantity}_${item.unitPrice}_$idx'),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1207,273 +1568,468 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // ── 5, 6 & 7: PREÇOS, SERVIÇOS & SERVIÇO ADICIONAL ─────────────────
-          _sectionHeader(Icons.payments_outlined, '5, 6 & 7. Composição Financeira & Serviços', 'Preço dos equipamentos, serviço de instalação/projeto e serviços extras'),
+          _sectionHeader(Icons.payments_outlined, '5, 6 & 7. Composição Financeira & Serviços', 'Preço dos equipamentos, instalação e serviços extras'),
           const SizedBox(height: 14),
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Coluna Esquerda: Preço Produtos, Preço Serviço e Serviços Adicionais
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        // 5 Preço dos produtos (com máscara Real R$, autocompletado, editável)
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _label('5. Preço dos Produtos (R\$) *'),
-                                  if (_isManualProductsPrice)
-                                    InkWell(
-                                      onTap: () {
-                                        setState(() {
-                                          _isManualProductsPrice = false;
-                                          _syncProductsPriceIfAuto();
-                                        });
-                                      },
-                                      child: Text('Recalcular soma', style: GoogleFonts.inter(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: _productsPriceCtrl,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  CurrencyPtBrInputFormatter(),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'R\$ 0,00',
-                                  prefixIcon: Icon(Icons.inventory_rounded, color: Color(0xFF64748B)),
-                                ),
-                                onChanged: (_) {
-                                  setState(() {
-                                    _isManualProductsPrice = true;
-                                  });
-                                },
-                              ),
-                            ],
+          if (isMobile) ...[
+            // Mobile: Formulário Financeiro empilhado
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _label('5. Preço dos Produtos (R\$) *'),
+                if (_isManualProductsPrice)
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isManualProductsPrice = false;
+                        _syncProductsPriceIfAuto();
+                      });
+                    },
+                    child: Text('Recalcular soma', style: GoogleFonts.inter(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _productsPriceCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                CurrencyPtBrInputFormatter(),
+              ],
+              decoration: const InputDecoration(
+                hintText: 'R\$ 0,00',
+                prefixIcon: Icon(Icons.inventory_rounded, color: Color(0xFF64748B)),
+              ),
+              onChanged: (_) {
+                setState(() {
+                  _isManualProductsPrice = true;
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+
+            _label('6. Preço do Serviço / Instalação (R\$)'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _servicePriceCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                CurrencyPtBrInputFormatter(),
+              ],
+              decoration: const InputDecoration(
+                hintText: 'R\$ 0,00',
+                prefixIcon: Icon(Icons.handyman_outlined, color: Color(0xFF64748B)),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 14),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _label('7. Serviços Extras (Opcional)'),
+                TextButton.icon(
+                  icon: const Icon(Icons.add_rounded, size: 15),
+                  label: const Text('Adicionar Extra'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11.5),
+                  ),
+                  onPressed: _addAdditionalService,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            if (_additionalServices.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Text(
+                  'Nenhum serviço extra incluído (ex: Reforço de Telhado).',
+                  style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _additionalServices.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (ctx, sIdx) {
+                  final s = _additionalServices[sIdx];
+                  return Row(
+                    key: ObjectKey(s),
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          controller: s.typeCtrl,
+                          decoration: const InputDecoration(
+                            hintText: 'Ex: Homologação',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           ),
                         ),
-                        const SizedBox(width: 14),
-
-                        // 6 Preço do Servico (com máscara Real R$)
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _label('6. Preço do Serviço / Instalação (R\$)'),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: _servicePriceCtrl,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  CurrencyPtBrInputFormatter(),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'R\$ 0,00',
-                                  prefixIcon: Icon(Icons.handyman_outlined, color: Color(0xFF64748B)),
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ],
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: s.priceCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            CurrencyPtBrInputFormatter(),
+                          ],
+                          textAlign: TextAlign.right,
+                          decoration: const InputDecoration(
+                            hintText: 'R\$ 0,00',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           ),
+                          onChanged: (_) => setState(() {}),
                         ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        tooltip: 'Remover',
+                        icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                        onPressed: () => _removeAdditionalService(sIdx),
+                      ),
+                    ],
+                  );
+                },
+              ),
 
-                    const SizedBox(height: 18),
+            const SizedBox(height: 14),
+            _label('Observações Técnicas / Garantias'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _notesCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Ex: Garantia de 25 anos de performance nos módulos.',
+                prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
+              ),
+            ),
 
-                    // 7 Servico Adicional
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _label('7. Serviços Adicionais (Opcional)'),
-                        TextButton.icon(
-                          icon: const Icon(Icons.add_rounded, size: 16),
-                          label: const Text('Adicionar Serviço Extra'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                          onPressed: _addAdditionalService,
-                        ),
-                      ],
-                    ),
+            const SizedBox(height: 18),
+
+            // Card Totalizador no Mobile
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: solarColor.withValues(alpha: 0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _summaryRow('Preço dos Produtos:', currencyFormat.format(_productsPrice)),
+                  const SizedBox(height: 6),
+                  _summaryRow('Preço do Serviço:', currencyFormat.format(_servicePrice)),
+                  if (_additionalServicesSum > 0) ...[
                     const SizedBox(height: 6),
-
-                    if (_additionalServices.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
+                    _summaryRow('Serviços Extras:', currencyFormat.format(_additionalServicesSum)),
+                  ],
+                  const Divider(color: Color(0xFFFCD34D), height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'VALOR TOTAL DA USINA',
+                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
                         ),
-                        child: Text(
-                          'Nenhum serviço adicional incluído (ex: Reforço de Telhado, Adequação de Padrão). Clique acima para adicionar.',
-                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                        const SizedBox(height: 2),
+                        Text(
+                          currencyFormat.format(_totalUsinaPrice),
+                          style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
-                      )
-                    else
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _additionalServices.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (ctx, sIdx) {
-                          final s = _additionalServices[sIdx];
-                          return Row(
-                            key: ObjectKey(s),
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: TextFormField(
-                                  controller: s.typeCtrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Tipo do serviço (ex: Reforço Estrutural, Homologação)',
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Desktop: Layout lado a lado
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Coluna Esquerda: Preço Produtos, Preço Serviço e Serviços Adicionais
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // 5 Preço dos produtos (com máscara Real R$, autocompletado, editável)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _label('5. Preço dos Produtos (R\$) *'),
+                                    if (_isManualProductsPrice)
+                                      InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _isManualProductsPrice = false;
+                                            _syncProductsPriceIfAuto();
+                                          });
+                                        },
+                                        child: Text('Recalcular soma', style: GoogleFonts.inter(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                      ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: s.priceCtrl,
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _productsPriceCtrl,
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     CurrencyPtBrInputFormatter(),
                                   ],
-                                  textAlign: TextAlign.right,
                                   decoration: const InputDecoration(
                                     hintText: 'R\$ 0,00',
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    prefixIcon: Icon(Icons.inventory_rounded, color: Color(0xFF64748B)),
+                                  ),
+                                  onChanged: (_) {
+                                    setState(() {
+                                      _isManualProductsPrice = true;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+
+                          // 6 Preço do Servico (com máscara Real R$)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('6. Preço do Serviço / Instalação (R\$)'),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _servicePriceCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    CurrencyPtBrInputFormatter(),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    hintText: 'R\$ 0,00',
+                                    prefixIcon: Icon(Icons.handyman_outlined, color: Color(0xFF64748B)),
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              IconButton(
-                                tooltip: 'Remover',
-                                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
-                                onPressed: () => _removeAdditionalService(sIdx),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-
-                    const SizedBox(height: 16),
-                    _label('Observações Técnicas / Garantias'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _notesCtrl,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: Garantia de 25 anos de performance nos módulos e 10 anos no inversor. Homologação inclusa.',
-                        prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 24),
-
-              // Coluna Direita: TOTALIZADOR AUTOMÁTICO EM TEMPO REAL
-              Expanded(
-                flex: 2,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB), // Fundo âmbar suave
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: solarColor.withValues(alpha: 0.4)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.calculate_rounded, color: Color(0xFFD97706), size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'SOMA TOTALIZADORA',
-                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF92400E), letterSpacing: 0.5),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
 
-                      _summaryRow('Preço dos Produtos:', currencyFormat.format(_productsPrice)),
-                      const SizedBox(height: 8),
-                      _summaryRow('Preço do Serviço:', currencyFormat.format(_servicePrice)),
-                      const SizedBox(height: 8),
-                      if (_additionalServicesSum > 0) ...[
-                        _summaryRow('Serviços Adicionais:', currencyFormat.format(_additionalServicesSum)),
-                        const SizedBox(height: 8),
-                      ],
+                      const SizedBox(height: 18),
 
-                      const Divider(color: Color(0xFFFCD34D)),
-                      const SizedBox(height: 8),
-
-                      // Card de Total Geral da Usina Solar
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                      // 7 Servico Adicional
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _label('7. Serviços Adicionais (Opcional)'),
+                          TextButton.icon(
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: const Text('Adicionar Serviço Extra'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            onPressed: _addAdditionalService,
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFEA580C).withValues(alpha: 0.25),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      if (_additionalServices.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Text(
+                            'Nenhum serviço adicional incluído (ex: Reforço de Telhado, Adequação de Padrão). Clique acima para adicionar.',
+                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _additionalServices.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (ctx, sIdx) {
+                            final s = _additionalServices[sIdx];
+                            return Row(
+                              key: ObjectKey(s),
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: s.typeCtrl,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Tipo do serviço (ex: Reforço Estrutural, Homologação)',
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: s.priceCtrl,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      CurrencyPtBrInputFormatter(),
+                                    ],
+                                    textAlign: TextAlign.right,
+                                    decoration: const InputDecoration(
+                                      hintText: 'R\$ 0,00',
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  tooltip: 'Remover',
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                                  onPressed: () => _removeAdditionalService(sIdx),
+                                ),
+                              ],
+                            );
+                          },
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'VALOR TOTAL DA USINA SOLAR',
-                              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              currencyFormat.format(_totalUsinaPrice),
-                              style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            if (_items.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                '${_items.length} ${_items.length == 1 ? 'equipamento' : 'equipamentos'} inclusos',
-                                style: GoogleFonts.inter(fontSize: 11, color: Colors.white70),
-                              ),
-                            ],
-                          ],
+
+                      const SizedBox(height: 16),
+                      _label('Observações Técnicas / Garantias'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _notesCtrl,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex: Garantia de 25 anos de performance nos módulos e 10 anos no inversor. Homologação inclusa.',
+                          prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
+
+                const SizedBox(width: 24),
+
+                // Coluna Direita: TOTALIZADOR AUTOMÁTICO EM TEMPO REAL
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB), // Fundo âmbar suave
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: solarColor.withValues(alpha: 0.4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.calculate_rounded, color: Color(0xFFD97706), size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'SOMA TOTALIZADORA',
+                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF92400E), letterSpacing: 0.5),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        _summaryRow('Preço dos Produtos:', currencyFormat.format(_productsPrice)),
+                        const SizedBox(height: 8),
+                        _summaryRow('Preço do Serviço:', currencyFormat.format(_servicePrice)),
+                        const SizedBox(height: 8),
+                        if (_additionalServicesSum > 0) ...[
+                          _summaryRow('Serviços Adicionais:', currencyFormat.format(_additionalServicesSum)),
+                          const SizedBox(height: 8),
+                        ],
+
+                        const Divider(color: Color(0xFFFCD34D)),
+                        const SizedBox(height: 8),
+
+                        // Card de Total Geral da Usina Solar
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFEA580C).withValues(alpha: 0.25),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'VALOR TOTAL DA USINA SOLAR',
+                                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                currencyFormat.format(_totalUsinaPrice),
+                                style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              if (_items.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${_items.length} ${_items.length == 1 ? 'equipamento' : 'equipamentos'} inclusos',
+                                  style: GoogleFonts.inter(fontSize: 11, color: Colors.white70),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
 
           const SizedBox(height: 32),
           const Divider(color: AppColors.divider),

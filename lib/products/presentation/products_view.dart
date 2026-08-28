@@ -443,8 +443,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 14 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -453,136 +455,140 @@ class _ProductTableViewState extends State<_ProductTableView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Produtos & Serviços',
-                    style: GoogleFonts.outfit(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Produtos & Serviços',
+                      style: GoogleFonts.outfit(
+                        fontSize: isMobile ? 20 : 26,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Catálogo inteligente com ramificação por 20 segmentos comerciais',
-                    style: GoogleFonts.inter(
-                        fontSize: 14, color: const Color(0xFF64748B)),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      'Catálogo inteligente com 20 segmentos',
+                      style: GoogleFonts.inter(
+                          fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Botão de Gerar 200 Produtos de Teste
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: (_isSeeding || _isDeletingAll)
-                          ? null
-                          : _confirmSeedProducts,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFF59E0B).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                  if (!isMobile) ...[
+                    // Botão de Gerar 200 Produtos de Teste
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: (_isSeeding || _isDeletingAll)
+                            ? null
+                            : _confirmSeedProducts,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
                             color:
-                                const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                            width: 1,
+                                const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color:
+                                  const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 11),
-                          child: _isSeeding
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFFF59E0B),
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.bolt_rounded,
-                                        size: 18, color: Color(0xFFF59E0B)),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'GERAR 200 PRODUTOS TESTE',
-                                      style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12.5,
-                                        letterSpacing: 0.3,
-                                        color: const Color(0xFFB45309),
-                                      ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 11),
+                            child: _isSeeding
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFFF59E0B),
                                     ),
-                                  ],
-                                ),
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.bolt_rounded,
+                                          size: 18, color: Color(0xFFF59E0B)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'GERAR 200 PRODUTOS TESTE',
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12.5,
+                                          letterSpacing: 0.3,
+                                          color: const Color(0xFFB45309),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
 
-                  // Botão de Limpar / Excluir Todos os Produtos
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: (_isSeeding || _isDeletingAll)
-                          ? null
-                          : _confirmDeleteAllProducts,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFEF4444).withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                    // Botão de Limpar / Excluir Todos os Produtos
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: (_isSeeding || _isDeletingAll)
+                            ? null
+                            : _confirmDeleteAllProducts,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
                             color:
-                                const Color(0xFFEF4444).withValues(alpha: 0.35),
-                            width: 1,
+                                const Color(0xFFEF4444).withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color:
+                                  const Color(0xFFEF4444).withValues(alpha: 0.35),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 11),
-                          child: _isDeletingAll
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFFEF4444),
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.delete_sweep_rounded,
-                                        size: 18, color: Color(0xFFEF4444)),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'LIMPAR CATÁLOGO',
-                                      style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12.5,
-                                        letterSpacing: 0.3,
-                                        color: const Color(0xFFDC2626),
-                                      ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 11),
+                            child: _isDeletingAll
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFFEF4444),
                                     ),
-                                  ],
-                                ),
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.delete_sweep_rounded,
+                                          size: 18, color: Color(0xFFEF4444)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'LIMPAR CATÁLOGO',
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12.5,
+                                          letterSpacing: 0.3,
+                                          color: const Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
+                  ],
 
                   // Botão Novo Produto / Nova Usina
                   Builder(builder: (context) {
@@ -618,8 +624,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
                             ],
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 11),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 11),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -627,16 +633,17 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                   isSolarFiltered
                                       ? Icons.solar_power_rounded
                                       : Icons.add_shopping_cart_rounded,
-                                  size: 18,
+                                  size: isMobile ? 16 : 18,
                                   color: Colors.white,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                                 Text(
                                   isSolarFiltered
-                                      ? 'NOVA USINA'
-                                      : 'NOVO PRODUTO',
+                                      ? (isMobile ? 'USINA' : 'NOVA USINA')
+                                      : (isMobile ? 'NOVO' : 'NOVO PRODUTO'),
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: isMobile ? 12 : 13,
                                     letterSpacing: 0.5,
                                     color: Colors.white,
                                   ),
@@ -653,115 +660,104 @@ class _ProductTableViewState extends State<_ProductTableView> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: isMobile ? 12 : 20),
 
           // ── Barra de Busca & Filtros ─────────────────────────────────────
-          Row(
-            children: [
-              // Campo de busca
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (v) => setState(() {
-                    _query = v.trim().toLowerCase();
-                    _currentPage = 1;
-                  }),
-                  decoration: InputDecoration(
-                    hintText:
-                        'Buscar por nome, código SKU ou código de barras...',
-                    hintStyle: GoogleFonts.inter(
-                        fontSize: 13, color: const Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.search_rounded,
-                        color: Color(0xFF64748B), size: 20),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(
-                          color: AppColors.primary, width: 1.5),
-                    ),
-                  ),
+          if (isMobile) ...[
+            TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() {
+                _query = v.trim().toLowerCase();
+                _currentPage = 1;
+              }),
+              decoration: InputDecoration(
+                hintText: 'Buscar produto ou SKU...',
+                hintStyle: GoogleFonts.inter(
+                    fontSize: 13, color: const Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: Color(0xFF64748B), size: 20),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                      color: AppColors.primary, width: 1.5),
                 ),
               ),
-              // Filtro por Segmento (Ocultado quando em Modo Fixo como Usina Solar)
-              if (!_isFixedSector) ...[
-                const SizedBox(width: 14),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<ProductSector?>(
-                        value: _filterSector,
-                        hint: Text(
-                          'Todos os Segmentos (20)',
-                          style: GoogleFonts.inter(
-                              fontSize: 13, color: const Color(0xFF64748B)),
-                        ),
-                        isExpanded: true,
-                        icon: const Icon(Icons.filter_list_rounded,
-                            size: 18, color: Color(0xFF64748B)),
-                        items: [
-                          DropdownMenuItem<ProductSector?>(
-                            value: null,
-                            child: Text('Todos os Segmentos (20)',
-                                style: GoogleFonts.inter(
-                                    fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (!_isFixedSector)
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<ProductSector?>(
+                          value: _filterSector,
+                          hint: Text(
+                            'Todos Segmentos',
+                            style: GoogleFonts.inter(
+                                fontSize: 12, color: const Color(0xFF64748B)),
                           ),
-                          ...ProductSector.values.map(
-                            (s) => DropdownMenuItem<ProductSector?>(
-                              value: s,
-                              child: Row(
-                                children: [
-                                  Icon(s.icon, size: 16, color: s.themeColor),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      s.title,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(fontSize: 13),
+                          isExpanded: true,
+                          icon: const Icon(Icons.filter_list_rounded,
+                              size: 16, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<ProductSector?>(
+                              value: null,
+                              child: Text('Todos os Segmentos (20)',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                            ...ProductSector.values.map(
+                              (s) => DropdownMenuItem<ProductSector?>(
+                                value: s,
+                                child: Row(
+                                  children: [
+                                    Icon(s.icon, size: 14, color: s.themeColor),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        s.title,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(fontSize: 12),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          setState(() {
-                            _filterSector = val;
-                            _currentPage = 1;
-                          });
-                          _saveFilterSector(val);
-                        },
+                          ],
+                          onChanged: (val) {
+                            setState(() {
+                              _filterSector = val;
+                              _currentPage = 1;
+                            });
+                            _saveFilterSector(val);
+                          },
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-
-              // Botão Toggle "Mostrar Itens de Usinas" (Aparece apenas quando USINA SOLAR estiver selecionada)
-              if (_filterSector == ProductSector.solarPlant) ...[
-                const SizedBox(width: 12),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
+                if (_filterSector == ProductSector.solarPlant) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
                     onTap: () {
                       final newVal = !_showSolarComponents;
                       setState(() {
@@ -771,19 +767,17 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       _saveShowSolarComponents(newVal);
                     },
                     borderRadius: BorderRadius.circular(10),
-                    child: Ink(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: _showSolarComponents
                             ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
-                            : const Color(0xFFF8FAFC),
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: _showSolarComponents
                               ? const Color(0xFFF59E0B)
-                              : const Color(0xFFCBD5E1),
-                          width: 1.2,
+                              : AppColors.border,
                         ),
                       ),
                       child: Row(
@@ -793,66 +787,230 @@ class _ProductTableViewState extends State<_ProductTableView> {
                             _showSolarComponents
                                 ? Icons.visibility_rounded
                                 : Icons.visibility_off_outlined,
-                            size: 17,
+                            size: 16,
                             color: _showSolarComponents
                                 ? const Color(0xFFB45309)
                                 : const Color(0xFF64748B),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           Text(
-                            'Mostrar Itens de Usinas',
+                            _showSolarComponents ? 'Itens: ON' : 'Itens: OFF',
                             style: GoogleFonts.inter(
-                              fontSize: 12.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: _showSolarComponents
                                   ? const Color(0xFFB45309)
-                                  : const Color(0xFF475569),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _showSolarComponents
-                                  ? const Color(0xFFF59E0B)
-                                  : const Color(0xFF94A3B8),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _showSolarComponents ? 'ATIVO' : 'OCULTO',
-                              style: GoogleFonts.inter(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                                  : const Color(0xFF64748B),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                // Campo de busca
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() {
+                      _query = v.trim().toLowerCase();
+                      _currentPage = 1;
+                    }),
+                    decoration: InputDecoration(
+                      hintText:
+                          'Buscar por nome, código SKU ou código de barras...',
+                      hintStyle: GoogleFonts.inter(
+                          fontSize: 13, color: const Color(0xFF94A3B8)),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          color: Color(0xFF64748B), size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                            color: AppColors.primary, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+                // Filtro por Segmento (Ocultado quando em Modo Fixo como Usina Solar)
+                if (!_isFixedSector) ...[
+                  const SizedBox(width: 14),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<ProductSector?>(
+                          value: _filterSector,
+                          hint: Text(
+                            'Todos os Segmentos (20)',
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: const Color(0xFF64748B)),
+                          ),
+                          isExpanded: true,
+                          icon: const Icon(Icons.filter_list_rounded,
+                              size: 18, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<ProductSector?>(
+                              value: null,
+                              child: Text('Todos os Segmentos (20)',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                            ),
+                            ...ProductSector.values.map(
+                              (s) => DropdownMenuItem<ProductSector?>(
+                                value: s,
+                                child: Row(
+                                  children: [
+                                    Icon(s.icon, size: 16, color: s.themeColor),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        s.title,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(fontSize: 13),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (val) {
+                            setState(() {
+                              _filterSector = val;
+                              _currentPage = 1;
+                            });
+                            _saveFilterSector(val);
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
 
-          const SizedBox(height: 16),
+                // Botão Toggle "Mostrar Itens de Usinas" (Aparece apenas quando USINA SOLAR estiver selecionada)
+                if (_filterSector == ProductSector.solarPlant) ...[
+                  const SizedBox(width: 12),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        final newVal = !_showSolarComponents;
+                        setState(() {
+                          _showSolarComponents = newVal;
+                          _currentPage = 1;
+                        });
+                        _saveShowSolarComponents(newVal);
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Ink(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _showSolarComponents
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                              : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _showSolarComponents
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFFCBD5E1),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _showSolarComponents
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_outlined,
+                              size: 17,
+                              color: _showSolarComponents
+                                  ? const Color(0xFFB45309)
+                                  : const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Mostrar Itens de Usinas',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: _showSolarComponents
+                                    ? const Color(0xFFB45309)
+                                    : const Color(0xFF475569),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _showSolarComponents
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFF94A3B8),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _showSolarComponents ? 'ATIVO' : 'OCULTO',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+
+          SizedBox(height: isMobile ? 10 : 16),
 
           // ── Conteúdo da Tabela com Paginação ───────────────────────────────
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isMobile ? Colors.transparent : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: isMobile ? null : Border.all(color: AppColors.border),
+                boxShadow: isMobile
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
@@ -888,8 +1046,6 @@ class _ProductTableViewState extends State<_ProductTableView> {
 
                       if (!matchesQuery || !matchesSector) return false;
 
-                      // Se estiver filtrando Usinas Solares e o toggle de componentes avulsos estiver DESLIGADO,
-                      // oculta os itens individuais (mostrando apenas os kits de Usina Solar)
                       if (_filterSector == ProductSector.solarPlant) {
                         if (!_showSolarComponents && p.isSolarComponent) {
                           return false;
@@ -904,7 +1060,6 @@ class _ProductTableViewState extends State<_ProductTableView> {
                         ? 1
                         : (totalItems / _itemsPerPage).ceil();
 
-                    // Garante que a página atual não exceda o limite
                     final safePage = _currentPage.clamp(1, totalPages);
                     final startIndex =
                         (totalItems == 0) ? 0 : (safePage - 1) * _itemsPerPage;
@@ -914,8 +1069,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
 
                     return Column(
                       children: [
-                        _ProductTableHeader(),
-                        const Divider(height: 1, color: AppColors.divider),
+                        if (!isMobile) ...[
+                          _ProductTableHeader(),
+                          const Divider(height: 1, color: AppColors.divider),
+                        ],
                         Expanded(
                           child: filtered.isEmpty
                               ? _ProductEmptyState(
@@ -923,50 +1080,106 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                   onAdd: widget.onAddNew,
                                   onSeed: _confirmSeedProducts,
                                 )
-                              : ListView.separated(
-                                  itemCount: paginatedList.length,
-                                  separatorBuilder: (_, __) => const Divider(
-                                      height: 1, color: AppColors.divider),
-                                  itemBuilder: (_, i) {
-                                    final item = paginatedList[i];
-                                    final isExpanded =
-                                        _expandedProductIds.contains(item.id);
-                                    return _ProductRow(
-                                      product: item,
-                                      isExpanded: isExpanded,
-                                      onToggleExpand: item.isSolarPlantKit
-                                          ? () => setState(() {
-                                                if (isExpanded) {
-                                                  _expandedProductIds
-                                                      .remove(item.id);
-                                                } else {
-                                                  _expandedProductIds
-                                                      .add(item.id);
-                                                }
-                                              })
-                                          : null,
-                                      onEdit: () => widget.onEdit(item),
-                                      onDelete: () => _showDeleteDialog(item),
-                                    );
-                                  },
+                              : isMobile
+                                  ? ListView.builder(
+                                      itemCount: paginatedList.length,
+                                      padding: EdgeInsets.zero,
+                                      itemBuilder: (_, i) {
+                                        final item = paginatedList[i];
+                                        final isExpanded =
+                                            _expandedProductIds.contains(item.id);
+                                        return _ProductMobileCard(
+                                          product: item,
+                                          isExpanded: isExpanded,
+                                          onToggleExpand: item.isSolarPlantKit
+                                              ? () => setState(() {
+                                                    if (isExpanded) {
+                                                      _expandedProductIds
+                                                          .remove(item.id);
+                                                    } else {
+                                                      _expandedProductIds
+                                                          .add(item.id);
+                                                    }
+                                                  })
+                                              : null,
+                                          onEdit: () => widget.onEdit(item),
+                                          onDelete: () => _showDeleteDialog(item),
+                                        );
+                                      },
+                                    )
+                                  : ListView.separated(
+                                      itemCount: paginatedList.length,
+                                      separatorBuilder: (_, __) => const Divider(
+                                          height: 1, color: AppColors.divider),
+                                      itemBuilder: (_, i) {
+                                        final item = paginatedList[i];
+                                        final isExpanded =
+                                            _expandedProductIds.contains(item.id);
+                                        return _ProductRow(
+                                          product: item,
+                                          isExpanded: isExpanded,
+                                          onToggleExpand: item.isSolarPlantKit
+                                              ? () => setState(() {
+                                                    if (isExpanded) {
+                                                      _expandedProductIds
+                                                          .remove(item.id);
+                                                    } else {
+                                                      _expandedProductIds
+                                                          .add(item.id);
+                                                    }
+                                                  })
+                                              : null,
+                                          onEdit: () => widget.onEdit(item),
+                                          onDelete: () => _showDeleteDialog(item),
+                                        );
+                                      },
+                                    ),
+                        ),
+                        if (isMobile) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: safePage > 1
+                                      ? () => setState(() => _currentPage = safePage - 1)
+                                      : null,
+                                  icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                                  label: const Text('Anterior'),
                                 ),
-                        ),
-                        const Divider(height: 1, color: AppColors.divider),
-                        _ProductPaginationBar(
-                          currentPage: safePage,
-                          totalPages: totalPages,
-                          totalItems: totalItems,
-                          startIndex: totalItems == 0 ? 0 : startIndex + 1,
-                          endIndex: endIndex,
-                          itemsPerPage: _itemsPerPage,
-                          pageSizeOptions: _pageSizeOptions,
-                          onPageChanged: (p) =>
-                              setState(() => _currentPage = p),
-                          onPageSizeChanged: (s) => setState(() {
-                            _itemsPerPage = s;
-                            _currentPage = 1;
-                          }),
-                        ),
+                                Text(
+                                  'Pág $safePage de $totalPages',
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                                ),
+                                TextButton.icon(
+                                  onPressed: safePage < totalPages
+                                      ? () => setState(() => _currentPage = safePage + 1)
+                                      : null,
+                                  label: const Text('Próxima'),
+                                  icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          const Divider(height: 1, color: AppColors.divider),
+                          _ProductPaginationBar(
+                            currentPage: safePage,
+                            totalPages: totalPages,
+                            totalItems: totalItems,
+                            startIndex: totalItems == 0 ? 0 : startIndex + 1,
+                            endIndex: endIndex,
+                            itemsPerPage: _itemsPerPage,
+                            pageSizeOptions: _pageSizeOptions,
+                            onPageChanged: (p) =>
+                                setState(() => _currentPage = p),
+                            onPageSizeChanged: (s) => setState(() {
+                              _itemsPerPage = s;
+                              _currentPage = 1;
+                            }),
+                          ),
+                        ],
                       ],
                     );
                   },
@@ -1742,6 +1955,243 @@ class _SolarPlantKitDetails extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Card Mobile de Produto / Usina Solar
+// ─────────────────────────────────────────────────────────────────────────────
+class _ProductMobileCard extends StatelessWidget {
+  final ProductModel product;
+  final bool isExpanded;
+  final VoidCallback? onToggleExpand;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ProductMobileCard({
+    required this.product,
+    this.isExpanded = false,
+    this.onToggleExpand,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasKit = product.isSolarPlantKit;
+    final themeColor = product.sector.themeColor;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasKit ? const Color(0xFFF59E0B).withValues(alpha: 0.4) : AppColors.border,
+          width: hasKit ? 1.2 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onEdit,
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: themeColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            hasKit ? Icons.solar_power_rounded : product.sector.icon,
+                            color: themeColor,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product.name,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (product.sku != null && product.sku!.isNotEmpty)
+                                Text(
+                                  'SKU: ${product.sku}',
+                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'R\$ ${product.salePrice.toStringAsFixed(2).replaceAll('.', ',')}',
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF0F172A),
+                              ),
+                            ),
+                            if (hasKit)
+                              Container(
+                                margin: const EdgeInsets.only(top: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '${product.solarKilowatts ?? 0} kWp',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, color: AppColors.divider),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: themeColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            product.displaySectorTitle,
+                            style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: themeColor),
+                          ),
+                        ),
+                        if (hasKit && onToggleExpand != null) ...[
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: onToggleExpand,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isExpanded ? Icons.remove_rounded : Icons.add_rounded,
+                                    size: 14,
+                                    color: const Color(0xFF475569),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${product.solarKitItems.length} itens',
+                                    style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF475569)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6366F1)),
+                          onPressed: onEdit,
+                          tooltip: 'Editar',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                          onPressed: onDelete,
+                          tooltip: 'Excluir',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (hasKit && isExpanded && product.solarKitItems.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Itens inclusos no Kit:',
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                  ),
+                  const SizedBox(height: 6),
+                  ...product.solarKitItems.map((item) {
+                    final qty = item['quantity'] ?? item['qty'] ?? 1;
+                    final name = item['name'] ?? item['productName'] ?? 'Item';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline_rounded, size: 12, color: Color(0xFF10B981)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${qty}x $name',
+                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Badges de Produto
 // ─────────────────────────────────────────────────────────────────────────────
 class _SectorBadge extends StatelessWidget {
@@ -2304,9 +2754,10 @@ class _SectorSelectorViewState extends State<_SectorSelectorView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = widget.parentWidth < 768;
     // Cálculo responsivo de largura de cada card usando Wrap
     final availableWidth = widget.parentWidth -
-        64; // subtraindo padding horizontal de 32 de cada lado
+        (isMobile ? 28 : 64);
     final int columns = availableWidth > 1200
         ? 4
         : availableWidth > 800
@@ -2318,7 +2769,7 @@ class _SectorSelectorViewState extends State<_SectorSelectorView> {
     final double cardWidth = (availableWidth - ((columns - 1) * 16)) / columns;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 14 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2359,13 +2810,13 @@ class _SectorSelectorViewState extends State<_SectorSelectorView> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(isMobile ? 10 : 12),
                 decoration: BoxDecoration(
                   gradient: AppColors.primaryGradient,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.category_rounded,
-                    color: Colors.white, size: 24),
+                child: Icon(Icons.category_rounded,
+                    color: Colors.white, size: isMobile ? 20 : 24),
               ),
               const SizedBox(width: 16),
               Expanded(

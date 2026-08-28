@@ -433,9 +433,11 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 640;
+
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 24, vertical: isMobile ? 12 : 20),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 920,
@@ -458,36 +460,36 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
             children: [
               // ── Header do Diálogo ─────────────────────────────────────────
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 28, vertical: isMobile ? 14 : 20),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: AppColors.border)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 24),
+                      child: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 20),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isEditing ? 'Editar Cadastro de Cliente' : 'Novo Cadastro de Cliente',
+                            _isEditing ? 'Editar Cadastro' : 'Novo Cliente',
                             style: GoogleFonts.outfit(
-                              fontSize: 20,
+                              fontSize: isMobile ? 17 : 20,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF0F172A),
                             ),
                           ),
                           Text(
-                            'Cadastre os dados cadastrais, endereço e diagnóstico da conta de energia',
-                            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                            'Dados cadastrais, endereço e diagnóstico solar',
+                            style: GoogleFonts.inter(fontSize: isMobile ? 11.5 : 13, color: const Color(0xFF64748B)),
                           ),
                         ],
                       ),
@@ -504,13 +506,13 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
               // ── Corpo Rolável ─────────────────────────────────────────────
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(28),
+                  padding: EdgeInsets.all(isMobile ? 14 : 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // ── BANNER DE IMPORTAÇÃO COM IA GEMINI VISION ─────────
                       Container(
-                        padding: const EdgeInsets.all(18),
+                        padding: EdgeInsets.all(isMobile ? 14 : 18),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
@@ -527,132 +529,222 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                             ),
                           ],
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        child: isMobile
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Row(
                                     children: [
-                                      Text(
-                                        'Importação Inteligente de Conta de Energia',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: const Color(0xFFF59E0B)),
-                                        ),
-                                        child: Text(
-                                          'IA GEMINI OCR',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFFFCD34D),
-                                            letterSpacing: 0.5,
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
                                           ),
+                                          borderRadius: BorderRadius.circular(10),
                                         ),
+                                        child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'Envie a conta (PDF ou Foto). A IA lê o titular, CPF/CNPJ, endereço, UC e calcula a média de consumo em kWh e potência solar recomendada em kWp!',
-                                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _isAiAnalyzing ? null : _importEnergyBillWithAi,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Ink(
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-                                  child: _isAiAnalyzing
-                                      ? Row(
-                                          mainAxisSize: MainAxisSize.min,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Row(
                                           children: [
-                                            const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                            ),
-                                            const SizedBox(width: 8),
                                             Text(
-                                              'ANALISANDO...',
-                                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                                            ),
-                                          ],
-                                        )
-                                      : Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.upload_file_rounded, color: Colors.white, size: 18),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              'ENVIAR CONTA',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 12.5,
+                                              'Importar Conta com IA',
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 14,
                                                 fontWeight: FontWeight.bold,
                                                 color: Colors.white,
-                                                letterSpacing: 0.4,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFFF59E0B)),
+                                              ),
+                                              child: const Text(
+                                                'GEMINI',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFFFCD34D),
+                                                ),
                                               ),
                                             ),
                                           ],
                                         ),
-                                ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Envie a conta (PDF ou Foto) para autocompletar titular, endereço e consumo.',
+                                    style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ElevatedButton(
+                                    onPressed: _isAiAnalyzing ? null : _importEnergyBillWithAi,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFF59E0B),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: _isAiAnalyzing
+                                        ? Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: const [
+                                              SizedBox(
+                                                width: 14,
+                                                height: 14,
+                                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text('ANALISANDO...', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                            ],
+                                          )
+                                        : Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: const [
+                                              Icon(Icons.upload_file_rounded, size: 16),
+                                              SizedBox(width: 6),
+                                              Text('ENVIAR CONTA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                            ],
+                                          ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Importação Inteligente de Conta de Energia',
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: const Color(0xFFF59E0B)),
+                                              ),
+                                              child: Text(
+                                                'IA GEMINI OCR',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: const Color(0xFFFCD34D),
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'Envie a conta (PDF ou Foto). A IA lê o titular, CPF/CNPJ, endereço, UC e calcula a média de consumo em kWh e potência solar recomendada em kWp!',
+                                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: _isAiAnalyzing ? null : _importEnergyBillWithAi,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Ink(
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(12),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                                        child: _isAiAnalyzing
+                                            ? Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'ANALISANDO...',
+                                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                                  ),
+                                                ],
+                                              )
+                                            : Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.upload_file_rounded, color: Colors.white, size: 18),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'ENVIAR CONTA',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 12.5,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                      letterSpacing: 0.4,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 18),
 
                       if (_errorMessage != null) ...[
                         Container(
@@ -679,7 +771,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                       ],
 
                       // ── SEÇÃO 1: DADOS CADASTRAIS DO CLIENTE ──────────────
-                      _sectionTitle(Icons.person_outline_rounded, 'Identificação do Cliente', 'Defina o tipo de pessoa e os dados principais de contato'),
+                      _sectionTitle(Icons.person_outline_rounded, 'Identificação do Cliente', 'Defina o tipo de pessoa e os dados principais'),
                       const SizedBox(height: 12),
 
                       Row(
@@ -687,15 +779,15 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                           Expanded(
                             child: _typeRadio(
                               type: ClientType.person,
-                              label: 'Pessoa Física (CPF)',
+                              label: isMobile ? 'Pessoa Física' : 'Pessoa Física (CPF)',
                               icon: Icons.person_rounded,
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: _typeRadio(
                               type: ClientType.company,
-                              label: 'Pessoa Jurídica (CNPJ)',
+                              label: isMobile ? 'Pessoa Jurídica' : 'Pessoa Jurídica (CNPJ)',
                               icon: Icons.business_rounded,
                             ),
                           ),
@@ -704,117 +796,176 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                       const SizedBox(height: 14),
 
                       // Nome e Documento
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel(_type == ClientType.company ? 'Razão Social / Nome da Empresa *' : 'Nome Completo *'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _nameCtrl,
-                                  decoration: InputDecoration(
-                                    hintText: _type == ClientType.company ? 'Ex: Supermercados Estrela Ltda' : 'Ex: Carlos Eduardo Silva',
-                                    prefixIcon: Icon(_type == ClientType.company ? Icons.business_outlined : Icons.person_outline, color: const Color(0xFF64748B)),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      if (isMobile) ...[
+                        _fieldLabel(_type == ClientType.company ? 'Razão Social / Nome *' : 'Nome Completo *'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _nameCtrl,
+                          decoration: InputDecoration(
+                            hintText: _type == ClientType.company ? 'Nome da Empresa' : 'Nome Completo',
+                            prefixIcon: Icon(_type == ClientType.company ? Icons.business_outlined : Icons.person_outline, color: const Color(0xFF64748B)),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel(_type == ClientType.company ? 'CNPJ' : 'CPF'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _documentCtrl,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    hintText: _type == ClientType.company ? '00.000.000/0001-00' : '000.000.000-00',
-                                    prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: 12),
+                        _fieldLabel(_type == ClientType.company ? 'CNPJ' : 'CPF'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _documentCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            hintText: _type == ClientType.company ? '00.000.000/0001-00' : '000.000.000-00',
+                            prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // E-mail, Telefone e Nome Fantasia
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('E-mail *'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _emailCtrl,
-                                  keyboardType: TextInputType.emailAddress,
-                                  decoration: const InputDecoration(
-                                    hintText: 'contato@cliente.com.br',
-                                    prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('Telefone / WhatsApp'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _phoneCtrl,
-                                  keyboardType: TextInputType.phone,
-                                  decoration: const InputDecoration(
-                                    hintText: '(11) 98765-4321',
-                                    prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_type == ClientType.company) ...[
-                            const SizedBox(width: 14),
+                        ),
+                      ] else ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Expanded(
+                              flex: 3,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _fieldLabel('Nome Fantasia'),
+                                  _fieldLabel(_type == ClientType.company ? 'Razão Social / Nome da Empresa *' : 'Nome Completo *'),
                                   const SizedBox(height: 6),
                                   TextFormField(
-                                    controller: _companyCtrl,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Ex: Estrela Alimentos',
-                                      prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF64748B)),
+                                    controller: _nameCtrl,
+                                    decoration: InputDecoration(
+                                      hintText: _type == ClientType.company ? 'Ex: Supermercados Estrela Ltda' : 'Ex: Carlos Eduardo Silva',
+                                      prefixIcon: Icon(_type == ClientType.company ? Icons.business_outlined : Icons.person_outline, color: const Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel(_type == ClientType.company ? 'CNPJ' : 'CPF'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _documentCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      hintText: _type == ClientType.company ? '00.000.000/0001-00' : '000.000.000-00',
+                                      prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ],
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+
+                      // E-mail, Telefone e Nome Fantasia
+                      if (isMobile) ...[
+                        _fieldLabel('E-mail *'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(
+                            hintText: 'contato@cliente.com.br',
+                            prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _fieldLabel('Telefone / WhatsApp'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            hintText: '(11) 98765-4321',
+                            prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
+                          ),
+                        ),
+                        if (_type == ClientType.company) ...[
+                          const SizedBox(height: 12),
+                          _fieldLabel('Nome Fantasia'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _companyCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'Ex: Estrela Alimentos',
+                              prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF64748B)),
+                            ),
+                          ),
                         ],
-                      ),
-                      const SizedBox(height: 24),
+                      ] else ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('E-mail *'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _emailCtrl,
+                                    keyboardType: TextInputType.emailAddress,
+                                    decoration: const InputDecoration(
+                                      hintText: 'contato@cliente.com.br',
+                                      prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('Telefone / WhatsApp'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _phoneCtrl,
+                                    keyboardType: TextInputType.phone,
+                                    decoration: const InputDecoration(
+                                      hintText: '(11) 98765-4321',
+                                      prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_type == ClientType.company) ...[
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _fieldLabel('Nome Fantasia'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _companyCtrl,
+                                      decoration: const InputDecoration(
+                                        hintText: 'Ex: Estrela Alimentos',
+                                        prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF64748B)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 20),
 
                       // ── SEÇÃO 2: DADOS DA CONTA DE ENERGIA & DIMENSIONAMENTO SOLAR ──
-                      _sectionTitle(Icons.bolt_rounded, 'Unidade Consumidora & Previsão Solar', 'Informações elétricas da fatura e estimativa fotovoltaica'),
+                      _sectionTitle(Icons.bolt_rounded, 'Unidade Consumidora & Previsão Solar', 'Informações elétricas e estimativa fotovoltaica'),
                       const SizedBox(height: 12),
 
                       Container(
-                        padding: const EdgeInsets.all(18),
+                        padding: EdgeInsets.all(isMobile ? 14 : 18),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFFBEB),
                           borderRadius: BorderRadius.circular(16),
@@ -822,124 +973,171 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                         ),
                         child: Column(
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Código UC
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _fieldLabel('Nº Unidade Consumidora (UC)'),
-                                      const SizedBox(height: 6),
-                                      TextFormField(
-                                        controller: _ucNumberCtrl,
-                                        decoration: const InputDecoration(
-                                          hintText: 'Ex: 833.185.017-11',
-                                          prefixIcon: Icon(Icons.tag_rounded, color: Color(0xFFD97706)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                            if (isMobile) ...[
+                              _fieldLabel('Nº Unidade Consumidora (UC)'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _ucNumberCtrl,
+                                decoration: const InputDecoration(
+                                  hintText: 'Ex: 833.185.017-11',
+                                  prefixIcon: Icon(Icons.tag_rounded, color: Color(0xFFD97706)),
                                 ),
-                                const SizedBox(width: 14),
-
-                                // Concessionária
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _fieldLabel('Distribuidora / Concessionária'),
-                                      const SizedBox(height: 6),
-                                      TextFormField(
-                                        controller: _utilityCompanyCtrl,
-                                        decoration: const InputDecoration(
-                                          hintText: 'Ex: Energisa, CPFL, Enel, Cemig...',
-                                          prefixIcon: Icon(Icons.domain_rounded, color: Color(0xFFD97706)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              ),
+                              const SizedBox(height: 12),
+                              _fieldLabel('Distribuidora / Concessionária'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _utilityCompanyCtrl,
+                                decoration: const InputDecoration(
+                                  hintText: 'Ex: Energisa, CPFL, Enel...',
+                                  prefixIcon: Icon(Icons.domain_rounded, color: Color(0xFFD97706)),
                                 ),
-                                const SizedBox(width: 14),
-
-                                // Tipo de Ligação
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _fieldLabel('Tipo de Ligação'),
-                                      const SizedBox(height: 6),
-                                      TextFormField(
-                                        controller: _connectionTypeCtrl,
-                                        decoration: const InputDecoration(
-                                          hintText: 'Trifásico / Bifásico / Monofásico',
-                                          prefixIcon: Icon(Icons.settings_input_component_rounded, color: Color(0xFFD97706)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              ),
+                              const SizedBox(height: 12),
+                              _fieldLabel('Tipo de Ligação'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _connectionTypeCtrl,
+                                decoration: const InputDecoration(
+                                  hintText: 'Trifásico / Bifásico / Monofásico',
+                                  prefixIcon: Icon(Icons.settings_input_component_rounded, color: Color(0xFFD97706)),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Consumo Médio e Potência Solar Sugerida
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Consumo Médio
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _fieldLabel('Consumo Médio Mensal (kWh/mês)'),
-                                      const SizedBox(height: 6),
-                                      TextFormField(
-                                        controller: _avgKwhCtrl,
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        onChanged: _onAvgKwhChanged,
-                                        decoration: const InputDecoration(
-                                          hintText: 'Ex: 600',
-                                          suffixText: 'kWh/mês',
-                                          prefixIcon: Icon(Icons.electric_meter_outlined, color: Color(0xFFD97706)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              ),
+                              const SizedBox(height: 12),
+                              _fieldLabel('Consumo Médio Mensal (kWh/mês)'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _avgKwhCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                onChanged: _onAvgKwhChanged,
+                                decoration: const InputDecoration(
+                                  hintText: 'Ex: 600',
+                                  suffixText: 'kWh/mês',
+                                  prefixIcon: Icon(Icons.electric_meter_outlined, color: Color(0xFFD97706)),
                                 ),
-                                const SizedBox(width: 14),
-
-                                // Potência Solar Calculada
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _fieldLabel('Potência Solar Sugerida (kWp)'),
-                                      const SizedBox(height: 6),
-                                      TextFormField(
-                                        controller: _solarKwPCtrl,
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(
-                                          hintText: 'Ex: 5.45',
-                                          suffixText: 'kWp',
-                                          prefixIcon: Icon(Icons.solar_power_rounded, color: Color(0xFF059669)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              ),
+                              const SizedBox(height: 12),
+                              _fieldLabel('Potência Solar Sugerida (kWp)'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _solarKwPCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  hintText: 'Ex: 5.45',
+                                  suffixText: 'kWp',
+                                  prefixIcon: Icon(Icons.solar_power_rounded, color: Color(0xFF059669)),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ] else ...[
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _fieldLabel('Nº Unidade Consumidora (UC)'),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: _ucNumberCtrl,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Ex: 833.185.017-11',
+                                            prefixIcon: Icon(Icons.tag_rounded, color: Color(0xFFD97706)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _fieldLabel('Distribuidora / Concessionária'),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: _utilityCompanyCtrl,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Ex: Energisa, CPFL, Enel, Cemig...',
+                                            prefixIcon: Icon(Icons.domain_rounded, color: Color(0xFFD97706)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _fieldLabel('Tipo de Ligação'),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: _connectionTypeCtrl,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Trifásico / Bifásico / Monofásico',
+                                            prefixIcon: Icon(Icons.settings_input_component_rounded, color: Color(0xFFD97706)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _fieldLabel('Consumo Médio Mensal (kWh/mês)'),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: _avgKwhCtrl,
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                          onChanged: _onAvgKwhChanged,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Ex: 600',
+                                            suffixText: 'kWh/mês',
+                                            prefixIcon: Icon(Icons.electric_meter_outlined, color: Color(0xFFD97706)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _fieldLabel('Potência Solar Sugerida (kWp)'),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: _solarKwPCtrl,
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                          decoration: const InputDecoration(
+                                            hintText: 'Ex: 5.45',
+                                            suffixText: 'kWp',
+                                            prefixIcon: Icon(Icons.solar_power_rounded, color: Color(0xFF059669)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
 
                       // ── SEÇÃO 3: ENDEREÇO COM AUTOCEP ─────────────────────
                       Row(
                         children: [
-                          _sectionTitle(Icons.location_on_outlined, 'Endereço da Unidade', 'Consulta automática de logradouro via CEP'),
+                          _sectionTitle(Icons.location_on_outlined, 'Endereço da Unidade', 'Consulta via CEP'),
                           const Spacer(),
                           if (_addressLocked) ...[
                             InkWell(
@@ -958,7 +1156,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                                     Icon(Icons.lock_open_rounded, size: 13, color: Color(0xFF6366F1)),
                                     SizedBox(width: 6),
                                     Text(
-                                      'Editar campos de endereço',
+                                      'Editar campos',
                                       style: TextStyle(fontSize: 11.5, color: Color(0xFF6366F1), fontWeight: FontWeight.bold),
                                     ),
                                   ],
@@ -971,188 +1169,299 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                       const SizedBox(height: 12),
 
                       // CEP e Número
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('CEP (8 dígitos)'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _zipCtrl,
-                                  keyboardType: TextInputType.number,
-                                  maxLength: 9,
-                                  onChanged: (v) {
-                                    if (v.replaceAll(RegExp(r'\D'), '').length == 8) {
-                                      _searchCep(v);
-                                    }
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: '00000-000',
-                                    counterText: '',
-                                    prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
-                                    suffixIcon: _isCepLoading
-                                        ? const Padding(
-                                            padding: EdgeInsets.all(12),
-                                            child: SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                ),
-                                if (_cepError != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      _cepError!,
-                                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFDC2626)),
+                      if (isMobile) ...[
+                        _fieldLabel('CEP (8 dígitos)'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _zipCtrl,
+                          keyboardType: TextInputType.number,
+                          maxLength: 9,
+                          onChanged: (v) {
+                            if (v.replaceAll(RegExp(r'\D'), '').length == 8) {
+                              _searchCep(v);
+                            }
+                          },
+                          decoration: InputDecoration(
+                            hintText: '00000-000',
+                            counterText: '',
+                            prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+                            suffixIcon: _isCepLoading
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        if (_cepError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              _cepError!,
+                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFDC2626)),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        _fieldLabel('Número'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _numberCtrl,
+                          focusNode: _numberFocus,
+                          decoration: const InputDecoration(
+                            hintText: '123',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _fieldLabel('Complemento'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _complementCtrl,
+                          decoration: const InputDecoration(
+                            hintText: 'Apto 42, Bloco B...',
+                          ),
+                        ),
+                      ] else ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('CEP (8 dígitos)'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _zipCtrl,
+                                    keyboardType: TextInputType.number,
+                                    maxLength: 9,
+                                    onChanged: (v) {
+                                      if (v.replaceAll(RegExp(r'\D'), '').length == 8) {
+                                        _searchCep(v);
+                                      }
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: '00000-000',
+                                      counterText: '',
+                                      prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+                                      suffixIcon: _isCepLoading
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(12),
+                                              child: SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                              ),
+                                            )
+                                          : null,
                                     ),
                                   ),
-                              ],
+                                  if (_cepError != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        _cepError!,
+                                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFDC2626)),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('Número'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _numberCtrl,
-                                  focusNode: _numberFocus,
-                                  decoration: const InputDecoration(
-                                    hintText: '123',
+                            const SizedBox(width: 14),
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('Número'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _numberCtrl,
+                                    focusNode: _numberFocus,
+                                    decoration: const InputDecoration(
+                                      hintText: '123',
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('Complemento'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _complementCtrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Apto 42, Bloco B, Galpão 3...',
+                            const SizedBox(width: 14),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('Complemento'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _complementCtrl,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Apto 42, Bloco B, Galpão 3...',
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
 
                       // Logradouro, Bairro, Cidade e UF
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('Logradouro / Rua'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _streetCtrl,
-                                  readOnly: _addressLocked,
-                                  decoration: InputDecoration(
-                                    hintText: 'Av. Paulista, Rua das Flores...',
-                                    fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
-                                    filled: _addressLocked,
-                                    prefixIcon: const Icon(Icons.home_outlined, color: Color(0xFF64748B)),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      if (isMobile) ...[
+                        _fieldLabel('Logradouro / Rua'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _streetCtrl,
+                          readOnly: _addressLocked,
+                          decoration: InputDecoration(
+                            hintText: 'Av. Paulista, Rua...',
+                            fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                            filled: _addressLocked,
+                            prefixIcon: const Icon(Icons.home_outlined, color: Color(0xFF64748B)),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('Bairro'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _neighborhoodCtrl,
-                                  readOnly: _addressLocked,
-                                  decoration: InputDecoration(
-                                    hintText: 'Centro',
-                                    fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
-                                    filled: _addressLocked,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: 12),
+                        _fieldLabel('Bairro'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _neighborhoodCtrl,
+                          readOnly: _addressLocked,
+                          decoration: InputDecoration(
+                            hintText: 'Centro',
+                            fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                            filled: _addressLocked,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('Cidade'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _cityCtrl,
-                                  readOnly: _addressLocked,
-                                  decoration: InputDecoration(
-                                    hintText: 'São Paulo',
-                                    fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
-                                    filled: _addressLocked,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: 12),
+                        _fieldLabel('Cidade'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _cityCtrl,
+                          readOnly: _addressLocked,
+                          decoration: InputDecoration(
+                            hintText: 'Cidade',
+                            fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                            filled: _addressLocked,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _fieldLabel('UF'),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: _stateCtrl,
-                                  readOnly: _addressLocked,
-                                  textCapitalization: TextCapitalization.characters,
-                                  maxLength: 2,
-                                  decoration: InputDecoration(
-                                    hintText: 'SP',
-                                    counterText: '',
-                                    fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
-                                    filled: _addressLocked,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: 12),
+                        _fieldLabel('UF'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _stateCtrl,
+                          readOnly: _addressLocked,
+                          textCapitalization: TextCapitalization.characters,
+                          maxLength: 2,
+                          decoration: InputDecoration(
+                            hintText: 'SP',
+                            counterText: '',
+                            fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                            filled: _addressLocked,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
+                        ),
+                      ] else ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('Logradouro / Rua'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _streetCtrl,
+                                    readOnly: _addressLocked,
+                                    decoration: InputDecoration(
+                                      hintText: 'Av. Paulista, Rua das Flores...',
+                                      fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                                      filled: _addressLocked,
+                                      prefixIcon: const Icon(Icons.home_outlined, color: Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('Bairro'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _neighborhoodCtrl,
+                                    readOnly: _addressLocked,
+                                    decoration: InputDecoration(
+                                      hintText: 'Centro',
+                                      fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                                      filled: _addressLocked,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('Cidade'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _cityCtrl,
+                                    readOnly: _addressLocked,
+                                    decoration: InputDecoration(
+                                      hintText: 'São Paulo',
+                                      fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                                      filled: _addressLocked,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldLabel('UF'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: _stateCtrl,
+                                    readOnly: _addressLocked,
+                                    textCapitalization: TextCapitalization.characters,
+                                    maxLength: 2,
+                                    decoration: InputDecoration(
+                                      hintText: 'SP',
+                                      counterText: '',
+                                      fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                                      filled: _addressLocked,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 20),
 
                       // ── SEÇÃO 4: OBSERVAÇÕES ───────────────────────────────
-                      _sectionTitle(Icons.notes_rounded, 'Observações & Histórico', 'Anotações gerais e resumo do diagnóstico energético'),
+                      _sectionTitle(Icons.notes_rounded, 'Observações & Histórico', 'Anotações gerais e diagnóstico'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _notesCtrl,
-                        maxLines: 4,
+                        maxLines: 3,
                         decoration: const InputDecoration(
                           hintText: 'Ex: Cliente tem interesse em usina solar de 5 kWp. Telhado cerâmico.',
                           prefixIcon: Icon(Icons.comment_outlined, color: Color(0xFF64748B)),
@@ -1165,67 +1474,108 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
 
               // ── Rodapé de Ações ───────────────────────────────────────────
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 28, vertical: isMobile ? 12 : 18),
                 decoration: const BoxDecoration(
                   color: Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
                   border: Border(top: BorderSide(color: AppColors.border)),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'CANCELAR',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isLoading ? null : _submit,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                child: isMobile
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: AppColors.border),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                            ],
+                              child: Text(
+                                'CANCELAR',
+                                style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B), fontSize: 12),
+                              ),
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR E SELECIONAR',
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    )
+                                  : Text(
+                                      _isEditing ? 'SALVAR' : 'CADASTRAR',
+                                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(
+                              'CANCELAR',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _isLoading ? null : _submit,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.primaryGradient,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
-                        ),
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                    : Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR E SELECIONAR',
+                                            style: GoogleFonts.inter(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),

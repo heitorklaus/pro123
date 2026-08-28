@@ -115,9 +115,11 @@ class _ClientTableViewState extends State<_ClientTableView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return SizedBox.expand(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(isMobile ? 14 : 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -126,25 +128,27 @@ class _ClientTableViewState extends State<_ClientTableView> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Gestão de Clientes',
-                      style: GoogleFonts.outfit(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Gestão de Clientes',
+                        style: GoogleFonts.outfit(
+                          fontSize: isMobile ? 20 : 26,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Cadastro e controle de clientes e prospectos',
-                      style: GoogleFonts.inter(
-                          fontSize: 14, color: const Color(0xFF64748B)),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Cadastro e controle de clientes e prospectos',
+                        style: GoogleFonts.inter(
+                            fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
                 ),
                 Material(
                   color: Colors.transparent,
@@ -164,19 +168,20 @@ class _ClientTableViewState extends State<_ClientTableView> {
                         ],
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 11),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 11),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.person_add_rounded,
                                 size: 18, color: Colors.white),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Text(
-                              'NOVO CLIENTE',
+                              isMobile ? 'NOVO' : 'NOVO CLIENTE',
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
+                                fontSize: isMobile ? 12 : 13.5,
                                 color: Colors.white,
                               ),
                             ),
@@ -189,17 +194,17 @@ class _ClientTableViewState extends State<_ClientTableView> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: isMobile ? 12 : 20),
 
             // ── Busca ─────────────────────────────────────────────────────
             SizedBox(
-              width: 380,
+              width: isMobile ? double.infinity : 380,
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (v) =>
                     setState(() => _query = v.trim().toLowerCase()),
                 decoration: InputDecoration(
-                  hintText: 'Buscar por nome, e-mail ou empresa...',
+                  hintText: isMobile ? 'Buscar cliente...' : 'Buscar por nome, e-mail ou empresa...',
                   hintStyle: GoogleFonts.inter(
                       fontSize: 13, color: const Color(0xFF94A3B8)),
                   prefixIcon: const Icon(Icons.search_rounded,
@@ -224,29 +229,33 @@ class _ClientTableViewState extends State<_ClientTableView> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isMobile ? 12 : 16),
 
-            // ── Tabela ────────────────────────────────────────────────────
+            // ── Tabela (Desktop) / Cards List (Mobile) ─────────────────────
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isMobile ? Colors.transparent : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  border: isMobile ? null : Border.all(color: AppColors.border),
+                  boxShadow: isMobile
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Column(
                     children: [
-                      _ClientTableHeader(),
-                      const Divider(height: 1, color: AppColors.divider),
+                      if (!isMobile) ...[
+                        _ClientTableHeader(),
+                        const Divider(height: 1, color: AppColors.divider),
+                      ],
                       Expanded(
                         child: StreamBuilder<List<ClientModel>>(
                           stream: _repo.getClientsStream(companyId: _companyId),
@@ -291,6 +300,19 @@ class _ClientTableViewState extends State<_ClientTableView> {
                               return _ClientEmptyState(
                                 isEmpty: all.isEmpty,
                                 onAdd: widget.onAddNew,
+                              );
+                            }
+
+                            if (isMobile) {
+                              return ListView.builder(
+                                itemCount: filtered.length,
+                                padding: EdgeInsets.zero,
+                                itemBuilder: (_, i) => _ClientMobileCard(
+                                  client: filtered[i],
+                                  onEdit: () => widget.onEdit(filtered[i]),
+                                  onDelete: () =>
+                                      _showDeleteDialog(filtered[i]),
+                                ),
                               );
                             }
 
@@ -578,6 +600,148 @@ class _ClientRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Card Mobile de Cliente (para telas estreitas)
+// ─────────────────────────────────────────────────────────────────────────────
+class _ClientMobileCard extends StatelessWidget {
+  final ClientModel client;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ClientMobileCard({
+    required this.client,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = client.name.isNotEmpty
+        ? client.name.trim().split(' ').take(2).map((e) => e.isNotEmpty ? e[0].toUpperCase() : '').join()
+        : '?';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 17,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                      child: Text(
+                        initials,
+                        style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            client.name,
+                            style: GoogleFonts.inter(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0F172A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (client.document != null && client.document!.isNotEmpty)
+                            Text(
+                              client.document!,
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    _TypeBadge(type: client.type),
+                    const SizedBox(width: 6),
+                    _ClientStatusBadge(status: client.status),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1, color: AppColors.divider),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    if (client.phone != null && client.phone!.isNotEmpty) ...[
+                      const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF64748B)),
+                      const SizedBox(width: 4),
+                      Text(
+                        client.phone!,
+                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    if (client.city != null && client.city!.isNotEmpty) ...[
+                      const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${client.city}${client.state != null ? "/${client.state}" : ""}',
+                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ] else
+                      const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6366F1)),
+                      onPressed: onEdit,
+                      tooltip: 'Editar',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                      onPressed: onDelete,
+                      tooltip: 'Excluir',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1159,8 +1323,10 @@ class _ClientFormCardState extends State<_ClientFormCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Container(
-      padding: const EdgeInsets.all(36),
+      padding: EdgeInsets.all(isMobile ? 16 : 36),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -1226,7 +1392,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                     Text(
                       _isEditing ? 'Editar Cliente' : 'Novo Cliente',
                       style: GoogleFonts.outfit(
-                          fontSize: 20,
+                          fontSize: isMobile ? 18 : 20,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary),
                     ),
@@ -1242,13 +1408,13 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           const Divider(color: AppColors.divider),
           const SizedBox(height: 16),
 
           // ── Banner de Importação com IA ────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
@@ -1258,115 +1424,205 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFF334155)),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
                         children: [
-                          Text(
-                            'Importar Conta de Energia com IA',
-                            style: GoogleFonts.outfit(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFFF59E0B)),
-                            ),
-                            child: Text(
-                              'IA GEMINI OCR',
-                              style: GoogleFonts.inter(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFFFCD34D),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
+                              borderRadius: BorderRadius.circular(8),
                             ),
+                            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Envie PDF ou Foto para autocompletar titular, CPF/CNPJ, endereço, média de consumo e potência solar em kWp.',
-                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _isAiAnalyzing ? null : _importEnergyBillWithAi,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      child: _isAiAnalyzing
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                ),
-                                SizedBox(width: 6),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Row(
+                              children: [
                                 Text(
-                                  'ANALISANDO...',
-                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
-                              ],
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.upload_file_rounded, color: Colors.white, size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'ENVIAR CONTA',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
+                                  'Importar Conta com IA',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 13.5,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
-                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFF59E0B)),
+                                  ),
+                                  child: const Text(
+                                    'GEMINI',
+                                    style: TextStyle(
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFFCD34D),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                    ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Envie PDF ou Foto para autocompletar dados, endereço e consumo fotovoltaico.',
+                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton(
+                        onPressed: _isAiAnalyzing ? null : _importEnergyBillWithAi,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: _isAiAnalyzing
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('ANALISANDO...', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                ],
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(Icons.upload_file_rounded, size: 16),
+                                  SizedBox(width: 6),
+                                  Text('ENVIAR CONTA DE ENERGIA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Importar Conta de Energia com IA',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFF59E0B)),
+                                  ),
+                                  child: Text(
+                                    'IA GEMINI OCR',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFFFCD34D),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Envie PDF ou Foto para autocompletar titular, CPF/CNPJ, endereço, média de consumo e potência solar em kWp.',
+                              style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _isAiAnalyzing ? null : _importEnergyBillWithAi,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            child: _isAiAnalyzing
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'ANALISANDO...',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                      ),
+                                    ],
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.upload_file_rounded, color: Colors.white, size: 16),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'ENVIAR CONTA',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 16),
 
@@ -1466,49 +1722,74 @@ class _ClientFormCardState extends State<_ClientFormCard> {
           const SizedBox(height: 14),
 
           // ── Telefone + Documento ──────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Telefone'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        hintText: '(11) 99999-0000',
-                        prefixIcon: Icon(Icons.phone_outlined,
-                            color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+          if (isMobile) ...[
+            _label('Telefone'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                hintText: '(11) 99999-0000',
+                prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label(_type == ClientType.person ? 'CPF' : 'CNPJ'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _documentCtrl,
-                      decoration: InputDecoration(
-                        hintText: _type == ClientType.person
-                            ? '000.000.000-00'
-                            : '00.000.000/0000-00',
-                        prefixIcon: const Icon(Icons.badge_outlined,
-                            color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 14),
+            _label(_type == ClientType.person ? 'CPF' : 'CNPJ'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _documentCtrl,
+              decoration: InputDecoration(
+                hintText: _type == ClientType.person
+                    ? '000.000.000-00'
+                    : '00.000.000/0000-00',
+                prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Telefone'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          hintText: '(11) 99999-0000',
+                          prefixIcon: Icon(Icons.phone_outlined,
+                              color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label(_type == ClientType.person ? 'CPF' : 'CNPJ'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _documentCtrl,
+                        decoration: InputDecoration(
+                          hintText: _type == ClientType.person
+                              ? '000.000.000-00'
+                              : '00.000.000/0000-00',
+                          prefixIcon: const Icon(Icons.badge_outlined,
+                              color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
 
           // ── Empresa (só PF) ───────────────────────────────────────────────
@@ -1534,284 +1815,410 @@ class _ClientFormCardState extends State<_ClientFormCard> {
           ),
           const SizedBox(height: 12),
 
-          // ── CEP + banner ──────────────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Campo CEP
-              SizedBox(
-                width: 190,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('CEP'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _zipCtrl,
-                      keyboardType: TextInputType.number,
-                      maxLength: 9,
-                      onChanged: (v) {
-                        final digits = v.replaceAll(RegExp(r'\D'), '');
-                        if (digits.length == 8) _searchCep(digits);
-                        if (digits.length < 8 && _addressLocked) {
-                          setState(() => _addressLocked = false);
-                        }
-                      },
-                      decoration: InputDecoration(
-                        hintText: '00000-000',
-                        counterText: '',
-                        prefixIcon: const Icon(Icons.pin_drop_outlined,
-                            color: Color(0xFF64748B)),
-                        suffixIcon: _isCepLoading
-                            ? const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              )
-                            : _addressLocked
-                                ? Tooltip(
-                                    message: 'Limpar endereço',
-                                    child: IconButton(
-                                      icon: const Icon(Icons.clear_rounded,
-                                          size: 18,
-                                          color: Color(0xFF94A3B8)),
-                                      onPressed: _clearAddress,
-                                    ),
-                                  )
-                                : null,
-                      ),
-                    ),
-                    if (_cepError != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _cepError!,
-                        style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: const Color(0xFFEF4444)),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Banner de status do endereço
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 26),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _addressLocked
-                          ? const Color(0xFFD1FAE5)
-                          : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _addressLocked
-                            ? const Color(0xFF6EE7B7)
-                            : AppColors.border,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _addressLocked
-                              ? Icons.check_circle_rounded
-                              : Icons.info_outline_rounded,
-                          color: _addressLocked
-                              ? const Color(0xFF059669)
-                              : const Color(0xFF94A3B8),
-                          size: 16,
+          // ── CEP + status ──────────────────────────────────────────────────
+          if (isMobile) ...[
+            _label('CEP'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _zipCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 9,
+              onChanged: (v) {
+                final digits = v.replaceAll(RegExp(r'\D'), '');
+                if (digits.length == 8) _searchCep(digits);
+                if (digits.length < 8 && _addressLocked) {
+                  setState(() => _addressLocked = false);
+                }
+              },
+              decoration: InputDecoration(
+                hintText: '00000-000',
+                counterText: '',
+                prefixIcon: const Icon(Icons.pin_drop_outlined, color: Color(0xFF64748B)),
+                suffixIcon: _isCepLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _addressLocked
-                                ? 'Endereço preenchido automaticamente'
-                                : 'Digite o CEP para preencher',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: _addressLocked
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              color: _addressLocked
-                                  ? const Color(0xFF065F46)
-                                  : const Color(0xFF94A3B8),
+                      )
+                    : _addressLocked
+                        ? Tooltip(
+                            message: 'Limpar endereço',
+                            child: IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF94A3B8)),
+                              onPressed: _clearAddress,
                             ),
-                          ),
+                          )
+                        : null,
+              ),
+            ),
+            if (_cepError != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                _cepError!,
+                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFEF4444)),
+              ),
+            ],
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 190,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('CEP'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _zipCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 9,
+                        onChanged: (v) {
+                          final digits = v.replaceAll(RegExp(r'\D'), '');
+                          if (digits.length == 8) _searchCep(digits);
+                          if (digits.length < 8 && _addressLocked) {
+                            setState(() => _addressLocked = false);
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: '00000-000',
+                          counterText: '',
+                          prefixIcon: const Icon(Icons.pin_drop_outlined,
+                              color: Color(0xFF64748B)),
+                          suffixIcon: _isCepLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                )
+                              : _addressLocked
+                                  ? Tooltip(
+                                      message: 'Limpar endereço',
+                                      child: IconButton(
+                                        icon: const Icon(Icons.clear_rounded,
+                                            size: 18,
+                                            color: Color(0xFF94A3B8)),
+                                        onPressed: _clearAddress,
+                                      ),
+                                    )
+                                  : null,
+                        ),
+                      ),
+                      if (_cepError != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _cepError!,
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: const Color(0xFFEF4444)),
                         ),
                       ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 26),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _addressLocked
+                            ? const Color(0xFFD1FAE5)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _addressLocked
+                              ? const Color(0xFF6EE7B7)
+                              : AppColors.border,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _addressLocked
+                                ? Icons.check_circle_rounded
+                                : Icons.info_outline_rounded,
+                            color: _addressLocked
+                                ? const Color(0xFF059669)
+                                : const Color(0xFF94A3B8),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _addressLocked
+                                  ? 'Endereço preenchido automaticamente'
+                                  : 'Digite o CEP para preencher',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: _addressLocked
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: _addressLocked
+                                    ? const Color(0xFF065F46)
+                                    : const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
 
           // ── Logradouro + Número ───────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Logradouro'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _streetCtrl,
-                      readOnly: _addressLocked,
-                      decoration: InputDecoration(
-                        hintText: 'Rua, Avenida, Praça...',
-                        filled: _addressLocked,
-                        fillColor: _addressLocked
-                            ? const Color(0xFFF1F5F9)
-                            : null,
-                        prefixIcon: const Icon(Icons.edit_road_rounded,
-                            color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+          if (isMobile) ...[
+            _label('Logradouro'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _streetCtrl,
+              readOnly: _addressLocked,
+              decoration: InputDecoration(
+                hintText: 'Rua, Avenida, Praça...',
+                filled: _addressLocked,
+                fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                prefixIcon: const Icon(Icons.edit_road_rounded, color: Color(0xFF64748B)),
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 100,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Número'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _numberCtrl,
-                      focusNode: _numberFocus,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        hintText: 'Nº',
-                        prefixIcon: Icon(Icons.tag_rounded,
-                            color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('Número'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _numberCtrl,
+              focusNode: _numberFocus,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                hintText: 'Número do imóvel',
+                prefixIcon: Icon(Icons.tag_rounded, color: Color(0xFF64748B)),
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Logradouro'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _streetCtrl,
+                        readOnly: _addressLocked,
+                        decoration: InputDecoration(
+                          hintText: 'Rua, Avenida, Praça...',
+                          filled: _addressLocked,
+                          fillColor: _addressLocked
+                              ? const Color(0xFFF1F5F9)
+                              : null,
+                          prefixIcon: const Icon(Icons.edit_road_rounded,
+                              color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 100,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Número'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _numberCtrl,
+                        focusNode: _numberFocus,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          hintText: 'Nº',
+                          prefixIcon: Icon(Icons.tag_rounded,
+                              color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
 
           // ── Complemento + Bairro ──────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Complemento'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _complementCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Apto, Sala, Bloco...',
-                        prefixIcon: Icon(Icons.layers_outlined,
-                            color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+          if (isMobile) ...[
+            _label('Complemento'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _complementCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Apto, Sala, Bloco...',
+                prefixIcon: Icon(Icons.layers_outlined, color: Color(0xFF64748B)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Bairro'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _neighborhoodCtrl,
-                      readOnly: _addressLocked,
-                      decoration: InputDecoration(
-                        hintText: 'Bairro',
-                        filled: _addressLocked,
-                        fillColor: _addressLocked
-                            ? const Color(0xFFF1F5F9)
-                            : null,
-                        prefixIcon: const Icon(Icons.map_outlined,
-                            color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('Bairro'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _neighborhoodCtrl,
+              readOnly: _addressLocked,
+              decoration: InputDecoration(
+                hintText: 'Bairro',
+                filled: _addressLocked,
+                fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                prefixIcon: const Icon(Icons.map_outlined, color: Color(0xFF64748B)),
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Complemento'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _complementCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Apto, Sala, Bloco...',
+                          prefixIcon: Icon(Icons.layers_outlined,
+                              color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Bairro'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _neighborhoodCtrl,
+                        readOnly: _addressLocked,
+                        decoration: InputDecoration(
+                          hintText: 'Bairro',
+                          filled: _addressLocked,
+                          fillColor: _addressLocked
+                              ? const Color(0xFFF1F5F9)
+                              : null,
+                          prefixIcon: const Icon(Icons.map_outlined,
+                              color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
 
           // ── Cidade + UF ───────────────────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Cidade'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _cityCtrl,
-                      readOnly: _addressLocked,
-                      decoration: InputDecoration(
-                        hintText: 'Cidade',
-                        filled: _addressLocked,
-                        fillColor: _addressLocked
-                            ? const Color(0xFFF1F5F9)
-                            : null,
-                        prefixIcon: const Icon(Icons.location_city_rounded,
-                            color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+          if (isMobile) ...[
+            _label('Cidade'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _cityCtrl,
+              readOnly: _addressLocked,
+              decoration: InputDecoration(
+                hintText: 'Cidade',
+                filled: _addressLocked,
+                fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
+                prefixIcon: const Icon(Icons.location_city_rounded, color: Color(0xFF64748B)),
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 80,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('UF'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _stateCtrl,
-                      readOnly: _addressLocked,
-                      maxLength: 2,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: InputDecoration(
-                        hintText: 'SP',
-                        counterText: '',
-                        filled: _addressLocked,
-                        fillColor: _addressLocked
-                            ? const Color(0xFFF1F5F9)
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('UF (Estado)'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _stateCtrl,
+              readOnly: _addressLocked,
+              maxLength: 2,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                hintText: 'SP',
+                counterText: '',
+                filled: _addressLocked,
+                fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Cidade'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _cityCtrl,
+                        readOnly: _addressLocked,
+                        decoration: InputDecoration(
+                          hintText: 'Cidade',
+                          filled: _addressLocked,
+                          fillColor: _addressLocked
+                              ? const Color(0xFFF1F5F9)
+                              : null,
+                          prefixIcon: const Icon(Icons.location_city_rounded,
+                              color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 80,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('UF'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _stateCtrl,
+                        readOnly: _addressLocked,
+                        maxLength: 2,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          hintText: 'SP',
+                          counterText: '',
+                          filled: _addressLocked,
+                          fillColor: _addressLocked
+                              ? const Color(0xFFF1F5F9)
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
 
           // ── Status (só na edição) ─────────────────────────────────────────

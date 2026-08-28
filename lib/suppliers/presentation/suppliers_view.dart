@@ -191,8 +191,10 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 14 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -200,23 +202,25 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Gestão de Fornecedores',
-                    style: GoogleFonts.outfit(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gestão de Fornecedores',
+                      style: GoogleFonts.outfit(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Cadastro de distribuidores, parceiros comerciais e dados de compra',
-                    style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      'Cadastro de distribuidores e parceiros comerciais',
+                      style: GoogleFonts.inter(fontSize: isMobile ? 12 : 13, color: const Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
               ),
 
               // Botão Novo Fornecedor
@@ -237,18 +241,19 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 12),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
+                        const Icon(Icons.add_rounded, color: Colors.white, size: 18),
+                        const SizedBox(width: 6),
                         Text(
-                          'NOVO FORNECEDOR',
+                          isMobile ? 'NOVO' : 'NOVO FORNECEDOR',
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: isMobile ? 12 : 13,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -260,26 +265,26 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
             ],
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: isMobile ? 14 : 24),
 
           // ── Barra de Busca & Filtros ──────────────────────────────────────
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 10,
+            runSpacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: 360,
+                width: isMobile ? double.infinity : 360,
                 child: TextField(
                   controller: _searchCtrl,
                   onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
                   decoration: InputDecoration(
-                    hintText: 'Buscar por nome, razão social, CNPJ ou e-mail...',
+                    hintText: isMobile ? 'Buscar fornecedor...' : 'Buscar por nome, razão social, CNPJ ou e-mail...',
                     hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
                     prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: AppColors.border),
@@ -330,29 +335,33 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: isMobile ? 12 : 20),
 
-          // ── Tabela com Stream em Tempo Real ───────────────────────────────
+          // ── Tabela (Desktop) / Lista de Cards (Mobile) ───────────────────
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isMobile ? Colors.transparent : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: isMobile ? null : Border.all(color: AppColors.border),
+                boxShadow: isMobile
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Column(
                   children: [
-                    const _SupplierTableHeader(),
-                    const Divider(height: 1, color: AppColors.divider),
+                    if (!isMobile) ...[
+                      const _SupplierTableHeader(),
+                      const Divider(height: 1, color: AppColors.divider),
+                    ],
                     Expanded(
                       child: StreamBuilder<List<SupplierModel>>(
                         stream: _repo.getSuppliersStream(companyId: _companyId),
@@ -386,6 +395,18 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                             return _SupplierEmptyState(
                               isEmpty: all.isEmpty,
                               onAdd: widget.onAddNew,
+                            );
+                          }
+
+                          if (isMobile) {
+                            return ListView.builder(
+                              itemCount: filtered.length,
+                              padding: EdgeInsets.zero,
+                              itemBuilder: (_, i) => _SupplierMobileCard(
+                                supplier: filtered[i],
+                                onEdit: () => widget.onEdit(filtered[i]),
+                                onDelete: () => _showDeleteDialog(filtered[i]),
+                              ),
                             );
                           }
 
@@ -584,6 +605,136 @@ class _SupplierRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Card Mobile de Fornecedor
+// ─────────────────────────────────────────────────────────────────────────────
+class _SupplierMobileCard extends StatelessWidget {
+  final SupplierModel supplier;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _SupplierMobileCard({
+    required this.supplier,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.business_rounded, color: Color(0xFF6366F1), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            supplier.displayName,
+                            style: GoogleFonts.inter(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0F172A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (supplier.cnpj != null && supplier.cnpj!.isNotEmpty)
+                            Text(
+                              supplier.cnpj!,
+                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    _SupplierStatusBadge(status: supplier.status),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1, color: AppColors.divider),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    if (supplier.phone.isNotEmpty) ...[
+                      const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF64748B)),
+                      const SizedBox(width: 4),
+                      Text(
+                        supplier.phone,
+                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    if (supplier.city != null && supplier.city!.isNotEmpty) ...[
+                      const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${supplier.city}${supplier.state != null ? "/${supplier.state}" : ""}',
+                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ] else
+                      const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6366F1)),
+                      onPressed: onEdit,
+                      tooltip: 'Editar',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                      onPressed: onDelete,
+                      tooltip: 'Excluir',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -932,8 +1083,10 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Container(
-      padding: const EdgeInsets.all(36),
+      padding: EdgeInsets.all(isMobile ? 16 : 36),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -981,24 +1134,24 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0284C7).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.local_shipping_rounded, color: Color(0xFF0284C7), size: 24),
+                child: const Icon(Icons.local_shipping_rounded, color: Color(0xFF0284C7), size: 22),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       _isEditing ? 'Editar Fornecedor' : 'Novo Fornecedor',
-                      style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                      style: GoogleFonts.outfit(fontSize: isMobile ? 18 : 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                     ),
                     Text(
-                      'Preencha os dados cadastrais, endereço e condições comerciais',
+                      'Preencha os dados cadastrais e endereço',
                       style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
                     ),
                   ],
@@ -1007,7 +1160,7 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           const Divider(color: AppColors.divider),
           const SizedBox(height: 16),
 
@@ -1020,354 +1173,513 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
           _sectionHeader(Icons.business_rounded, 'Dados da Empresa', 'Identificação cadastral e fiscal'),
           const SizedBox(height: 14),
 
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Nome Fantasia *'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _tradeNameCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: Distribuidora Paulista',
-                        prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
+          if (isMobile) ...[
+            _label('Nome Fantasia *'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _tradeNameCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Ex: Distribuidora Paulista',
+                prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF64748B)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _label('Razão Social'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _corpNameCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Ex: Paulista Comércio Ltda',
+                prefixIcon: Icon(Icons.apartment_rounded, color: Color(0xFF64748B)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _label('CNPJ'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _cnpjCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                hintText: '00.000.000/0001-00',
+                prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _label('Inscrição Estadual (IE)'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _ieCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Isento ou número da IE',
+                prefixIcon: Icon(Icons.receipt_outlined, color: Color(0xFF64748B)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _label('Ramo / Categoria'),
+                Text(
+                  'clique em + p/ Lista!',
+                  style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _categoryCtrl,
+              decoration: InputDecoration(
+                hintText: 'Ex: Produtos de Limpeza...',
+                prefixIcon: const Icon(Icons.category_outlined, color: Color(0xFF64748B)),
+                suffixIcon: Tooltip(
+                  message: 'Selecionar Categoria / Ramo',
+                  child: IconButton(
+                    icon: const Icon(Icons.playlist_add_rounded, color: AppColors.primary, size: 22),
+                    onPressed: _openCategorySelectorDialog,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Razão Social'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _corpNameCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: Paulista Comércio e Distribuição Ltda',
-                        prefixIcon: Icon(Icons.apartment_rounded, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('CNPJ'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _cnpjCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        hintText: '00.000.000/0001-00',
-                        prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Inscrição Estadual (IE)'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _ieCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Isento ou número da IE',
-                        prefixIcon: Icon(Icons.receipt_outlined, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _label('Ramo / Categoria'),
-                        Text(
-                          'clique em + p/ Lista!',
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: const Color(0xFF94A3B8),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _categoryCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'Ex: Produtos de Limpeza, Embalagens...',
-                        prefixIcon: const Icon(Icons.category_outlined, color: Color(0xFF64748B)),
-                        suffixIcon: Tooltip(
-                          message: 'Selecionar Categoria / Ramo (Popup com Ícones e Cores)',
-                          child: IconButton(
-                            icon: const Icon(Icons.playlist_add_rounded, color: AppColors.primary, size: 22),
-                            onPressed: _openCategorySelectorDialog,
-                          ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Nome Fantasia *'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _tradeNameCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex: Distribuidora Paulista',
+                          prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF64748B)),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Razão Social'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _corpNameCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex: Paulista Comércio e Distribuição Ltda',
+                          prefixIcon: Icon(Icons.apartment_rounded, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('CNPJ'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _cnpjCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          hintText: '00.000.000/0001-00',
+                          prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Inscrição Estadual (IE)'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _ieCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Isento ou número da IE',
+                          prefixIcon: Icon(Icons.receipt_outlined, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _label('Ramo / Categoria'),
+                          Text(
+                            'clique em + p/ Lista!',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _categoryCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Ex: Produtos de Limpeza, Embalagens...',
+                          prefixIcon: const Icon(Icons.category_outlined, color: Color(0xFF64748B)),
+                          suffixIcon: Tooltip(
+                            message: 'Selecionar Categoria / Ramo (Popup com Ícones e Cores)',
+                            child: IconButton(
+                              icon: const Icon(Icons.playlist_add_rounded, color: AppColors.primary, size: 22),
+                              onPressed: _openCategorySelectorDialog,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
 
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
 
           // ── SEÇÃO 2: CONTATO & ATENDIMENTO ────────────────────────────────
           _sectionHeader(Icons.contact_phone_outlined, 'Contato & Atendimento', 'Canais de comunicação e pedidos'),
           const SizedBox(height: 14),
 
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('E-mail Principal *'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        hintText: 'pedidos@fornecedor.com.br',
-                        prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+          if (isMobile) ...[
+            _label('E-mail Principal *'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                hintText: 'pedidos@fornecedor.com.br',
+                prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Telefone / WhatsApp *'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        hintText: '(11) 99999-0000',
-                        prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('Telefone / WhatsApp *'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                hintText: '(11) 99999-0000',
+                prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Representante / Vendedor'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _contactCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Nome do seu contato',
-                        prefixIcon: Icon(Icons.person_outline_rounded, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            _label('Representante / Vendedor'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _contactCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Nome do seu contato',
+                prefixIcon: Icon(Icons.person_outline_rounded, color: Color(0xFF64748B)),
               ),
-            ],
-          ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('E-mail Principal *'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          hintText: 'pedidos@fornecedor.com.br',
+                          prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Telefone / WhatsApp *'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          hintText: '(11) 99999-0000',
+                          prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Representante / Vendedor'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _contactCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Nome do seu contato',
+                          prefixIcon: Icon(Icons.person_outline_rounded, color: Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
 
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
 
           // ── SEÇÃO 3: ENDEREÇO & LOCALIZAÇÃO (VIACEP AUTO) ─────────────────
           _sectionHeader(Icons.location_on_outlined, 'Endereço & Localização', 'Preenchimento automático ao digitar o CEP'),
           const SizedBox(height: 14),
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // CEP
-              SizedBox(
-                width: 220,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('CEP (Auto-busca)'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _zipCtrl,
-                      keyboardType: TextInputType.number,
-                      maxLength: 9,
-                      onChanged: _searchZipCode,
-                      decoration: InputDecoration(
-                        hintText: '00000-000',
-                        counterText: '',
-                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
-                        suffixIcon: _isSearchingZip
-                            ? const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
-                              )
-                            : null,
+          if (isMobile) ...[
+            _label('CEP (Auto-busca)'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _zipCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 9,
+              onChanged: _searchZipCode,
+              decoration: InputDecoration(
+                hintText: '00000-000',
+                counterText: '',
+                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+                suffixIcon: _isSearchingZip
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                      )
+                    : null,
+              ),
+            ),
+            if (_zipError != null) ...[
+              const SizedBox(height: 4),
+              Text(_zipError!, style: GoogleFonts.inter(color: const Color(0xFFEF4444), fontSize: 11)),
+            ],
+            const SizedBox(height: 12),
+            _label('Logradouro / Rua'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _streetCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Rua, Avenida, Alameda...',
+                prefixIcon: Icon(Icons.home_outlined, color: Color(0xFF64748B)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _label('Número'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _numCtrl,
+              focusNode: _numFocus,
+              decoration: const InputDecoration(hintText: '123'),
+            ),
+            const SizedBox(height: 12),
+            _label('Complemento'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _compCtrl,
+              decoration: const InputDecoration(hintText: 'Galpão 3, Sala 10...'),
+            ),
+            const SizedBox(height: 12),
+            _label('Bairro'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _neighborhoodCtrl,
+              decoration: const InputDecoration(hintText: 'Bairro'),
+            ),
+            const SizedBox(height: 12),
+            _label('Cidade'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _cityCtrl,
+              decoration: const InputDecoration(hintText: 'Cidade'),
+            ),
+            const SizedBox(height: 12),
+            _label('UF'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _stateCtrl,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 2,
+              decoration: const InputDecoration(hintText: 'SP', counterText: ''),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 220,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('CEP (Auto-busca)'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _zipCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 9,
+                        onChanged: _searchZipCode,
+                        decoration: InputDecoration(
+                          hintText: '00000-000',
+                          counterText: '',
+                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
+                          suffixIcon: _isSearchingZip
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                                )
+                              : null,
+                        ),
                       ),
-                    ),
-                    if (_zipError != null) ...[
-                      const SizedBox(height: 4),
-                      Text(_zipError!, style: GoogleFonts.inter(color: const Color(0xFFEF4444), fontSize: 11)),
+                      if (_zipError != null) ...[
+                        const SizedBox(height: 4),
+                        Text(_zipError!, style: GoogleFonts.inter(color: const Color(0xFFEF4444), fontSize: 11)),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-
-              // Logradouro
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Logradouro / Rua'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _streetCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Rua, Avenida, Alameda...',
-                        prefixIcon: Icon(Icons.home_outlined, color: Color(0xFF64748B)),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Logradouro / Rua'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _streetCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Rua, Avenida, Alameda...',
+                          prefixIcon: Icon(Icons.home_outlined, color: Color(0xFF64748B)),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 120,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Número'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _numCtrl,
+                        focusNode: _numFocus,
+                        decoration: const InputDecoration(hintText: '123'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Complemento'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _compCtrl,
+                        decoration: const InputDecoration(hintText: 'Galpão 3, Sala 10, Bloco B...'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Bairro'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _neighborhoodCtrl,
+                        decoration: const InputDecoration(hintText: 'Bairro'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Cidade'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _cityCtrl,
+                        decoration: const InputDecoration(hintText: 'Cidade'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 90,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('UF'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _stateCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        maxLength: 2,
+                        decoration: const InputDecoration(hintText: 'SP', counterText: ''),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
 
-              // Número
-              SizedBox(
-                width: 120,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Número'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _numCtrl,
-                      focusNode: _numFocus,
-                      decoration: const InputDecoration(hintText: '123'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Complemento'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _compCtrl,
-                      decoration: const InputDecoration(hintText: 'Galpão 3, Sala 10, Bloco B...'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Bairro'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _neighborhoodCtrl,
-                      decoration: const InputDecoration(hintText: 'Bairro'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Cidade'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _cityCtrl,
-                      decoration: const InputDecoration(hintText: 'Cidade'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 90,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('UF'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _stateCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      maxLength: 2,
-                      decoration: const InputDecoration(hintText: 'SP', counterText: ''),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
 
           // ── SEÇÃO 4: CONDIÇÕES COMERCIAIS & NOTAS ─────────────────────────
-          _sectionHeader(Icons.handshake_outlined, 'Condições Comerciais & Observações', 'Prazos de pagamento e detalhes de negociação'),
+          _sectionHeader(Icons.handshake_outlined, 'Condições Comerciais & Observações', 'Prazos de pagamento e detalhes'),
           const SizedBox(height: 14),
 
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Condições de Pagamento Padrão'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _paymentTermsCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: Boleto 30/60 dias, À vista 5% desc, Faturado',
-                        prefixIcon: Icon(Icons.payment_rounded, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _label('Condições de Pagamento Padrão'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _paymentTermsCtrl,
+            decoration: const InputDecoration(
+              hintText: 'Ex: Boleto 30/60 dias, À vista 5% desc, Faturado',
+              prefixIcon: Icon(Icons.payment_rounded, color: Color(0xFF64748B)),
+            ),
           ),
           const SizedBox(height: 14),
 
@@ -1382,7 +1694,7 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
             ),
           ),
 
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
 
           // ── Status (só na edição) ─────────────────────────────────────────
           if (_isEditing) ...[
@@ -1401,7 +1713,7 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
                   .toList(),
               onChanged: (v) => setState(() => _status = v!),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
           ],
 
           // ── Botão Salvar ──────────────────────────────────────────────────

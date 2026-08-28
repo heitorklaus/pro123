@@ -254,8 +254,10 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 14 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -264,24 +266,26 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Propostas Comerciais & Orçamentos',
-                    style: GoogleFonts.outfit(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Emissão inteligente de orçamentos com múltiplos itens e geração de PDF profissional',
-                    style: GoogleFonts.inter(
-                        fontSize: 14, color: const Color(0xFF64748B)),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isMobile ? 'Propostas Comerciais' : 'Propostas Comerciais & Orçamentos',
+                      style: GoogleFonts.outfit(
+                          fontSize: isMobile ? 20 : 26,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Emissão inteligente de orçamentos e PDF',
+                      style: GoogleFonts.inter(
+                          fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
               ),
               Material(
                 color: Colors.transparent,
@@ -300,19 +304,20 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 14 : 20, vertical: isMobile ? 10 : 12),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.note_add_rounded,
                             size: 18, color: Colors.white),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
-                          'NOVA PROPOSTA',
+                          isMobile ? 'NOVA' : 'NOVA PROPOSTA',
                           style: GoogleFonts.inter(
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
+                              fontSize: isMobile ? 12 : 13,
                               letterSpacing: 0.5),
                         ),
                       ],
@@ -323,104 +328,168 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
 
           // ── Barra de Busca & Filtros ─────────────────────────────────────
-          Row(
-            children: [
-              // Campo de busca
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (v) =>
-                      setState(() => _query = v.trim().toLowerCase()),
-                  decoration: InputDecoration(
-                    hintText:
-                        'Buscar por número da proposta, cliente ou título...',
-                    hintStyle: GoogleFonts.inter(
-                        fontSize: 13, color: const Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.search_rounded,
-                        color: Color(0xFF64748B), size: 20),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.border)),
-                  ),
+          if (isMobile) ...[
+            TextField(
+              controller: _searchCtrl,
+              onChanged: (v) =>
+                  setState(() => _query = v.trim().toLowerCase()),
+              decoration: InputDecoration(
+                hintText: 'Buscar por proposta, cliente...',
+                hintStyle: GoogleFonts.inter(
+                    fontSize: 12.5, color: const Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: Color(0xFF64748B), size: 18),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.border)),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.border)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<ProposalStatus?>(
+                  value: _filterStatus,
+                  hint: Text('Todos os Status',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5, color: const Color(0xFF64748B))),
+                  isExpanded: true,
+                  icon: const Icon(Icons.filter_list_rounded,
+                      size: 18, color: Color(0xFF64748B)),
+                  items: [
+                    DropdownMenuItem<ProposalStatus?>(
+                      value: null,
+                      child: Text('Todos os Status',
+                          style: GoogleFonts.inter(
+                              fontSize: 12.5, fontWeight: FontWeight.w600)),
+                    ),
+                    ...ProposalStatus.values
+                        .map((s) => DropdownMenuItem<ProposalStatus?>(
+                              value: s,
+                              child: Text(s.label,
+                                  style: GoogleFonts.inter(fontSize: 12.5)),
+                            )),
+                  ],
+                  onChanged: (val) => setState(() => _filterStatus = val),
                 ),
               ),
-              const SizedBox(width: 14),
-
-              // Filtro por Status
-              Expanded(
-                flex: 2,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<ProposalStatus?>(
-                      value: _filterStatus,
-                      hint: Text('Todos os Status',
-                          style: GoogleFonts.inter(
-                              fontSize: 13, color: const Color(0xFF64748B))),
-                      isExpanded: true,
-                      icon: const Icon(Icons.filter_list_rounded,
-                          size: 18, color: Color(0xFF64748B)),
-                      items: [
-                        DropdownMenuItem<ProposalStatus?>(
-                          value: null,
-                          child: Text('Todos os Status',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
-                        ),
-                        ...ProposalStatus.values
-                            .map((s) => DropdownMenuItem<ProposalStatus?>(
-                                  value: s,
-                                  child: Text(s.label,
-                                      style: GoogleFonts.inter(fontSize: 13)),
-                                )),
-                      ],
-                      onChanged: (val) => setState(() => _filterStatus = val),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                // Campo de busca
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) =>
+                        setState(() => _query = v.trim().toLowerCase()),
+                    decoration: InputDecoration(
+                      hintText:
+                          'Buscar por número da proposta, cliente ou título...',
+                      hintStyle: GoogleFonts.inter(
+                          fontSize: 13, color: const Color(0xFF94A3B8)),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          color: Color(0xFF64748B), size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: AppColors.border)),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: AppColors.border)),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 14),
 
-          const SizedBox(height: 16),
+                // Filtro por Status
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<ProposalStatus?>(
+                        value: _filterStatus,
+                        hint: Text('Todos os Status',
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: const Color(0xFF64748B))),
+                        isExpanded: true,
+                        icon: const Icon(Icons.filter_list_rounded,
+                            size: 18, color: Color(0xFF64748B)),
+                        items: [
+                          DropdownMenuItem<ProposalStatus?>(
+                            value: null,
+                            child: Text('Todos os Status',
+                                style: GoogleFonts.inter(
+                                    fontSize: 13, fontWeight: FontWeight.w600)),
+                          ),
+                          ...ProposalStatus.values
+                              .map((s) => DropdownMenuItem<ProposalStatus?>(
+                                    value: s,
+                                    child: Text(s.label,
+                                        style: GoogleFonts.inter(fontSize: 13)),
+                                  )),
+                        ],
+                        onChanged: (val) => setState(() => _filterStatus = val),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 14),
 
           // ── Conteúdo da Tabela ───────────────────────────────────────────
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isMobile ? Colors.transparent : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: isMobile ? null : Border.all(color: AppColors.border),
+                boxShadow: isMobile
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Column(
                   children: [
-                    _ProposalTableHeader(),
-                    const Divider(height: 1, color: AppColors.divider),
+                    if (!isMobile) ...[
+                      _ProposalTableHeader(),
+                      const Divider(height: 1, color: AppColors.divider),
+                    ],
                     Expanded(
                       child: StreamBuilder<List<ProposalModel>>(
                         stream: _repo.getProposalsStream(companyId: _companyId),
@@ -460,6 +529,23 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                             );
                           }
 
+                          if (isMobile) {
+                            return ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (_, i) {
+                                final proposal = filtered[i];
+                                return _ProposalMobileCard(
+                                  proposal: proposal,
+                                  onPreviewPdf: () => _showPdfPreview(proposal),
+                                  onEdit: () => widget.onEdit(proposal),
+                                  onDelete: () => _confirmDelete(proposal),
+                                  onStatusChange: (s) =>
+                                      _changeStatus(proposal, s),
+                                );
+                              },
+                            );
+                          }
+
                           return ListView.separated(
                             itemCount: filtered.length,
                             separatorBuilder: (_, __) => const Divider(
@@ -485,6 +571,185 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CARD MOBILE DE PROPOSTA COMERCIAL
+// ─────────────────────────────────────────────────────────────────────────────
+class _ProposalMobileCard extends StatelessWidget {
+  final ProposalModel proposal;
+  final VoidCallback onPreviewPdf;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final ValueChanged<ProposalStatus> onStatusChange;
+
+  const _ProposalMobileCard({
+    required this.proposal,
+    required this.onPreviewPdf,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onStatusChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final themeColor = Color(proposal.themeColorValue);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Icon(Icons.description_outlined, color: themeColor, size: 18),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  proposal.proposalNumber,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF334155),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  proposal.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            proposal.clientName,
+                            style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'R\$ ${proposal.totalAmount.toStringAsFixed(2).replaceAll('.', ',')}',
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF059669),
+                          ),
+                        ),
+                        Text(
+                          '${proposal.items.length} ${proposal.items.length == 1 ? 'item' : 'itens'}',
+                          style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1, color: AppColors.divider),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: proposal.status.bgColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        proposal.status.label,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: proposal.status.textColor,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 18, color: Color(0xFFDC2626)),
+                      onPressed: onPreviewPdf,
+                      tooltip: 'PDF',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6366F1)),
+                      onPressed: onEdit,
+                      tooltip: 'Editar',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                      onPressed: onDelete,
+                      tooltip: 'Excluir',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1417,9 +1682,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   Widget build(BuildContext context) {
     final currencyFormat =
         NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final isMobile = MediaQuery.of(context).size.width < 768;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 12 : 32),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 1040),
@@ -1435,7 +1701,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               ),
             ],
           ),
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(isMobile ? 14 : 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1443,40 +1709,47 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
-                          borderRadius: BorderRadius.circular(14),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(isMobile ? 10 : 12),
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(Icons.note_add_rounded,
+                              color: Colors.white, size: isMobile ? 20 : 24),
                         ),
-                        child: const Icon(Icons.note_add_rounded,
-                            color: Colors.white, size: 24),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isEditing
-                                ? 'Editar Proposta Comercial'
-                                : 'Cadastrar Nova Proposta Comercial',
-                            style: GoogleFonts.outfit(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0F172A),
-                            ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isEditing
+                                    ? (isMobile ? 'Editar Proposta' : 'Editar Proposta Comercial')
+                                    : (isMobile ? 'Nova Proposta' : 'Cadastrar Nova Proposta Comercial'),
+                                style: GoogleFonts.outfit(
+                                  fontSize: isMobile ? 18 : 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                              Text(
+                                isMobile ? 'Preencha os dados e gere o PDF' : 'Preencha os dados do cliente, itens do orçamento e gere o PDF executivo',
+                                style: GoogleFonts.inter(
+                                    fontSize: 12, color: const Color(0xFF64748B)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
-                          Text(
-                            'Preencha os dados do cliente, itens do orçamento e gere o PDF executivo',
-                            style: GoogleFonts.inter(
-                                fontSize: 13, color: const Color(0xFF64748B)),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -1488,22 +1761,24 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: AppColors.border),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 12 : 16, vertical: 10),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.arrow_back_rounded,
-                                size: 18, color: Color(0xFF64748B)),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Voltar à Tabela',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                                color: const Color(0xFF64748B),
+                                size: 16, color: Color(0xFF64748B)),
+                            if (!isMobile) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                'Voltar',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: const Color(0xFF64748B),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -1512,9 +1787,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 ],
               ),
 
-              const SizedBox(height: 20),
-              const Divider(color: AppColors.divider),
               const SizedBox(height: 16),
+              const Divider(color: AppColors.divider),
+              const SizedBox(height: 14),
 
               if (_errorMessage != null) ...[
                 Container(
@@ -1567,15 +1842,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               const SizedBox(height: 14),
 
               // Switch Cliente Cadastrado vs Avulso
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
+              if (isMobile) ...[
+                Column(
+                  children: [
+                    InkWell(
                       onTap: () => setState(() => _isClientLinked = true),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: _isClientLinked
                               ? AppColors.primary.withValues(alpha: 0.08)
@@ -1597,45 +1871,31 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               color: _isClientLinked
                                   ? AppColors.primary
                                   : const Color(0xFF94A3B8),
-                              size: 20,
+                              size: 18,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Vincular a Cliente Cadastrado',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: _isClientLinked
-                                          ? AppColors.primary
-                                          : const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Carrega dados cadastrais automaticamente',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        color: const Color(0xFF64748B)),
-                                  ),
-                                ],
+                              child: Text(
+                                'Vincular a Cliente Cadastrado',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: _isClientLinked
+                                      ? AppColors.primary
+                                      : const Color(0xFF0F172A),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: InkWell(
+                    const SizedBox(height: 8),
+                    InkWell(
                       onTap: () => setState(() => _isClientLinked = false),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: !_isClientLinked
                               ? AppColors.primary.withValues(alpha: 0.08)
@@ -1657,39 +1917,152 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               color: !_isClientLinked
                                   ? AppColors.primary
                                   : const Color(0xFF94A3B8),
-                              size: 20,
+                              size: 18,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Proposta sem Cliente / Consumidor Avulso',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: !_isClientLinked
-                                          ? AppColors.primary
-                                          : const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Emita rapidamente digitando dados avulsos',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        color: const Color(0xFF64748B)),
-                                  ),
-                                ],
+                              child: Text(
+                                'Cliente Avulso / Consumidor Final',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: !_isClientLinked
+                                      ? AppColors.primary
+                                      : const Color(0xFF0F172A),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _isClientLinked = true),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: _isClientLinked
+                                ? AppColors.primary.withValues(alpha: 0.08)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _isClientLinked
+                                  ? AppColors.primary
+                                  : AppColors.border,
+                              width: _isClientLinked ? 1.8 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _isClientLinked
+                                    ? Icons.check_circle_rounded
+                                    : Icons.radio_button_unchecked_rounded,
+                                color: _isClientLinked
+                                    ? AppColors.primary
+                                    : const Color(0xFF94A3B8),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Vincular a Cliente Cadastrado',
+                                      style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: _isClientLinked
+                                            ? AppColors.primary
+                                            : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Text(
+                                      'Carrega dados cadastrais automaticamente',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          color: const Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _isClientLinked = false),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: !_isClientLinked
+                                ? AppColors.primary.withValues(alpha: 0.08)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: !_isClientLinked
+                                  ? AppColors.primary
+                                  : AppColors.border,
+                              width: !_isClientLinked ? 1.8 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                !_isClientLinked
+                                    ? Icons.check_circle_rounded
+                                    : Icons.radio_button_unchecked_rounded,
+                                color: !_isClientLinked
+                                    ? AppColors.primary
+                                    : const Color(0xFF94A3B8),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Proposta sem Cliente / Consumidor Avulso',
+                                      style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: !_isClientLinked
+                                            ? AppColors.primary
+                                            : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Text(
+                                      'Emita rapidamente digitando dados avulsos',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          color: const Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 14),
 
               if (_isClientLinked) ...[
@@ -1723,183 +2096,284 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               ],
 
               // Dados do Cliente (Nome, E-mail, Telefone, Doc, Endereço)
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label('Nome do Cliente / Empresa *'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _clientNameCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Ex: Supermercados Estrela Ltda',
-                            prefixIcon: Icon(Icons.person_outline,
-                                color: Color(0xFF64748B)),
-                          ),
-                        ),
-                      ],
-                    ),
+              if (isMobile) ...[
+                _label('Nome do Cliente / Empresa *'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _clientNameCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex: Supermercados Estrela Ltda',
+                    prefixIcon: Icon(Icons.person_outline, color: Color(0xFF64748B)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label('CPF ou CNPJ'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _clientDocCtrl,
-                          decoration: const InputDecoration(
-                            hintText: '00.000.000/0001-00',
-                            prefixIcon: Icon(Icons.badge_outlined,
-                                color: Color(0xFF64748B)),
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+                const SizedBox(height: 12),
+                _label('CPF ou CNPJ'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _clientDocCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '00.000.000/0001-00',
+                    prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 12),
+                _label('E-mail para Envio'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _clientEmailCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'contato@cliente.com.br',
+                    prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _label('Telefone / WhatsApp'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _clientPhoneCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '(11) 98765-4321',
+                    prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
+                  ),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Nome do Cliente / Empresa *'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _clientNameCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'Ex: Supermercados Estrela Ltda',
+                              prefixIcon: Icon(Icons.person_outline,
+                                  color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('CPF ou CNPJ'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _clientDocCtrl,
+                            decoration: const InputDecoration(
+                              hintText: '00.000.000/0001-00',
+                              prefixIcon: Icon(Icons.badge_outlined,
+                                  color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('E-mail para Envio'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _clientEmailCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'contato@cliente.com.br',
+                              prefixIcon: Icon(Icons.email_outlined,
+                                  color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Telefone / WhatsApp'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _clientPhoneCtrl,
+                            decoration: const InputDecoration(
+                              hintText: '(11) 98765-4321',
+                              prefixIcon: Icon(Icons.phone_outlined,
+                                  color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
 
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label('E-mail para Envio'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _clientEmailCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'contato@cliente.com.br',
-                            prefixIcon: Icon(Icons.email_outlined,
-                                color: Color(0xFF64748B)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label('Telefone / WhatsApp'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _clientPhoneCtrl,
-                          decoration: const InputDecoration(
-                            hintText: '(11) 98765-4321',
-                            prefixIcon: Icon(Icons.phone_outlined,
-                                color: Color(0xFF64748B)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               // ── SEÇÃO 2: ITENS DA PROPOSTA ─────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _sectionHeader(
-                      Icons.inventory_2_outlined,
-                      'Itens & Produtos da Proposta',
-                      'Adicione quantos produtos do catálogo desejar ou crie sob medida'),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      // Botão Criar Usina Solar
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _openSolarPlantDialog,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+              if (isMobile) ...[
+                _sectionHeader(
+                    Icons.inventory_2_outlined,
+                    'Itens da Proposta',
+                    'Adicione produtos ou monte usinas sob medida'),
+                const SizedBox(height: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _openSolarPlantDialog,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.solar_power_rounded, color: Colors.white, size: 16),
+                              SizedBox(width: 6),
+                              Text('MONTAR USINA SOLAR', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _openProductPicker,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
+                              SizedBox(width: 6),
+                              Text('ADICIONAR PRODUTO / USINA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _sectionHeader(
+                        Icons.inventory_2_outlined,
+                        'Itens & Produtos da Proposta',
+                        'Adicione quantos produtos do catálogo desejar ou crie sob medida'),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        // Botão Criar Usina Solar
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _openSolarPlantDialog,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFEA580C)
+                                        .withValues(alpha: 0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
                               ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFEA580C)
-                                      .withValues(alpha: 0.25),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.solar_power_rounded,
-                                    color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'MONTAR USINA SOLAR',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white),
-                                ),
-                              ],
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.solar_power_rounded,
+                                      color: Colors.white, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'MONTAR USINA SOLAR',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // Botão Adicionar Item / Produto
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _openProductPicker,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: AppColors.primaryGradient,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.add_shopping_cart_rounded,
-                                    color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'ADICIONAR USINA EXISTENTE / PRODUTO',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white),
-                                ),
-                              ],
+                        // Botão Adicionar Item / Produto
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _openProductPicker,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: AppColors.primaryGradient,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.add_shopping_cart_rounded,
+                                      color: Colors.white, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'ADICIONAR USINA EXISTENTE / PRODUTO',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 14),
 
               // Tabela Dinâmica de Itens
@@ -1912,78 +2386,80 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   borderRadius: BorderRadius.circular(12),
                   child: Column(
                     children: [
-                      // Cabeçalho da Tabela de Itens
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        color: const Color(0xFFF8FAFC),
-                        child: Row(
-                          children: [
-                            const SizedBox(
-                                width: 28,
-                                child: Text('#',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: Color(0xFF64748B)))),
-                            const Expanded(
-                                flex: 5,
-                                child: Text('ITEM / DESCRIÇÃO',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: Color(0xFF64748B)))),
-                            const SizedBox(
-                                width: 70,
-                                child: Center(
-                                    child: Text('QTD',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 11,
-                                            color: Color(0xFF64748B))))),
-                            const SizedBox(
-                                width: 45,
-                                child: Center(
-                                    child: Text('UNID',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 11,
-                                            color: Color(0xFF64748B))))),
-                            const SizedBox(
-                                width: 110,
-                                child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text('UNITÁRIO (R\$)',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 11,
-                                            color: Color(0xFF64748B))))),
-                            const SizedBox(
-                                width: 80,
-                                child: Center(
-                                    child: Text('DESC %',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 11,
-                                            color: Color(0xFF64748B))))),
-                            const SizedBox(
-                                width: 110,
-                                child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text('TOTAL (R\$)',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 11,
-                                            color: Color(0xFF64748B))))),
-                            const SizedBox(width: 45), // Botão de Remover
-                          ],
+                      // Cabeçalho da Tabela de Itens (apenas Desktop)
+                      if (!isMobile) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          color: const Color(0xFFF8FAFC),
+                          child: Row(
+                            children: const [
+                              SizedBox(
+                                  width: 28,
+                                  child: Text('#',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: Color(0xFF64748B)))),
+                              Expanded(
+                                  flex: 5,
+                                  child: Text('ITEM / DESCRIÇÃO',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: Color(0xFF64748B)))),
+                              SizedBox(
+                                  width: 70,
+                                  child: Center(
+                                      child: Text('QTD',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              color: Color(0xFF64748B))))),
+                              SizedBox(
+                                  width: 45,
+                                  child: Center(
+                                      child: Text('UNID',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              color: Color(0xFF64748B))))),
+                              SizedBox(
+                                  width: 110,
+                                  child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Text('UNITÁRIO (R\$)',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              color: Color(0xFF64748B))))),
+                              SizedBox(
+                                  width: 80,
+                                  child: Center(
+                                      child: Text('DESC %',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              color: Color(0xFF64748B))))),
+                              SizedBox(
+                                  width: 110,
+                                  child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Text('TOTAL (R\$)',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              color: Color(0xFF64748B))))),
+                              SizedBox(width: 45), // Botão de Remover
+                            ],
+                          ),
                         ),
-                      ),
-                      const Divider(height: 1, color: AppColors.divider),
+                        const Divider(height: 1, color: AppColors.divider),
+                      ],
 
                       if (_items.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.all(32),
+                          padding: const EdgeInsets.all(28),
                           child: Column(
                             children: [
                               const Icon(Icons.add_shopping_cart_rounded,
@@ -1996,6 +2472,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               const SizedBox(height: 4),
                               Text(
                                   'Clique no botão acima para escolher itens do catálogo ou sob medida.',
+                                  textAlign: TextAlign.center,
                                   style: GoogleFonts.inter(
                                       fontSize: 12,
                                       color: const Color(0xFF94A3B8))),
@@ -2011,6 +2488,132 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               height: 1, color: AppColors.divider),
                           itemBuilder: (ctx, idx) {
                             final item = _items[idx];
+
+                            if (isMobile) {
+                              return Padding(
+                                key: ValueKey('proposal_item_mobile_${item.productId ?? ""}_${item.name}_$idx'),
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          width: 22,
+                                          height: 22,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Center(
+                                            child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11, color: const Color(0xFF475569))),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              if (item.isSolarPlant) ...[
+                                                Container(
+                                                  margin: const EdgeInsets.only(bottom: 4),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFFEF3C7),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: const Color(0xFFFCD34D)),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.solar_power_rounded, size: 12, color: Color(0xFFD97706)),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'USINA SOLAR ${item.solarKilowatts != null ? "${item.solarKilowatts!.toStringAsFixed(1)} kWp" : ""}',
+                                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                              Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A))),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Remover',
+                                          icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                          onPressed: () => _removeItem(idx),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 60,
+                                          child: TextFormField(
+                                            initialValue: item.quantity % 1 == 0 ? item.quantity.toInt().toString() : item.quantity.toString(),
+                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            textAlign: TextAlign.center,
+                                            style: GoogleFonts.inter(fontSize: 12),
+                                            decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6), labelText: 'Qtd'),
+                                            onChanged: (val) {
+                                              final q = double.tryParse(val.replaceAll(',', '.')) ?? 1.0;
+                                              _updateItemQuantity(idx, q);
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: TextFormField(
+                                            initialValue: item.unitPrice.toStringAsFixed(2),
+                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            textAlign: TextAlign.right,
+                                            style: GoogleFonts.inter(fontSize: 12),
+                                            decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6), labelText: 'Unitário (R\$)'),
+                                            onChanged: (val) {
+                                              final p = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                                              _updateItemPrice(idx, p);
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        SizedBox(
+                                          width: 55,
+                                          child: TextFormField(
+                                            initialValue: item.discountPercent.toStringAsFixed(0),
+                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            textAlign: TextAlign.center,
+                                            style: GoogleFonts.inter(fontSize: 12),
+                                            decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6), labelText: 'Desc %'),
+                                            onChanged: (val) {
+                                              final d = double.tryParse(val.replaceAll(',', '.')) ?? 0.0;
+                                              _updateItemDiscount(idx, d);
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            Text('Total', style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF64748B))),
+                                            Text(
+                                              currencyFormat.format(item.totalPrice),
+                                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A)),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
                             return Padding(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 8),
@@ -2341,13 +2944,13 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               // ── SWITCH: MODO RESUMIDO DE USINA SOLAR (APENAS MÓDULOS E INVERSORES) ──
               if (_items.any((it) => it.isSolarPlant && it.solarComponents != null && it.solarComponents!.isNotEmpty)) ...[
                 Container(
-                  margin: const EdgeInsets.only(bottom: 24),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: EdgeInsets.all(isMobile ? 12 : 14),
                   decoration: BoxDecoration(
                     color: _showOnlyModulesAndInverters ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(14),
@@ -2367,54 +2970,32 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         child: Icon(
                           Icons.solar_power_rounded,
                           color: _showOnlyModulesAndInverters ? const Color(0xFFD97706) : const Color(0xFF6366F1),
-                          size: 20,
+                          size: 18,
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  'Usar na proposta apenas Inversor e Módulo',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: _showOnlyModulesAndInverters ? const Color(0xFF92400E) : const Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: _showOnlyModulesAndInverters ? const Color(0xFFFEF3C7) : const Color(0xFFE2E8F0),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'PROPOSTA LIMPA',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: _showOnlyModulesAndInverters ? const Color(0xFFD97706) : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
                             Text(
-                              'Oculta itens secundários (cabos, conectores, perfis, grampos) e exibe apenas módulos e inversores na proposta e no PDF.',
+                              'Apenas Inversor e Módulo',
                               style: GoogleFonts.inter(
-                                fontSize: 11.5,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: _showOnlyModulesAndInverters ? const Color(0xFF92400E) : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              'Oculta itens secundários no PDF.',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
                                 color: _showOnlyModulesAndInverters ? const Color(0xFFB45309) : const Color(0xFF64748B),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
                       Switch.adaptive(
                         value: _showOnlyModulesAndInverters,
                         onChanged: _onCleanModeChanged,
@@ -2433,217 +3014,337 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   'Defina os termos de pagamento, prazos de entrega e validade'),
               const SizedBox(height: 14),
 
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Coluna Esquerda: Formas de Pagamento & Prazos
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label('Forma / Condição de Pagamento *'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _paymentTermsCtrl,
-                          decoration: const InputDecoration(
-                            hintText:
-                                'Ex: À vista via PIX com 5% de desconto, Boleto 30/60DD...',
-                            prefixIcon: Icon(Icons.credit_card_rounded,
-                                color: Color(0xFF64748B)),
+              if (isMobile) ...[
+                _label('Forma / Condição de Pagamento *'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _paymentTermsCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex: À vista via PIX com 5% de desconto',
+                    prefixIcon: Icon(Icons.credit_card_rounded, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _label('Validade da Proposta (Dias)'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _validityDaysCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: '15',
+                    prefixIcon: Icon(Icons.event_available_rounded, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _label('Prazo de Entrega'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _deliveryTimeCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex: Imediata ou 3 a 5 dias úteis',
+                    prefixIcon: Icon(Icons.local_shipping_outlined, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _label('Observações & Termos Gerais da Proposta'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _notesCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex: Garantia de performance e homologação.',
+                    prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Quadro financeiro mobile
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'RESUMO FINANCEIRO',
+                        style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                      ),
+                      const SizedBox(height: 10),
+                      _financeRow('Subtotal:', currencyFormat.format(_subtotal)),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Desconto (R\$):', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                          SizedBox(
+                            width: 90,
+                            child: TextFormField(
+                              controller: _discountCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF059669)),
+                              decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4)),
+                              onChanged: (_) => setState(() {}),
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Frete (R\$):', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                          SizedBox(
+                            width: 90,
+                            child: TextFormField(
+                              controller: _shippingCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold),
+                              decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4)),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(color: AppColors.divider, height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _label('Validade da Proposta (Dias)'),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _validityDaysCtrl,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      hintText: '15',
-                                      prefixIcon: Icon(
-                                          Icons.event_available_rounded,
-                                          color: Color(0xFF64748B)),
+                            Text('TOTAL DA PROPOSTA', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70)),
+                            const SizedBox(height: 2),
+                            Text(
+                              currencyFormat.format(_totalAmount),
+                              style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Coluna Esquerda: Formas de Pagamento & Prazos
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Forma / Condição de Pagamento *'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _paymentTermsCtrl,
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Ex: À vista via PIX com 5% de desconto, Boleto 30/60DD...',
+                              prefixIcon: Icon(Icons.credit_card_rounded,
+                                  color: Color(0xFF64748B)),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _label('Validade da Proposta (Dias)'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _validityDaysCtrl,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        hintText: '15',
+                                        prefixIcon: Icon(
+                                            Icons.event_available_rounded,
+                                            color: Color(0xFF64748B)),
+                                      ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _label('Prazo de Entrega'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _deliveryTimeCtrl,
+                                      decoration: const InputDecoration(
+                                        hintText:
+                                            'Ex: Imediata ou 3 a 5 dias úteis',
+                                        prefixIcon: Icon(
+                                            Icons.local_shipping_outlined,
+                                            color: Color(0xFF64748B)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _label('Observações & Termos Gerais da Proposta'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _notesCtrl,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Ex: Frete CIF incluso para Grande SP. Garantia de 90 dias contra defeitos de fabricação.',
+                              prefixIcon: Icon(Icons.notes_rounded,
+                                  color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 24),
+
+                    // Coluna Direita: Quadro Financeiro com Resumo
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'RESUMO FINANCEIRO',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF475569),
+                                  letterSpacing: 0.5),
+                            ),
+                            const SizedBox(height: 12),
+
+                            _financeRow('Subtotal dos Itens:',
+                                currencyFormat.format(_subtotal)),
+                            const SizedBox(height: 8),
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Desconto Geral (R\$):',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: const Color(0xFF64748B))),
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    controller: _discountCtrl,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    textAlign: TextAlign.right,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF059669)),
+                                    decoration: const InputDecoration(
+                                        contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 6)),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Frete / Entrega (R\$):',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: const Color(0xFF64748B))),
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    controller: _shippingCtrl,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    textAlign: TextAlign.right,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold),
+                                    decoration: const InputDecoration(
+                                        contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 6)),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Divider(color: AppColors.divider),
+                            const SizedBox(height: 8),
+
+                            // Card de Total Geral em Destaque
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.primaryGradient,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        AppColors.primary.withValues(alpha: 0.25),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _label('Prazo de Entrega'),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _deliveryTimeCtrl,
-                                    decoration: const InputDecoration(
-                                      hintText:
-                                          'Ex: Imediata ou 3 a 5 dias úteis',
-                                      prefixIcon: Icon(
-                                          Icons.local_shipping_outlined,
-                                          color: Color(0xFF64748B)),
-                                    ),
+                                  Text('TOTAL DA PROPOSTA',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white70)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    currencyFormat.format(_totalAmount),
+                                    style: GoogleFonts.outfit(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
                                   ),
                                 ],
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        _label('Observações & Termos Gerais da Proposta'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _notesCtrl,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            hintText:
-                                'Ex: Frete CIF incluso para Grande SP. Garantia de 90 dias contra defeitos de fabricação.',
-                            prefixIcon: Icon(Icons.notes_rounded,
-                                color: Color(0xFF64748B)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(width: 24),
-
-                  // Coluna Direita: Quadro Financeiro com Resumo
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'RESUMO FINANCEIRO',
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF475569),
-                                letterSpacing: 0.5),
-                          ),
-                          const SizedBox(height: 12),
-
-                          _financeRow('Subtotal dos Itens:',
-                              currencyFormat.format(_subtotal)),
-                          const SizedBox(height: 8),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Desconto Geral (R\$):',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      color: const Color(0xFF64748B))),
-                              SizedBox(
-                                width: 100,
-                                child: TextFormField(
-                                  controller: _discountCtrl,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                          decimal: true),
-                                  textAlign: TextAlign.right,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF059669)),
-                                  decoration: const InputDecoration(
-                                      contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 6)),
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Frete / Entrega (R\$):',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      color: const Color(0xFF64748B))),
-                              SizedBox(
-                                width: 100,
-                                child: TextFormField(
-                                  controller: _shippingCtrl,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                          decimal: true),
-                                  textAlign: TextAlign.right,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold),
-                                  decoration: const InputDecoration(
-                                      contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 6)),
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          const Divider(color: AppColors.divider),
-                          const SizedBox(height: 8),
-
-                          // Card de Total Geral em Destaque
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.primaryGradient,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.25),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('TOTAL DA PROPOSTA',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white70)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  currencyFormat.format(_totalAmount),
-                                  style: GoogleFonts.outfit(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               // ── SEÇÃO 4: PERSONALIZAÇÃO DE CORES DO PDF ───────────────────
               _sectionHeader(Icons.palette_outlined, 'Padrão Visual do PDF',
@@ -2651,8 +3352,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               const SizedBox(height: 12),
 
               Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: 10,
+                runSpacing: 10,
                 children: ProposalPdfThemeOption.allThemes.map((t) {
                   final isSelected = t.primaryColorValue == _themeColorValue;
                   return InkWell(
@@ -2661,7 +3362,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? t.primaryColor.withValues(alpha: 0.1)
@@ -2676,8 +3377,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 18,
-                            height: 18,
+                            width: 16,
+                            height: 16,
                             decoration: BoxDecoration(
                               color: t.primaryColor,
                               shape: BoxShape.circle,
@@ -2687,7 +3388,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           Text(
                             t.label,
                             style: GoogleFonts.inter(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.w500,
@@ -2703,120 +3404,190 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 }).toList(),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
               const Divider(color: AppColors.divider),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
               // ── BOTÕES DE AÇÃO NO RODAPÉ ───────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: widget.onCancel,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 12),
-                        child: Text(
-                          'CANCELAR',
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF64748B)),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-
-                  // Botão Pré-visualizar PDF
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _previewPdf,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: const Color(0xFF0F172A), width: 1.2),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 13),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.picture_as_pdf_outlined,
-                                size: 18, color: Color(0xFF0F172A)),
-                            const SizedBox(width: 8),
-                            Text(
-                              'PRÉ-VISUALIZAR PDF',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: const Color(0xFF0F172A),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-
-                  // Botão Salvar e Gerar Proposta
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _isLoading ? null : _submit,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 28, vertical: 14),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2),
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.check_circle_outline_rounded,
-                                      color: Colors.white, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    _isEditing
-                                        ? 'SALVAR ALTERAÇÕES'
-                                        : 'SALVAR E GERAR PROPOSTA',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: Colors.white,
-                                      letterSpacing: 0.5,
-                                    ),
+              if (isMobile) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isLoading ? null : _submit,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: _isLoading
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                   ),
-                                ],
-                              ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _isEditing ? 'SALVAR ALTERAÇÕES' : 'SALVAR PROPOSTA',
+                                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 8),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _previewPdf,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF0F172A), width: 1.2),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.picture_as_pdf_outlined, size: 18, color: Color(0xFF0F172A)),
+                              const SizedBox(width: 8),
+                              Text('PRÉ-VISUALIZAR PDF', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: widget.onCancel,
+                      child: Text('CANCELAR', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onCancel,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 12),
+                          child: Text(
+                            'CANCELAR',
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF64748B)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Botão Pré-visualizar PDF
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _previewPdf,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: const Color(0xFF0F172A), width: 1.2),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 13),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.picture_as_pdf_outlined,
+                                  size: 18, color: Color(0xFF0F172A)),
+                              const SizedBox(width: 8),
+                              Text(
+                                'PRÉ-VISUALIZAR PDF',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Botão Salvar e Gerar Proposta
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isLoading ? null : _submit,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 28, vertical: 14),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.check_circle_outline_rounded,
+                                        color: Colors.white, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _isEditing
+                                          ? 'SALVAR ALTERAÇÕES'
+                                          : 'SALVAR E GERAR PROPOSTA',
+                                      style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Colors.white,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

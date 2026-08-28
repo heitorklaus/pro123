@@ -130,13 +130,19 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 640;
+    final dialogWidth = (screenSize.width * 0.94).clamp(320.0, 860.0);
+    final dialogHeight = (screenSize.height * 0.90).clamp(440.0, 680.0);
+
     return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 24, vertical: isMobile ? 12 : 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: 860,
-        height: 680,
-        padding: const EdgeInsets.all(28),
+        width: dialogWidth,
+        height: dialogHeight,
+        padding: EdgeInsets.all(isMobile ? 16 : 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -144,29 +150,29 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(isMobile ? 8 : 12),
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.category_rounded, color: Colors.white, size: 24),
+                  child: Icon(Icons.category_rounded, color: Colors.white, size: isMobile ? 20 : 24),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Selecionar Categoria / Ramo de Atuação',
+                        isMobile ? 'Selecionar Categoria' : 'Selecionar Categoria / Ramo de Atuação',
                         style: GoogleFonts.outfit(
-                          fontSize: 20,
+                          fontSize: isMobile ? 17 : 20,
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFF0F172A),
                         ),
                       ),
                       Text(
-                        'Clique na categoria desejada para selecionar ou crie uma nova personalizada',
-                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                        'Clique na categoria ou crie uma personalizada',
+                        style: GoogleFonts.inter(fontSize: isMobile ? 11 : 12, color: const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -179,28 +185,25 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog> {
               ],
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             const Divider(height: 1, color: AppColors.divider),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // ── Barra de Ações: Busca + Botão Nova Categoria ────────────────
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 420,
-                  child: TextField(
+            if (isMobile) ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
                     controller: _searchCtrl,
                     onChanged: (v) => setState(() => _filter = v.trim().toLowerCase()),
                     decoration: InputDecoration(
-                      hintText: 'Filtrar categorias (ex: limpeza, alimentos, embalagens...)',
-                      hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
-                      prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                      hintText: 'Filtrar categorias...',
+                      hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                      prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 18),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: AppColors.border),
@@ -209,55 +212,111 @@ class _CategorySelectorDialogState extends State<CategorySelectorDialog> {
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: AppColors.border),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                      ),
                     ),
                   ),
-                ),
-
-                // Botão Cadastrar Nova Categoria
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _openCategoryFormDialog(),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.25),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            'NOVA CATEGORIA',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
+                  const SizedBox(height: 8),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _openCategoryFormDialog(),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              'NOVA CATEGORIA',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ] else ...[
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 420,
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _filter = v.trim().toLowerCase()),
+                      decoration: InputDecoration(
+                        hintText: 'Filtrar categorias (ex: limpeza, alimentos, embalagens...)',
+                        hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ),
 
+                  // Botão Cadastrar Nova Categoria
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _openCategoryFormDialog(),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.25),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'NOVA CATEGORIA',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
 
             // ── Grade Reativa de Categorias ──────────────────────────────────
@@ -603,13 +662,19 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
       return i.label.toLowerCase().contains(_iconFilter);
     }).toList();
 
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 640;
+    final dialogWidth = (screenSize.width * 0.94).clamp(320.0, 680.0);
+    final dialogHeight = (screenSize.height * 0.92).clamp(460.0, 720.0);
+
     return Dialog(
       backgroundColor: Colors.white,
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 24, vertical: isMobile ? 12 : 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: 680,
-        height: 720,
-        padding: const EdgeInsets.all(28),
+        width: dialogWidth,
+        height: dialogHeight,
+        padding: EdgeInsets.all(isMobile ? 16 : 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

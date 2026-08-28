@@ -229,9 +229,11 @@ class _WelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
-      padding: const EdgeInsets.all(40.0),
+      padding: EdgeInsets.all(isMobile ? 24.0 : 40.0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -248,40 +250,40 @@ class _WelcomeCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(isMobile ? 16 : 20),
             decoration: const BoxDecoration(
               color: Color(0xFFEEF2FF),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.waving_hand_rounded,
               color: AppColors.primary,
-              size: 48,
+              size: isMobile ? 36 : 48,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Text(
             'Boas-vindas ao Mavis CRM!',
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
-              fontSize: 28,
+              fontSize: isMobile ? 22 : 28,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             'Você está autenticado no painel principal. Utilize o menu lateral para navegar entre as seções do sistema.',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
-              fontSize: 16,
+              fontSize: isMobile ? 14 : 16,
               color: AppColors.textSecondary,
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
@@ -292,13 +294,13 @@ class _WelcomeCard extends StatelessWidget {
                 const Icon(
                   Icons.check_circle_rounded,
                   color: AppColors.success,
-                  size: 20,
+                  size: 18,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Text(
                   'Sistema Online & Conectado',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: isMobile ? 12.5 : 14,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF334155),
                   ),

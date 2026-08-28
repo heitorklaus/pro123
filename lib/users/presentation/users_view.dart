@@ -87,37 +87,40 @@ class _TableViewState extends State<_TableView> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return SizedBox.expand(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(isMobile ? 14 : 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Cabeçalho ─────────────────────────────────────────────────────
-            // NÃO usar Expanded aqui pois o ElevatedButton recebe width=Infinity
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Gestão de Usuários',
-                      style: GoogleFonts.outfit(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Gestão de Usuários',
+                        style: GoogleFonts.outfit(
+                          fontSize: isMobile ? 20 : 26,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Controle de operadores, administradores e permissões',
-                      style: GoogleFonts.inter(
-                          fontSize: 14, color: const Color(0xFF64748B)),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Controle de operadores e permissões',
+                        style: GoogleFonts.inter(
+                            fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
                 ),
                 Material(
                   color: Colors.transparent,
@@ -130,18 +133,19 @@ class _TableViewState extends State<_TableView> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 14 : 20, vertical: isMobile ? 8 : 10),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.add_rounded,
-                                size: 20, color: Colors.white),
-                            const SizedBox(width: 8),
+                                size: 18, color: Colors.white),
+                            const SizedBox(width: 6),
                             Text(
-                              'NOVO USUÁRIO',
+                              isMobile ? 'NOVO' : 'NOVO USUÁRIO',
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.bold,
+                                fontSize: isMobile ? 12 : 13,
                                 letterSpacing: 0.5,
                                 color: Colors.white,
                               ),
@@ -155,17 +159,17 @@ class _TableViewState extends State<_TableView> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: isMobile ? 14 : 20),
 
             // ── Busca ─────────────────────────────────────────────────────────
             SizedBox(
-              width: 380,
+              width: isMobile ? double.infinity : 380,
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (v) =>
                     setState(() => _query = v.trim().toLowerCase()),
                 decoration: InputDecoration(
-                  hintText: 'Buscar por nome ou e-mail...',
+                  hintText: isMobile ? 'Buscar usuário...' : 'Buscar por nome ou e-mail...',
                   hintStyle: GoogleFonts.inter(
                       fontSize: 13, color: const Color(0xFF94A3B8)),
                   prefixIcon: const Icon(Icons.search_rounded,
@@ -190,29 +194,33 @@ class _TableViewState extends State<_TableView> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isMobile ? 12 : 16),
 
-            // ── Tabela (ocupa o espaço restante) ──────────────────────────────
+            // ── Tabela / Mobile Cards ─────────────────────────────────────────
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isMobile ? Colors.transparent : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  border: isMobile ? null : Border.all(color: AppColors.border),
+                  boxShadow: isMobile
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Column(
                     children: [
-                      _TableHeader(),
-                      const Divider(height: 1, color: AppColors.divider),
+                      if (!isMobile) ...[
+                        _TableHeader(),
+                        const Divider(height: 1, color: AppColors.divider),
+                      ],
                       Expanded(
                         child: StreamBuilder<List<UserModel>>(
                           stream: _repo.getUsersStream(companyId: _companyId),
@@ -252,6 +260,17 @@ class _TableViewState extends State<_TableView> {
                               );
                             }
 
+                            if (isMobile) {
+                              return ListView.builder(
+                                itemCount: filtered.length,
+                                padding: EdgeInsets.zero,
+                                itemBuilder: (_, i) => _UserMobileCard(
+                                  user: filtered[i],
+                                  onDelete: () => _showDeleteDialog(filtered[i]),
+                                ),
+                              );
+                            }
+
                             return ListView.separated(
                               itemCount: filtered.length,
                               separatorBuilder: (_, __) => const Divider(
@@ -271,8 +290,8 @@ class _TableViewState extends State<_TableView> {
             ),
           ],
         ),
-      ), // end Padding
-    ); // end SizedBox.expand
+      ),
+    );
   }
 
   void _showDeleteDialog(UserModel user) {
@@ -473,6 +492,115 @@ class _UserRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Card Mobile de Usuário
+// ─────────────────────────────────────────────────────────────────────────────
+class _UserMobileCard extends StatelessWidget {
+  final UserModel user;
+  final VoidCallback onDelete;
+
+  const _UserMobileCard({
+    required this.user,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = user.name.isNotEmpty
+        ? user.name.trim().split(' ').take(2).map((e) => e.isNotEmpty ? e[0].toUpperCase() : '').join()
+        : '?';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.name,
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        user.email,
+                        style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          color: const Color(0xFF64748B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                  onPressed: onDelete,
+                  tooltip: 'Excluir',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1, color: AppColors.divider),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _RoleBadge(role: user.role),
+                const SizedBox(width: 8),
+                _StatusBadge(status: user.status),
+                const Spacer(),
+                Text(
+                  '${user.createdAt.day.toString().padLeft(2, '0')}/${user.createdAt.month.toString().padLeft(2, '0')}/${user.createdAt.year}',
+                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Estado vazio
 // ─────────────────────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
@@ -600,8 +728,10 @@ class _RegisterCardState extends State<_RegisterCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return Container(
-      padding: const EdgeInsets.all(36),
+      padding: EdgeInsets.all(isMobile ? 16 : 36),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),

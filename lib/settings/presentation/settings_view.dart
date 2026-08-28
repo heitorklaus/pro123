@@ -80,10 +80,11 @@ class _SettingsViewState extends State<SettingsView> {
       );
     }
 
+    final isMobile = MediaQuery.of(context).size.width < 768;
     final activeSector = _currentSector ?? ProductSector.solarPlant;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 14 : 32),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 1100),
@@ -94,7 +95,7 @@ class _SettingsViewState extends State<SettingsView> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(isMobile ? 10 : 12),
                     decoration: BoxDecoration(
                       gradient: AppColors.primaryGradient,
                       borderRadius: BorderRadius.circular(14),
@@ -106,24 +107,24 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.tune_rounded, color: Colors.white, size: 26),
+                    child: Icon(Icons.tune_rounded, color: Colors.white, size: isMobile ? 22 : 26),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Configurações do Sistema & Ramo de Atuação',
+                          isMobile ? 'Configurações & Ramo' : 'Configurações do Sistema & Ramo de Atuação',
                           style: GoogleFonts.outfit(
-                            fontSize: 22,
+                            fontSize: isMobile ? 18 : 22,
                             fontWeight: FontWeight.bold,
                             color: const Color(0xFF0F172A),
                           ),
                         ),
                         Text(
-                          'Personalize o comportamento do CRM conforme o nicho da sua empresa',
-                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                          'Personalize o comportamento do CRM para sua empresa',
+                          style: GoogleFonts.inter(fontSize: isMobile ? 11.5 : 13, color: const Color(0xFF64748B)),
                         ),
                       ],
                     ),
@@ -131,13 +132,13 @@ class _SettingsViewState extends State<SettingsView> {
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               const Divider(color: AppColors.divider),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // ── Card de Ramo de Atuação Ativo ────────────────────────────
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(isMobile ? 14 : 24),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -153,141 +154,258 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                   ],
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: activeSector.themeColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: activeSector.themeColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Icon(activeSector.icon, color: activeSector.themeColor, size: 32),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: Column(
+                child: isMobile
+                    ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Text(
-                                activeSector.title,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                width: 48,
+                                height: 48,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFDCFCE7),
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: activeSector.themeColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: activeSector.themeColor.withValues(alpha: 0.3)),
                                 ),
-                                child: Text(
-                                  'RAMO ATIVO NO CRM',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF166534),
-                                    letterSpacing: 0.5,
-                                  ),
+                                child: Icon(activeSector.icon, color: activeSector.themeColor, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      activeSector.title,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDCFCE7),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'RAMO ATIVO NO CRM',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF166534),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 10),
                           Text(
                             activeSector.description,
-                            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Toggle Modo Focado
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          const SizedBox(height: 12),
+                          const Divider(height: 1, color: AppColors.divider),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Modo Focado no Nicho',
-                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Modo Focado no Nicho',
+                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                                  ),
+                                  Text(
+                                    _isFixedMode ? 'Oculta outros nichos' : 'Mostra todos',
+                                    style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B)),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                _isFixedMode ? 'Oculta dropdown de outros nichos' : 'Mostra todos os nichos',
-                                style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B)),
+                              Switch.adaptive(
+                                value: _isFixedMode,
+                                activeTrackColor: AppColors.primary,
+                                onChanged: _toggleFixedMode,
                               ),
                             ],
                           ),
-                          const SizedBox(width: 10),
-                          Switch.adaptive(
-                            value: _isFixedMode,
-                            activeTrackColor: AppColors.primary,
-                            onChanged: _toggleFixedMode,
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: activeSector.themeColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: activeSector.themeColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Icon(activeSector.icon, color: activeSector.themeColor, size: 32),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      activeSector.title,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDCFCE7),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'RAMO ATIVO NO CRM',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF166534),
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  activeSector.description,
+                                  style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Toggle Modo Focado
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Modo Focado no Nicho',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                                    ),
+                                    Text(
+                                      _isFixedMode ? 'Oculta dropdown de outros nichos' : 'Mostra todos os nichos',
+                                      style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 10),
+                                Switch.adaptive(
+                                  value: _isFixedMode,
+                                  activeTrackColor: AppColors.primary,
+                                  onChanged: _toggleFixedMode,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
               // ── Seleção de Outro Ramo de Atuação ─────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Selecione a Área de Atuação da sua Empresa',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
-                        ),
+              if (isMobile) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Selecione a Área de Atuação',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
                       ),
-                      Text(
-                        'Clique no card desejado para fixar o CRM naquele nicho ou escolha o modo geral',
-                        style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    width: 280,
-                    child: TextField(
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Toque para fixar o CRM naquele nicho',
+                      style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
                       onChanged: (v) => setState(() => _searchFilter = v.trim().toLowerCase()),
                       decoration: InputDecoration(
-                        hintText: 'Buscar nicho (ex: solar, moda, pet...)',
+                        hintText: 'Buscar nicho (solar, moda...)',
                         hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
                         prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 18),
                         filled: true,
                         fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Selecione a Área de Atuação da sua Empresa',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          'Clique no card desejado para fixar o CRM naquele nicho ou escolha o modo geral',
+                          style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      width: 280,
+                      child: TextField(
+                        onChanged: (v) => setState(() => _searchFilter = v.trim().toLowerCase()),
+                        decoration: InputDecoration(
+                          hintText: 'Buscar nicho (ex: solar, moda, pet...)',
+                          hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 18),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
 
               // Grade de Cards dos 20 Nichos + Usina Solar
               _buildSectorGrid(),
@@ -307,18 +425,18 @@ class _SettingsViewState extends State<SettingsView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossCount = constraints.maxWidth > 800 ? 3 : 2;
-        final cardWidth = (constraints.maxWidth - ((crossCount - 1) * 16)) / crossCount;
+        final crossCount = constraints.maxWidth > 800 ? 3 : (constraints.maxWidth > 500 ? 2 : 1);
+        final cardWidth = (constraints.maxWidth - ((crossCount - 1) * 12)) / crossCount;
 
         return Wrap(
-          spacing: 16,
-          runSpacing: 16,
+          spacing: 12,
+          runSpacing: 12,
           children: filtered.map((sector) {
             final isSelected = _currentSector == sector;
 
             return SizedBox(
               width: cardWidth,
-              height: 140,
+              height: 130,
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -326,7 +444,7 @@ class _SettingsViewState extends State<SettingsView> {
                   borderRadius: BorderRadius.circular(16),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: isSelected ? sector.themeColor.withValues(alpha: 0.06) : Colors.white,
                       borderRadius: BorderRadius.circular(16),
@@ -351,19 +469,19 @@ class _SettingsViewState extends State<SettingsView> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(7),
                               decoration: BoxDecoration(
                                 color: sector.themeColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(sector.icon, color: sector.themeColor, size: 20),
+                              child: Icon(sector.icon, color: sector.themeColor, size: 18),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 sector.title,
                                 style: GoogleFonts.outfit(
-                                  fontSize: 15,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color: isSelected ? sector.themeColor : const Color(0xFF0F172A),
                                 ),
@@ -386,7 +504,7 @@ class _SettingsViewState extends State<SettingsView> {
                           sector.description,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B), height: 1.3),
+                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B), height: 1.25),
                         ),
                       ],
                     ),
