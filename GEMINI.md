@@ -199,10 +199,17 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
 - **Tela de Cadastro (`register_page.dart`):** Cadastro com confirmação de senha e persistência direta no Firestore e Auth.
 - **Serviço de Autenticação (`auth_repository.dart`):** Gerenciador de chamadas Firebase com tratamento de erros em português.
 
-### 4. `ClientsModule` / `ClientsView`
-- **`clients_view.dart`:** Gestão completa de clientes (PF / PJ).
-  1. **Tabela em tempo real:** `Stream<List<ClientModel>>` do Firestore com busca rápida (nome, e-mail, empresa), badges de tipo (PF/PJ) e status (Ativo, Prospect, Inativo, Bloqueado), exclusão com diálogo modal.
-  2. **Formulário com Consulta de CEP automática:** Integração com a API **ViaCEP** (`https://viacep.com.br/ws/{cep}/json/`). Ao digitar os 8 dígitos, autocompleta logradouro, bairro, cidade, UF e complemento, bloqueando edição acidental dos campos preenchidos e focando automaticamente no campo "Número".
+### 4. `ClientsModule` / `ClientsView` / `ClientFormDialog`
+- **`clients_view.dart`, `client_form_dialog.dart` & `gemini_energy_bill_service.dart`:** Gestão completa de clientes (PF / PJ) com inteligência artificial:
+  1. **Importação e Leitura Inteligente de Contas de Energia com IA Gemini (`GeminiEnergyBillService`):**
+     - **Visão Computacional Multimodal (PDF ou Imagem):** Analisa contas de energia de qualquer distribuidora brasileira (Energisa, Enel, CPFL, Cemig, Copel, Equatorial, Neoenergia, Light, etc.).
+     - **Extração Completa dos Dados do Titular:** Nome Completo / Razão Social, CPF ou CNPJ formatado, e-mail e telefone.
+     - **Endereço Completo:** Rua, Número, Complemento, Bairro, Cidade, Estado (UF) e CEP.
+     - **Dados Técnicos da Unidade Consumidora (UC):** Distribuidora, Código da UC / Matrícula, Tipo de Ligação (Trifásico/Bifásico/Monofásico), Classificação Tarifária, Mês de Referência e Valor da Fatura.
+     - **Histórico de Consumo & Diagnóstico Fotovoltaico:** Lê a tabela/gráfico de consumo mensal dos últimos meses, calcula o **Consumo Médio Mensal em kWh**, a **Potência Fotovoltaica Recomendada em kWp** (`Consumo Médio / 110`) e a **Geração Mensal Prevista em kWh**.
+     - **Modal de Resumo e Aceite Visual (`EnergyBillSummaryDialog`):** Apresenta um painel executivo com o diagnóstico energético antes de aplicar ao formulário.
+  2. **Tabela em tempo real:** `Stream<List<ClientModel>>` do Firestore com busca rápida (nome, e-mail, empresa), badges de tipo (PF/PJ) e status (Ativo, Prospect, Inativo, Bloqueado), exclusão com diálogo modal.
+  3. **Formulário com Consulta de CEP automática:** Integração com a API **ViaCEP** (`https://viacep.com.br/ws/{cep}/json/`). Ao digitar os 8 dígitos, autocompleta logradouro, bairro, cidade, UF e complemento, bloqueando edição acidental dos campos preenchidos e focando automaticamente no campo "Número".
 
 ### 5. `ProductsModule` / `ProductsView`
 - **`products_view.dart` & `solar_plant_form_card.dart`:** Gestão completa de catálogo com ramificação e categorização:

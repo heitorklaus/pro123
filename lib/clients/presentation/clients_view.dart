@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,7 +8,10 @@ import 'package:http/http.dart' as http;
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../data/repositories/client_repository.dart';
+import '../data/services/gemini_energy_bill_service.dart';
 import '../domain/models/client_model.dart';
+import '../domain/models/parsed_energy_bill.dart';
+import 'widgets/energy_bill_summary_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: inserido diretamente no miolo do DashboardPage (sem Scaffold)
@@ -29,7 +34,7 @@ class _ClientsViewState extends State<ClientsView> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: SizedBox(
-            width: 580,
+            width: 780,
             child: _ClientFormCard(
               client: _editingClient,
               onBack: () => setState(() {
@@ -824,6 +829,134 @@ class _ClientFormCardState extends State<_ClientFormCard> {
   // Quando true: logradouro/bairro/cidade/UF foram preenchidos pelo CEP
   // e ficam somente-leitura (fundo cinza), podendo ser desbloqueados pelo X
   bool _addressLocked = false;
+  bool _isAiAnalyzing = false;
+
+  Future<void> _importEnergyBillWithAi() async {
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp'],
+      );
+
+      if (files.isEmpty) return;
+
+      final file = files.first;
+      final Uint8List bytes;
+      try {
+        bytes = await file.readAsBytes();
+      } catch (e) {
+        setState(() => _errorMessage = 'Erro ao ler arquivo: $e');
+        return;
+      }
+
+      if (bytes.isEmpty) {
+        setState(() => _errorMessage = 'O arquivo selecionado está vazio.');
+        return;
+      }
+
+      setState(() {
+        _isAiAnalyzing = true;
+        _errorMessage = null;
+      });
+
+      final parsedBill = await GeminiEnergyBillService.analyzeEnergyBill(
+        fileBytes: bytes,
+        fileExtension: file.extension ?? 'pdf',
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isAiAnalyzing = false;
+      });
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => EnergyBillSummaryDialog(
+          parsedBill: parsedBill,
+          onAccept: () => _applyParsedBill(parsedBill),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isAiAnalyzing = false;
+        _errorMessage = 'Falha ao analisar conta: ${e.toString()}';
+      });
+    }
+  }
+
+  void _applyParsedBill(ParsedEnergyBill bill) {
+    setState(() {
+      if (bill.clientName != null && bill.clientName!.isNotEmpty) {
+        _nameCtrl.text = bill.clientName!;
+      }
+      if (bill.document != null && bill.document!.isNotEmpty) {
+        _documentCtrl.text = bill.document!;
+      }
+      _type = bill.clientType;
+      if (bill.email != null && bill.email!.isNotEmpty) {
+        _emailCtrl.text = bill.email!;
+      }
+      if (bill.phone != null && bill.phone!.isNotEmpty) {
+        _phoneCtrl.text = bill.phone!;
+      }
+      if (bill.zipCode != null && bill.zipCode!.isNotEmpty) {
+        _zipCtrl.text = bill.zipCode!;
+      }
+      if (bill.street != null && bill.street!.isNotEmpty) {
+        _streetCtrl.text = bill.street!;
+        _addressLocked = true;
+      }
+      if (bill.addressNumber != null && bill.addressNumber!.isNotEmpty) {
+        _numberCtrl.text = bill.addressNumber!;
+      }
+      if (bill.complement != null && bill.complement!.isNotEmpty) {
+        _complementCtrl.text = bill.complement!;
+      }
+      if (bill.neighborhood != null && bill.neighborhood!.isNotEmpty) {
+        _neighborhoodCtrl.text = bill.neighborhood!;
+      }
+      if (bill.city != null && bill.city!.isNotEmpty) {
+        _cityCtrl.text = bill.city!;
+      }
+      if (bill.state != null && bill.state!.isNotEmpty) {
+        _stateCtrl.text = bill.state!;
+      }
+
+      final diagnosticNotes = StringBuffer();
+      diagnosticNotes.writeln('⚡ Diagnóstico de Conta de Energia (IA Gemini):');
+      if (bill.ucNumber != null) {
+        diagnosticNotes.writeln('• Unidade Consumidora: ${bill.ucNumber} (${bill.utilityCompany ?? ""})');
+      }
+      if (bill.averageMonthlyConsumptionKwh > 0) {
+        diagnosticNotes.writeln('• Consumo Médio Mensal: ${bill.averageMonthlyConsumptionKwh.toStringAsFixed(0)} kWh/mês');
+      }
+      if (bill.suggestedSolarKwP > 0) {
+        diagnosticNotes.writeln('• Potência Solar Recomendada: ${bill.suggestedSolarKwP.toStringAsFixed(2)} kWp');
+      }
+      if (bill.estimatedMonthlyGenerationKwh > 0) {
+        diagnosticNotes.writeln('• Geração Estimada: ${bill.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês');
+      }
+      if (bill.connectionType != null) {
+        diagnosticNotes.writeln('• Tipo de Ligação: ${bill.connectionType}');
+      }
+
+      if (_notesCtrl.text.trim().isEmpty) {
+        _notesCtrl.text = diagnosticNotes.toString().trim();
+      } else {
+        _notesCtrl.text = '${_notesCtrl.text}\n\n${diagnosticNotes.toString().trim()}';
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Conta de energia analisada! Dados e previsão solar preenchidos.'),
+        backgroundColor: Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   bool get _isEditing => widget.client != null;
 
@@ -1111,6 +1244,130 @@ class _ClientFormCardState extends State<_ClientFormCard> {
           ),
           const SizedBox(height: 20),
           const Divider(color: AppColors.divider),
+          const SizedBox(height: 16),
+
+          // ── Banner de Importação com IA ────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Importar Conta de Energia com IA',
+                            style: GoogleFonts.outfit(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFF59E0B)),
+                            ),
+                            child: Text(
+                              'IA GEMINI OCR',
+                              style: GoogleFonts.inter(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFFCD34D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Envie PDF ou Foto para autocompletar titular, CPF/CNPJ, endereço, média de consumo e potência solar em kWp.',
+                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _isAiAnalyzing ? null : _importEnergyBillWithAi,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: _isAiAnalyzing
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'ANALISANDO...',
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ],
+                            )
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.upload_file_rounded, color: Colors.white, size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'ENVIAR CONTA',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
 
           // ── Erro global ───────────────────────────────────────────────────
