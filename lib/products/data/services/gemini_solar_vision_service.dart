@@ -130,7 +130,12 @@ Regras de classificação dos componentes ("componentType"):
       },
     };
 
-    final candidateModels = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash'];
+    final candidateModels = [
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-2.0-flash',
+      'gemini-1.5-pro',
+    ];
     http.Response? response;
     String lastError = '';
 
