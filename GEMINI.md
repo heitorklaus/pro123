@@ -350,7 +350,13 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
          8. *Hexágono Tech Futurista*
          9. *Arco Convexo Suave*
          10. *Varredura Angular Ascendente*
-       - **Integração no Motor de PDF (`SolarProposalPdfService`):** A capa da página 1 do PDF renderiza o modelo escolhido com o retângulo, título, subtítulo e opacidade nas coordenadas milimétricas exatas definidas pelo usuário, com contraste perfeito sobre a área branca inferior.
+        - **Integração de Logomarca da Empresa com Posicionamento e Redimensionamento:**
+          - **Botão "ENVIAR LOGO":** Localizado logo abaixo dos botões de ação na prévia, permite o envio de imagem da empresa (PNG, JPG, WEBP).
+          - **Arrastar e Posicionar Livremente (Drag & Drop):** A logo aparece sobre o canvas A4 e pode ser arrastada livremente para qualquer área da capa (`coverLogoPositionX`, `coverLogoPositionY`).
+          - **Slider de Redimensionamento em Tempo Real:** Ajusta a largura da logomarca de `40px` a `180px` com atualização imediata no visual.
+          - **Presets de Posicionamento:** Atalhos para *"Topo Direito"*, *"Topo Centro"* e *"Rodapé"*.
+          - **Renderização no PDF (`SolarProposalPdfService`):** A logomarca é gravada com precisão milimétrica nas coordenadas e dimensões exatas configuradas pelo usuário.
+        - **Integração no Motor de PDF (`SolarProposalPdfService`):** A capa da página 1 do PDF renderiza o modelo escolhido com o retângulo, título, subtítulo, logomarca personalizada e opacidade nas coordenadas milimétricas exatas definidas pelo usuário, com contraste perfeito sobre a área branca inferior.
 
 ### 9. `SettingsModule` / `SettingsView` (`lib/settings/presentation/settings_view.dart`)
 - **`settings_view.dart` & `settings_service.dart`:** Gestão de preferências e nicho do CRM:
