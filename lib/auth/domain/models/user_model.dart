@@ -193,8 +193,8 @@ class UserModel {
   bool get canViewAllProposals => permissions.viewAllProposals || isAdmin || isManager;
   bool get canViewSuppliers => permissions.viewSuppliers;
   bool get canCreateSuppliers => permissions.createSuppliers;
-  bool get canManageSettings => permissions.manageSettings || isAdmin;
-  bool get canManageUsers => permissions.manageUsers || isAdmin;
+  bool get canManageSettings => permissions.manageSettings;
+  bool get canManageUsers => permissions.manageUsers;
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
     return UserModel(

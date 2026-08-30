@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -12,7 +13,9 @@ import 'widgets/user_permissions_dialog.dart';
 // ENTRY POINT: inserido diretamente no miolo do DashboardPage (sem Scaffold)
 // ─────────────────────────────────────────────────────────────────────────────
 class UsersView extends StatefulWidget {
-  const UsersView({super.key});
+  final UserModel? currentUser;
+
+  const UsersView({super.key, this.currentUser});
 
   @override
   State<UsersView> createState() => _UsersViewState();
@@ -39,6 +42,7 @@ class _UsersViewState extends State<UsersView> {
     }
 
     return _TableView(
+      currentUser: widget.currentUser,
       onAddNewUser: () => setState(() => _showForm = true),
     );
   }
@@ -48,9 +52,10 @@ class _UsersViewState extends State<UsersView> {
 // TABELA: ocupa TODO o espaço disponível do miolo usando LayoutBuilder
 // ─────────────────────────────────────────────────────────────────────────────
 class _TableView extends StatefulWidget {
+  final UserModel? currentUser;
   final VoidCallback onAddNewUser;
 
-  const _TableView({required this.onAddNewUser});
+  const _TableView({this.currentUser, required this.onAddNewUser});
 
   @override
   State<_TableView> createState() => _TableViewState();
@@ -58,9 +63,11 @@ class _TableView extends StatefulWidget {
 
 class _TableViewState extends State<_TableView> {
   late final AuthRepository _repo;
+  StreamSubscription<UserModel?>? _userSub;
   final _searchCtrl = TextEditingController();
   String _query = '';
   String? _companyId;
+  UserModel? _currentUser;
 
   @override
   void initState() {
@@ -70,18 +77,34 @@ class _TableViewState extends State<_TableView> {
     } catch (_) {
       _repo = AuthRepository();
     }
+    _currentUser = widget.currentUser;
+    _userSub = _repo.getCurrentUserStream().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = user?.effectiveCompanyId ?? _companyId;
+        });
+      }
+    });
     _loadCompanyId();
   }
 
   Future<void> _loadCompanyId() async {
     try {
-      final cid = await _repo.getCurrentCompanyId();
-      if (mounted) setState(() => _companyId = cid);
+      final user = await _repo.getCurrentUser();
+      final cid = user?.effectiveCompanyId ?? await _repo.getCurrentCompanyId();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = cid;
+        });
+      }
     } catch (_) {}
   }
 
   @override
   void dispose() {
+    _userSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -123,40 +146,42 @@ class _TableViewState extends State<_TableView> {
                     ],
                   ),
                 ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: widget.onAddNewUser,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 14 : 20, vertical: isMobile ? 8 : 10),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.add_rounded,
-                                size: 18, color: Colors.white),
-                            const SizedBox(width: 6),
-                            Text(
-                              isMobile ? 'NOVO' : 'NOVO USUÁRIO',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold,
-                                fontSize: isMobile ? 12 : 13,
-                                letterSpacing: 0.5,
-                                color: Colors.white,
+                if (widget.currentUser?.canManageUsers ?? _currentUser?.canManageUsers ?? false) ...[
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onAddNewUser,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 14 : 20, vertical: isMobile ? 8 : 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_rounded,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 6),
+                              Text(
+                                isMobile ? 'NOVO' : 'NOVO USUÁRIO',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: isMobile ? 12 : 13,
+                                  letterSpacing: 0.5,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
 
@@ -257,6 +282,7 @@ class _TableViewState extends State<_TableView> {
                             if (filtered.isEmpty) {
                               return _EmptyState(
                                 isEmpty: all.isEmpty,
+                                canAdd: widget.currentUser?.canManageUsers ?? _currentUser?.canManageUsers ?? false,
                                 onAdd: widget.onAddNewUser,
                               );
                             }
@@ -651,9 +677,14 @@ class _UserMobileCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   final bool isEmpty;
+  final bool canAdd;
   final VoidCallback onAdd;
 
-  const _EmptyState({required this.isEmpty, required this.onAdd});
+  const _EmptyState({
+    required this.isEmpty,
+    this.canAdd = true,
+    required this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -684,7 +715,7 @@ class _EmptyState extends StatelessWidget {
             style:
                 GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
           ),
-          if (isEmpty) ...[
+          if (isEmpty && canAdd) ...[
             const SizedBox(height: 20),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(

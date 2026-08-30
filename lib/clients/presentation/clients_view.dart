@@ -331,6 +331,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                             if (filtered.isEmpty) {
                               return _ClientEmptyState(
                                 isEmpty: all.isEmpty,
+                                canAdd: widget.currentUser?.canCreateClients ?? _currentUser?.canCreateClients ?? false,
                                 onAdd: widget.onAddNew,
                               );
                             }
@@ -904,9 +905,14 @@ class _ClientStatusBadge extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _ClientEmptyState extends StatelessWidget {
   final bool isEmpty;
+  final bool canAdd;
   final VoidCallback onAdd;
 
-  const _ClientEmptyState({required this.isEmpty, required this.onAdd});
+  const _ClientEmptyState({
+    required this.isEmpty,
+    this.canAdd = true,
+    required this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -937,7 +943,7 @@ class _ClientEmptyState extends StatelessWidget {
             style:
                 GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
           ),
-          if (isEmpty) ...[
+          if (isEmpty && canAdd) ...[
             const SizedBox(height: 20),
             Material(
               color: Colors.transparent,

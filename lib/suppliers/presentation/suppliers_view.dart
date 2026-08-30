@@ -421,6 +421,7 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                           if (filtered.isEmpty) {
                             return _SupplierEmptyState(
                               isEmpty: all.isEmpty,
+                              canAdd: widget.currentUser?.canCreateSuppliers ?? _currentUser?.canCreateSuppliers ?? false,
                               onAdd: widget.onAddNew,
                             );
                           }
@@ -793,9 +794,14 @@ class _SupplierStatusBadge extends StatelessWidget {
 
 class _SupplierEmptyState extends StatelessWidget {
   final bool isEmpty;
+  final bool canAdd;
   final VoidCallback onAdd;
 
-  const _SupplierEmptyState({required this.isEmpty, required this.onAdd});
+  const _SupplierEmptyState({
+    required this.isEmpty,
+    this.canAdd = true,
+    required this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -823,7 +829,7 @@ class _SupplierEmptyState extends StatelessWidget {
               isEmpty ? 'Cadastre seus fornecedores para associá-los aos produtos do catálogo.' : 'Tente buscar por outro termo ou altere o filtro.',
               style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
             ),
-            if (isEmpty) ...[
+            if (isEmpty && canAdd) ...[
               const SizedBox(height: 20),
               Material(
                 color: Colors.transparent,

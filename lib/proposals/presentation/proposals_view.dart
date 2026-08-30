@@ -744,6 +744,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     ),
                     child: _ProposalEmptyState(
                       isEmpty: all.isEmpty,
+                      canAdd: widget.currentUser?.canCreateProposals ?? _currentUser?.canCreateProposals ?? false,
                       onAdd: widget.onAddNew,
                     ),
                   );
@@ -1343,9 +1344,14 @@ class _ProposalRow extends StatelessWidget {
 
 class _ProposalEmptyState extends StatelessWidget {
   final bool isEmpty;
+  final bool canAdd;
   final VoidCallback onAdd;
 
-  const _ProposalEmptyState({required this.isEmpty, required this.onAdd});
+  const _ProposalEmptyState({
+    required this.isEmpty,
+    this.canAdd = true,
+    required this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1378,7 +1384,7 @@ class _ProposalEmptyState extends StatelessWidget {
             style:
                 GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
           ),
-          if (isEmpty) ...[
+          if (isEmpty && canAdd) ...[
             const SizedBox(height: 20),
             Material(
               color: Colors.transparent,

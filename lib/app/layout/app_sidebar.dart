@@ -34,12 +34,12 @@ class AppSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canViewClients = currentUser?.canViewClients ?? true;
-    final canViewProducts = currentUser?.canViewProducts ?? true;
-    final canViewSuppliers = currentUser?.canViewSuppliers ?? true;
-    final canViewProposals = currentUser?.canViewProposals ?? true;
-    final canManageUsers = currentUser?.canManageUsers ?? true;
-    final canManageSettings = currentUser?.canManageSettings ?? true;
+    final canViewClients = currentUser?.canViewClients ?? false;
+    final canViewProducts = currentUser?.canViewProducts ?? false;
+    final canViewSuppliers = currentUser?.canViewSuppliers ?? false;
+    final canViewProposals = currentUser?.canViewProposals ?? false;
+    final canManageUsers = currentUser?.canManageUsers ?? false;
+    final canManageSettings = currentUser?.canManageSettings ?? false;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),

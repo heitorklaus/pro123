@@ -227,12 +227,12 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildMiolo() {
-    final canViewClients = _currentUser?.canViewClients ?? true;
-    final canViewProducts = _currentUser?.canViewProducts ?? true;
-    final canViewSuppliers = _currentUser?.canViewSuppliers ?? true;
-    final canViewProposals = _currentUser?.canViewProposals ?? true;
-    final canManageUsers = _currentUser?.canManageUsers ?? true;
-    final canManageSettings = _currentUser?.canManageSettings ?? true;
+    final canViewClients = _currentUser?.canViewClients ?? false;
+    final canViewProducts = _currentUser?.canViewProducts ?? false;
+    final canViewSuppliers = _currentUser?.canViewSuppliers ?? false;
+    final canViewProposals = _currentUser?.canViewProposals ?? false;
+    final canManageUsers = _currentUser?.canManageUsers ?? false;
+    final canManageSettings = _currentUser?.canManageSettings ?? false;
 
     switch (_activeItem) {
       case AppSidebarItem.dashboard:
@@ -298,7 +298,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           );
         }
-        return const UsersView();
+        return UsersView(currentUser: _currentUser);
       case AppSidebarItem.settings:
         if (!canManageSettings) {
           return const Center(
