@@ -332,9 +332,25 @@ class SolarProposalPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(
-                    'PROPOSTA COMERCIAL • ${proposal.proposalNumber}',
-                    style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: [
+                      pw.Text(
+                        'PROPOSTA COMERCIAL',
+                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
+                      ),
+                      pw.SizedBox(width: 6),
+                      pw.Container(
+                        width: 3.5,
+                        height: 3.5,
+                        decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, color: primaryColor),
+                      ),
+                      pw.SizedBox(width: 6),
+                      pw.Text(
+                        proposal.proposalNumber,
+                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
+                      ),
+                    ],
                   ),
                   pw.SizedBox(height: 4),
                   pw.Row(
@@ -360,9 +376,25 @@ class SolarProposalPdfService {
                       ),
                   ],
                   pw.SizedBox(height: 3),
-                  pw.Text(
-                    'Emissão: ${DateFormat('dd/MM/yyyy').format(proposal.createdAt)} • Validade: ${proposal.validityDays} dias',
-                    style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#64748B')),
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: [
+                      pw.Text(
+                        'Emissão: ${DateFormat('dd/MM/yyyy').format(proposal.createdAt)}',
+                        style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#64748B')),
+                      ),
+                      pw.SizedBox(width: 5),
+                      pw.Container(
+                        width: 2.5,
+                        height: 2.5,
+                        decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, color: PdfColor.fromHex('#94A3B8')),
+                      ),
+                      pw.SizedBox(width: 5),
+                      pw.Text(
+                        'Validade: ${proposal.validityDays} dias',
+                        style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#64748B')),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -1991,13 +1991,36 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'PROPOSTA COMERCIAL • PROP-2026/001',
-                              style: GoogleFonts.inter(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'PROPOSTA COMERCIAL',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Container(
+                                  width: 3,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'PROP-2026/001',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Text(

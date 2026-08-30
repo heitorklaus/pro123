@@ -17,7 +17,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final currencyFormat =
+        NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final isCompany = parsedBill.clientType.name == 'company';
     final isMobile = MediaQuery.of(context).size.width < 640;
 
@@ -74,13 +75,15 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                            color:
+                                const Color(0xFFF59E0B).withValues(alpha: 0.35),
                             blurRadius: 10,
                             offset: const Offset(0, 3),
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+                      child: const Icon(Icons.bolt_rounded,
+                          color: Colors.white, size: 22),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -101,11 +104,15 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                                  color: const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+                                  border: Border.all(
+                                      color: const Color(0xFFF59E0B)
+                                          .withValues(alpha: 0.5)),
                                 ),
                                 child: Text(
                                   'IA GEMINI VISION',
@@ -121,13 +128,15 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                           ),
                           Text(
                             'Revise os dados cadastrais e o dimensionamento fotovoltaico antes de aplicar ao formulário',
-                            style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                            style: GoogleFonts.inter(
+                                fontSize: 11.5, color: const Color(0xFF94A3B8)),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white70),
                       onPressed: () => Navigator.pop(context),
                       tooltip: 'Fechar',
                     ),
@@ -152,14 +161,16 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+                          border: Border.all(
+                              color: const Color(0xFFFDE68A), width: 1.5),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.solar_power_rounded, color: Color(0xFFD97706), size: 20),
+                                const Icon(Icons.solar_power_rounded,
+                                    color: Color(0xFFD97706), size: 20),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -180,7 +191,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                             if (isMobile) ...[
                               _metricCard(
                                 title: 'Consumo Médio Mensal',
-                                value: '${parsedBill.averageMonthlyConsumptionKwh.toStringAsFixed(0)} kWh/mês',
+                                value:
+                                    '${parsedBill.averageMonthlyConsumptionKwh.toStringAsFixed(0)} kWh/mês',
                                 icon: Icons.electric_meter_outlined,
                                 iconColor: const Color(0xFFD97706),
                                 textColor: const Color(0xFF78350F),
@@ -188,7 +200,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                               const SizedBox(height: 8),
                               _metricCard(
                                 title: 'Potência Solar Sugerida',
-                                value: '${parsedBill.suggestedSolarKwP.toStringAsFixed(2)} kWp',
+                                value:
+                                    '${parsedBill.suggestedSolarKwP.toStringAsFixed(2)} kWp',
                                 icon: Icons.bolt_rounded,
                                 iconColor: const Color(0xFF059669),
                                 textColor: const Color(0xFF065F46),
@@ -196,7 +209,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                               const SizedBox(height: 8),
                               _metricCard(
                                 title: 'Geração Prevista',
-                                value: '${parsedBill.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês',
+                                value:
+                                    '${parsedBill.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês',
                                 icon: Icons.wb_sunny_outlined,
                                 iconColor: const Color(0xFFD97706),
                                 textColor: const Color(0xFF78350F),
@@ -208,7 +222,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   Expanded(
                                     child: _metricCard(
                                       title: 'Consumo Médio Mensal',
-                                      value: '${parsedBill.averageMonthlyConsumptionKwh.toStringAsFixed(0)} kWh/mês',
+                                      value:
+                                          '${parsedBill.averageMonthlyConsumptionKwh.toStringAsFixed(0)} kWh/mês',
                                       icon: Icons.electric_meter_outlined,
                                       iconColor: const Color(0xFFD97706),
                                       textColor: const Color(0xFF78350F),
@@ -219,7 +234,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   Expanded(
                                     child: _metricCard(
                                       title: 'Potência Solar Sugerida',
-                                      value: '${parsedBill.suggestedSolarKwP.toStringAsFixed(2)} kWp',
+                                      value:
+                                          '${parsedBill.suggestedSolarKwP.toStringAsFixed(2)} kWp',
                                       icon: Icons.bolt_rounded,
                                       iconColor: const Color(0xFF059669),
                                       textColor: const Color(0xFF065F46),
@@ -230,7 +246,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   Expanded(
                                     child: _metricCard(
                                       title: 'Geração Prevista',
-                                      value: '${parsedBill.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês',
+                                      value:
+                                          '${parsedBill.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês',
                                       icon: Icons.wb_sunny_outlined,
                                       iconColor: const Color(0xFFD97706),
                                       textColor: const Color(0xFF78350F),
@@ -261,7 +278,9 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                             ),
                             _infoRow(
                               'Tipo:',
-                              isCompany ? 'Pessoa Jurídica (PJ)' : 'Pessoa Física (PF)',
+                              isCompany
+                                  ? 'Pessoa Jurídica (PJ)'
+                                  : 'Pessoa Física (PF)',
                             ),
                             _infoRow(
                               'Endereço:',
@@ -271,7 +290,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                               'Bairro / Cidade:',
                               '${parsedBill.neighborhood ?? ''}${parsedBill.city != null ? " - ${parsedBill.city}" : ""}/${parsedBill.state ?? ""}',
                             ),
-                            _infoRow('CEP:', parsedBill.zipCode ?? 'Não identificado'),
+                            _infoRow('CEP:',
+                                parsedBill.zipCode ?? 'Não identificado'),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -300,7 +320,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                             if (parsedBill.currentBillAmount != null)
                               _infoRow(
                                 'Valor da Fatura:',
-                                currencyFormat.format(parsedBill.currentBillAmount),
+                                currencyFormat
+                                    .format(parsedBill.currentBillAmount),
                               ),
                             if (parsedBill.referenceMonth != null)
                               _infoRow(
@@ -330,7 +351,9 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   ),
                                   _infoRow(
                                     'Tipo:',
-                                    isCompany ? 'Pessoa Jurídica (PJ)' : 'Pessoa Física (PF)',
+                                    isCompany
+                                        ? 'Pessoa Jurídica (PJ)'
+                                        : 'Pessoa Física (PF)',
                                   ),
                                   _infoRow(
                                     'Endereço:',
@@ -340,7 +363,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                     'Bairro / Cidade:',
                                     '${parsedBill.neighborhood ?? ''}${parsedBill.city != null ? " - ${parsedBill.city}" : ""}/${parsedBill.state ?? ""}',
                                   ),
-                                  _infoRow('CEP:', parsedBill.zipCode ?? 'Não identificado'),
+                                  _infoRow('CEP:',
+                                      parsedBill.zipCode ?? 'Não identificado'),
                                 ],
                               ),
                             ),
@@ -354,7 +378,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                 children: [
                                   _infoRow(
                                     'Distribuidora:',
-                                    parsedBill.utilityCompany ?? 'Não identificada',
+                                    parsedBill.utilityCompany ??
+                                        'Não identificada',
                                     isBold: true,
                                   ),
                                   _infoRow(
@@ -373,7 +398,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   if (parsedBill.currentBillAmount != null)
                                     _infoRow(
                                       'Valor da Fatura:',
-                                      currencyFormat.format(parsedBill.currentBillAmount),
+                                      currencyFormat
+                                          .format(parsedBill.currentBillAmount),
                                     ),
                                   if (parsedBill.referenceMonth != null)
                                     _infoRow(
@@ -391,7 +417,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                       // ── HISTÓRICO DE CONSUMO DOS ÚLTIMOS MESES ──────────────
                       if (parsedBill.history.isNotEmpty) ...[
                         _infoSection(
-                          title: 'Histórico de Consumo Faturado (${parsedBill.history.length} meses identificados)',
+                          title:
+                              'Histórico de Consumo Faturado (${parsedBill.history.length} meses identificados)',
                           icon: Icons.bar_chart_rounded,
                           children: [
                             const SizedBox(height: 4),
@@ -400,11 +427,13 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                               runSpacing: 8,
                               children: parsedBill.history.map((h) {
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF1F5F9),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    border: Border.all(
+                                        color: const Color(0xFFE2E8F0)),
                                   ),
                                   child: Column(
                                     children: [
@@ -446,7 +475,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                 ),
                 decoration: const BoxDecoration(
                   color: Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                  borderRadius:
+                      BorderRadius.vertical(bottom: Radius.circular(24)),
                   border: Border(top: BorderSide(color: AppColors.border)),
                 ),
                 child: isMobile
@@ -455,7 +485,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                         children: [
                           Text(
                             'Os dados preencherão o formulário de cadastro automaticamente.',
-                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: const Color(0xFF64748B)),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 10),
@@ -466,11 +497,17 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   onPressed: () => Navigator.pop(context),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF64748B),
-                                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    side: const BorderSide(
+                                        color: Color(0xFFCBD5E1)),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  child: Text('CANCELAR', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                                  child: Text('CANCELAR',
+                                      style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600)),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -484,15 +521,22 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF059669),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(Icons.check_circle_outline_rounded, size: 16),
+                                      const Icon(
+                                          Icons.check_circle_outline_rounded,
+                                          size: 16),
                                       const SizedBox(width: 6),
-                                      Text('APLICAR', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                                      Text('APLICAR',
+                                          style: GoogleFonts.inter(
+                                              fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 ),
@@ -506,7 +550,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                         children: [
                           Text(
                             'Os dados preencherão o formulário de cadastro automaticamente.',
-                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                            style: GoogleFonts.inter(
+                                fontSize: 12, color: const Color(0xFF64748B)),
                           ),
                           Row(
                             children: [
@@ -514,7 +559,9 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                 onPressed: () => Navigator.pop(context),
                                 child: Text(
                                   'CANCELAR',
-                                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                                  style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF64748B)),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -529,28 +576,37 @@ class EnergyBillSummaryDialog extends StatelessWidget {
                                   child: Ink(
                                     decoration: BoxDecoration(
                                       gradient: const LinearGradient(
-                                        colors: [Color(0xFF059669), Color(0xFF047857)],
+                                        colors: [
+                                          Color(0xFF059669),
+                                          Color(0xFF047857)
+                                        ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       ),
                                       borderRadius: BorderRadius.circular(10),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF059669).withValues(alpha: 0.35),
+                                          color: const Color(0xFF059669)
+                                              .withValues(alpha: 0.35),
                                           blurRadius: 8,
                                           offset: const Offset(0, 3),
                                         ),
                                       ],
                                     ),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 18, vertical: 11),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                                          const Icon(
+                                              Icons
+                                                  .check_circle_outline_rounded,
+                                              color: Colors.white,
+                                              size: 18),
                                           const SizedBox(width: 8),
                                           Text(
-                                            'APLICAR DADOS AO FORMULÁRIO',
+                                            'APLICAR DADOS',
                                             style: GoogleFonts.inter(
                                               fontSize: 12.5,
                                               fontWeight: FontWeight.bold,
@@ -600,7 +656,10 @@ class EnergyBillSummaryDialog extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF92400E)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF92400E)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -610,7 +669,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             value,
-            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+            style: GoogleFonts.outfit(
+                fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
           ),
         ],
       ),
@@ -638,7 +698,10 @@ class EnergyBillSummaryDialog extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF1E293B)),
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                    color: const Color(0xFF1E293B)),
               ),
             ],
           ),
@@ -659,7 +722,8 @@ class EnergyBillSummaryDialog extends StatelessWidget {
             width: 110,
             child: Text(
               label,
-              style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+              style: GoogleFonts.inter(
+                  fontSize: 11.5, color: const Color(0xFF64748B)),
             ),
           ),
           Expanded(
