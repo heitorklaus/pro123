@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
+import '../../auth/domain/models/user_model.dart';
 import '../../suppliers/data/repositories/supplier_repository.dart';
 import '../../suppliers/domain/models/supplier_model.dart';
 import '../data/repositories/product_repository.dart';
@@ -18,10 +20,12 @@ import 'solar_plant_form_card.dart';
 // ENTRY POINT: View principal integrada ao SPA Master do Dashboard
 // ─────────────────────────────────────────────────────────────────────────────
 class ProductsView extends StatefulWidget {
+  final UserModel? currentUser;
   final ValueChanged<ProposalItemModel>? onProceedToProposal;
 
   const ProductsView({
     super.key,
+    this.currentUser,
     this.onProceedToProposal,
   });
 
@@ -95,6 +99,7 @@ class _ProductsViewState extends State<ProductsView> {
               width: constraints.maxWidth,
               height: constraints.maxHeight,
               child: _ProductTableView(
+                currentUser: widget.currentUser,
                 onAddNew: _startNewProduct,
                 onAddNewSolarPlant: _startNewSolarPlant,
                 onEdit: _onEditProduct,
@@ -161,11 +166,13 @@ class _ProductsViewState extends State<ProductsView> {
 // 1. TABELA DE PRODUTOS
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProductTableView extends StatefulWidget {
+  final UserModel? currentUser;
   final VoidCallback onAddNew;
   final VoidCallback? onAddNewSolarPlant;
   final ValueChanged<ProductModel> onEdit;
 
   const _ProductTableView({
+    this.currentUser,
     required this.onAddNew,
     this.onAddNewSolarPlant,
     required this.onEdit,
@@ -177,6 +184,8 @@ class _ProductTableView extends StatefulWidget {
 
 class _ProductTableViewState extends State<_ProductTableView> {
   late final ProductRepository _repo;
+  late final AuthRepository _authRepo;
+  StreamSubscription<UserModel?>? _userSub;
   final _searchCtrl = TextEditingController();
   String _query = '';
   ProductSector? _filterSector;
@@ -188,6 +197,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
   bool _showSolarComponents = false;
   bool _isFixedSector = false;
   String? _companyId;
+  UserModel? _currentUser;
   final Set<String> _expandedProductIds = {};
   static const _filterSectorStorageKey = 'mavis_saved_product_filter_sector';
 
@@ -199,6 +209,20 @@ class _ProductTableViewState extends State<_ProductTableView> {
     } catch (_) {
       _repo = ProductRepository();
     }
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+    _currentUser = widget.currentUser;
+    _userSub = _authRepo.getCurrentUserStream().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = user?.effectiveCompanyId ?? _companyId;
+        });
+      }
+    });
     _loadSavedFilterSector();
   }
 
@@ -218,10 +242,12 @@ class _ProductTableViewState extends State<_ProductTableView> {
       } catch (_) {
         auth = AuthRepository();
       }
-      final cid = await auth.getCurrentCompanyId();
+      final user = await auth.getCurrentUser();
+      final cid = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
 
       if (mounted) {
         setState(() {
+          _currentUser = user;
           _companyId = cid;
           if (savedShowSolar != null) {
             _showSolarComponents = savedShowSolar;
@@ -267,6 +293,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
 
   @override
   void dispose() {
+    _userSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -480,181 +507,183 @@ class _ProductTableViewState extends State<_ProductTableView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (!isMobile) ...[
-                    // Botão de Gerar 200 Produtos de Teste
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: (_isSeeding || _isDeletingAll)
-                            ? null
-                            : _confirmSeedProducts,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            color:
-                                const Color(0xFFF59E0B).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
+                  if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
+                    if (!isMobile) ...[
+                      // Botão de Gerar 200 Produtos de Teste
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: (_isSeeding || _isDeletingAll)
+                              ? null
+                              : _confirmSeedProducts,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Ink(
+                            decoration: BoxDecoration(
                               color:
-                                  const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                              width: 1,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 11),
-                            child: _isSeeding
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFFF59E0B),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.bolt_rounded,
-                                          size: 18, color: Color(0xFFF59E0B)),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'GERAR 200 PRODUTOS TESTE',
-                                        style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12.5,
-                                          letterSpacing: 0.3,
-                                          color: const Color(0xFFB45309),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Botão de Limpar / Excluir Todos os Produtos
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: (_isSeeding || _isDeletingAll)
-                            ? null
-                            : _confirmDeleteAllProducts,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            color:
-                                const Color(0xFFEF4444).withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color:
-                                  const Color(0xFFEF4444).withValues(alpha: 0.35),
-                              width: 1,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 11),
-                            child: _isDeletingAll
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFFEF4444),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.delete_sweep_rounded,
-                                          size: 18, color: Color(0xFFEF4444)),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'LIMPAR CATÁLOGO',
-                                        style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12.5,
-                                          letterSpacing: 0.3,
-                                          color: const Color(0xFFDC2626),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-
-                  // Botão Novo Produto / Nova Usina
-                  Builder(builder: (context) {
-                    final isSolarFiltered =
-                        _filterSector == ProductSector.solarPlant;
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: isSolarFiltered
-                            ? (widget.onAddNewSolarPlant ?? widget.onAddNew)
-                            : widget.onAddNew,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: isSolarFiltered
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFFF59E0B),
-                                      Color(0xFFEA580C)
-                                    ],
-                                  )
-                                : AppColors.primaryGradient,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isSolarFiltered
-                                        ? const Color(0xFFEA580C)
-                                        : AppColors.primary)
-                                    .withValues(alpha: 0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                                  const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                                width: 1,
                               ),
-                            ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 11),
+                              child: _isSeeding
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFF59E0B),
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.bolt_rounded,
+                                            size: 18, color: Color(0xFFF59E0B)),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'GERAR 200 PRODUTOS TESTE',
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5,
+                                            letterSpacing: 0.3,
+                                            color: const Color(0xFFB45309),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
                           ),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 11),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isSolarFiltered
-                                      ? Icons.solar_power_rounded
-                                      : Icons.add_shopping_cart_rounded,
-                                  size: isMobile ? 16 : 18,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  isSolarFiltered
-                                      ? (isMobile ? 'USINA' : 'NOVA USINA')
-                                      : (isMobile ? 'NOVO' : 'NOVO PRODUTO'),
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: isMobile ? 12 : 13,
-                                    letterSpacing: 0.5,
-                                    color: Colors.white,
-                                  ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Botão de Limpar / Excluir Todos os Produtos
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: (_isSeeding || _isDeletingAll)
+                              ? null
+                              : _confirmDeleteAllProducts,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              color:
+                                  const Color(0xFFEF4444).withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    const Color(0xFFEF4444).withValues(alpha: 0.35),
+                                width: 1,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 11),
+                              child: _isDeletingAll
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFEF4444),
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.delete_sweep_rounded,
+                                            size: 18, color: Color(0xFFEF4444)),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'LIMPAR CATÁLOGO',
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5,
+                                            letterSpacing: 0.3,
+                                            color: const Color(0xFFDC2626),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+
+                    // Botão Novo Produto / Nova Usina
+                    Builder(builder: (context) {
+                      final isSolarFiltered =
+                          _filterSector == ProductSector.solarPlant;
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: isSolarFiltered
+                              ? (widget.onAddNewSolarPlant ?? widget.onAddNew)
+                              : widget.onAddNew,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: isSolarFiltered
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFFF59E0B),
+                                        Color(0xFFEA580C)
+                                      ],
+                                    )
+                                  : AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isSolarFiltered
+                                          ? const Color(0xFFEA580C)
+                                          : AppColors.primary)
+                                      .withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 11),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isSolarFiltered
+                                        ? Icons.solar_power_rounded
+                                        : Icons.add_shopping_cart_rounded,
+                                    size: isMobile ? 16 : 18,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    isSolarFiltered
+                                        ? (isMobile ? 'USINA' : 'NOVA USINA')
+                                        : (isMobile ? 'NOVO' : 'NOVO PRODUTO'),
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: isMobile ? 12 : 13,
+                                      letterSpacing: 0.5,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ],
                 ],
               ),
             ],

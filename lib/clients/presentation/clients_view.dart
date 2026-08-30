@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
@@ -7,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
+import '../../auth/domain/models/user_model.dart';
 import '../data/repositories/client_repository.dart';
 import '../data/services/gemini_energy_bill_service.dart';
 import '../domain/models/client_model.dart';
@@ -17,7 +19,9 @@ import 'widgets/energy_bill_summary_dialog.dart';
 // ENTRY POINT: inserido diretamente no miolo do DashboardPage (sem Scaffold)
 // ─────────────────────────────────────────────────────────────────────────────
 class ClientsView extends StatefulWidget {
-  const ClientsView({super.key});
+  final UserModel? currentUser;
+
+  const ClientsView({super.key, this.currentUser});
 
   @override
   State<ClientsView> createState() => _ClientsViewState();
@@ -52,6 +56,7 @@ class _ClientsViewState extends State<ClientsView> {
     }
 
     return _ClientTableView(
+      currentUser: widget.currentUser,
       onAddNew: () => setState(() {
         _editingClient = null;
         _showForm = true;
@@ -68,10 +73,15 @@ class _ClientsViewState extends State<ClientsView> {
 // TABELA: ocupa TODO o espaço disponível do miolo usando SizedBox.expand
 // ─────────────────────────────────────────────────────────────────────────────
 class _ClientTableView extends StatefulWidget {
+  final UserModel? currentUser;
   final VoidCallback onAddNew;
   final ValueChanged<ClientModel> onEdit;
 
-  const _ClientTableView({required this.onAddNew, required this.onEdit});
+  const _ClientTableView({
+    this.currentUser,
+    required this.onAddNew,
+    required this.onEdit,
+  });
 
   @override
   State<_ClientTableView> createState() => _ClientTableViewState();
@@ -79,9 +89,12 @@ class _ClientTableView extends StatefulWidget {
 
 class _ClientTableViewState extends State<_ClientTableView> {
   late final ClientRepository _repo;
+  late final AuthRepository _authRepo;
+  StreamSubscription<UserModel?>? _userSub;
   final _searchCtrl = TextEditingController();
   String _query = '';
   String? _companyId;
+  UserModel? _currentUser;
 
   @override
   void initState() {
@@ -91,24 +104,39 @@ class _ClientTableViewState extends State<_ClientTableView> {
     } catch (_) {
       _repo = ClientRepository();
     }
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+    _currentUser = widget.currentUser;
+    _userSub = _authRepo.getCurrentUserStream().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = user?.effectiveCompanyId ?? _companyId;
+        });
+      }
+    });
     _loadCompanyId();
   }
 
   Future<void> _loadCompanyId() async {
     try {
-      AuthRepository auth;
-      try {
-        auth = Modular.get<AuthRepository>();
-      } catch (_) {
-        auth = AuthRepository();
+      final user = await _authRepo.getCurrentUser();
+      final cid = user?.effectiveCompanyId ?? await _authRepo.getCurrentCompanyId();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = cid;
+        });
       }
-      final cid = await auth.getCurrentCompanyId();
-      if (mounted) setState(() => _companyId = cid);
     } catch (_) {}
   }
 
   @override
   void dispose() {
+    _userSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -145,52 +173,56 @@ class _ClientTableViewState extends State<_ClientTableView> {
                       Text(
                         'Cadastro e controle de clientes e prospectos',
                         style: GoogleFonts.inter(
-                            fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                            fontSize: isMobile ? 12 : 14,
+                            color: const Color(0xFF64748B)),
                       ),
                     ],
                   ),
                 ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: widget.onAddNew,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 11),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.person_add_rounded,
-                                size: 18, color: Colors.white),
-                            const SizedBox(width: 6),
-                            Text(
-                              isMobile ? 'NOVO' : 'NOVO CLIENTE',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                                fontSize: isMobile ? 12 : 13.5,
-                                color: Colors.white,
-                              ),
+                if (widget.currentUser?.canCreateClients ?? _currentUser?.canCreateClients ?? false) ...[
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onAddNew,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 14 : 20,
+                              vertical: isMobile ? 9 : 11),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.person_add_rounded,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 6),
+                              Text(
+                                isMobile ? 'NOVO' : 'NOVO CLIENTE',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                  fontSize: isMobile ? 12 : 13.5,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
 
@@ -204,15 +236,17 @@ class _ClientTableViewState extends State<_ClientTableView> {
                 onChanged: (v) =>
                     setState(() => _query = v.trim().toLowerCase()),
                 decoration: InputDecoration(
-                  hintText: isMobile ? 'Buscar cliente...' : 'Buscar por nome, e-mail ou empresa...',
+                  hintText: isMobile
+                      ? 'Buscar cliente...'
+                      : 'Buscar por nome, e-mail ou empresa...',
                   hintStyle: GoogleFonts.inter(
                       fontSize: 13, color: const Color(0xFF94A3B8)),
                   prefixIcon: const Icon(Icons.search_rounded,
                       color: Color(0xFF64748B), size: 20),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: AppColors.border),
@@ -223,8 +257,8 @@ class _ClientTableViewState extends State<_ClientTableView> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: AppColors.primary, width: 1.5),
+                    borderSide:
+                        const BorderSide(color: AppColors.primary, width: 1.5),
                   ),
                 ),
               ),
@@ -284,9 +318,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                                 ? all
                                 : all
                                     .where((c) =>
-                                        c.name
-                                            .toLowerCase()
-                                            .contains(_query) ||
+                                        c.name.toLowerCase().contains(_query) ||
                                         c.email
                                             .toLowerCase()
                                             .contains(_query) ||
@@ -323,8 +355,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                               itemBuilder: (_, i) => _ClientRow(
                                 client: filtered[i],
                                 onEdit: () => widget.onEdit(filtered[i]),
-                                onDelete: () =>
-                                    _showDeleteDialog(filtered[i]),
+                                onDelete: () => _showDeleteDialog(filtered[i]),
                               ),
                             );
                           },
@@ -345,8 +376,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             const Icon(Icons.warning_amber_rounded,
@@ -358,8 +388,8 @@ class _ClientTableViewState extends State<_ClientTableView> {
         ),
         content: Text(
           'Remover "${client.name}"? Essa ação não pode ser desfeita.',
-          style: GoogleFonts.inter(
-              fontSize: 14, color: const Color(0xFF475569)),
+          style:
+              GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
         ),
         actions: [
           TextButton(
@@ -510,16 +540,14 @@ class _ClientRow extends StatelessWidget {
                           '${client.city}${client.state != null ? ' - ${client.state}' : ''}',
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: const Color(0xFF94A3B8)),
+                              fontSize: 11, color: const Color(0xFF94A3B8)),
                         )
                       else if (client.company != null)
                         Text(
                           client.company!,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: const Color(0xFF94A3B8)),
+                              fontSize: 11, color: const Color(0xFF94A3B8)),
                         ),
                     ],
                   ),
@@ -622,7 +650,12 @@ class _ClientMobileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initials = client.name.isNotEmpty
-        ? client.name.trim().split(' ').take(2).map((e) => e.isNotEmpty ? e[0].toUpperCase() : '').join()
+        ? client.name
+            .trim()
+            .split(' ')
+            .take(2)
+            .map((e) => e.isNotEmpty ? e[0].toUpperCase() : '')
+            .join()
         : '?';
 
     return Container(
@@ -654,7 +687,8 @@ class _ClientMobileCard extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 17,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                      backgroundColor:
+                          AppColors.primary.withValues(alpha: 0.12),
                       child: Text(
                         initials,
                         style: GoogleFonts.inter(
@@ -679,7 +713,8 @@ class _ClientMobileCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (client.document != null && client.document!.isNotEmpty)
+                          if (client.document != null &&
+                              client.document!.isNotEmpty)
                             Text(
                               client.document!,
                               style: GoogleFonts.inter(
@@ -701,21 +736,25 @@ class _ClientMobileCard extends StatelessWidget {
                 Row(
                   children: [
                     if (client.phone != null && client.phone!.isNotEmpty) ...[
-                      const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF64748B)),
+                      const Icon(Icons.phone_outlined,
+                          size: 12, color: Color(0xFF64748B)),
                       const SizedBox(width: 4),
                       Text(
                         client.phone!,
-                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                        style: GoogleFonts.inter(
+                            fontSize: 11, color: const Color(0xFF475569)),
                       ),
                       const SizedBox(width: 10),
                     ],
                     if (client.city != null && client.city!.isNotEmpty) ...[
-                      const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                      const Icon(Icons.location_on_outlined,
+                          size: 12, color: Color(0xFF64748B)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           '${client.city}${client.state != null ? "/${client.state}" : ""}',
-                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11, color: const Color(0xFF475569)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -723,18 +762,22 @@ class _ClientMobileCard extends StatelessWidget {
                     ] else
                       const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6366F1)),
+                      icon: const Icon(Icons.edit_outlined,
+                          size: 18, color: Color(0xFF6366F1)),
                       onPressed: onEdit,
                       tooltip: 'Editar',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          size: 18, color: Color(0xFFEF4444)),
                       onPressed: onDelete,
                       tooltip: 'Excluir',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
                     ),
                   ],
                 ),
@@ -761,14 +804,10 @@ class _TypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isCompany
-            ? const Color(0xFFE0F2FE)
-            : const Color(0xFFEEF2FF),
+        color: isCompany ? const Color(0xFFE0F2FE) : const Color(0xFFEEF2FF),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: isCompany
-              ? const Color(0xFF7DD3FC)
-              : const Color(0xFFC7D2FE),
+          color: isCompany ? const Color(0xFF7DD3FC) : const Color(0xFFC7D2FE),
           width: 1,
         ),
       ),
@@ -778,9 +817,8 @@ class _TypeBadge extends StatelessWidget {
           Icon(
             isCompany ? Icons.business_rounded : Icons.person_rounded,
             size: 11,
-            color: isCompany
-                ? const Color(0xFF0284C7)
-                : const Color(0xFF4F46E5),
+            color:
+                isCompany ? const Color(0xFF0284C7) : const Color(0xFF4F46E5),
           ),
           const SizedBox(width: 4),
           Text(
@@ -788,9 +826,8 @@ class _TypeBadge extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: isCompany
-                  ? const Color(0xFF0284C7)
-                  : const Color(0xFF4F46E5),
+              color:
+                  isCompany ? const Color(0xFF0284C7) : const Color(0xFF4F46E5),
             ),
           ),
         ],
@@ -897,8 +934,8 @@ class _ClientEmptyState extends StatelessWidget {
             isEmpty
                 ? 'Clique em "+ NOVO CLIENTE" para começar.'
                 : 'Tente outro termo de busca.',
-            style: GoogleFonts.inter(
-                color: const Color(0xFF64748B), fontSize: 13),
+            style:
+                GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
           ),
           if (isEmpty) ...[
             const SizedBox(height: 20),
@@ -1091,16 +1128,20 @@ class _ClientFormCardState extends State<_ClientFormCard> {
       final diagnosticNotes = StringBuffer();
       diagnosticNotes.writeln('⚡ Diagnóstico de Conta de Energia (IA Gemini):');
       if (bill.ucNumber != null) {
-        diagnosticNotes.writeln('• Unidade Consumidora: ${bill.ucNumber} (${bill.utilityCompany ?? ""})');
+        diagnosticNotes.writeln(
+            '• Unidade Consumidora: ${bill.ucNumber} (${bill.utilityCompany ?? ""})');
       }
       if (bill.averageMonthlyConsumptionKwh > 0) {
-        diagnosticNotes.writeln('• Consumo Médio Mensal: ${bill.averageMonthlyConsumptionKwh.toStringAsFixed(0)} kWh/mês');
+        diagnosticNotes.writeln(
+            '• Consumo Médio Mensal: ${bill.averageMonthlyConsumptionKwh.toStringAsFixed(0)} kWh/mês');
       }
       if (bill.suggestedSolarKwP > 0) {
-        diagnosticNotes.writeln('• Potência Solar Recomendada: ${bill.suggestedSolarKwP.toStringAsFixed(2)} kWp');
+        diagnosticNotes.writeln(
+            '• Potência Solar Recomendada: ${bill.suggestedSolarKwP.toStringAsFixed(2)} kWp');
       }
       if (bill.estimatedMonthlyGenerationKwh > 0) {
-        diagnosticNotes.writeln('• Geração Estimada: ${bill.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês');
+        diagnosticNotes.writeln(
+            '• Geração Estimada: ${bill.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês');
       }
       if (bill.connectionType != null) {
         diagnosticNotes.writeln('• Tipo de Ligação: ${bill.connectionType}');
@@ -1109,13 +1150,15 @@ class _ClientFormCardState extends State<_ClientFormCard> {
       if (_notesCtrl.text.trim().isEmpty) {
         _notesCtrl.text = diagnosticNotes.toString().trim();
       } else {
-        _notesCtrl.text = '${_notesCtrl.text}\n\n${diagnosticNotes.toString().trim()}';
+        _notesCtrl.text =
+            '${_notesCtrl.text}\n\n${diagnosticNotes.toString().trim()}';
       }
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Conta de energia analisada! Dados e previsão solar preenchidos.'),
+        content: Text(
+            'Conta de energia analisada! Dados e previsão solar preenchidos.'),
         backgroundColor: Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
       ),
@@ -1253,8 +1296,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
 
     final messenger = ScaffoldMessenger.of(context);
 
-    String? n(String? v) =>
-        (v == null || v.trim().isEmpty) ? null : v.trim();
+    String? n(String? v) => (v == null || v.trim().isEmpty) ? null : v.trim();
 
     try {
       if (_isEditing) {
@@ -1349,8 +1391,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
             child: TextButton.icon(
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF64748B),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               ),
               onPressed: widget.onBack,
               icon: const Icon(Icons.arrow_back_rounded, size: 16),
@@ -1440,7 +1481,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                               ),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+                            child: const Icon(Icons.auto_awesome_rounded,
+                                color: Colors.white, size: 18),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -1456,11 +1498,14 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                                    color: const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.25),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: const Color(0xFFF59E0B)),
+                                    border: Border.all(
+                                        color: const Color(0xFFF59E0B)),
                                   ),
                                   child: const Text(
                                     'GEMINI',
@@ -1479,16 +1524,19 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                       const SizedBox(height: 6),
                       Text(
                         'Envie PDF ou Foto para autocompletar dados, endereço e consumo fotovoltaico.',
-                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(
+                            fontSize: 11, color: const Color(0xFF94A3B8)),
                       ),
                       const SizedBox(height: 10),
                       ElevatedButton(
-                        onPressed: _isAiAnalyzing ? null : _importEnergyBillWithAi,
+                        onPressed:
+                            _isAiAnalyzing ? null : _importEnergyBillWithAi,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF59E0B),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         child: _isAiAnalyzing
                             ? Row(
@@ -1497,10 +1545,14 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                                   SizedBox(
                                     width: 14,
                                     height: 14,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2),
                                   ),
                                   SizedBox(width: 8),
-                                  Text('ANALISANDO...', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                  Text('ANALISANDO...',
+                                      style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold)),
                                 ],
                               )
                             : Row(
@@ -1508,7 +1560,10 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                                 children: const [
                                   Icon(Icons.upload_file_rounded, size: 16),
                                   SizedBox(width: 6),
-                                  Text('ENVIAR CONTA DE ENERGIA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                  Text('ENVIAR CONTA DE ENERGIA',
+                                      style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold)),
                                 ],
                               ),
                       ),
@@ -1526,7 +1581,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                           ),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+                        child: const Icon(Icons.auto_awesome_rounded,
+                            color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -1545,11 +1601,14 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 1.5),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                                    color: const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.25),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: const Color(0xFFF59E0B)),
+                                    border: Border.all(
+                                        color: const Color(0xFFF59E0B)),
                                   ),
                                   child: Text(
                                     'IA GEMINI OCR',
@@ -1565,7 +1624,9 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                             const SizedBox(height: 2),
                             Text(
                               'Envie PDF ou Foto para autocompletar titular, CPF/CNPJ, endereço, média de consumo e potência solar em kWp.',
-                              style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                              style: GoogleFonts.inter(
+                                  fontSize: 11.5,
+                                  color: const Color(0xFF94A3B8)),
                             ),
                           ],
                         ),
@@ -1574,7 +1635,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: _isAiAnalyzing ? null : _importEnergyBillWithAi,
+                          onTap:
+                              _isAiAnalyzing ? null : _importEnergyBillWithAi,
                           borderRadius: BorderRadius.circular(10),
                           child: Ink(
                             decoration: BoxDecoration(
@@ -1585,7 +1647,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                               ),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                             child: _isAiAnalyzing
                                 ? Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -1593,19 +1656,25 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                                       SizedBox(
                                         width: 14,
                                         height: 14,
-                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2),
                                       ),
                                       SizedBox(width: 6),
                                       Text(
                                         'ANALISANDO...',
-                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                        style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white),
                                       ),
                                     ],
                                   )
                                 : Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: const [
-                                      Icon(Icons.upload_file_rounded, color: Colors.white, size: 16),
+                                      Icon(Icons.upload_file_rounded,
+                                          color: Colors.white, size: 16),
                                       SizedBox(width: 6),
                                       Text(
                                         'ENVIAR CONTA',
@@ -1640,8 +1709,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               final selected = _type == t;
               return Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(
-                      right: t == ClientType.person ? 8 : 0),
+                  padding:
+                      EdgeInsets.only(right: t == ClientType.person ? 8 : 0),
                   child: GestureDetector(
                     onTap: () => setState(() => _type = t),
                     child: AnimatedContainer(
@@ -1653,9 +1722,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                             : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: selected
-                              ? AppColors.primary
-                              : AppColors.border,
+                          color:
+                              selected ? AppColors.primary : AppColors.border,
                           width: selected ? 1.5 : 1,
                         ),
                       ),
@@ -1676,9 +1744,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                             t.label,
                             style: GoogleFonts.inter(
                               fontSize: 13,
-                              fontWeight: selected
-                                  ? FontWeight.bold
-                                  : FontWeight.w500,
+                              fontWeight:
+                                  selected ? FontWeight.bold : FontWeight.w500,
                               color: selected
                                   ? AppColors.primary
                                   : const Color(0xFF64748B),
@@ -1701,8 +1768,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
             controller: _nameCtrl,
             decoration: const InputDecoration(
               hintText: 'Nome do cliente',
-              prefixIcon:
-                  Icon(Icons.person_outline, color: Color(0xFF64748B)),
+              prefixIcon: Icon(Icons.person_outline, color: Color(0xFF64748B)),
             ),
           ),
           const SizedBox(height: 14),
@@ -1715,8 +1781,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
               hintText: 'cliente@exemplo.com',
-              prefixIcon:
-                  Icon(Icons.email_outlined, color: Color(0xFF64748B)),
+              prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
             ),
           ),
           const SizedBox(height: 14),
@@ -1730,7 +1795,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
                 hintText: '(11) 99999-0000',
-                prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
+                prefixIcon:
+                    Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
               ),
             ),
             const SizedBox(height: 14),
@@ -1742,7 +1808,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                 hintText: _type == ClientType.person
                     ? '000.000.000-00'
                     : '00.000.000/0000-00',
-                prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
+                prefixIcon:
+                    const Icon(Icons.badge_outlined, color: Color(0xFF64748B)),
               ),
             ),
           ] else ...[
@@ -1800,8 +1867,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               controller: _companyCtrl,
               decoration: const InputDecoration(
                 hintText: 'Nome da empresa onde trabalha',
-                prefixIcon: Icon(Icons.business_outlined,
-                    color: Color(0xFF64748B)),
+                prefixIcon:
+                    Icon(Icons.business_outlined, color: Color(0xFF64748B)),
               ),
             ),
             const SizedBox(height: 14),
@@ -1833,21 +1900,24 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               decoration: InputDecoration(
                 hintText: '00000-000',
                 counterText: '',
-                prefixIcon: const Icon(Icons.pin_drop_outlined, color: Color(0xFF64748B)),
+                prefixIcon: const Icon(Icons.pin_drop_outlined,
+                    color: Color(0xFF64748B)),
                 suffixIcon: _isCepLoading
                     ? const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.primary),
                         ),
                       )
                     : _addressLocked
                         ? Tooltip(
                             message: 'Limpar endereço',
                             child: IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF94A3B8)),
+                              icon: const Icon(Icons.clear_rounded,
+                                  size: 18, color: Color(0xFF94A3B8)),
                               onPressed: _clearAddress,
                             ),
                           )
@@ -1858,7 +1928,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               const SizedBox(height: 4),
               Text(
                 _cepError!,
-                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFEF4444)),
+                style: GoogleFonts.inter(
+                    fontSize: 11, color: const Color(0xFFEF4444)),
               ),
             ],
           ] else ...[
@@ -1905,8 +1976,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                                       message: 'Limpar endereço',
                                       child: IconButton(
                                         icon: const Icon(Icons.clear_rounded,
-                                            size: 18,
-                                            color: Color(0xFF94A3B8)),
+                                            size: 18, color: Color(0xFF94A3B8)),
                                         onPressed: _clearAddress,
                                       ),
                                     )
@@ -1918,8 +1988,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                         Text(
                           _cepError!,
                           style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: const Color(0xFFEF4444)),
+                              fontSize: 11, color: const Color(0xFFEF4444)),
                         ),
                       ],
                     ],
@@ -1994,7 +2063,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                 hintText: 'Rua, Avenida, Praça...',
                 filled: _addressLocked,
                 fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
-                prefixIcon: const Icon(Icons.edit_road_rounded, color: Color(0xFF64748B)),
+                prefixIcon: const Icon(Icons.edit_road_rounded,
+                    color: Color(0xFF64748B)),
               ),
             ),
             const SizedBox(height: 12),
@@ -2026,9 +2096,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                         decoration: InputDecoration(
                           hintText: 'Rua, Avenida, Praça...',
                           filled: _addressLocked,
-                          fillColor: _addressLocked
-                              ? const Color(0xFFF1F5F9)
-                              : null,
+                          fillColor:
+                              _addressLocked ? const Color(0xFFF1F5F9) : null,
                           prefixIcon: const Icon(Icons.edit_road_rounded,
                               color: Color(0xFF64748B)),
                         ),
@@ -2050,8 +2119,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           hintText: 'Nº',
-                          prefixIcon: Icon(Icons.tag_rounded,
-                              color: Color(0xFF64748B)),
+                          prefixIcon:
+                              Icon(Icons.tag_rounded, color: Color(0xFF64748B)),
                         ),
                       ),
                     ],
@@ -2070,7 +2139,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
               controller: _complementCtrl,
               decoration: const InputDecoration(
                 hintText: 'Apto, Sala, Bloco...',
-                prefixIcon: Icon(Icons.layers_outlined, color: Color(0xFF64748B)),
+                prefixIcon:
+                    Icon(Icons.layers_outlined, color: Color(0xFF64748B)),
               ),
             ),
             const SizedBox(height: 12),
@@ -2083,7 +2153,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                 hintText: 'Bairro',
                 filled: _addressLocked,
                 fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
-                prefixIcon: const Icon(Icons.map_outlined, color: Color(0xFF64748B)),
+                prefixIcon:
+                    const Icon(Icons.map_outlined, color: Color(0xFF64748B)),
               ),
             ),
           ] else ...[
@@ -2120,9 +2191,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                         decoration: InputDecoration(
                           hintText: 'Bairro',
                           filled: _addressLocked,
-                          fillColor: _addressLocked
-                              ? const Color(0xFFF1F5F9)
-                              : null,
+                          fillColor:
+                              _addressLocked ? const Color(0xFFF1F5F9) : null,
                           prefixIcon: const Icon(Icons.map_outlined,
                               color: Color(0xFF64748B)),
                         ),
@@ -2146,7 +2216,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                 hintText: 'Cidade',
                 filled: _addressLocked,
                 fillColor: _addressLocked ? const Color(0xFFF1F5F9) : null,
-                prefixIcon: const Icon(Icons.location_city_rounded, color: Color(0xFF64748B)),
+                prefixIcon: const Icon(Icons.location_city_rounded,
+                    color: Color(0xFF64748B)),
               ),
             ),
             const SizedBox(height: 12),
@@ -2181,9 +2252,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                         decoration: InputDecoration(
                           hintText: 'Cidade',
                           filled: _addressLocked,
-                          fillColor: _addressLocked
-                              ? const Color(0xFFF1F5F9)
-                              : null,
+                          fillColor:
+                              _addressLocked ? const Color(0xFFF1F5F9) : null,
                           prefixIcon: const Icon(Icons.location_city_rounded,
                               color: Color(0xFF64748B)),
                         ),
@@ -2208,9 +2278,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                           hintText: 'SP',
                           counterText: '',
                           filled: _addressLocked,
-                          fillColor: _addressLocked
-                              ? const Color(0xFFF1F5F9)
-                              : null,
+                          fillColor:
+                              _addressLocked ? const Color(0xFFF1F5F9) : null,
                         ),
                       ),
                     ],
@@ -2228,8 +2297,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
             DropdownButtonFormField<ClientStatus>(
               initialValue: _status,
               decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.toggle_on_outlined,
-                    color: Color(0xFF64748B)),
+                prefixIcon:
+                    Icon(Icons.toggle_on_outlined, color: Color(0xFF64748B)),
               ),
               items: ClientStatus.values
                   .map((s) => DropdownMenuItem(
@@ -2251,8 +2320,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
             maxLines: 3,
             decoration: const InputDecoration(
               hintText: 'Anotações sobre o cliente...',
-              prefixIcon:
-                  Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
+              prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
             ),
           ),
           const SizedBox(height: 24),
@@ -2276,9 +2344,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                         color: Colors.white, strokeWidth: 2.5),
                   )
                 : Text(
-                    _isEditing
-                        ? 'SALVAR ALTERAÇÕES'
-                        : 'CADASTRAR CLIENTE',
+                    _isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR CLIENTE',
                     style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -2369,8 +2435,7 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline,
-              color: Color(0xFFEF4444), size: 18),
+          const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

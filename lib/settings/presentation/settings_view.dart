@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../products/domain/models/product_model.dart';
 import '../data/services/settings_service.dart';
+import 'solar_settings_view.dart';
 
 /// View completa de Configurações do CRM e Gestão do Ramo / Segmento de Atuação
 class SettingsView extends StatefulWidget {
@@ -21,6 +22,7 @@ class _SettingsViewState extends State<SettingsView> {
   ProductSector? _currentSector = ProductSector.solarPlant;
   bool _isFixedMode = true;
   bool _isLoading = true;
+  bool _editingSolarSettings = false;
   String _searchFilter = '';
 
   @override
@@ -66,6 +68,46 @@ class _SettingsViewState extends State<SettingsView> {
     }
   }
 
+  void _openSectorSettings(ProductSector sector) {
+    if (sector == ProductSector.solarPlant) {
+      setState(() => _editingSolarSettings = true);
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(sector.icon, color: sector.themeColor, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Configurações • ${sector.title}',
+                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'As configurações personalizadas de parâmetros de cálculo, concessionárias e modelos de proposta em PDF estão ativas para o nicho de Usina Solar.\n\nPara o ramo de "${sector.title}", os recursos de catálogo, clientes e propostas comerciais já estão 100% integrados.',
+            style: GoogleFonts.inter(fontSize: 13.5, color: const Color(0xFF475569), height: 1.4),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: sector.themeColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('ENTENDIDO'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   Future<void> _toggleFixedMode(bool val) async {
     setState(() => _isFixedMode = val);
     await SettingsService.savePreferredSector(_currentSector, isFixed: val);
@@ -74,6 +116,12 @@ class _SettingsViewState extends State<SettingsView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_editingSolarSettings) {
+      return SolarSettingsView(
+        onBack: () => setState(() => _editingSolarSettings = false),
+      );
+    }
+
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
@@ -83,14 +131,19 @@ class _SettingsViewState extends State<SettingsView> {
     final isMobile = MediaQuery.of(context).size.width < 768;
     final activeSector = _currentSector ?? ProductSector.solarPlant;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 14 : 32),
-      child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(isMobile ? 14 : 32),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
               // ── Cabeçalho da Página ──────────────────────────────────────
               Row(
                 children: [
@@ -234,6 +287,21 @@ class _SettingsViewState extends State<SettingsView> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _openSectorSettings(activeSector),
+                              icon: const Icon(Icons.settings_suggest_rounded, size: 16),
+                              label: const Text('CONFIGURAR PARÂMETROS DO NICHO'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: activeSector.themeColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
                         ],
                       )
                     : Row(
@@ -291,6 +359,19 @@ class _SettingsViewState extends State<SettingsView> {
                             ),
                           ),
                           const SizedBox(width: 16),
+                          ElevatedButton.icon(
+                            onPressed: () => _openSectorSettings(activeSector),
+                            icon: const Icon(Icons.settings_suggest_rounded, size: 16),
+                            label: const Text('CONFIGURAR NICHO'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: activeSector.themeColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           // Toggle Modo Focado
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -413,7 +494,10 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
       ),
-    );
+    ),
+  );
+},
+);
   }
 
   Widget _buildSectorGrid() {
@@ -489,7 +573,28 @@ class _SettingsViewState extends State<SettingsView> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (isSelected)
+                            // Ícone de Configuração do Nicho
+                            Tooltip(
+                              message: 'Configurar ${sector.title}',
+                              child: InkWell(
+                                onTap: () => _openSectorSettings(sector),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? sector.themeColor.withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.settings_outlined,
+                                    size: 16,
+                                    color: isSelected ? sector.themeColor : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (isSelected) ...[
+                              const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
@@ -498,6 +603,7 @@ class _SettingsViewState extends State<SettingsView> {
                                 ),
                                 child: const Icon(Icons.check, size: 12, color: Colors.white),
                               ),
+                            ],
                           ],
                         ),
                         Text(
@@ -729,47 +835,33 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
               const Divider(color: AppColors.divider),
               const SizedBox(height: 12),
 
-              // Botão Confirmar (Custom Material + InkWell de acordo com os padrões)
+              // Botão Confirmar
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _selected == null
-                          ? null
-                          : () async {
-                              final nav = Navigator.of(context);
-                              await SettingsService.savePreferredSector(_selected!, isFixed: true);
-                              widget.onSectorSelected(_selected!);
-                              if (mounted) nav.pop();
-                            },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Ink(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: _selected?.themeColor ?? AppColors.primary,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (_selected?.themeColor ?? AppColors.primary).withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Text(
-                              'DEFINIR "${_selected?.title.toUpperCase() ?? ''}" E ENTRAR NO CRM',
-                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.4, color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('CANCELAR', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF64748B))),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _selected == null
+                        ? null
+                        : () async {
+                            final nav = Navigator.of(context);
+                            await SettingsService.savePreferredSector(_selected!, isFixed: true);
+                            widget.onSectorSelected(_selected!);
+                            if (mounted) nav.pop();
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _selected?.themeColor ?? AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      'CONFIRMAR E APLICAR',
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],

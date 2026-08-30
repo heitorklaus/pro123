@@ -11,6 +11,7 @@ class ProposalClientAutocomplete extends StatefulWidget {
   final ValueChanged<ClientModel> onClientSelected;
   final VoidCallback onClearClient;
   final VoidCallback onAddNewClient;
+  final bool canCreateClient;
 
   const ProposalClientAutocomplete({
     super.key,
@@ -20,6 +21,7 @@ class ProposalClientAutocomplete extends StatefulWidget {
     required this.onClientSelected,
     required this.onClearClient,
     required this.onAddNewClient,
+    this.canCreateClient = true,
   });
 
   @override
@@ -143,46 +145,48 @@ class _ProposalClientAutocompleteState extends State<ProposalClientAutocomplete>
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            if (widget.canCreateClient) ...[
+              const SizedBox(width: 10),
 
-            // Botão + NOVO CLIENTE
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onAddNewClient,
-                borderRadius: BorderRadius.circular(10),
-                child: Ink(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'NOVO CLIENTE',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 0.3,
+              // Botão + NOVO CLIENTE
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onAddNewClient,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'NOVO CLIENTE',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         );
       },

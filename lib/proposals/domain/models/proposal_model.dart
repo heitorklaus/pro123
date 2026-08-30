@@ -6,23 +6,74 @@ import 'proposal_item_model.dart';
 // STATUS DA PROPOSTA COMERCIAL
 // ─────────────────────────────────────────────────────────────────────────────
 enum ProposalStatus {
-  draft('Rascunho', Color(0xFF64748B), Color(0xFFF1F5F9)),
-  sent('Enviada', Color(0xFF0284C7), Color(0xFFE0F2FE)),
-  approved('Aprovada', Color(0xFF059669), Color(0xFFD1FAE5)),
-  rejected('Recusada', Color(0xFFDC2626), Color(0xFFFEE2E2)),
-  expired('Expirada', Color(0xFFD97706), Color(0xFFFEF3C7));
+  inApproval(
+    'Em Aprovação',
+    Color(0xFF6366F1), // Indigo 600
+    Color(0xFFEEF2FF), // Indigo 50
+    Icons.hourglass_top_rounded,
+  ),
+  negotiating(
+    'Negociando',
+    Color(0xFF0284C7), // Sky 600
+    Color(0xFFE0F2FE), // Sky 50
+    Icons.chat_bubble_outline_rounded,
+  ),
+  closed(
+    'Fechadas',
+    Color(0xFF059669), // Emerald 600
+    Color(0xFFD1FAE5), // Emerald 50
+    Icons.check_circle_outline_rounded,
+  ),
+  rejected(
+    'Negadas',
+    Color(0xFFDC2626), // Rose 600
+    Color(0xFFFEE2E2), // Rose 50
+    Icons.cancel_outlined,
+  );
 
   final String label;
   final Color textColor;
   final Color bgColor;
+  final IconData icon;
 
-  const ProposalStatus(this.label, this.textColor, this.bgColor);
+  const ProposalStatus(this.label, this.textColor, this.bgColor, this.icon);
 
   static ProposalStatus fromString(String? val) {
-    if (val == null) return ProposalStatus.draft;
+    if (val == null) return ProposalStatus.inApproval;
+    final lower = val.toLowerCase().trim();
+    if (lower == 'inapproval' ||
+        lower == 'draft' ||
+        lower == 'rascunho' ||
+        lower == 'em aprovação' ||
+        lower == 'em aprovacao') {
+      return ProposalStatus.inApproval;
+    }
+    if (lower == 'negotiating' ||
+        lower == 'sent' ||
+        lower == 'enviada' ||
+        lower == 'negociando') {
+      return ProposalStatus.negotiating;
+    }
+    if (lower == 'closed' ||
+        lower == 'approved' ||
+        lower == 'aprovada' ||
+        lower == 'fechada' ||
+        lower == 'fechadas' ||
+        lower == 'ganha') {
+      return ProposalStatus.closed;
+    }
+    if (lower == 'rejected' ||
+        lower == 'recusada' ||
+        lower == 'negada' ||
+        lower == 'negadas' ||
+        lower == 'perdida' ||
+        lower == 'expired' ||
+        lower == 'expirada') {
+      return ProposalStatus.rejected;
+    }
     return ProposalStatus.values.firstWhere(
       (s) => s.name == val,
-      orElse: () => ProposalStatus.draft,
+      orElse: () => ProposalStatus.inApproval,
     );
   }
 }
@@ -125,6 +176,8 @@ class ProposalModel {
   // Status e Auditoria
   final ProposalStatus status;
   final String? companyId;
+  final String? createdByUserId;
+  final String? createdByUserName;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -148,8 +201,10 @@ class ProposalModel {
     this.deliveryTime,
     this.notes,
     this.themeColorValue = 0xFF4F46E5,
-    this.status = ProposalStatus.draft,
+    this.status = ProposalStatus.inApproval,
     this.companyId,
+    this.createdByUserId,
+    this.createdByUserName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -182,6 +237,8 @@ class ProposalModel {
     int? themeColorValue,
     ProposalStatus? status,
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -207,6 +264,8 @@ class ProposalModel {
       themeColorValue: themeColorValue ?? this.themeColorValue,
       status: status ?? this.status,
       companyId: companyId ?? this.companyId,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      createdByUserName: createdByUserName ?? this.createdByUserName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -234,6 +293,8 @@ class ProposalModel {
       'themeColorValue': themeColorValue,
       'status': status.name,
       'companyId': companyId,
+      'createdByUserId': createdByUserId,
+      'createdByUserName': createdByUserName,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -273,6 +334,8 @@ class ProposalModel {
       themeColorValue: (map['themeColorValue'] as num?)?.toInt() ?? 0xFF4F46E5,
       status: ProposalStatus.fromString(map['status'] as String?),
       companyId: map['companyId'] as String?,
+      createdByUserId: map['createdByUserId'] as String?,
+      createdByUserName: map['createdByUserName'] as String?,
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
     );

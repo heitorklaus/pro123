@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
+import '../../auth/domain/models/user_model.dart';
 import '../../clients/data/repositories/client_repository.dart';
 import '../../clients/domain/models/client_model.dart';
 import '../data/repositories/proposal_repository.dart';
@@ -14,19 +18,23 @@ import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/solar_plant_form_card.dart';
 import '../../clients/presentation/widgets/client_form_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'web_proposal_page.dart';
 import 'widgets/proposal_client_autocomplete.dart';
 import 'widgets/proposal_pdf_preview_dialog.dart';
 import 'widgets/proposal_product_picker_dialog.dart';
+import 'widgets/proposal_kanban_view.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: Inserido diretamente no miolo do DashboardPage (SPA Container)
 // ─────────────────────────────────────────────────────────────────────────────
 class ProposalsView extends StatefulWidget {
+  final UserModel? currentUser;
   final ProposalItemModel? initialItem;
   final VoidCallback? onClearInitialItem;
 
   const ProposalsView({
     super.key,
+    this.currentUser,
     this.initialItem,
     this.onClearInitialItem,
   });
@@ -97,12 +105,14 @@ class _ProposalsViewState extends State<ProposalsView> {
           height: constraints.maxHeight,
           child: _isCreatingOrEditing
               ? _ProposalFormCard(
+                  currentUser: widget.currentUser,
                   proposal: _proposalToEdit,
                   initialItem: _activeInitialItem,
                   onCancel: _closeForm,
                   onSaved: _closeForm,
                 )
               : _ProposalTableView(
+                  currentUser: widget.currentUser,
                   onAddNew: _openCreateForm,
                   onEdit: _openEditForm,
                 ),
@@ -116,10 +126,12 @@ class _ProposalsViewState extends State<ProposalsView> {
 // TABELA DE PROPOSTAS COMERCIAIS EM TEMPO REAL
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProposalTableView extends StatefulWidget {
+  final UserModel? currentUser;
   final VoidCallback onAddNew;
   final ValueChanged<ProposalModel> onEdit;
 
   const _ProposalTableView({
+    this.currentUser,
     required this.onAddNew,
     required this.onEdit,
   });
@@ -129,11 +141,17 @@ class _ProposalTableView extends StatefulWidget {
 }
 
 class _ProposalTableViewState extends State<_ProposalTableView> {
+  static const _kanbanModeKey = 'mavis_proposals_kanban_view_mode';
+
   late final ProposalRepository _repo;
+  late final AuthRepository _authRepo;
+  StreamSubscription<UserModel?>? _userSub;
   final _searchCtrl = TextEditingController();
   String _query = '';
   ProposalStatus? _filterStatus;
   String? _companyId;
+  UserModel? _currentUser;
+  bool _isKanbanMode = false;
 
   @override
   void initState() {
@@ -143,24 +161,58 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
     } catch (_) {
       _repo = ProposalRepository();
     }
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+    _currentUser = widget.currentUser;
+    _userSub = _authRepo.getCurrentUserStream().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = user?.effectiveCompanyId ?? _companyId;
+        });
+      }
+    });
     _loadCompanyId();
+    _loadKanbanPreference();
+  }
+
+  Future<void> _loadKanbanPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getBool(_kanbanModeKey);
+      if (saved != null && mounted) {
+        setState(() => _isKanbanMode = saved);
+      }
+    } catch (_) {}
+  }
+
+  void _setKanbanMode(bool isKanban) async {
+    setState(() => _isKanbanMode = isKanban);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kanbanModeKey, isKanban);
+    } catch (_) {}
   }
 
   Future<void> _loadCompanyId() async {
     try {
-      AuthRepository auth;
-      try {
-        auth = Modular.get<AuthRepository>();
-      } catch (_) {
-        auth = AuthRepository();
+      final user = await _authRepo.getCurrentUser();
+      final cid = user?.effectiveCompanyId ?? await _authRepo.getCurrentCompanyId();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = cid;
+        });
       }
-      final cid = await auth.getCurrentCompanyId();
-      if (mounted) setState(() => _companyId = cid);
     } catch (_) {}
   }
 
   @override
   void dispose() {
+    _userSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -170,6 +222,59 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
       context: context,
       builder: (ctx) => ProposalPdfPreviewDialog(proposal: proposal),
     );
+  }
+
+  void _showWebPreview(ProposalModel proposal) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            width: 1200,
+            height: 900,
+            child: WebProposalPage(
+              proposalId: proposal.id,
+              initialProposal: proposal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _copyWebLink(ProposalModel proposal) {
+    final baseUri = Uri.base.origin;
+    final link = '$baseUri/#/proposta/${proposal.id}';
+    Clipboard.setData(ClipboardData(text: link));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Link copiado para a área de transferência:\n$link')),
+          ],
+        ),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _shareOnWhatsApp(ProposalModel proposal) async {
+    final baseUri = Uri.base.origin;
+    final link = '$baseUri/#/proposta/${proposal.id}';
+    final phone = proposal.clientPhone?.replaceAll(RegExp(r'\D'), '') ?? '';
+    final text = Uri.encodeComponent(
+      'Olá ${proposal.clientName}! Segue o link da sua proposta comercial de energia solar ${proposal.proposalNumber}:\n\n$link\n\nAbra o link para conferir a simulação completa da usina e opções de financiamento.',
+    );
+    final url = Uri.parse('https://wa.me/${phone.isNotEmpty ? "55$phone" : ""}?text=$text');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   void _confirmDelete(ProposalModel proposal) {
@@ -245,11 +350,108 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
     await _repo.updateStatus(proposal.id, newStatus);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Status da proposta alterado para "${newStatus.label}"'),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Proposta "${proposal.proposalNumber}" movida para "${newStatus.label}"',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ));
     }
+  }
+
+  Widget _buildViewModeToggle(bool isMobile) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _viewModeButton(
+            label: isMobile ? '' : 'Tabela',
+            icon: Icons.table_rows_rounded,
+            isSelected: !_isKanbanMode,
+            onTap: () => _setKanbanMode(false),
+          ),
+          const SizedBox(width: 2),
+          _viewModeButton(
+            label: isMobile ? '' : 'Kanban',
+            icon: Icons.view_kanban_rounded,
+            isSelected: _isKanbanMode,
+            onTap: () => _setKanbanMode(true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _viewModeButton({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.symmetric(
+            horizontal: label.isNotEmpty ? 12 : 8,
+            vertical: 7,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+              ),
+              if (label.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -280,50 +482,62 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Emissão inteligente de orçamentos e PDF',
+                      'Emissão inteligente de orçamentos, PDF e funil Kanban',
                       style: GoogleFonts.inter(
                           fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
                     ),
                   ],
                 ),
               ),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: widget.onAddNew,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Toggle Switcher Modo Tabela / Modo Kanban
+                  _buildViewModeToggle(isMobile),
+
+                  // Botão NOVA PROPOSTA (Apenas se tiver permissão)
+                  if (widget.currentUser?.canCreateProposals ?? _currentUser?.canCreateProposals ?? false) ...[
+                    const SizedBox(width: 10),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onAddNew,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 14 : 20, vertical: isMobile ? 10 : 12),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.note_add_rounded,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 6),
+                              Text(
+                                isMobile ? 'NOVA' : 'NOVA PROPOSTA',
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontSize: isMobile ? 12 : 13,
+                                    letterSpacing: 0.5),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
                     ),
-                    padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 14 : 20, vertical: isMobile ? 10 : 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.note_add_rounded,
-                            size: 18, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text(
-                          isMobile ? 'NOVA' : 'NOVA PROPOSTA',
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              fontSize: isMobile ? 12 : 13,
-                              letterSpacing: 0.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                  ],
+                ],
               ),
             ],
           ),
@@ -354,41 +568,43 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     borderSide: const BorderSide(color: AppColors.border)),
               ),
             ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<ProposalStatus?>(
-                  value: _filterStatus,
-                  hint: Text('Todos os Status',
-                      style: GoogleFonts.inter(
-                          fontSize: 12.5, color: const Color(0xFF64748B))),
-                  isExpanded: true,
-                  icon: const Icon(Icons.filter_list_rounded,
-                      size: 18, color: Color(0xFF64748B)),
-                  items: [
-                    DropdownMenuItem<ProposalStatus?>(
-                      value: null,
-                      child: Text('Todos os Status',
-                          style: GoogleFonts.inter(
-                              fontSize: 12.5, fontWeight: FontWeight.w600)),
-                    ),
-                    ...ProposalStatus.values
-                        .map((s) => DropdownMenuItem<ProposalStatus?>(
-                              value: s,
-                              child: Text(s.label,
-                                  style: GoogleFonts.inter(fontSize: 12.5)),
-                            )),
-                  ],
-                  onChanged: (val) => setState(() => _filterStatus = val),
+            if (!_isKanbanMode) ...[
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<ProposalStatus?>(
+                    value: _filterStatus,
+                    hint: Text('Todos os Status',
+                        style: GoogleFonts.inter(
+                            fontSize: 12.5, color: const Color(0xFF64748B))),
+                    isExpanded: true,
+                    icon: const Icon(Icons.filter_list_rounded,
+                        size: 18, color: Color(0xFF64748B)),
+                    items: [
+                      DropdownMenuItem<ProposalStatus?>(
+                        value: null,
+                        child: Text('Todos os Status',
+                            style: GoogleFonts.inter(
+                                fontSize: 12.5, fontWeight: FontWeight.w600)),
+                      ),
+                      ...ProposalStatus.values
+                          .map((s) => DropdownMenuItem<ProposalStatus?>(
+                                value: s,
+                                child: Text(s.label,
+                                    style: GoogleFonts.inter(fontSize: 12.5)),
+                              )),
+                    ],
+                    onChanged: (val) => setState(() => _filterStatus = val),
+                  ),
                 ),
               ),
-            ),
+            ],
           ] else ...[
             Row(
               children: [
@@ -419,155 +635,187 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
-
-                // Filtro por Status
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<ProposalStatus?>(
-                        value: _filterStatus,
-                        hint: Text('Todos os Status',
-                            style: GoogleFonts.inter(
-                                fontSize: 13, color: const Color(0xFF64748B))),
-                        isExpanded: true,
-                        icon: const Icon(Icons.filter_list_rounded,
-                            size: 18, color: Color(0xFF64748B)),
-                        items: [
-                          DropdownMenuItem<ProposalStatus?>(
-                            value: null,
-                            child: Text('Todos os Status',
-                                style: GoogleFonts.inter(
-                                    fontSize: 13, fontWeight: FontWeight.w600)),
-                          ),
-                          ...ProposalStatus.values
-                              .map((s) => DropdownMenuItem<ProposalStatus?>(
-                                    value: s,
-                                    child: Text(s.label,
-                                        style: GoogleFonts.inter(fontSize: 13)),
-                                  )),
-                        ],
-                        onChanged: (val) => setState(() => _filterStatus = val),
+                if (!_isKanbanMode) ...[
+                  const SizedBox(width: 14),
+                  // Filtro por Status na Tabela
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<ProposalStatus?>(
+                          value: _filterStatus,
+                          hint: Text('Todos os Status',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, color: const Color(0xFF64748B))),
+                          isExpanded: true,
+                          icon: const Icon(Icons.filter_list_rounded,
+                              size: 18, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<ProposalStatus?>(
+                              value: null,
+                              child: Text('Todos os Status',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                            ),
+                            ...ProposalStatus.values
+                                .map((s) => DropdownMenuItem<ProposalStatus?>(
+                                      value: s,
+                                      child: Text(s.label,
+                                          style: GoogleFonts.inter(fontSize: 13)),
+                                    )),
+                          ],
+                          onChanged: (val) => setState(() => _filterStatus = val),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ],
 
           const SizedBox(height: 14),
 
-          // ── Conteúdo da Tabela ───────────────────────────────────────────
+          // ── Conteúdo Principal: KANBAN vs TABELA ─────────────────────────
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: isMobile ? Colors.transparent : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: isMobile ? null : Border.all(color: AppColors.border),
-                boxShadow: isMobile
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+            child: StreamBuilder<List<ProposalModel>>(
+              stream: _repo.getProposalsStream(
+                companyId: _companyId,
+                currentUserId: widget.currentUser?.uid ?? _currentUser?.uid,
+                isAllProposalsVisible: widget.currentUser?.canViewAllProposals ?? _currentUser?.canViewAllProposals ?? false,
+              ),
+              builder: (ctx, snap) {
+                if (_companyId == null ||
+                    snap.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                      child: CircularProgressIndicator(
+                          color: AppColors.primary));
+                }
+                if (snap.hasError) {
+                  return Center(
+                    child: Text(
+                        'Erro ao carregar propostas:\n${snap.error}',
+                        textAlign: TextAlign.center),
+                  );
+                }
+
+                final all = snap.data ?? [];
+                final filtered = all.where((p) {
+                  final matchesQuery = _query.isEmpty ||
+                      p.proposalNumber
+                          .toLowerCase()
+                          .contains(_query) ||
+                      p.clientName.toLowerCase().contains(_query) ||
+                      p.title.toLowerCase().contains(_query);
+
+                  final matchesStatus = _filterStatus == null ||
+                      p.status == _filterStatus;
+                  return matchesQuery && matchesStatus;
+                }).toList();
+
+                // ── MODO KANBAN ──
+                if (_isKanbanMode) {
+                  return ProposalKanbanView(
+                    proposals: filtered,
+                    onAddNew: widget.onAddNew,
+                    onEdit: widget.onEdit,
+                    onPreviewWeb: _showWebPreview,
+                    onCopyLink: _copyWebLink,
+                    onWhatsApp: _shareOnWhatsApp,
+                    onPreviewPdf: _showPdfPreview,
+                    onDelete: _confirmDelete,
+                    onStatusChange: _changeStatus,
+                  );
+                }
+
+                // ── MODO TABELA ──
+                if (filtered.isEmpty) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isMobile ? Colors.transparent : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: isMobile ? null : Border.all(color: AppColors.border),
+                    ),
+                    child: _ProposalEmptyState(
+                      isEmpty: all.isEmpty,
+                      onAdd: widget.onAddNew,
+                    ),
+                  );
+                }
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: isMobile ? Colors.transparent : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: isMobile ? null : Border.all(color: AppColors.border),
+                    boxShadow: isMobile
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      children: [
+                        if (!isMobile) ...[
+                          _ProposalTableHeader(),
+                          const Divider(height: 1, color: AppColors.divider),
+                        ],
+                        Expanded(
+                          child: isMobile
+                              ? ListView.builder(
+                                  itemCount: filtered.length,
+                                  itemBuilder: (_, i) {
+                                    final proposal = filtered[i];
+                                    return _ProposalMobileCard(
+                                      proposal: proposal,
+                                      onPreviewWeb: () => _showWebPreview(proposal),
+                                      onCopyLink: () => _copyWebLink(proposal),
+                                      onWhatsApp: () => _shareOnWhatsApp(proposal),
+                                      onPreviewPdf: () => _showPdfPreview(proposal),
+                                      onEdit: () => widget.onEdit(proposal),
+                                      onDelete: () => _confirmDelete(proposal),
+                                      onStatusChange: (s) =>
+                                          _changeStatus(proposal, s),
+                                    );
+                                  },
+                                )
+                              : ListView.separated(
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, __) => const Divider(
+                                      height: 1, color: AppColors.divider),
+                                  itemBuilder: (_, i) {
+                                    final proposal = filtered[i];
+                                    return _ProposalRow(
+                                      proposal: proposal,
+                                      onPreviewWeb: () => _showWebPreview(proposal),
+                                      onCopyLink: () => _copyWebLink(proposal),
+                                      onWhatsApp: () => _shareOnWhatsApp(proposal),
+                                      onPreviewPdf: () => _showPdfPreview(proposal),
+                                      onEdit: () => widget.onEdit(proposal),
+                                      onDelete: () => _confirmDelete(proposal),
+                                      onStatusChange: (s) =>
+                                          _changeStatus(proposal, s),
+                                    );
+                                  },
+                                ),
                         ),
                       ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Column(
-                  children: [
-                    if (!isMobile) ...[
-                      _ProposalTableHeader(),
-                      const Divider(height: 1, color: AppColors.divider),
-                    ],
-                    Expanded(
-                      child: StreamBuilder<List<ProposalModel>>(
-                        stream: _repo.getProposalsStream(companyId: _companyId),
-                        builder: (ctx, snap) {
-                          if (_companyId == null ||
-                              snap.connectionState == ConnectionState.waiting) {
-                            return const Center(
-                                child: CircularProgressIndicator(
-                                    color: AppColors.primary));
-                          }
-                          if (snap.hasError) {
-                            return Center(
-                              child: Text(
-                                  'Erro ao carregar propostas:\n${snap.error}',
-                                  textAlign: TextAlign.center),
-                            );
-                          }
-
-                          final all = snap.data ?? [];
-                          final filtered = all.where((p) {
-                            final matchesQuery = _query.isEmpty ||
-                                p.proposalNumber
-                                    .toLowerCase()
-                                    .contains(_query) ||
-                                p.clientName.toLowerCase().contains(_query) ||
-                                p.title.toLowerCase().contains(_query);
-
-                            final matchesStatus = _filterStatus == null ||
-                                p.status == _filterStatus;
-                            return matchesQuery && matchesStatus;
-                          }).toList();
-
-                          if (filtered.isEmpty) {
-                            return _ProposalEmptyState(
-                              isEmpty: all.isEmpty,
-                              onAdd: widget.onAddNew,
-                            );
-                          }
-
-                          if (isMobile) {
-                            return ListView.builder(
-                              itemCount: filtered.length,
-                              itemBuilder: (_, i) {
-                                final proposal = filtered[i];
-                                return _ProposalMobileCard(
-                                  proposal: proposal,
-                                  onPreviewPdf: () => _showPdfPreview(proposal),
-                                  onEdit: () => widget.onEdit(proposal),
-                                  onDelete: () => _confirmDelete(proposal),
-                                  onStatusChange: (s) =>
-                                      _changeStatus(proposal, s),
-                                );
-                              },
-                            );
-                          }
-
-                          return ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const Divider(
-                                height: 1, color: AppColors.divider),
-                            itemBuilder: (_, i) {
-                              final proposal = filtered[i];
-                              return _ProposalRow(
-                                proposal: proposal,
-                                onPreviewPdf: () => _showPdfPreview(proposal),
-                                onEdit: () => widget.onEdit(proposal),
-                                onDelete: () => _confirmDelete(proposal),
-                                onStatusChange: (s) =>
-                                    _changeStatus(proposal, s),
-                              );
-                            },
-                          );
-                        },
-                      ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -581,6 +829,9 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProposalMobileCard extends StatelessWidget {
   final ProposalModel proposal;
+  final VoidCallback onPreviewWeb;
+  final VoidCallback onCopyLink;
+  final VoidCallback onWhatsApp;
   final VoidCallback onPreviewPdf;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -588,6 +839,9 @@ class _ProposalMobileCard extends StatelessWidget {
 
   const _ProposalMobileCard({
     required this.proposal,
+    required this.onPreviewWeb,
+    required this.onCopyLink,
+    required this.onWhatsApp,
     required this.onPreviewPdf,
     required this.onEdit,
     required this.onDelete,
@@ -724,25 +978,46 @@ class _ProposalMobileCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     IconButton(
+                      icon: const Icon(Icons.language_rounded, size: 18, color: Color(0xFF059669)),
+                      onPressed: onPreviewWeb,
+                      tooltip: 'Proposta Web',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.link_rounded, size: 18, color: Color(0xFF0284C7)),
+                      onPressed: onCopyLink,
+                      tooltip: 'Copiar Link',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Color(0xFF25D366)),
+                      onPressed: onWhatsApp,
+                      tooltip: 'WhatsApp',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 18, color: Color(0xFFDC2626)),
                       onPressed: onPreviewPdf,
                       tooltip: 'PDF',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                     ),
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6366F1)),
                       onPressed: onEdit,
                       tooltip: 'Editar',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
                       onPressed: onDelete,
                       tooltip: 'Excluir',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                     ),
                   ],
                 ),
@@ -770,7 +1045,7 @@ class _ProposalTableHeader extends StatelessWidget {
           _col('VALOR TOTAL', flex: 2),
           _col('CONDIÇÃO / VALIDADE', flex: 3),
           _col('STATUS', flex: 2),
-          const SizedBox(width: 160), // Coluna de Ações
+          const SizedBox(width: 240), // Coluna de Ações (Web, Link, WhatsApp, PDF, Editar, Status, Excluir)
         ],
       ),
     );
@@ -797,6 +1072,9 @@ class _ProposalTableHeader extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProposalRow extends StatelessWidget {
   final ProposalModel proposal;
+  final VoidCallback onPreviewWeb;
+  final VoidCallback onCopyLink;
+  final VoidCallback onWhatsApp;
   final VoidCallback onPreviewPdf;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -804,6 +1082,9 @@ class _ProposalRow extends StatelessWidget {
 
   const _ProposalRow({
     required this.proposal,
+    required this.onPreviewWeb,
+    required this.onCopyLink,
+    required this.onWhatsApp,
     required this.onPreviewPdf,
     required this.onEdit,
     required this.onDelete,
@@ -963,19 +1244,46 @@ class _ProposalRow extends StatelessWidget {
             ),
           ),
 
-          // 5. Ações (PDF, Editar, Mudar Status, Excluir)
+          // 5. Ações (Web, Link, WhatsApp, PDF, Editar, Mudar Status, Excluir)
           SizedBox(
-            width: 160,
+            width: 240,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
+                  tooltip: 'Abrir Versão Web Interativa',
+                  icon: const Icon(Icons.language_rounded,
+                      color: Color(0xFF059669), size: 18),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onPreviewWeb,
+                ),
+                IconButton(
+                  tooltip: 'Copiar Link Público da Proposta',
+                  icon: const Icon(Icons.link_rounded,
+                      color: Color(0xFF0284C7), size: 18),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onCopyLink,
+                ),
+                IconButton(
+                  tooltip: 'Enviar Proposta no WhatsApp',
+                  icon: const Icon(Icons.chat_bubble_outline_rounded,
+                      color: Color(0xFF25D366), size: 18),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onWhatsApp,
+                ),
+                IconButton(
                   tooltip: 'Visualizar / Baixar PDF',
                   icon: const Icon(Icons.picture_as_pdf_outlined,
                       color: Color(0xFFDC2626), size: 18),
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   visualDensity: VisualDensity.compact,
                   onPressed: onPreviewPdf,
                 ),
@@ -983,8 +1291,8 @@ class _ProposalRow extends StatelessWidget {
                   tooltip: 'Editar Proposta',
                   icon: const Icon(Icons.edit_outlined,
                       color: Color(0xFF6366F1), size: 18),
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   visualDensity: VisualDensity.compact,
                   onPressed: onEdit,
                 ),
@@ -992,8 +1300,8 @@ class _ProposalRow extends StatelessWidget {
                   tooltip: 'Alterar Status',
                   icon: const Icon(Icons.swap_horiz_rounded,
                       color: Color(0xFF64748B), size: 19),
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   onSelected: onStatusChange,
                   itemBuilder: (ctx) => ProposalStatus.values.map((s) {
                     return PopupMenuItem(
@@ -1016,11 +1324,11 @@ class _ProposalRow extends StatelessWidget {
                   }).toList(),
                 ),
                 IconButton(
-                  tooltip: 'Excluir',
+                  tooltip: 'Excluir Proposta',
                   icon: const Icon(Icons.delete_outline_rounded,
                       color: Color(0xFFEF4444), size: 18),
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   visualDensity: VisualDensity.compact,
                   onPressed: onDelete,
                 ),
@@ -1109,12 +1417,14 @@ class _ProposalEmptyState extends StatelessWidget {
 // FORMULÁRIO DINÂMICO & INTELIGENTE DE PROPOSTAS COMERCIAIS
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProposalFormCard extends StatefulWidget {
+  final UserModel? currentUser;
   final ProposalModel? proposal;
   final ProposalItemModel? initialItem;
   final VoidCallback onCancel;
   final VoidCallback onSaved;
 
   const _ProposalFormCard({
+    this.currentUser,
     this.proposal,
     this.initialItem,
     required this.onCancel,
@@ -1128,6 +1438,8 @@ class _ProposalFormCard extends StatefulWidget {
 class _ProposalFormCardState extends State<_ProposalFormCard> {
   late final ProposalRepository _proposalRepo;
   late final ClientRepository _clientRepo;
+  late final AuthRepository _authRepo;
+  StreamSubscription<UserModel?>? _userSub;
 
   // Controllers de Cabeçalho & Cliente
   final _titleCtrl =
@@ -1157,6 +1469,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   // Tema de Cor do PDF
   int _themeColorValue = 0xFF4F46E5;
 
+  // Etapa no Funil Kanban / Status
+  ProposalStatus _selectedStatus = ProposalStatus.inApproval;
+
+  UserModel? _currentUser;
   bool _isLoading = false;
   String? _errorMessage;
   String? _companyId;
@@ -1212,66 +1528,19 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
         lower.contains('monocristalino') ||
         lower.contains('policristalino') ||
         lower.contains('tcl solar') ||
-        lower.contains('ja solar') ||
-        lower.contains('jinko') ||
-        lower.contains('longi') ||
         lower.contains('canadian') ||
+        lower.contains('jinko') ||
+        lower.contains('ja solar') ||
+        lower.contains('longi') ||
         lower.contains('trina') ||
         lower.contains('risen') ||
-        lower.contains('astronergy') ||
-        lower.contains('dah solar') ||
         lower.contains('osda') ||
         lower.contains('znshine') ||
-        lower.contains('sunova') ||
-        (RegExp(r'\b\d{3,4}\s*(?:w|watts|wp)\b', caseSensitive: false).hasMatch(lower) &&
-            !lower.contains('perfil') &&
-            !lower.contains('suporte') &&
-            !lower.contains('grampo'));
+        lower.contains('astronergy') ||
+        lower.contains('tw solar') ||
+        lower.contains('sunova');
 
-    // 3. Se tiver palavras explícitas de estrutura/ferragem (ex: "PERFIL FIXACAO MODULO"), exclui
-    if (lower.contains('perfil') ||
-        lower.contains('gancho') ||
-        lower.contains('suporte') ||
-        lower.contains('grampo') ||
-        lower.contains('garra') ||
-        lower.contains('juncao') ||
-        lower.contains('junção') ||
-        lower.contains('trilho') ||
-        lower.contains('aterramento') ||
-        lower.contains('fixacao') ||
-        lower.contains('fixação') ||
-        lower.contains('parafuso') ||
-        lower.contains('emenda') ||
-        lower.contains('estrutura') ||
-        lower.contains('telha') ||
-        lower.contains('dps') ||
-        lower.contains('string box') ||
-        lower.contains('stringbox') ||
-        lower.contains('disjuntor') ||
-        lower.contains('serviço') ||
-        lower.contains('servico') ||
-        lower.contains('homologação') ||
-        lower.contains('homologacao') ||
-        lower.contains('engenharia') ||
-        lower.contains('instalacao') ||
-        lower.contains('instalação')) {
-      return false;
-    }
-
-    // 4. Se for rolo/metro de cabo isolado ou lote de conectores (não o cabo do módulo)
-    if (lower.contains('cabo solar 4mm') ||
-        lower.contains('cabo solar 6mm') ||
-        lower.contains('cabo solar 10mm') ||
-        lower.contains('0.6/1kv') ||
-        lower.contains('1.8kv dc') ||
-        lower.contains('conector solar') ||
-        lower.contains('conector mc4') ||
-        lower.contains('macho e femea') ||
-        lower.contains('macho e fêmea')) {
-      return false;
-    }
-
-    return isModule;
+    return isInverter || isModule;
   }
 
   bool get _isEditing => widget.proposal != null;
@@ -1289,6 +1558,20 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     } catch (_) {
       _clientRepo = ClientRepository();
     }
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+    _currentUser = widget.currentUser;
+    _userSub = _authRepo.getCurrentUserStream().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = user?.effectiveCompanyId ?? _companyId;
+        });
+      }
+    });
     _loadCompanyId();
     _loadCleanModePreference();
 
@@ -1310,6 +1593,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _shippingCtrl.text = p.shippingFee.toStringAsFixed(2);
       _notesCtrl.text = p.notes ?? '';
       _themeColorValue = p.themeColorValue;
+      _selectedStatus = p.status;
     } else if (widget.initialItem != null) {
       _items.add(widget.initialItem!);
       if (widget.initialItem!.isSolarPlant) {
@@ -1326,8 +1610,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       } catch (_) {
         auth = AuthRepository();
       }
-      final cid = await auth.getCurrentCompanyId();
-      if (mounted) setState(() => _companyId = cid);
+      final user = await auth.getCurrentUser();
+      final cid = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = cid;
+        });
+      }
     } catch (_) {}
   }
 
@@ -1355,6 +1645,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
 
   @override
   void dispose() {
+    _userSub?.cancel();
     _titleCtrl.dispose();
     _clientNameCtrl.dispose();
     _clientEmailCtrl.dispose();
@@ -1428,6 +1719,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     showDialog(
       context: context,
       builder: (ctx) => ProposalProductPickerDialog(
+        canCreateProduct: widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false,
         onItemSelected: (newItem) {
           setState(() {
             _items.add(newItem);
@@ -1546,7 +1838,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       deliveryTime: _deliveryTimeCtrl.text.trim(),
       notes: _notesCtrl.text.trim(),
       themeColorValue: _themeColorValue,
-      status: widget.proposal?.status ?? ProposalStatus.draft,
+      status: _selectedStatus,
       createdAt: widget.proposal?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -1632,6 +1924,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           deliveryTime: _deliveryTimeCtrl.text.trim(),
           notes: _notesCtrl.text.trim(),
           themeColorValue: _themeColorValue,
+          status: _selectedStatus,
         );
         await _proposalRepo.updateProposal(updated);
       } else {
@@ -1653,6 +1946,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           deliveryTime: _deliveryTimeCtrl.text.trim(),
           notes: _notesCtrl.text.trim(),
           themeColorValue: _themeColorValue,
+          status: _selectedStatus,
           companyId: _companyId,
         );
       }
@@ -1827,18 +2121,61 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   'Vincule a um cliente cadastrado ou emita para cliente avulso'),
               const SizedBox(height: 14),
 
-              // Título da Proposta
-              _label('Título / Objeto da Proposta *'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(
-                  hintText:
-                      'Ex: Fornecimento de Materiais de Limpeza, Prestação de Serviços de TI...',
-                  prefixIcon:
-                      Icon(Icons.title_rounded, color: Color(0xFF64748B)),
+              // Título da Proposta e Etapa / Status no Funil Kanban
+              if (isMobile) ...[
+                _label('Título / Objeto da Proposta *'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _titleCtrl,
+                  decoration: const InputDecoration(
+                    hintText:
+                        'Ex: Fornecimento de Materiais de Limpeza, Prestação de Serviços de TI...',
+                    prefixIcon:
+                        Icon(Icons.title_rounded, color: Color(0xFF64748B)),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                _label('Etapa no Funil Kanban / Status *'),
+                const SizedBox(height: 6),
+                _buildStatusDropdown(),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Título / Objeto da Proposta *'),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _titleCtrl,
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Ex: Fornecimento de Materiais de Limpeza, Prestação de Serviços de TI...',
+                              prefixIcon:
+                                  Icon(Icons.title_rounded, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Etapa no Funil Kanban / Status *'),
+                          const SizedBox(height: 6),
+                          _buildStatusDropdown(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 14),
 
               // Switch Cliente Cadastrado vs Avulso
@@ -2077,6 +2414,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       clients: clients,
                       selectedClientId: _selectedClientId,
                       initialClientName: _clientNameCtrl.text,
+                      canCreateClient: widget.currentUser?.canCreateClients ?? _currentUser?.canCreateClients ?? false,
                       onClientSelected: _onClientSelected,
                       onClearClient: () {
                         setState(() {
@@ -2134,6 +2472,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   decoration: const InputDecoration(
                     hintText: '(11) 98765-4321',
                     prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _label('Endereço Completo de Instalação / Faturamento'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _clientAddrCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex: Av. Paulista, 1000, Apto 501 - Bela Vista, São Paulo/SP',
+                    prefixIcon: Icon(Icons.location_on_outlined, color: Color(0xFF64748B)),
                   ),
                 ),
               ] else ...[
@@ -2218,6 +2566,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                _label('Endereço Completo de Instalação / Faturamento'),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _clientAddrCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex: Av. Paulista, 1000, Apto 501 - Bela Vista, São Paulo/SP',
+                    prefixIcon: Icon(Icons.location_on_outlined, color: Color(0xFF64748B)),
+                  ),
+                ),
               ],
 
               const SizedBox(height: 24),
@@ -2232,31 +2590,33 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _openSolarPlantDialog,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                    if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openSolarPlantDialog,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.solar_power_rounded, color: Colors.white, size: 16),
-                              SizedBox(width: 6),
-                              Text('MONTAR USINA SOLAR', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                            ],
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.solar_power_rounded, color: Colors.white, size: 16),
+                                SizedBox(width: 6),
+                                Text('MONTAR USINA SOLAR', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
+                      const SizedBox(height: 8),
+                    ],
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -2294,49 +2654,51 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        // Botão Criar Usina Solar
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _openSolarPlantDialog,
-                            borderRadius: BorderRadius.circular(10),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
+                        // Botão Criar Usina Solar (Apenas se tiver permissão)
+                        if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _openSolarPlantDialog,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFEA580C)
+                                          .withValues(alpha: 0.25),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
                                 ),
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFEA580C)
-                                        .withValues(alpha: 0.25),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.solar_power_rounded,
-                                      color: Colors.white, size: 16),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'MONTAR USINA SOLAR',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white),
-                                  ),
-                                ],
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.solar_power_rounded,
+                                        color: Colors.white, size: 16),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'MONTAR USINA SOLAR',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
 
                         // Botão Adicionar Item / Produto
                         Material(
@@ -3640,6 +4002,54 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 fontWeight: FontWeight.bold,
                 color: const Color(0xFF0F172A))),
       ],
+    );
+  }
+
+  Widget _buildStatusDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<ProposalStatus>(
+          value: _selectedStatus,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+          items: ProposalStatus.values.map((s) {
+            return DropdownMenuItem<ProposalStatus>(
+              value: s,
+              child: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: s.bgColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(s.icon, size: 13, color: s.textColor),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    s.label,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedStatus = val);
+          },
+        ),
+      ),
     );
   }
 }

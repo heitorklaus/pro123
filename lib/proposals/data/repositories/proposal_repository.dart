@@ -1,27 +1,47 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/models/proposal_model.dart';
 import '../../domain/models/proposal_item_model.dart';
 
 /// Repositório de persistência e consultas da coleção 'proposals' no Cloud Firestore
 class ProposalRepository {
   final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
 
-  ProposalRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  ProposalRepository({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   CollectionReference<Map<String, dynamic>> get _proposalsRef =>
       _firestore.collection('proposals');
 
   /// Stream em tempo real da lista de propostas ordenadas pela data de criação
-  Stream<List<ProposalModel>> getProposalsStream({String? companyId}) {
+  /// Se isAllProposalsVisible for false, filtra apenas as propostas do operador logado
+  Stream<List<ProposalModel>> getProposalsStream({
+    String? companyId,
+    String? currentUserId,
+    bool isAllProposalsVisible = true,
+  }) {
     if (companyId == null || companyId.isEmpty) {
       return Stream.value([]);
     }
     final query = _proposalsRef.where('companyId', isEqualTo: companyId);
     return query.snapshots().map((snapshot) {
-      final list = snapshot.docs
+      var list = snapshot.docs
           .map((doc) => ProposalModel.fromMap(doc.data(), doc.id))
           .toList();
+
+      if (!isAllProposalsVisible && currentUserId != null && currentUserId.isNotEmpty) {
+        list = list
+            .where((p) =>
+                p.createdByUserId == currentUserId ||
+                p.createdByUserId == null ||
+                p.createdByUserId!.isEmpty)
+            .toList();
+      }
+
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     });
@@ -77,12 +97,18 @@ class ProposalRepository {
     String? deliveryTime,
     String? notes,
     int themeColorValue = 0xFF4F46E5,
-    ProposalStatus status = ProposalStatus.draft,
+    ProposalStatus status = ProposalStatus.inApproval,
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
   }) async {
     final now = DateTime.now();
     final docRef = _proposalsRef.doc();
     final proposalNumber = await generateProposalNumber();
+
+    final user = _auth.currentUser;
+    final effectiveUserId = createdByUserId ?? user?.uid;
+    final effectiveUserName = createdByUserName ?? user?.displayName ?? user?.email;
 
     final proposal = ProposalModel(
       id: docRef.id,
@@ -106,6 +132,8 @@ class ProposalRepository {
       themeColorValue: themeColorValue,
       status: status,
       companyId: companyId,
+      createdByUserId: effectiveUserId,
+      createdByUserName: effectiveUserName,
       createdAt: now,
       updatedAt: now,
     );
@@ -126,6 +154,19 @@ class ProposalRepository {
       'status': newStatus.name,
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     });
+  }
+
+  /// Busca uma proposta específica pelo seu ID (utilizado na visualização pública da Proposta Web)
+  Future<ProposalModel?> getProposalById(String id) async {
+    try {
+      final doc = await _proposalsRef.doc(id).get();
+      if (!doc.exists || doc.data() == null) {
+        return null;
+      }
+      return ProposalModel.fromMap(doc.data()!, doc.id);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Remove uma proposta do Firestore

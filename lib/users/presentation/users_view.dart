@@ -6,6 +6,7 @@ import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../auth/presentation/register/register_store.dart';
+import 'widgets/user_permissions_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: inserido diretamente no miolo do DashboardPage (sem Scaffold)
@@ -266,6 +267,7 @@ class _TableViewState extends State<_TableView> {
                                 padding: EdgeInsets.zero,
                                 itemBuilder: (_, i) => _UserMobileCard(
                                   user: filtered[i],
+                                  onEditPermissions: () => _openPermissionsDialog(filtered[i]),
                                   onDelete: () => _showDeleteDialog(filtered[i]),
                                 ),
                               );
@@ -277,6 +279,7 @@ class _TableViewState extends State<_TableView> {
                                   height: 1, color: AppColors.divider),
                               itemBuilder: (_, i) => _UserRow(
                                 user: filtered[i],
+                                onEditPermissions: () => _openPermissionsDialog(filtered[i]),
                                 onDelete: () => _showDeleteDialog(filtered[i]),
                               ),
                             );
@@ -290,6 +293,17 @@ class _TableViewState extends State<_TableView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openPermissionsDialog(UserModel user) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => UserPermissionsDialog(
+        user: user,
+        authRepository: _repo,
       ),
     );
   }
@@ -371,7 +385,7 @@ class _TableHeader extends StatelessWidget {
           _col('PAPEL', flex: 2),
           _col('STATUS', flex: 2),
           _col('CADASTRO', flex: 2),
-          const SizedBox(width: 52),
+          const SizedBox(width: 96),
         ],
       ),
     );
@@ -398,9 +412,14 @@ class _TableHeader extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _UserRow extends StatelessWidget {
   final UserModel user;
+  final VoidCallback onEditPermissions;
   final VoidCallback onDelete;
 
-  const _UserRow({required this.user, required this.onDelete});
+  const _UserRow({
+    required this.user,
+    required this.onEditPermissions,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -475,14 +494,31 @@ class _UserRow extends StatelessWidget {
                   fontSize: 12, color: const Color(0xFF64748B)),
             ),
           ),
-          // Ação
+          // Ações (Engrenagem de Permissões + Excluir)
           SizedBox(
-            width: 52,
-            child: IconButton(
-              tooltip: 'Excluir',
-              icon: const Icon(Icons.delete_outline_rounded,
-                  color: Color(0xFFEF4444), size: 18),
-              onPressed: onDelete,
+            width: 96,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Configurar Permissões de Acesso',
+                  icon: const Icon(
+                    Icons.settings_suggest_rounded,
+                    color: Color(0xFF6366F1),
+                    size: 20,
+                  ),
+                  onPressed: onEditPermissions,
+                ),
+                IconButton(
+                  tooltip: 'Excluir Usuário',
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFEF4444),
+                    size: 18,
+                  ),
+                  onPressed: onDelete,
+                ),
+              ],
             ),
           ),
         ],
@@ -496,10 +532,12 @@ class _UserRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _UserMobileCard extends StatelessWidget {
   final UserModel user;
+  final VoidCallback onEditPermissions;
   final VoidCallback onDelete;
 
   const _UserMobileCard({
     required this.user,
+    required this.onEditPermissions,
     required this.onDelete,
   });
 
@@ -569,6 +607,14 @@ class _UserMobileCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.settings_suggest_rounded, size: 20, color: Color(0xFF6366F1)),
+                  onPressed: onEditPermissions,
+                  tooltip: 'Configurar Permissões',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
                   onPressed: onDelete,

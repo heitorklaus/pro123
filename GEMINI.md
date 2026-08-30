@@ -145,7 +145,7 @@ DashboardPage (único Scaffold)
 ### Coleções Principais:
 
 #### 1. `users/{userId}`
-Armazena o perfil estendido dos operadores e administradores do CRM.
+Armazena o perfil estendido dos operadores e administradores do CRM com RBAC granular.
 ```json
 {
   "uid": "string (UID do Firebase Auth)",
@@ -157,11 +157,17 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
   "status": "active | pending | blocked",
   "companyId": "string? (Multi-tenancy)",
   "permissions": {
-    "manageUsers": false,
+    "viewClients": true,
+    "createClients": true,
+    "viewProducts": true,
+    "createProducts": true,
+    "viewProposals": true,
+    "createProposals": true,
+    "viewAllProposals": false,
+    "viewSuppliers": false,
+    "createSuppliers": false,
     "manageSettings": false,
-    "viewReports": true,
-    "editLeads": true,
-    "deleteLeads": false
+    "manageUsers": false
   },
   "createdAt": "Timestamp",
   "updatedAt": "Timestamp",
@@ -173,19 +179,29 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
 
 ---
 
-## 🔐 5. Autenticação e Permissões (RBAC)
+## 🔐 5. Autenticação e Permissões Granulares (RBAC)
 
 ### Níveis de Acesso (`roles`):
-1. **`admin`**: Acesso irrestrito a todas as operações, gerenciamento de operadores e configurações globais.
-2. **`manager`**: Acesso a relatórios, criação, edição e exclusão de leads, sem gerenciar usuários do sistema.
-3. **`user`**: Acesso operacional para cadastrar e editar leads; não pode deletar leads nem acessar relatórios globais.
+1. **`admin`**: Acesso irrestrito a todas as operações, gerenciamento de operadores/permissões, configurações globais e acompanhamento da produção total (vê propostas de todos os operadores).
+2. **`manager`**: Gestão comercial de equipe, acesso ampliado a clientes, produtos, fornecedores e visualização de todas as propostas.
+3. **`user` (Operador)**: Acesso restrito e customizável às operações do dia a dia; por padrão visualiza apenas as próprias propostas criadas.
 
-### Métodos de Login Disponíveis:
-- **E-mail e Senha:** Validação de força de senha (mínimo 6 dígitos), checagem de duplicidade e tratamentos amigáveis de erro em português.
-- **Google Sign-In:** Suporte nativo para Web (`signInWithPopup`) e Mobile (`signInWithCredential`). Sincroniza automaticamente a criação de documento no Firestore no primeiro login.
-- **Controle de Status:** Bloqueio automático de login para usuários cujo status não seja `active`.
+### Matriz de Permissões Granulares (`UserPermissions`):
+- **Clientes:** `viewClients` (Listar Clientes), `createClients` (Cadastrar / Editar Clientes).
+- **Produtos & Usinas:** `viewProducts` (Listar Produtos/Usinas), `createProducts` (Cadastrar Produtos, Montar Usinas, Ações em Lote).
+- **Propostas & Vendas:** `viewProposals` (Listar Propostas/Funil Kanban), `createProposals` (Emitir / Gerar Novas Propostas), `viewAllProposals` (Acompanhar Propostas de Todos os Usuários).
+- **Fornecedores:** `viewSuppliers` (Listar Fornecedores), `createSuppliers` (Cadastrar Fornecedores).
+- **Configurações & Sistema:** `manageSettings` (Acesso às Configurações), `manageUsers` (Gerenciar Usuários e Permissões).
 
-> 📚 *Regras e detalhes de autenticação em:* [`/docs/auth_and_permissions.md`](file:///c:/mavis/docs/auth_and_permissions.md)
+### Cascata Profunda de Permissões (Deep UI Cascading):
+- **Menu Lateral (`AppSidebar`):** Oculta os itens de navegação quando o usuário não possui permissão de leitura correspondente.
+- **Telas / Listagens:** Oculta botões de ação ("NOVO CLIENTE", "NOVO PRODUTO", "NOVA USINA", "NOVO FORNECEDOR", "NOVA PROPOSTA", "GERAR 200 TESTE", "LIMPAR CATÁLOGO") se o usuário não tiver permissão de criação.
+- **Fluxo de Emissão de Propostas:**
+  - Se o operador não puder cadastrar usinas (`!createProducts`), o botão *"MONTAR USINA SOLAR"* fica oculto e exibe apenas *"ADICIONAR PRODUTO / USINA"*.
+  - Dentro do modal de seleção de produtos (`ProposalProductPickerDialog`), o botão *"ADICIONAR ITEM"* fica oculto se `!createProducts`.
+  - No autocomplete de clientes (`ProposalClientAutocomplete`), o botão *"+ NOVO CLIENTE"* fica oculto se `!createClients`.
+- **Configurador de Permissões (`UserPermissionsDialog`):** Localizado na tela de **Usuários**, acionado pelo ícone de engrenagem (`Icons.settings_suggest_rounded`) em cada linha de operador. Permite ao Admin alternar permissões em tempo real com presets rápidos (*Acesso Total*, *Padrão Gerente*, *Padrão Operador*, *Somente Leitura*).
+- **Filtragem de Propostas por Criador:** Propostas gravam `createdByUserId` e `createdByUserName`. Operadores sem `viewAllProposals` visualizam apenas os orçamentos que eles mesmos criaram, enquanto Admins e Gerentes acompanham a produção integral de toda a equipe.
 
 ---
 
@@ -282,7 +298,37 @@ Armazena o perfil estendido dos operadores e administradores do CRM.
   8. **Pré-Visualização & Impressão Interativa (`ProposalPdfPreviewDialog`):** Modal de alta resolução (`PdfPreview`) com atalhos de impressão direta e download do PDF gerado.
   9. **Criação Direta de Usinas Solares no Formulário de Propostas:** Botão com gradiente solar `"CRIAR USINA SOLAR"` na seção de Itens & Produtos da proposta que abre diretamente o `SolarPlantFormCard` em modal (com suporte a IA Gemini Vision OCR), permitindo montar uma nova usina ou importar cotação em PDF e inseri-la instantaneamente na proposta em edição com 1 clique através do botão `"ADICIONAR À PROPOSTA"`.
   10. **Switch de Proposta Limpa (Apenas Inversor e Módulo) com Persistência:** Switch posicionado estrategicamente logo acima de *Condições Comerciais & Pagamento*. Ao ser acionado, oculta itens secundários da cotação (cabos, conectores MC4, perfis de fixação, grampos, junções e garras de aterramento) e exibe apenas os equipamentos principais (**Módulos e Inversores/Microinversores**) tanto na tabela de itens do formulário quanto no documento PDF final exportado para o cliente. A preferência do usuário é **salva automaticamente no armazenamento local (`SharedPreferences`)**, permanecendo ativa como padrão para todas as novas propostas ou permitindo ser desmarcada a qualquer momento.
-
+  11. **Cabeçalho e Rodapé 100% Programáticos e Minimalistas (`SolarProposalPdfService`):**
+      - **Remoção total de arquivos SVG pesados:** Eliminados todos os 19 arquivos `.svg` legados (`mark_top_...`), substituindo-os por renderização vetorial nativa e instantânea.
+      - **Cabeçalho:** Barra sólida vertical na cor de destaque primária da proposta ao lado do título da seção em caixa alta elegante (ex: `PROPOSTA COMERCIAL`, `SUA USINA SOLAR`, `ITENS DA USINA & PAGAMENTO`, `ANÁLISE DE INVESTIMENTO`, `FINANCIAMENTO & CONDIÇÕES`), número da proposta à direita e linha divisória fina horizontal com segmento de destaque colorido no canto direito.
+      - **Rodapé:** Linha divisória superior com segmento de destaque colorido, ícone vetorial solar com raios no canto esquerdo ao lado do slogan configurável da empresa (ex: `ENERGIA QUE TRANSFORMA`) e paginação à direita (`Página X de Y`).
+      - **Personalização de Cores e Slogan:** Paleta de cores selecionável na aba de configurações com live preview interativo e campo customizável para o slogan no rodapé.
+  12. **Proposta Web Interativa & Compartilhamento Público em Link Aberto (`WebProposalPage`):**
+      - **Experiência Digital Moderna Inspirada no Modelo Solar7:** O cliente final pode acessar a proposta diretamente pelo navegador através do link público `/proposta/:id` (ou `/p/:id`), sem precisar fazer download de arquivos.
+      - **Plano de Fundo em Alta Resolução com 34 Modelos:** O usuário pode escolher nas configurações (`SolarSettingsView` - Aba 5) qualquer um dos 34 papéis de parede profissionais localizados em `assets/background_web/`. A proposta web renderiza em tela cheia com overlay escuro e glassmorphism refinado.
+      - **Componentes Interativos da Proposta Web:**
+        - Cabeçalho da marca com slogan, atalhos de compartilhamento de link, download de PDF e contato direto no WhatsApp do vendedor.
+        - Banner Hero com identificação da proposta, status, cliente e data de emissão.
+        - Grade com 4 KPIs destacados (Potência kWp, Geração Média em kWh/mês, Economia no 1º Ano e Redução na Conta de até 95%).
+        - Ficha Técnica Completa da Usina (Potência, Módulos, Inversor, Telhado, Geração e Área Ocupada).
+        - Equipamentos Inclusos & Os 4 Pilares do Escopo Turn-Key.
+        - Análise Financeira & Simulação Gráfica de Retorno/Economia em 25 anos.
+        - **Simulador Interativo de Pagamento:** Alternância entre À Vista (com desconto), Financiamento Solar Bancário (com seletor de bancos e prazos em 12x, 24x, 36x, 48x, 60x, 72x, 84x, 90x com cálculo dinâmico das parcelas em tempo real) e Cartão de Crédito.
+        - **Aceite Digital em 1 Clique:** Modal que coleta os dados do titular e atualiza instantaneamente o status da proposta para `approved` no Cloud Firestore, disparando modal de celebração com atalho para agendamento via WhatsApp.
+        - **Dock Flutuante Inferior:** Fixado na base com resumo do valor total e botões de ação rápida (WhatsApp e Aceitar Proposta).
+      - **Ações na Tabela de Propostas (`ProposalsView`):** Botões dedicados para 🌐 *"Abrir Versão Web Interativa"*, 🔗 *"Copiar Link da Proposta"* e 💬 *"Enviar no WhatsApp"* com mensagem personalizada já formatada.
+  13. **Modelo KANBAN Interativo com Drag & Drop e Funil de Vendas (`ProposalKanbanView`):**
+      - **Alternância Fluida de Visualização (Tabela vs Kanban):** Botão segmented switch integrado no topo da tela de propostas (`[ 📋 Tabela | 📊 Kanban ]`), com persistência automática no armazenamento local (`SharedPreferences`), lembrando a preferência do operador entre sessões.
+      - **As 4 Etapas Oficiais do Funil de Propostas:**
+        1. **EM APROVAÇÃO (`ProposalStatus.inApproval`):** Cor Índigo (`#6366F1`), ícone de ampulheta/pendente, destinado a propostas recém-elaboradas aguardando revisão ou aprovação interna/cliente.
+        2. **NEGOCIANDO (`ProposalStatus.negotiating`):** Cor Azul Céu (`#0284C7`), ícone de chat/negociação, para propostas enviadas em tratativa comercial ativa.
+        3. **FECHADAS (`ProposalStatus.closed`):** Cor Esmeralda (`#059669`), ícone de confirmação/sucesso, para orçamentos aprovados e vendas ganhas.
+        4. **NEGADAS (`ProposalStatus.rejected`):** Cor Rose/Vermelho (`#DC2626`), ícone de cancelamento, para propostas recusadas ou perdidas.
+      - **Arrastar e Soltar Nativo (Drag & Drop estilo Trello/Jira/HubSpot):** Cards interativos com `Draggable<ProposalModel>` e colunas com `DragTarget<ProposalModel>`. Ao arrastar uma proposta entre colunas, a coluna de destino se ilumina com a cor temática correspondente e uma área delimitada *"Soltar para mover para [ETAPA]"* é exibida. Ao soltar, o status é instantaneamente atualizado no Cloud Firestore via `ProposalRepository.updateStatus()` com notificação SnackBar em tempo real.
+      - **Cards de Proposta Ricos em Informação:** Cada card do Kanban apresenta o número da proposta com badge destacada, título, nome do cliente com ícone, badge dourada de Usina Solar (`☀️ Usina X.XX kWp`) ou contagem de itens, valor total formatado em Reais (`R$`), prazo de validade e barra completa de ações rápidas (🌐 Proposta Web, 🔗 Copiar Link, 💬 WhatsApp, 📄 PDF, ✏️ Editar, 🔄 Menu Rápido de Status e 🗑️ Excluir).
+      - **Barra de Resumo Executivo do Pipeline (KPIs no Topo):** Total monetário consolidado do funil (`R$`), quantidade total de propostas ativas e taxa de conversão (% de propostas fechadas).
+      - **Totalizador por Coluna em Tempo Real:** Cada coluna exibe no cabeçalho o contador de propostas da etapa e a soma monetária de todos os orçamentos contidos nela.
+      - **Seletor de Etapa no Formulário:** Dropdown integrado no formulário de cadastro/edição permitindo definir ou alterar a etapa da proposta diretamente na tela de edição.
 
 ### 9. `SettingsModule` / `SettingsView` (`lib/settings/presentation/settings_view.dart`)
 - **`settings_view.dart` & `settings_service.dart`:** Gestão de preferências e nicho do CRM:

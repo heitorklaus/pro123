@@ -206,6 +206,17 @@ class AuthRepository {
     return UserModel.fromMap(doc.data()!, currentUser.uid);
   }
 
+  /// Retorna o Stream em tempo real do perfil do usuário logado (atualiza permissões instantaneamente)
+  Stream<UserModel?> getCurrentUserStream() {
+    final User? currentUser = _firebaseAuth.currentUser;
+    if (currentUser == null) return Stream.value(null);
+
+    return _usersRef.doc(currentUser.uid).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return UserModel.fromMap(doc.data()!, currentUser.uid);
+    });
+  }
+
   /// Retorna o companyId da conta de empresa ativa do usuário autenticado
   Future<String?> getCurrentCompanyId() async {
     final user = await getCurrentUser();
@@ -224,10 +235,11 @@ class AuthRepository {
   }
 
   /// Atualiza o papel/função de um usuário (ex: promover a manager ou admin)
-  Future<void> updateUserRole(String uid, String newRole) async {
+  Future<void> updateUserRole(String uid, String newRole, {UserPermissions? permissions}) async {
+    final permsToSave = permissions ?? UserPermissions.defaultForRole(newRole);
     await _usersRef.doc(uid).update({
       'role': newRole,
-      'permissions': UserPermissions.defaultForRole(newRole).toMap(),
+      'permissions': permsToSave.toMap(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

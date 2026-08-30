@@ -34,6 +34,9 @@ class ProposalItemModel {
     this.moduleWatts,
   });
 
+  /// Alias de conveniência para a potência da usina em kWp
+  double? get solarPowerKwp => solarKilowatts;
+
   /// Extrai a potência do módulo em Watts, seja do atributo explícito ou da descrição/nome (ex: "550W", "580 W", "670W", "500 Watts", "615W")
   double? get effectiveModuleWatts {
     if (moduleWatts != null && moduleWatts! > 0) {

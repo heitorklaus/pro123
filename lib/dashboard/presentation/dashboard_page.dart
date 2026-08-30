@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app/layout/app_sidebar.dart';
 import '../../app/theme/app_colors.dart';
+import '../../auth/data/repositories/auth_repository.dart';
+import '../../auth/domain/models/user_model.dart';
 import '../../clients/presentation/clients_view.dart';
 import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/products_view.dart';
@@ -21,6 +24,10 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  late final AuthRepository _authRepo;
+  StreamSubscription<UserModel?>? _userSub;
+  UserModel? _currentUser;
+
   AppSidebarItem _activeItem = AppSidebarItem.dashboard;
   bool _isSidebarCollapsed = false;
   ProposalItemModel? _pendingProposalItem;
@@ -29,8 +36,31 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+
+    _listenCurrentUser();
     _loadPreferredSector();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkFirstLoginOnboarding());
+  }
+
+  void _listenCurrentUser() {
+    _userSub = _authRepo.getCurrentUserStream().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _userSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadPreferredSector() async {
@@ -89,6 +119,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   isCollapsed: false,
                   productsTitle: productsTitle,
                   productsIcon: productsIcon,
+                  currentUser: _currentUser,
                   onItemSelected: (item) {
                     setState(() {
                       _activeItem = item;
@@ -172,6 +203,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   onToggleCollapse: _toggleSidebar,
                   productsTitle: productsTitle,
                   productsIcon: productsIcon,
+                  currentUser: _currentUser,
                   onItemSelected: (item) {
                     setState(() {
                       _activeItem = item;
@@ -195,6 +227,13 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildMiolo() {
+    final canViewClients = _currentUser?.canViewClients ?? true;
+    final canViewProducts = _currentUser?.canViewProducts ?? true;
+    final canViewSuppliers = _currentUser?.canViewSuppliers ?? true;
+    final canViewProposals = _currentUser?.canViewProposals ?? true;
+    final canManageUsers = _currentUser?.canManageUsers ?? true;
+    final canManageSettings = _currentUser?.canManageSettings ?? true;
+
     switch (_activeItem) {
       case AppSidebarItem.dashboard:
         return const Center(
@@ -204,21 +243,71 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         );
       case AppSidebarItem.clients:
-        return const ClientsView();
+        if (!canViewClients) {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
+        return ClientsView(currentUser: _currentUser);
       case AppSidebarItem.products:
+        if (!canViewProducts) {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
         return ProductsView(
+          currentUser: _currentUser,
           onProceedToProposal: _navigateToProposalWithItem,
         );
       case AppSidebarItem.suppliers:
-        return const SuppliersView();
+        if (!canViewSuppliers) {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
+        return SuppliersView(currentUser: _currentUser);
       case AppSidebarItem.proposals:
+        if (!canViewProposals) {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
         return ProposalsView(
+          currentUser: _currentUser,
           initialItem: _pendingProposalItem,
           onClearInitialItem: () => setState(() => _pendingProposalItem = null),
         );
       case AppSidebarItem.users:
+        if (!canManageUsers) {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
         return const UsersView();
       case AppSidebarItem.settings:
+        if (!canManageSettings) {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
         return SettingsView(onSectorChanged: _loadPreferredSector);
     }
   }

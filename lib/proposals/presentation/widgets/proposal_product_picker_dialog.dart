@@ -19,11 +19,13 @@ enum _PickerViewMode {
 class ProposalProductPickerDialog extends StatefulWidget {
   final ValueChanged<ProposalItemModel> onItemSelected;
   final bool excludeSolarPlants;
+  final bool canCreateProduct;
 
   const ProposalProductPickerDialog({
     super.key,
     required this.onItemSelected,
     this.excludeSolarPlants = false,
+    this.canCreateProduct = true,
   });
 
   @override
@@ -411,7 +413,7 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                 ),
 
                 // ── Botão "ADICIONAR ITEM" com subtexto explicativo ──
-                if (_viewMode == _PickerViewMode.catalog) ...[
+                if (_viewMode == _PickerViewMode.catalog && widget.canCreateProduct) ...[
                   Material(
                     color: Colors.transparent,
                     child: InkWell(

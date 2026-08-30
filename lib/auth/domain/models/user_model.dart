@@ -2,18 +2,39 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Permissões Granuladas do Usuário (RBAC)
 class UserPermissions {
-  final bool manageUsers;
+  // Clientes
+  final bool viewClients;
+  final bool createClients;
+
+  // Produtos & Usinas Solares
+  final bool viewProducts;
+  final bool createProducts;
+
+  // Propostas Comerciais
+  final bool viewProposals;
+  final bool createProposals;
+  final bool viewAllProposals; // Ver propostas de todos os operadores (se false, apenas as suas)
+
+  // Fornecedores & Parceiros
+  final bool viewSuppliers;
+  final bool createSuppliers;
+
+  // Sistema & Administração
   final bool manageSettings;
-  final bool viewReports;
-  final bool editLeads;
-  final bool deleteLeads;
+  final bool manageUsers;
 
   const UserPermissions({
-    this.manageUsers = false,
+    this.viewClients = true,
+    this.createClients = true,
+    this.viewProducts = true,
+    this.createProducts = true,
+    this.viewProposals = true,
+    this.createProposals = true,
+    this.viewAllProposals = false,
+    this.viewSuppliers = true,
+    this.createSuppliers = true,
     this.manageSettings = false,
-    this.viewReports = true,
-    this.editLeads = true,
-    this.deleteLeads = false,
+    this.manageUsers = false,
   });
 
   /// Retorna as permissões padrão de acordo com o papel do usuário
@@ -21,28 +42,46 @@ class UserPermissions {
     switch (role.toLowerCase()) {
       case 'admin':
         return const UserPermissions(
-          manageUsers: true,
+          viewClients: true,
+          createClients: true,
+          viewProducts: true,
+          createProducts: true,
+          viewProposals: true,
+          createProposals: true,
+          viewAllProposals: true,
+          viewSuppliers: true,
+          createSuppliers: true,
           manageSettings: true,
-          viewReports: true,
-          editLeads: true,
-          deleteLeads: true,
+          manageUsers: true,
         );
       case 'manager':
         return const UserPermissions(
-          manageUsers: false,
+          viewClients: true,
+          createClients: true,
+          viewProducts: true,
+          createProducts: true,
+          viewProposals: true,
+          createProposals: true,
+          viewAllProposals: true,
+          viewSuppliers: true,
+          createSuppliers: true,
           manageSettings: false,
-          viewReports: true,
-          editLeads: true,
-          deleteLeads: true,
+          manageUsers: false,
         );
       case 'user':
       default:
         return const UserPermissions(
-          manageUsers: false,
+          viewClients: true,
+          createClients: true,
+          viewProducts: true,
+          createProducts: false,
+          viewProposals: true,
+          createProposals: true,
+          viewAllProposals: false,
+          viewSuppliers: true,
+          createSuppliers: false,
           manageSettings: false,
-          viewReports: false,
-          editLeads: true,
-          deleteLeads: false,
+          manageUsers: false,
         );
     }
   }
@@ -50,37 +89,61 @@ class UserPermissions {
   factory UserPermissions.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const UserPermissions();
     return UserPermissions(
-      manageUsers: map['manageUsers'] as bool? ?? false,
+      viewClients: map['viewClients'] as bool? ?? true,
+      createClients: map['createClients'] as bool? ?? (map['editLeads'] as bool? ?? true),
+      viewProducts: map['viewProducts'] as bool? ?? true,
+      createProducts: map['createProducts'] as bool? ?? (map['editLeads'] as bool? ?? true),
+      viewProposals: map['viewProposals'] as bool? ?? true,
+      createProposals: map['createProposals'] as bool? ?? true,
+      viewAllProposals: map['viewAllProposals'] as bool? ?? (map['viewReports'] as bool? ?? false),
+      viewSuppliers: map['viewSuppliers'] as bool? ?? true,
+      createSuppliers: map['createSuppliers'] as bool? ?? (map['editLeads'] as bool? ?? false),
       manageSettings: map['manageSettings'] as bool? ?? false,
-      viewReports: map['viewReports'] as bool? ?? true,
-      editLeads: map['editLeads'] as bool? ?? true,
-      deleteLeads: map['deleteLeads'] as bool? ?? false,
+      manageUsers: map['manageUsers'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'manageUsers': manageUsers,
+      'viewClients': viewClients,
+      'createClients': createClients,
+      'viewProducts': viewProducts,
+      'createProducts': createProducts,
+      'viewProposals': viewProposals,
+      'createProposals': createProposals,
+      'viewAllProposals': viewAllProposals,
+      'viewSuppliers': viewSuppliers,
+      'createSuppliers': createSuppliers,
       'manageSettings': manageSettings,
-      'viewReports': viewReports,
-      'editLeads': editLeads,
-      'deleteLeads': deleteLeads,
+      'manageUsers': manageUsers,
     };
   }
 
   UserPermissions copyWith({
-    bool? manageUsers,
+    bool? viewClients,
+    bool? createClients,
+    bool? viewProducts,
+    bool? createProducts,
+    bool? viewProposals,
+    bool? createProposals,
+    bool? viewAllProposals,
+    bool? viewSuppliers,
+    bool? createSuppliers,
     bool? manageSettings,
-    bool? viewReports,
-    bool? editLeads,
-    bool? deleteLeads,
+    bool? manageUsers,
   }) {
     return UserPermissions(
-      manageUsers: manageUsers ?? this.manageUsers,
+      viewClients: viewClients ?? this.viewClients,
+      createClients: createClients ?? this.createClients,
+      viewProducts: viewProducts ?? this.viewProducts,
+      createProducts: createProducts ?? this.createProducts,
+      viewProposals: viewProposals ?? this.viewProposals,
+      createProposals: createProposals ?? this.createProposals,
+      viewAllProposals: viewAllProposals ?? this.viewAllProposals,
+      viewSuppliers: viewSuppliers ?? this.viewSuppliers,
+      createSuppliers: createSuppliers ?? this.createSuppliers,
       manageSettings: manageSettings ?? this.manageSettings,
-      viewReports: viewReports ?? this.viewReports,
-      editLeads: editLeads ?? this.editLeads,
-      deleteLeads: deleteLeads ?? this.deleteLeads,
+      manageUsers: manageUsers ?? this.manageUsers,
     );
   }
 }
@@ -115,10 +178,23 @@ class UserModel {
     this.lastLoginAt,
   });
 
-  bool get isAdmin => role == 'admin';
-  bool get isManager => role == 'manager' || isAdmin;
+  bool get isAdmin => role.toLowerCase() == 'admin';
+  bool get isManager => role.toLowerCase() == 'manager' || isAdmin;
   bool get isActive => status == 'active';
   String get effectiveCompanyId => (companyId != null && companyId!.isNotEmpty) ? companyId! : uid;
+
+  // Verificações diretas de permissão com respeito estrito às configurações do RBAC
+  bool get canViewClients => permissions.viewClients;
+  bool get canCreateClients => permissions.createClients;
+  bool get canViewProducts => permissions.viewProducts;
+  bool get canCreateProducts => permissions.createProducts;
+  bool get canViewProposals => permissions.viewProposals;
+  bool get canCreateProposals => permissions.createProposals;
+  bool get canViewAllProposals => permissions.viewAllProposals || isAdmin || isManager;
+  bool get canViewSuppliers => permissions.viewSuppliers;
+  bool get canCreateSuppliers => permissions.createSuppliers;
+  bool get canManageSettings => permissions.manageSettings || isAdmin;
+  bool get canManageUsers => permissions.manageUsers || isAdmin;
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
     return UserModel(

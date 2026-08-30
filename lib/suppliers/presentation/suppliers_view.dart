@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -5,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
+import '../../auth/domain/models/user_model.dart';
 import '../../products/presentation/category_dialogs.dart';
 import '../data/repositories/supplier_repository.dart';
 import '../domain/models/supplier_model.dart';
@@ -13,7 +15,9 @@ import '../domain/models/supplier_model.dart';
 // ENTRY POINT: Inserido diretamente no miolo do DashboardPage (SPA Container)
 // ─────────────────────────────────────────────────────────────────────────────
 class SuppliersView extends StatefulWidget {
-  const SuppliersView({super.key});
+  final UserModel? currentUser;
+
+  const SuppliersView({super.key, this.currentUser});
 
   @override
   State<SuppliersView> createState() => _SuppliersViewState();
@@ -57,6 +61,7 @@ class _SuppliersViewState extends State<SuppliersView> {
           width: constraints.maxWidth,
           height: constraints.maxHeight,
           child: _SupplierTableView(
+            currentUser: widget.currentUser,
             onAddNew: () => setState(() {
               _editingSupplier = null;
               _showForm = true;
@@ -76,10 +81,12 @@ class _SuppliersViewState extends State<SuppliersView> {
 // 1. TABELA DE FORNECEDORES
 // ─────────────────────────────────────────────────────────────────────────────
 class _SupplierTableView extends StatefulWidget {
+  final UserModel? currentUser;
   final VoidCallback onAddNew;
   final ValueChanged<SupplierModel> onEdit;
 
   const _SupplierTableView({
+    this.currentUser,
     required this.onAddNew,
     required this.onEdit,
   });
@@ -90,10 +97,13 @@ class _SupplierTableView extends StatefulWidget {
 
 class _SupplierTableViewState extends State<_SupplierTableView> {
   late final SupplierRepository _repo;
+  late final AuthRepository _authRepo;
+  StreamSubscription<UserModel?>? _userSub;
   final _searchCtrl = TextEditingController();
   String _query = '';
   SupplierStatus? _filterStatus;
   String? _companyId;
+  UserModel? _currentUser;
 
   @override
   void initState() {
@@ -103,24 +113,39 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
     } catch (_) {
       _repo = SupplierRepository();
     }
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+    _currentUser = widget.currentUser;
+    _userSub = _authRepo.getCurrentUserStream().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = user?.effectiveCompanyId ?? _companyId;
+        });
+      }
+    });
     _loadCompanyId();
   }
 
   Future<void> _loadCompanyId() async {
     try {
-      AuthRepository auth;
-      try {
-        auth = Modular.get<AuthRepository>();
-      } catch (_) {
-        auth = AuthRepository();
+      final user = await _authRepo.getCurrentUser();
+      final cid = user?.effectiveCompanyId ?? await _authRepo.getCurrentCompanyId();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _companyId = cid;
+        });
       }
-      final cid = await auth.getCurrentCompanyId();
-      if (mounted) setState(() => _companyId = cid);
     } catch (_) {}
   }
 
   @override
   void dispose() {
+    _userSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -224,44 +249,46 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
               ),
 
               // Botão Novo Fornecedor
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: widget.onAddNew,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.add_rounded, color: Colors.white, size: 18),
-                        const SizedBox(width: 6),
-                        Text(
-                          isMobile ? 'NOVO' : 'NOVO FORNECEDOR',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: isMobile ? 12 : 13,
-                            letterSpacing: 0.5,
+              if (widget.currentUser?.canCreateSuppliers ?? _currentUser?.canCreateSuppliers ?? false) ...[
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: widget.onAddNew,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_rounded, color: Colors.white, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            isMobile ? 'NOVO' : 'NOVO FORNECEDOR',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: isMobile ? 12 : 13,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
 

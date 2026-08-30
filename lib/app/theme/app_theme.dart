@@ -106,10 +106,10 @@ abstract class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.textOnPrimary,
           elevation: 0,
-          minimumSize: const Size(double.infinity, 52),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           textStyle: font(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
           ),
@@ -123,11 +123,11 @@ abstract class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
-          minimumSize: const Size(double.infinity, 52),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           textStyle: font(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
           ),

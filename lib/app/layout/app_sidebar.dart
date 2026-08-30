@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../auth/domain/models/user_model.dart';
 
 enum AppSidebarItem {
   dashboard,
@@ -18,6 +19,7 @@ class AppSidebar extends StatelessWidget {
   final VoidCallback? onToggleCollapse;
   final String productsTitle;
   final IconData productsIcon;
+  final UserModel? currentUser;
 
   const AppSidebar({
     super.key,
@@ -27,10 +29,18 @@ class AppSidebar extends StatelessWidget {
     this.onToggleCollapse,
     this.productsTitle = 'Produtos',
     this.productsIcon = Icons.inventory_2_outlined,
+    this.currentUser,
   });
 
   @override
   Widget build(BuildContext context) {
+    final canViewClients = currentUser?.canViewClients ?? true;
+    final canViewProducts = currentUser?.canViewProducts ?? true;
+    final canViewSuppliers = currentUser?.canViewSuppliers ?? true;
+    final canViewProposals = currentUser?.canViewProposals ?? true;
+    final canManageUsers = currentUser?.canManageUsers ?? true;
+    final canManageSettings = currentUser?.canManageSettings ?? true;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOutCubic,
@@ -105,54 +115,66 @@ class AppSidebar extends StatelessWidget {
                   isSelected: activeItem == AppSidebarItem.dashboard,
                   onTap: () => onItemSelected(AppSidebarItem.dashboard),
                 ),
-                const SizedBox(height: 6),
-                _SidebarMenuItem(
-                  icon: Icons.people_alt_rounded,
-                  title: 'Clientes',
-                  isCollapsed: isCollapsed,
-                  isSelected: activeItem == AppSidebarItem.clients,
-                  onTap: () => onItemSelected(AppSidebarItem.clients),
-                ),
-                const SizedBox(height: 6),
-                _SidebarMenuItem(
-                  icon: productsIcon,
-                  title: productsTitle,
-                  isCollapsed: isCollapsed,
-                  isSelected: activeItem == AppSidebarItem.products,
-                  onTap: () => onItemSelected(AppSidebarItem.products),
-                ),
-                const SizedBox(height: 6),
-                _SidebarMenuItem(
-                  icon: Icons.local_shipping_outlined,
-                  title: 'Fornecedores',
-                  isCollapsed: isCollapsed,
-                  isSelected: activeItem == AppSidebarItem.suppliers,
-                  onTap: () => onItemSelected(AppSidebarItem.suppliers),
-                ),
-                const SizedBox(height: 6),
-                _SidebarMenuItem(
-                  icon: Icons.description_outlined,
-                  title: 'Propostas',
-                  isCollapsed: isCollapsed,
-                  isSelected: activeItem == AppSidebarItem.proposals,
-                  onTap: () => onItemSelected(AppSidebarItem.proposals),
-                ),
-                const SizedBox(height: 6),
-                _SidebarMenuItem(
-                  icon: Icons.manage_accounts_rounded,
-                  title: 'Usuários',
-                  isCollapsed: isCollapsed,
-                  isSelected: activeItem == AppSidebarItem.users,
-                  onTap: () => onItemSelected(AppSidebarItem.users),
-                ),
-                const SizedBox(height: 6),
-                _SidebarMenuItem(
-                  icon: Icons.tune_rounded,
-                  title: 'Configurações',
-                  isCollapsed: isCollapsed,
-                  isSelected: activeItem == AppSidebarItem.settings,
-                  onTap: () => onItemSelected(AppSidebarItem.settings),
-                ),
+                if (canViewClients) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.people_alt_rounded,
+                    title: 'Clientes',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.clients,
+                    onTap: () => onItemSelected(AppSidebarItem.clients),
+                  ),
+                ],
+                if (canViewProducts) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: productsIcon,
+                    title: productsTitle,
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.products,
+                    onTap: () => onItemSelected(AppSidebarItem.products),
+                  ),
+                ],
+                if (canViewSuppliers) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.local_shipping_outlined,
+                    title: 'Fornecedores',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.suppliers,
+                    onTap: () => onItemSelected(AppSidebarItem.suppliers),
+                  ),
+                ],
+                if (canViewProposals) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.description_outlined,
+                    title: 'Propostas',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.proposals,
+                    onTap: () => onItemSelected(AppSidebarItem.proposals),
+                  ),
+                ],
+                if (canManageUsers) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.manage_accounts_rounded,
+                    title: 'Usuários',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.users,
+                    onTap: () => onItemSelected(AppSidebarItem.users),
+                  ),
+                ],
+                if (canManageSettings) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.tune_rounded,
+                    title: 'Configurações',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.settings,
+                    onTap: () => onItemSelected(AppSidebarItem.settings),
+                  ),
+                ],
               ],
             ),
           ),
