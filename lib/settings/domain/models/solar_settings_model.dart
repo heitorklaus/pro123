@@ -180,7 +180,7 @@ class SolarSettingsModel {
   final double defaultSunHours; // HSP médio diário (ex: 4.8)
   final List<SolarFinancingBank> financingBanks;
   final List<CreditCardInstallmentRate> creditCardRates;
-  final String selectedCoverTemplate; // ex: 'capa-1.jpeg'
+  final String selectedCoverTemplate; // ex: 'modelo_proposta_1.jpg'
   final String selectedSvgTheme; // Armazena a cor/tema (ex: '#2563EB' ou 'azul_royal')
   final String webBackgroundTemplate; // ex: 'AdobeStock_1030854734.jpg'
   final String? companyName;
@@ -190,9 +190,58 @@ class SolarSettingsModel {
   final String? companyInstagram;
   final String? companySlogan; // ex: 'Energia que Transforma'
 
+  // Configurações do Editor em Tempo Real de Capa & Retângulo de Título
+  final String coverTitle; // Default: 'PROPOSTA COMERCIAL'
+  final String coverSubtitle; // Default: 'ENERGIA SOLAR FOTOVOLTAICA'
+  final bool coverShowBadge; // Se exibe retângulo de fundo
+  final String coverBadgeColor; // Cor do retângulo (ex: '#FFFFFF')
+  final double coverBadgeOpacity; // Opacidade do retângulo (0.0 a 1.0)
+  final String coverTitleColor; // Cor do título (ex: '#0284C7')
+  final String coverSubtitleColor; // Cor do subtítulo (ex: '#0F172A')
+  final double coverTitleFontSize; // Tamanho da fonte do título (ex: 26.0)
+  final double coverSubtitleFontSize; // Tamanho da fonte do subtítulo (ex: 11.0)
+  final double coverBadgePositionX; // Posição horizontal relativa (0.0 a 1.0, default: 0.08)
+  final double coverBadgePositionY; // Posição vertical relativa (0.0 a 1.0, default: 0.06)
+  final String? customCoverImageBase64; // Foto customizada enviada pelo cliente
+  final int customDividerStyle; // 0 a 9 (Estilo do decalque / separador)
+  final String customDividerColor; // Cor do separador customizado
+  final bool isCustomCoverMode; // Se está no modo de capa customizada
+
   // Getters para compatibilidade retroativa
   String get selectedSvgHeader => selectedSvgTheme;
   String get selectedSvgFooter => selectedSvgTheme;
+
+  /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor do retângulo de capa
+  int get coverBadgeColorValue {
+    final hex = coverBadgeColor.replaceAll('#', '').trim();
+    if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? 0xFFFFFFFF;
+    if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? 0xFFFFFFFF;
+    return 0xFFFFFFFF;
+  }
+
+  /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor do título
+  int get coverTitleColorValue {
+    final hex = coverTitleColor.replaceAll('#', '').trim();
+    if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? 0xFF0284C7;
+    if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? 0xFF0284C7;
+    return 0xFF0284C7;
+  }
+
+  /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor do subtítulo
+  int get coverSubtitleColorValue {
+    final hex = coverSubtitleColor.replaceAll('#', '').trim();
+    if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? 0xFF0F172A;
+    if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? 0xFF0F172A;
+    return 0xFF0F172A;
+  }
+
+  /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor do separador customizado
+  int get customDividerColorValue {
+    final hex = customDividerColor.replaceAll('#', '').trim();
+    if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? 0xFF0284C7;
+    if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? 0xFF0284C7;
+    return 0xFF0284C7;
+  }
 
   /// Lista de todos os 34 papéis de parede em alta resolução para a Proposta Web
   static const List<String> availableWebBackgrounds = [
@@ -268,7 +317,7 @@ class SolarSettingsModel {
     this.defaultSunHours = 4.8,
     this.financingBanks = const [],
     this.creditCardRates = const [],
-    this.selectedCoverTemplate = 'capa-1.jpeg',
+    this.selectedCoverTemplate = 'modelo_proposta_1.jpg',
     this.selectedSvgTheme = '#2563EB',
     this.webBackgroundTemplate = 'AdobeStock_1030854734.jpg',
     this.companyName = 'Soli Energia Solar',
@@ -277,6 +326,21 @@ class SolarSettingsModel {
     this.companyWebsite = 'www.solienergiasolar.com.br',
     this.companyInstagram = '@solienergiasolar',
     this.companySlogan = 'Energia que Transforma',
+    this.coverTitle = 'PROPOSTA COMERCIAL',
+    this.coverSubtitle = 'ENERGIA SOLAR FOTOVOLTAICA',
+    this.coverShowBadge = true,
+    this.coverBadgeColor = '#FFFFFF',
+    this.coverBadgeOpacity = 0.92,
+    this.coverTitleColor = '#0284C7',
+    this.coverSubtitleColor = '#0F172A',
+    this.coverTitleFontSize = 26.0,
+    this.coverSubtitleFontSize = 11.0,
+    this.coverBadgePositionX = 0.08,
+    this.coverBadgePositionY = 0.06,
+    this.customCoverImageBase64,
+    this.customDividerStyle = 0,
+    this.customDividerColor = '#0284C7',
+    this.isCustomCoverMode = false,
   });
 
   /// Gera a simulação ano a ano comparando Com Solar vs Sem Solar
@@ -299,7 +363,7 @@ class SolarSettingsModel {
       // Com solar: paga taxa de disponibilidade/fio B + consumo não simultâneo residual
       final directSelfConsumption = monthlyKwh * simRate;
       final gridInjectedKwh = monthlyKwh - directSelfConsumption;
-      
+
       // Variação mínima e máxima considerando fio B progressivo e iluminação pública
       final minBill = (gridInjectedKwh * fioBTariff * 0.55) + 65.0;
       final maxBill = (gridInjectedKwh * fioBTariff * 0.85) + 95.0;
@@ -337,6 +401,21 @@ class SolarSettingsModel {
     String? companyWebsite,
     String? companyInstagram,
     String? companySlogan,
+    String? coverTitle,
+    String? coverSubtitle,
+    bool? coverShowBadge,
+    String? coverBadgeColor,
+    double? coverBadgeOpacity,
+    String? coverTitleColor,
+    String? coverSubtitleColor,
+    double? coverTitleFontSize,
+    double? coverSubtitleFontSize,
+    double? coverBadgePositionX,
+    double? coverBadgePositionY,
+    String? customCoverImageBase64,
+    int? customDividerStyle,
+    String? customDividerColor,
+    bool? isCustomCoverMode,
   }) {
     return SolarSettingsModel(
       utilityCompany: utilityCompany ?? this.utilityCompany,
@@ -357,6 +436,21 @@ class SolarSettingsModel {
       companyWebsite: companyWebsite ?? this.companyWebsite,
       companyInstagram: companyInstagram ?? this.companyInstagram,
       companySlogan: companySlogan ?? this.companySlogan,
+      coverTitle: coverTitle ?? this.coverTitle,
+      coverSubtitle: coverSubtitle ?? this.coverSubtitle,
+      coverShowBadge: coverShowBadge ?? this.coverShowBadge,
+      coverBadgeColor: coverBadgeColor ?? this.coverBadgeColor,
+      coverBadgeOpacity: coverBadgeOpacity ?? this.coverBadgeOpacity,
+      coverTitleColor: coverTitleColor ?? this.coverTitleColor,
+      coverSubtitleColor: coverSubtitleColor ?? this.coverSubtitleColor,
+      coverTitleFontSize: coverTitleFontSize ?? this.coverTitleFontSize,
+      coverSubtitleFontSize: coverSubtitleFontSize ?? this.coverSubtitleFontSize,
+      coverBadgePositionX: coverBadgePositionX ?? this.coverBadgePositionX,
+      coverBadgePositionY: coverBadgePositionY ?? this.coverBadgePositionY,
+      customCoverImageBase64: customCoverImageBase64 ?? this.customCoverImageBase64,
+      customDividerStyle: customDividerStyle ?? this.customDividerStyle,
+      customDividerColor: customDividerColor ?? this.customDividerColor,
+      isCustomCoverMode: isCustomCoverMode ?? this.isCustomCoverMode,
     );
   }
 
@@ -380,6 +474,21 @@ class SolarSettingsModel {
       'companyWebsite': companyWebsite,
       'companyInstagram': companyInstagram,
       'companySlogan': companySlogan,
+      'coverTitle': coverTitle,
+      'coverSubtitle': coverSubtitle,
+      'coverShowBadge': coverShowBadge,
+      'coverBadgeColor': coverBadgeColor,
+      'coverBadgeOpacity': coverBadgeOpacity,
+      'coverTitleColor': coverTitleColor,
+      'coverSubtitleColor': coverSubtitleColor,
+      'coverTitleFontSize': coverTitleFontSize,
+      'coverSubtitleFontSize': coverSubtitleFontSize,
+      'coverBadgePositionX': coverBadgePositionX,
+      'coverBadgePositionY': coverBadgePositionY,
+      'customCoverImageBase64': customCoverImageBase64,
+      'customDividerStyle': customDividerStyle,
+      'customDividerColor': customDividerColor,
+      'isCustomCoverMode': isCustomCoverMode,
     };
   }
 
@@ -404,7 +513,7 @@ class SolarSettingsModel {
               .map((e) => CreditCardInstallmentRate.fromMap(Map<String, dynamic>.from(e)))
               .toList()
           : CreditCardInstallmentRate.defaultRates(),
-      selectedCoverTemplate: map['selectedCoverTemplate'] as String? ?? 'capa-1.jpeg',
+      selectedCoverTemplate: map['selectedCoverTemplate'] as String? ?? 'modelo_proposta_1.jpg',
       selectedSvgTheme: (map['selectedSvgTheme'] ?? map['selectedSvgFooter'] ?? map['selectedSvgHeader']) as String? ?? '#2563EB',
       webBackgroundTemplate: map['webBackgroundTemplate'] as String? ?? 'AdobeStock_1030854734.jpg',
       companyName: map['companyName'] as String? ?? 'Soli Energia Solar',
@@ -413,6 +522,21 @@ class SolarSettingsModel {
       companyWebsite: map['companyWebsite'] as String? ?? 'www.solienergiasolar.com.br',
       companyInstagram: map['companyInstagram'] as String? ?? '@solienergiasolar',
       companySlogan: map['companySlogan'] as String? ?? 'Energia que Transforma',
+      coverTitle: map['coverTitle'] as String? ?? 'PROPOSTA COMERCIAL',
+      coverSubtitle: map['coverSubtitle'] as String? ?? 'ENERGIA SOLAR FOTOVOLTAICA',
+      coverShowBadge: map['coverShowBadge'] as bool? ?? true,
+      coverBadgeColor: map['coverBadgeColor'] as String? ?? '#FFFFFF',
+      coverBadgeOpacity: (map['coverBadgeOpacity'] as num?)?.toDouble() ?? 0.92,
+      coverTitleColor: map['coverTitleColor'] as String? ?? '#0284C7',
+      coverSubtitleColor: map['coverSubtitleColor'] as String? ?? '#0F172A',
+      coverTitleFontSize: (map['coverTitleFontSize'] as num?)?.toDouble() ?? 26.0,
+      coverSubtitleFontSize: (map['coverSubtitleFontSize'] as num?)?.toDouble() ?? 11.0,
+      coverBadgePositionX: (map['coverBadgePositionX'] as num?)?.toDouble() ?? 0.08,
+      coverBadgePositionY: (map['coverBadgePositionY'] as num?)?.toDouble() ?? 0.06,
+      customCoverImageBase64: map['customCoverImageBase64'] as String?,
+      customDividerStyle: (map['customDividerStyle'] as num?)?.toInt() ?? 0,
+      customDividerColor: map['customDividerColor'] as String? ?? '#0284C7',
+      isCustomCoverMode: map['isCustomCoverMode'] as bool? ?? false,
     );
   }
 

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -25,15 +27,29 @@ class SolarProposalPdfService {
     // Cor primária dinâmica da proposta
     final primaryColor = PdfColor.fromInt(settings.themeColorValue);
 
-    // Baixa a imagem da capa do Firebase Storage
+    // Carrega a imagem da capa (Asset Local / Custom Base64 / Firebase Storage)
     Uint8List? coverImageBytes;
-    try {
-      final bigCoverUrl = SolarSettingsService.getBigCoverUrl(settings.selectedCoverTemplate);
-      final response = await http.get(Uri.parse(bigCoverUrl)).timeout(const Duration(seconds: 8));
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        coverImageBytes = response.bodyBytes;
+    if (settings.isCustomCoverMode && settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
+      try {
+        coverImageBytes = base64Decode(settings.customCoverImageBase64!);
+      } catch (_) {}
+    }
+
+    if (coverImageBytes == null) {
+      try {
+        final assetPath = 'assets/modelo_propostas/${settings.selectedCoverTemplate}';
+        final byteData = await rootBundle.load(assetPath);
+        coverImageBytes = byteData.buffer.asUint8List();
+      } catch (_) {
+        try {
+          final bigCoverUrl = SolarSettingsService.getBigCoverUrl(settings.selectedCoverTemplate);
+          final response = await http.get(Uri.parse(bigCoverUrl)).timeout(const Duration(seconds: 8));
+          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+            coverImageBytes = response.bodyBytes;
+          }
+        } catch (_) {}
       }
-    } catch (_) {}
+    }
 
     // Extrai dados da usina da proposta
     final solarPlantItem = proposal.items.firstWhere(
@@ -243,122 +259,142 @@ class SolarProposalPdfService {
     required double kwp,
     required PdfColor primaryColor,
   }) {
+    // Dimensões A4 em pontos (595.28 x 841.89)
+    const a4W = 595.28;
+    const a4H = 841.89;
+
+    final badgeLeft = (a4W * settings.coverBadgePositionX).clamp(16.0, 360.0);
+    final badgeTop = (a4H * settings.coverBadgePositionY).clamp(16.0, 480.0);
+
+    final rawColor = PdfColor.fromInt(settings.coverBadgeColorValue);
+    final badgeBgColor = PdfColor(rawColor.red, rawColor.green, rawColor.blue, settings.coverBadgeOpacity);
+
     return pw.Stack(
       fit: pw.StackFit.expand,
       children: [
-        // Imagem de Fundo da Capa
+        // Imagem de Fundo da Capa (com separador e rodapé 100% branco)
         if (coverBytes != null)
           pw.Image(pw.MemoryImage(coverBytes), fit: pw.BoxFit.cover)
         else
           pw.Container(
-            decoration: const pw.BoxDecoration(
-              gradient: pw.LinearGradient(
-                colors: [PdfColor.fromInt(0xFF0F172A), PdfColor.fromInt(0xFF1E293B)],
-                begin: pw.Alignment.topLeft,
-                end: pw.Alignment.bottomRight,
-              ),
-            ),
+            color: PdfColors.white,
           ),
 
-        // Conteúdo Superior (Logo / Nome da Empresa)
+        // Retângulo e Título Customizável Posicionado pelo Usuário
         pw.Positioned(
-          top: 48,
-          left: 44,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Container(
-                padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: const pw.BoxDecoration(
-                  color: PdfColors.white,
-                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
-                  boxShadow: [
-                    pw.BoxShadow(color: PdfColors.black, blurRadius: 10, offset: PdfPoint(0, 3)),
-                  ],
+          left: badgeLeft,
+          top: badgeTop,
+          child: pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: settings.coverShowBadge
+                ? pw.BoxDecoration(
+                    color: badgeBgColor,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                    border: pw.Border.all(color: PdfColors.white, width: 1.5),
+                  )
+                : null,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                pw.Text(
+                  settings.coverTitle.isNotEmpty ? settings.coverTitle : 'PROPOSTA COMERCIAL',
+                  style: pw.TextStyle(
+                    fontSize: settings.coverTitleFontSize,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(settings.coverTitleColorValue),
+                  ),
                 ),
-                child: pw.Row(
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Container(
-                      width: 24,
-                      height: 24,
-                      decoration: pw.BoxDecoration(
-                        color: primaryColor,
-                        shape: pw.BoxShape.circle,
-                      ),
-                      child: pw.Center(
-                        child: pw.Text(
-                          (settings.companyName?.isNotEmpty == true ? settings.companyName![0] : 'S').toUpperCase(),
-                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(width: 8),
-                    pw.Text(
-                      settings.companyName?.isNotEmpty == true ? settings.companyName! : 'SOLI ENERGIA SOLAR',
-                      style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
-                    ),
-                  ],
+                pw.SizedBox(height: 3),
+                pw.Text(
+                  settings.coverSubtitle.isNotEmpty ? settings.coverSubtitle : 'ENERGIA SOLAR FOTOVOLTAICA',
+                  style: pw.TextStyle(
+                    fontSize: settings.coverSubtitleFontSize,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(settings.coverSubtitleColorValue),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 
-        // Conteúdo Inferior (Título, Geração, CNPJ e Redes)
+        // Conteúdo Inferior (Área Branca: Dados do Cliente, Sistema e Empresa)
         pw.Positioned(
-          bottom: 36,
-          left: 44,
-          right: 44,
+          bottom: 32,
+          left: 40,
+          right: 40,
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             crossAxisAlignment: pw.CrossAxisAlignment.end,
             children: [
+              // Bloco Esquerdo: Cliente & Detalhes da Usina
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    'Proposta Comercial',
-                    style: pw.TextStyle(fontSize: 26, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                    'PROPOSTA COMERCIAL • ${proposal.proposalNumber}',
+                    style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
                   ),
                   pw.SizedBox(height: 4),
                   pw.Row(
                     children: [
-                      pw.Container(width: 36, height: 2.5, color: primaryColor),
-                      pw.SizedBox(width: 8),
+                      pw.Container(width: 22, height: 3, color: primaryColor),
+                      pw.SizedBox(width: 6),
                       pw.Text(
-                        'Geração: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
-                        style: const pw.TextStyle(fontSize: 13, color: PdfColors.white),
+                        'Geração Estimada: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
+                        style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
                       ),
                     ],
                   ),
-                  pw.SizedBox(height: 6),
-                  pw.Text(
-                    '${settings.companyName ?? "Soli Energia Solar"} - ${settings.companyDocument ?? "42.117.511/0001-38"}',
-                    style: const pw.TextStyle(fontSize: 11.5, color: PdfColors.white),
-                  ),
+                  pw.SizedBox(height: 5),
                   if (proposal.clientName.isNotEmpty) ...[
-                    pw.SizedBox(height: 2),
                     pw.Text(
                       'Cliente: ${proposal.clientName}',
-                      style: pw.TextStyle(fontSize: 11, color: PdfColor.fromHex('#CBD5E1')),
+                      style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1E293B')),
                     ),
+                    if (proposal.clientDocument?.isNotEmpty == true)
+                      pw.Text(
+                        'CPF/CNPJ: ${proposal.clientDocument!}',
+                        style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#64748B')),
+                      ),
                   ],
+                  pw.SizedBox(height: 3),
+                  pw.Text(
+                    'Emissão: ${DateFormat('dd/MM/yyyy').format(proposal.createdAt)} • Validade: ${proposal.validityDays} dias',
+                    style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#64748B')),
+                  ),
                 ],
               ),
+
+              // Bloco Direito: Dados do Integrador / Contatos
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
+                  pw.Text(
+                    settings.companyName?.isNotEmpty == true ? settings.companyName! : 'SOLI ENERGIA SOLAR',
+                    style: pw.TextStyle(fontSize: 12.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+                  ),
+                  if (settings.companyDocument?.isNotEmpty == true)
+                    pw.Text(
+                      'CNPJ: ${settings.companyDocument!}',
+                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
+                    ),
+                  if (settings.companyPhone?.isNotEmpty == true)
+                    pw.Text(
+                      'WhatsApp: ${settings.companyPhone!}',
+                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
+                    ),
+                  if (settings.companyWebsite?.isNotEmpty == true)
+                    pw.Text(
+                      settings.companyWebsite!,
+                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
+                    ),
                   if (settings.companyInstagram?.isNotEmpty == true)
-                    pw.Text(settings.companyInstagram!, style: const pw.TextStyle(fontSize: 10, color: PdfColors.white)),
-                  if (settings.companyWebsite?.isNotEmpty == true) ...[
-                    pw.SizedBox(height: 2),
-                    pw.Text(settings.companyWebsite!, style: const pw.TextStyle(fontSize: 10, color: PdfColors.white)),
-                  ],
-                  if (settings.companyPhone?.isNotEmpty == true) ...[
-                    pw.SizedBox(height: 2),
-                    pw.Text(settings.companyPhone!, style: const pw.TextStyle(fontSize: 10, color: PdfColors.white)),
-                  ],
+                    pw.Text(
+                      settings.companyInstagram!,
+                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
+                    ),
                 ],
               ),
             ],

@@ -42,3 +42,4 @@ flutter:
   assets:
     - assets/background_web/
     - assets/pdf_data/solar_pdf_assets/
+    - assets/modelo_propostas/

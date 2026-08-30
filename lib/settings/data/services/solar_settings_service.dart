@@ -12,24 +12,45 @@ class SolarSettingsService {
 
   /// Retorna a URL do thumbnail da capa (Small)
   static String getSmallCoverUrl(String fileName) {
-    final encoded = Uri.encodeComponent('templates_pdf/small/$fileName');
+    if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
+      return fileName;
+    }
+    final encoded = Uri.encodeComponent('capas/energiasolar/$fileName');
     return '$_storageBaseUrl/$encoded?alt=media';
   }
 
   /// Retorna a URL em alta resolução da capa (Big)
   static String getBigCoverUrl(String fileName) {
-    final encoded = Uri.encodeComponent('templates_pdf/big/$fileName');
+    if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
+      return fileName;
+    }
+    final encoded = Uri.encodeComponent('capas/energiasolar/$fileName');
     return '$_storageBaseUrl/$encoded?alt=media';
   }
 
-  /// Lista de capas padrão conhecidas (fallback offline instantâneo)
+  /// Lista das 100 capas fotovoltaicas padrão em alta resolução
   static List<String> getDefaultCoverList() {
     final list = <String>[];
-    for (int i = 1; i <= 30; i++) {
-      list.add('capa-$i.jpeg');
+    for (int i = 1; i <= 100; i++) {
+      list.add('modelo_proposta_$i.jpg');
     }
-    list.add('capa-100.jpeg');
     return list;
+  }
+
+  /// Lista dos 10 estilos de separadores geométricos / decalques
+  static List<Map<String, dynamic>> getAvailableDividers() {
+    return const [
+      {'id': 0, 'name': 'Onda Suave Clássica (S-Curve)', 'desc': 'Curva orgânica dupla com fita de destaque'},
+      {'id': 1, 'name': 'Onda Dupla Harmônica', 'desc': 'Duas ondas fluidas intersectantes em degradê'},
+      {'id': 2, 'name': 'Corte Diagonal Moderno', 'desc': 'Design angular tecnológico com fita tripla'},
+      {'id': 3, 'name': 'Polígonos Facetados (Chevron)', 'desc': 'Geometria cristalina com vértices dinâmicos'},
+      {'id': 4, 'name': 'Arco Aerodinâmico Côncavo', 'desc': 'Arco estilizado parabólico ascendente'},
+      {'id': 5, 'name': 'Declive Arquitetônico Solar', 'desc': 'Ângulos inspirados na inclinação dos telhados'},
+      {'id': 6, 'name': 'Cascata Tripla de Ondas', 'desc': 'Três ondulações ritmadas em degradê suave'},
+      {'id': 7, 'name': 'Hexágono Tech Futurista', 'desc': 'Geometria chanfrada com alta identidade visual'},
+      {'id': 8, 'name': 'Arco Convexo Aerodinâmico', 'desc': 'Curvatura suave e elegante voltada para o topo'},
+      {'id': 9, 'name': 'Varredura Angular Ascendente', 'desc': 'Transição fluida inclinada de alta energia'},
+    ];
   }
 
   /// Lista unificada de Paletas de Cores para Cabeçalho & Rodapé Minimalistas
@@ -54,11 +75,11 @@ class SolarSettingsService {
   static List<Map<String, String>> getAvailableSvgHeaders() => getAvailableSvgThemes().map((e) => {'fileName': e['fileName'] as String, 'name': e['name'] as String}).toList();
   static List<Map<String, String>> getAvailableSvgFooters() => getAvailableSvgThemes().map((e) => {'fileName': e['fileName'] as String, 'name': e['name'] as String}).toList();
 
-  /// Busca a lista dinâmica de capas diretamente do Firebase Storage API
+  /// Busca a lista dinâmica de capas diretamente do Firebase Storage API ou fallback local
   static Future<List<String>> fetchAvailableCovers() async {
     try {
-      final uri = Uri.parse('$_storageBaseUrl?prefix=templates_pdf%2Fsmall%2F');
-      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      final uri = Uri.parse('$_storageBaseUrl?prefix=capas%2Fenergiasolar%2F');
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -67,8 +88,8 @@ class SolarSettingsService {
           final set = <String>{};
           for (final item in items) {
             final name = item['name'] as String? ?? '';
-            if (name.startsWith('templates_pdf/small/')) {
-              final fileName = name.replaceFirst('templates_pdf/small/', '');
+            if (name.startsWith('capas/energiasolar/')) {
+              final fileName = name.replaceFirst('capas/energiasolar/', '');
               if (fileName.isNotEmpty) {
                 set.add(fileName);
               }
@@ -86,7 +107,7 @@ class SolarSettingsService {
         }
       }
     } catch (e) {
-      debugPrint('[SolarSettingsService] Erro ao buscar capas dinâmicas: $e');
+      debugPrint('[SolarSettingsService] Erro ao buscar capas dinâmicas (usando lista padrão): $e');
     }
     return getDefaultCoverList();
   }
