@@ -9,23 +9,56 @@ import '../../domain/models/solar_settings_model.dart';
 class SolarSettingsService {
   static const _storageBaseUrl = 'https://firebasestorage.googleapis.com/v0/b/solardino-aea02.appspot.com/o';
   static const _localCacheKey = 'mavis_solar_settings_cache';
+  static final Map<String, Uint8List> _coverBytesCache = {};
 
-  /// Retorna a URL do thumbnail da capa (Small)
+  /// Retorna a URL do thumbnail da capa no Firebase Storage (Small)
   static String getSmallCoverUrl(String fileName) {
     if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
       return fileName;
     }
-    final encoded = Uri.encodeComponent('capas/energiasolar/$fileName');
+    final cleanName = fileName.replaceFirst('assets/modelo_propostas/', '').replaceFirst('capas/energiasolar/', '');
+    final encoded = Uri.encodeComponent('capas/energiasolar/$cleanName');
     return '$_storageBaseUrl/$encoded?alt=media';
   }
 
-  /// Retorna a URL em alta resolução da capa (Big)
+  /// Retorna a URL em alta resolução da capa no Firebase Storage (Big)
   static String getBigCoverUrl(String fileName) {
     if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
       return fileName;
     }
-    final encoded = Uri.encodeComponent('capas/energiasolar/$fileName');
+    final cleanName = fileName.replaceFirst('assets/modelo_propostas/', '').replaceFirst('capas/energiasolar/', '');
+    final encoded = Uri.encodeComponent('capas/energiasolar/$cleanName');
     return '$_storageBaseUrl/$encoded?alt=media';
+  }
+
+  /// Retorna a URL do papel de parede da Proposta Web no Firebase Storage
+  static String getWebBackgroundUrl(String fileName) {
+    if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
+      return fileName;
+    }
+    final cleanName = fileName.replaceFirst('assets/background_web/', '').replaceFirst('assets/wallpaper_propostas/', '').replaceFirst('wallpapers/energiasolar/', '');
+    final encoded = Uri.encodeComponent('wallpapers/energiasolar/$cleanName');
+    return '$_storageBaseUrl/$encoded?alt=media';
+  }
+
+  /// Baixa e armazena em cache na memória os bytes da capa do Firebase Storage
+  static Future<Uint8List?> fetchCoverBytes(String fileName) async {
+    final cleanName = fileName.replaceFirst('assets/modelo_propostas/', '').replaceFirst('capas/energiasolar/', '');
+    if (_coverBytesCache.containsKey(cleanName)) {
+      return _coverBytesCache[cleanName];
+    }
+    try {
+      final url = getBigCoverUrl(cleanName);
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final bytes = response.bodyBytes;
+        _coverBytesCache[cleanName] = bytes;
+        return bytes;
+      }
+    } catch (e) {
+      debugPrint('[SolarSettingsService] Erro ao baixar capa $cleanName: $e');
+    }
+    return null;
   }
 
   /// Lista das 100 capas fotovoltaicas padrão em alta resolução
@@ -35,6 +68,46 @@ class SolarSettingsService {
       list.add('modelo_proposta_$i.jpg');
     }
     return list;
+  }
+
+  /// Lista dos 34 wallpapers em alta resolução para a proposta web
+  static List<String> getDefaultWebBackgroundList() {
+    return const [
+      'AdobeStock_1030854734.jpg',
+      'AdobeStock_1063373137.jpg',
+      'AdobeStock_1068541528.jpg',
+      'AdobeStock_1069629961.jpg',
+      'AdobeStock_1082859153.jpg',
+      'AdobeStock_1112102843.jpg',
+      'AdobeStock_1118255841.jpg',
+      'AdobeStock_1120115310.jpg',
+      'AdobeStock_1125570181.jpg',
+      'AdobeStock_1164262430.jpg',
+      'AdobeStock_1176157580.jpg',
+      'AdobeStock_1187954830.jpg',
+      'AdobeStock_1189457356.jpg',
+      'AdobeStock_1193597432.jpg',
+      'AdobeStock_1204356135.jpg',
+      'AdobeStock_1215761001.jpg',
+      'AdobeStock_1223719368.jpg',
+      'AdobeStock_1247773962.jpg',
+      'AdobeStock_1259926111.jpg',
+      'AdobeStock_1288787002.jpg',
+      'AdobeStock_1310256944.jpg',
+      'AdobeStock_1310260953.jpg',
+      'AdobeStock_1332131708.jpg',
+      'AdobeStock_1378554669.jpg',
+      'AdobeStock_1463615955.jpg',
+      'AdobeStock_229285539.jpg',
+      'AdobeStock_359002997.jpg',
+      'AdobeStock_414986171.jpg',
+      'AdobeStock_485578686.jpg',
+      'AdobeStock_700923583.jpg',
+      'AdobeStock_790069273.jpg',
+      'AdobeStock_863610560.jpg',
+      'AdobeStock_986162055.jpg',
+      'AdobeStock_996874425.jpg',
+    ];
   }
 
   /// Lista dos 10 estilos de separadores geométricos / decalques

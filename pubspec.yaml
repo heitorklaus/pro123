@@ -39,7 +39,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/background_web/
-    - assets/pdf_data/solar_pdf_assets/
-    - assets/modelo_propostas/

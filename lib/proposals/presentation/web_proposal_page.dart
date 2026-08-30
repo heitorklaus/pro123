@@ -459,10 +459,10 @@ class _WebProposalPageState extends State<WebProposalPage> {
       backgroundColor: const Color(0xFF0B1120),
       body: Stack(
         children: [
-          // ── 1. Wallpaper de Fundo Selecionável (assets/background_web/) ────
+          // ── 1. Wallpaper de Fundo Selecionável (Firebase Storage) ────
           Positioned.fill(
-            child: Image.asset(
-              'assets/background_web/$bgImageName',
+            child: Image.network(
+              SolarSettingsService.getWebBackgroundUrl(bgImageName),
               fit: BoxFit.cover,
               errorBuilder: (ctx, err, stack) => Container(
                 color: const Color(0xFF0F172A),

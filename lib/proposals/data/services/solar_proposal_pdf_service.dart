@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -27,7 +25,7 @@ class SolarProposalPdfService {
     // Cor primária dinâmica da proposta
     final primaryColor = PdfColor.fromInt(settings.themeColorValue);
 
-    // Carrega a imagem da capa (Asset Local / Custom Base64 / Firebase Storage)
+    // Carrega a imagem da capa (Custom Base64 / Firebase Storage)
     Uint8List? coverImageBytes;
     if (settings.isCustomCoverMode && settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
       try {
@@ -37,18 +35,8 @@ class SolarProposalPdfService {
 
     if (coverImageBytes == null) {
       try {
-        final assetPath = 'assets/modelo_propostas/${settings.selectedCoverTemplate}';
-        final byteData = await rootBundle.load(assetPath);
-        coverImageBytes = byteData.buffer.asUint8List();
-      } catch (_) {
-        try {
-          final bigCoverUrl = SolarSettingsService.getBigCoverUrl(settings.selectedCoverTemplate);
-          final response = await http.get(Uri.parse(bigCoverUrl)).timeout(const Duration(seconds: 8));
-          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-            coverImageBytes = response.bodyBytes;
-          }
-        } catch (_) {}
-      }
+        coverImageBytes = await SolarSettingsService.fetchCoverBytes(settings.selectedCoverTemplate);
+      } catch (_) {}
     }
 
     // Extrai dados da usina da proposta

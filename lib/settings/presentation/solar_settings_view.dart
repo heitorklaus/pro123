@@ -1511,8 +1511,8 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.asset(
-                                'assets/background_web/$bgName',
+                              Image.network(
+                                SolarSettingsService.getWebBackgroundUrl(bgName),
                                 fit: BoxFit.cover,
                                 errorBuilder: (ctx, err, stack) => Container(
                                   color: const Color(0xFF0F172A),
@@ -1820,8 +1820,8 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       height: previewH,
                     )
                   else
-                    Image.asset(
-                      'assets/wallpaper_propostas/$_selectedWebBg',
+                    Image.network(
+                      SolarSettingsService.getWebBackgroundUrl(_selectedWebBg),
                       fit: BoxFit.cover,
                       width: previewW,
                       height: previewH,
@@ -1838,17 +1838,25 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                     ),
                   ),
                 ] else ...[
-                  Image.asset(
-                    'assets/modelo_propostas/$_selectedCover',
+                  Image.network(
+                    SolarSettingsService.getBigCoverUrl(_selectedCover),
                     fit: BoxFit.cover,
                     width: previewW,
                     height: previewH,
-                    errorBuilder: (_, __, ___) => Image.network(
-                      SolarSettingsService.getBigCoverUrl(_selectedCover),
-                      fit: BoxFit.cover,
-                      width: previewW,
-                      height: previewH,
-                      errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0F172A)),
+                    loadingBuilder: (ctx, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        color: const Color(0xFF0F172A),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Color(0xFF38BDF8), strokeWidth: 2),
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => Container(
+                      color: const Color(0xFF0F172A),
+                      child: const Center(
+                        child: Icon(Icons.broken_image_rounded, color: Colors.white38, size: 36),
+                      ),
                     ),
                   ),
                 ],
@@ -2254,19 +2262,28 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.asset(
-                        'assets/modelo_propostas/$coverName',
+                      Image.network(
+                        SolarSettingsService.getSmallCoverUrl(coverName),
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Image.network(
-                          SolarSettingsService.getSmallCoverUrl(coverName),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                        loadingBuilder: (ctx, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
                             color: const Color(0xFF0F172A),
-                            child: Center(
-                              child: Text(
-                                '#$numStr',
-                                style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Color(0xFFF59E0B), strokeWidth: 2),
                               ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => Container(
+                          color: const Color(0xFF0F172A),
+                          child: Center(
+                            child: Text(
+                              '#$numStr',
+                              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
