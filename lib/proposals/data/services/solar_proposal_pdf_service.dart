@@ -307,6 +307,18 @@ class SolarProposalPdfService {
           ),
         ),
 
+        // Logomarca Customizada Posicionada pelo Usuário
+        if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty)
+          pw.Positioned(
+            left: a4W * settings.coverLogoPositionX,
+            top: a4H * settings.coverLogoPositionY,
+            child: pw.Image(
+              pw.MemoryImage(base64Decode(settings.companyLogoBase64!)),
+              width: (settings.coverLogoWidth / 340.0) * a4W,
+              fit: pw.BoxFit.contain,
+            ),
+          ),
+
         // Conteúdo Inferior (Área Branca: Dados do Cliente, Sistema e Empresa)
         pw.Positioned(
           bottom: 32,

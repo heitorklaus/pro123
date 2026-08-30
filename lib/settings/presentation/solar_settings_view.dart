@@ -69,6 +69,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   String _coverSearchQuery = '';
   int _coverSubTab = 0; // 0 = 100 Capas Prontas, 1 = Criar Capa Personalizada
 
+  // Logomarca Customizada na Capa
+  String? _companyLogoBase64;
+  bool _coverShowLogo = true;
+  double _coverLogoPosX = 0.65;
+  double _coverLogoPosY = 0.05;
+  double _coverLogoWidth = 90.0;
+
   // Financiamento & Cartão
   late List<SolarFinancingBank> _banks;
   late List<CreditCardInstallmentRate> _cardRates;
@@ -161,6 +168,11 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       _customCoverImageBase64 = loaded.customCoverImageBase64;
       _customDividerStyle = loaded.customDividerStyle;
       _customDividerColor = loaded.customDividerColor;
+      _companyLogoBase64 = loaded.companyLogoBase64;
+      _coverShowLogo = loaded.coverShowLogo;
+      _coverLogoPosX = loaded.coverLogoPositionX;
+      _coverLogoPosY = loaded.coverLogoPositionY;
+      _coverLogoWidth = loaded.coverLogoWidth;
 
       _banks = List.from(loaded.financingBanks);
       if (_banks.isEmpty) _banks = SolarFinancingBank.defaultBanks();
@@ -261,6 +273,11 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         customCoverImageBase64: _customCoverImageBase64,
         customDividerStyle: _customDividerStyle,
         customDividerColor: _customDividerColor,
+        companyLogoBase64: _companyLogoBase64,
+        coverShowLogo: _coverShowLogo,
+        coverLogoPositionX: _coverLogoPosX,
+        coverLogoPositionY: _coverLogoPosY,
+        coverLogoWidth: _coverLogoWidth,
       );
 
       await SolarSettingsService.saveSettings(updated);
@@ -1920,7 +1937,46 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   ),
                 ),
 
-                // 3. Rodapé Informativo na Área Branca Preservada
+                // 3. Logomarca Interativa Movimentável por Drag & Drop
+                if (_coverShowLogo && _companyLogoBase64 != null && _companyLogoBase64!.isNotEmpty)
+                  Positioned(
+                    left: (previewW * _coverLogoPosX).clamp(0.0, previewW - _coverLogoWidth),
+                    top: (previewH * _coverLogoPosY).clamp(0.0, previewH * 0.85),
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          _coverLogoPosX = ((_coverLogoPosX * previewW + details.delta.dx) / previewW).clamp(0.0, 0.78);
+                          _coverLogoPosY = ((_coverLogoPosY * previewH + details.delta.dy) / previewH).clamp(0.0, 0.85);
+                        });
+                      },
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.move,
+                        child: Tooltip(
+                          message: 'Clique e arraste para posicionar a logomarca na capa',
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 60),
+                            width: _coverLogoWidth,
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.8), width: 1.5),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+                              ],
+                            ),
+                            child: Image.memory(
+                              base64Decode(_companyLogoBase64!),
+                              width: _coverLogoWidth,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 4. Rodapé Informativo na Área Branca Preservada
                 Positioned(
                   bottom: 14,
                   left: 14,
@@ -1983,7 +2039,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
 
         const SizedBox(height: 10),
 
-        // Botões de Ação Rápida de Posicionamento
+        // Botões de Ação Rápida de Posicionamento do Título
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -2025,6 +2081,124 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               ),
             ),
           ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // ── BOTÃO "ENVIAR LOGO" & CONTROLES DE REDIMENSIONAMENTO/POSIÇÃO ──
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _pickLogoFile,
+                      icon: Icon(_companyLogoBase64 != null ? Icons.sync_rounded : Icons.cloud_upload_rounded, size: 16),
+                      label: Text(
+                        _companyLogoBase64 != null ? 'TROCAR LOGOMARCA' : 'ENVIAR LOGO',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11.5),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  if (_companyLogoBase64 != null) ...[
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                      tooltip: 'Remover Logo da Capa',
+                      onPressed: () => setState(() => _companyLogoBase64 = null),
+                    ),
+                  ],
+                ],
+              ),
+
+              if (_companyLogoBase64 != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.photo_size_select_large_rounded, size: 14, color: Color(0xFF0284C7)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Tamanho da Logo: ${_coverLogoWidth.toInt()}px',
+                          style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF334155)),
+                        ),
+                      ],
+                    ),
+                    Switch.adaptive(
+                      value: _coverShowLogo,
+                      activeTrackColor: const Color(0xFF0284C7),
+                      onChanged: (v) => setState(() => _coverShowLogo = v),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _coverLogoWidth,
+                  min: 40,
+                  max: 180,
+                  divisions: 28,
+                  activeColor: const Color(0xFF0284C7),
+                  onChanged: (v) => setState(() => _coverLogoWidth = v),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _coverLogoPosX = 0.65;
+                        _coverLogoPosY = 0.05;
+                      }),
+                      icon: const Icon(Icons.align_horizontal_right_rounded, size: 13),
+                      label: const Text('Topo Direito', style: TextStyle(fontSize: 10.5)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF0284C7),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _coverLogoPosX = 0.35;
+                        _coverLogoPosY = 0.05;
+                      }),
+                      icon: const Icon(Icons.align_horizontal_center_rounded, size: 13),
+                      label: const Text('Topo Centro', style: TextStyle(fontSize: 10.5)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF64748B),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _coverLogoPosX = 0.08;
+                        _coverLogoPosY = 0.85;
+                      }),
+                      icon: const Icon(Icons.vertical_align_bottom_rounded, size: 13),
+                      label: const Text('Rodapé', style: TextStyle(fontSize: 10.5)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF64748B),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
@@ -2783,6 +2957,36 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       }
     } catch (e) {
       debugPrint('[SolarSettingsView] Erro ao selecionar arquivo: $e');
+    }
+  }
+
+  /// Abertura de Seletor de Arquivos para Logomarca da Empresa
+  Future<void> _pickLogoFile() async {
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
+      );
+
+      if (files.isNotEmpty) {
+        final bytes = await files.first.readAsBytes();
+        final b64 = base64Encode(bytes);
+        setState(() {
+          _companyLogoBase64 = b64;
+          _coverShowLogo = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Logomarca carregada! Arraste e posicione na capa.'),
+              backgroundColor: Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[SolarSettingsView] Erro ao selecionar logomarca: $e');
     }
   }
 

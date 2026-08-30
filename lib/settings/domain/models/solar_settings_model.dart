@@ -206,6 +206,11 @@ class SolarSettingsModel {
   final int customDividerStyle; // 0 a 9 (Estilo do decalque / separador)
   final String customDividerColor; // Cor do separador customizado
   final bool isCustomCoverMode; // Se está no modo de capa customizada
+  final String? companyLogoBase64; // Logomarca personalizada da empresa (Base64)
+  final bool coverShowLogo; // Exibir logomarca na capa
+  final double coverLogoPositionX; // Posição horizontal da logo (0.0 a 1.0)
+  final double coverLogoPositionY; // Posição vertical da logo (0.0 a 1.0)
+  final double coverLogoWidth; // Largura da logo em pixels na prévia (ex: 90.0)
 
   // Getters para compatibilidade retroativa
   String get selectedSvgHeader => selectedSvgTheme;
@@ -341,6 +346,11 @@ class SolarSettingsModel {
     this.customDividerStyle = 0,
     this.customDividerColor = '#0284C7',
     this.isCustomCoverMode = false,
+    this.companyLogoBase64,
+    this.coverShowLogo = true,
+    this.coverLogoPositionX = 0.65,
+    this.coverLogoPositionY = 0.05,
+    this.coverLogoWidth = 90.0,
   });
 
   /// Gera a simulação ano a ano comparando Com Solar vs Sem Solar
@@ -416,6 +426,11 @@ class SolarSettingsModel {
     int? customDividerStyle,
     String? customDividerColor,
     bool? isCustomCoverMode,
+    String? companyLogoBase64,
+    bool? coverShowLogo,
+    double? coverLogoPositionX,
+    double? coverLogoPositionY,
+    double? coverLogoWidth,
   }) {
     return SolarSettingsModel(
       utilityCompany: utilityCompany ?? this.utilityCompany,
@@ -451,6 +466,11 @@ class SolarSettingsModel {
       customDividerStyle: customDividerStyle ?? this.customDividerStyle,
       customDividerColor: customDividerColor ?? this.customDividerColor,
       isCustomCoverMode: isCustomCoverMode ?? this.isCustomCoverMode,
+      companyLogoBase64: companyLogoBase64 ?? this.companyLogoBase64,
+      coverShowLogo: coverShowLogo ?? this.coverShowLogo,
+      coverLogoPositionX: coverLogoPositionX ?? this.coverLogoPositionX,
+      coverLogoPositionY: coverLogoPositionY ?? this.coverLogoPositionY,
+      coverLogoWidth: coverLogoWidth ?? this.coverLogoWidth,
     );
   }
 
@@ -489,6 +509,11 @@ class SolarSettingsModel {
       'customDividerStyle': customDividerStyle,
       'customDividerColor': customDividerColor,
       'isCustomCoverMode': isCustomCoverMode,
+      'companyLogoBase64': companyLogoBase64,
+      'coverShowLogo': coverShowLogo,
+      'coverLogoPositionX': coverLogoPositionX,
+      'coverLogoPositionY': coverLogoPositionY,
+      'coverLogoWidth': coverLogoWidth,
     };
   }
 
@@ -537,6 +562,11 @@ class SolarSettingsModel {
       customDividerStyle: (map['customDividerStyle'] as num?)?.toInt() ?? 0,
       customDividerColor: map['customDividerColor'] as String? ?? '#0284C7',
       isCustomCoverMode: map['isCustomCoverMode'] as bool? ?? false,
+      companyLogoBase64: map['companyLogoBase64'] as String?,
+      coverShowLogo: map['coverShowLogo'] as bool? ?? true,
+      coverLogoPositionX: (map['coverLogoPositionX'] as num?)?.toDouble() ?? 0.65,
+      coverLogoPositionY: (map['coverLogoPositionY'] as num?)?.toDouble() ?? 0.05,
+      coverLogoWidth: (map['coverLogoWidth'] as num?)?.toDouble() ?? 90.0,
     );
   }
 
