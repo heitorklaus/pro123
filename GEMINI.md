@@ -330,6 +330,28 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
       - **Totalizador por Coluna em Tempo Real:** Cada coluna exibe no cabeçalho o contador de propostas da etapa e a soma monetária de todos os orçamentos contidos nela.
       - **Seletor de Etapa no Formulário:** Dropdown integrado no formulário de cadastro/edição permitindo definir ou alterar a etapa da proposta diretamente na tela de edição.
 
+   14. **Estúdio Visual de Capas de Proposta em Tempo Real & 100 Modelos Fotovoltaicos (`SolarSettingsView` - Aba 5):**
+       - **100 Modelos de Capa Limpas (A4 @ 150 DPI):** 100 arquivos gráficos de alta resolução (`modelo_proposta_1.jpg` a `100.jpg`) cobrindo usinas de solo, fazendas solares, telhados residenciais, galpões industriais e tecnologia de módulos. Todas as imagens possuem o terço inferior 100% branco preservado e os 70% superiores com fotos solares e separadores geométricos fluidos sem textos embutidos.
+       - **Sincronização com Firebase Storage:** Todos os 100 modelos sincronizados e hospedados na nuvem na pasta `capas/energiasolar/` no bucket do Firebase Storage, com fallback local instantâneo (0ms de carregamento) via `assets/modelo_propostas/`.
+       - **Editor Interativo em Tempo Real (Drag & Drop):** Live Preview em proporção A4 onde o usuário pode clicar e **arrastar o retângulo do título** diretamente com o mouse ou toque para qualquer posição da capa (`coverBadgePositionX`, `coverBadgePositionY`), com sliders finos de coordenadas.
+       - **Tipografia e Estilo Customizáveis:**
+         - Campo de **Título** (Padrão: `"PROPOSTA COMERCIAL"`) com slider de tamanho (16 a 40pt) e seletor de cores.
+         - Campo de **Subtítulo** (Padrão: `"ENERGIA SOLAR FOTOVOLTAICA"`) com slider de tamanho (8 a 20pt) e seletor de cores.
+         - Switch de Retângulo de Fundo (Badge) com seletor de cor (Branco, Grafite, Ciano, Âmbar, Esmeralda, etc.) e slider de **Opacidade** (10% a 100%).
+         - Botões rápidos de reset: *"Topo Esquerdo"* e *"Restaurar Padrões"*.
+       - **Criador de Capa Personalizada (Sua Foto + Separador Vetorial):** Permite ao cliente carregar qualquer foto do computador via `FilePicker` (ou selecionar entre 34 papéis de parede) e combinar com **10 estilos matemáticos de separadores/decalques** desenhados via `CustomPainter` (`SolarCoverDividerPainter`):
+         1. *Onda Suave Clássica (S-Curve)*
+         2. *Onda Dupla Harmônica Intersectante*
+         3. *Corte Diagonal Moderno*
+         4. *Polígonos Facetados (Chevron)*
+         5. *Arco Aerodinâmico Côncavo*
+         6. *Declive Arquitetônico Solar*
+         7. *Cascata Tripla de Ondas*
+         8. *Hexágono Tech Futurista*
+         9. *Arco Convexo Suave*
+         10. *Varredura Angular Ascendente*
+       - **Integração no Motor de PDF (`SolarProposalPdfService`):** A capa da página 1 do PDF renderiza o modelo escolhido com o retângulo, título, subtítulo e opacidade nas coordenadas milimétricas exatas definidas pelo usuário, com contraste perfeito sobre a área branca inferior.
+
 ### 9. `SettingsModule` / `SettingsView` (`lib/settings/presentation/settings_view.dart`)
 - **`settings_view.dart` & `settings_service.dart`:** Gestão de preferências e nicho do CRM:
   1. **Configuração de Ramo / Nicho de Atuação:** Permite ao usuário selecionar qual dos 20 ramos do mercado brasileiro (ou Usina Solar) sua empresa atua.
