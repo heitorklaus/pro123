@@ -46,7 +46,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
     _listenCurrentUser();
     _loadPreferredSector();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkFirstLoginOnboarding());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _checkFirstLoginOnboarding());
   }
 
   void _listenCurrentUser() {
@@ -58,7 +59,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
         // Inicia o ouvinte em segundo plano para compilar PDFs de propostas criadas externamente
         if (user != null) {
-          ProposalAutoPdfSyncService.startSync(companyId: user.effectiveCompanyId);
+          ProposalAutoPdfSyncService.startSync(
+              companyId: user.effectiveCompanyId);
         }
       }
     });
@@ -114,7 +116,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final isMobile = MediaQuery.of(context).size.width < 768;
     final isSolar = _preferredSector == ProductSector.solarPlant;
     final productsTitle = isSolar ? 'Usinas Solares' : 'Produtos';
-    final productsIcon = isSolar ? Icons.solar_power_rounded : Icons.inventory_2_outlined;
+    final productsIcon =
+        isSolar ? Icons.solar_power_rounded : Icons.inventory_2_outlined;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -146,22 +149,27 @@ class _DashboardPageState extends State<DashboardPage> {
           builder: (appBarCtx) => IconButton(
             tooltip: isMobile
                 ? 'Abrir Menu'
-                : (_isSidebarCollapsed ? 'Expandir Menu Lateral' : 'Recolher Menu Lateral'),
+                : (_isSidebarCollapsed
+                    ? 'Expandir Menu Lateral'
+                    : 'Recolher Menu Lateral'),
             icon: Icon(
               isMobile
                   ? Icons.menu_rounded
-                  : (_isSidebarCollapsed ? Icons.menu_rounded : Icons.menu_open_rounded),
+                  : (_isSidebarCollapsed
+                      ? Icons.menu_rounded
+                      : Icons.menu_open_rounded),
               color: Colors.white,
               size: 22,
             ),
-            onPressed: isMobile ? () => Scaffold.of(appBarCtx).openDrawer() : _toggleSidebar,
+            onPressed: isMobile
+                ? () => Scaffold.of(appBarCtx).openDrawer()
+                : _toggleSidebar,
           ),
         ),
         title: TaosLogo(
           iconSize: isMobile ? 32 : 36,
           fontSize: isMobile ? 18 : 20,
         ),
-
         actions: [
           IconButton(
             tooltip: 'Sair do Sistema',
@@ -340,7 +348,7 @@ class _WelcomeCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'Boas-vindas ao Mavis CRM!',
+            'Boas-vindas ao TAOS CRM!',
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: isMobile ? 22 : 28,

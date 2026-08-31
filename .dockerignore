@@ -1,0 +1,10 @@
+.git
+.github
+.idea
+.vscode
+.dart_tool
+build
+services
+docs
+*.py
+*.md
