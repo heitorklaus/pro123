@@ -32,15 +32,26 @@ class TaosLogoIcon extends StatelessWidget {
               ]
             : null,
       ),
+      clipBehavior: Clip.antiAlias,
       child: Center(
-        child: CustomPaint(
-          size: Size(size * 0.72, size * 0.72),
-          painter: _TaosTPainter(),
+        child: Padding(
+          padding: EdgeInsets.all(size * 0.06),
+          child: Image.asset(
+            'assets/images/taos_t_logo.png',
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return CustomPaint(
+                size: Size(size * 0.72, size * 0.72),
+                painter: _TaosTPainter(),
+              );
+            },
+          ),
         ),
       ),
     );
   }
 }
+
 
 class _TaosTPainter extends CustomPainter {
   @override
