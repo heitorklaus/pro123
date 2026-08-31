@@ -3,6 +3,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../app/theme/app_theme.dart';
+import '../../../app/widgets/taos_logo.dart';
 import 'login_store.dart';
 
 class LoginPage extends StatefulWidget {
@@ -54,34 +55,14 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo / Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.grid_view_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Text(
-                        'Mavis',
-                        style: AppTheme.font(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                    ],
+                  const Center(
+                    child: TaosLogo(
+                      iconSize: 46,
+                      fontSize: 28,
+                      isDarkBackground: false,
+                    ),
                   ),
+
                   const SizedBox(height: 16),
                   Text(
                     'Acessar o Sistema',

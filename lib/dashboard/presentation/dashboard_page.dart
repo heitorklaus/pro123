@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app/layout/app_sidebar.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/widgets/taos_logo.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../clients/presentation/clients_view.dart';
@@ -156,31 +157,11 @@ class _DashboardPageState extends State<DashboardPage> {
             onPressed: isMobile ? () => Scaffold.of(appBarCtx).openDrawer() : _toggleSidebar,
           ),
         ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.grid_view_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Mavis CRM',
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: isMobile ? 18 : 20,
-              ),
-            ),
-          ],
+        title: TaosLogo(
+          iconSize: isMobile ? 32 : 36,
+          fontSize: isMobile ? 18 : 20,
         ),
+
         actions: [
           IconButton(
             tooltip: 'Sair do Sistema',

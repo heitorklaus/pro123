@@ -190,7 +190,7 @@ class AppSidebar extends StatelessWidget {
             child: isCollapsed
                 ? Center(
                     child: Tooltip(
-                      message: 'Mavis CRM v1.0',
+                      message: 'TAOS CRM v1.0',
                       child: Container(
                         width: 8,
                         height: 8,
@@ -213,7 +213,7 @@ class AppSidebar extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Mavis CRM Online',
+                        'TAOS CRM Online',
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -222,6 +222,7 @@ class AppSidebar extends StatelessWidget {
                       ),
                     ],
                   ),
+
           ),
         ],
       ),

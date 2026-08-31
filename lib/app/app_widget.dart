@@ -8,7 +8,7 @@ class AppWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Mavis CRM',
+      title: 'TAOS CRM',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routeInformationParser: Modular.routeInformationParser,
