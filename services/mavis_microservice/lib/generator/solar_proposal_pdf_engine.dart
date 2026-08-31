@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -22,7 +23,17 @@ class SolarProposalPdfEngine {
 
     final primaryColor = PdfColor.fromInt(s.themeColorValue);
 
-    Uint8List? cover = coverBytes ?? await CoverImageCacheService.getCoverBytes(s.coverImageUrl);
+    Uint8List? cover = coverBytes;
+    if (cover == null) {
+      if (s.isCustomCoverMode && s.customCoverImageBase64 != null && s.customCoverImageBase64!.isNotEmpty) {
+        try {
+          cover = base64Decode(s.customCoverImageBase64!);
+        } catch (_) {}
+      }
+    }
+    if (cover == null) {
+      cover = await CoverImageCacheService.getCoverBytes(s.effectiveCoverUrl);
+    }
 
     ProposalItemDTO? solarItem;
     for (final it in proposal.items) {
@@ -46,7 +57,7 @@ class SolarProposalPdfEngine {
       monthlyKwh = (kwp * 135.0).roundToDouble();
     }
 
-    // ── PÁGINA 1: CAPA ──
+    // ── PÁGINA 1: CAPA DINÂMICA ──
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -61,6 +72,7 @@ class SolarProposalPdfEngine {
         ),
       ),
     );
+
 
     // ── PÁGINA 2: PROPOSTA COMERCIAL & ESCOPO ──
     pdf.addPage(
@@ -184,6 +196,12 @@ class SolarProposalPdfEngine {
     const a4Width = 595.28;
     const a4Height = 841.89;
 
+    final badgeLeft = (a4Width * settings.coverBadgePositionX).clamp(16.0, 380.0);
+    final badgeTop = (a4Height * settings.coverBadgePositionY).clamp(16.0, 520.0);
+
+    final rawBadgeColor = PdfColor.fromInt(settings.coverBadgeColorValue);
+    final badgeBgColor = PdfColor(rawBadgeColor.red, rawBadgeColor.green, rawBadgeColor.blue, settings.coverBadgeOpacity);
+
     return pw.Stack(
       children: [
         if (coverBytes != null && coverBytes.isNotEmpty)
@@ -210,52 +228,60 @@ class SolarProposalPdfEngine {
             ),
           ),
 
-        // Selo Topo
-        pw.Positioned(
-          left: 36,
-          top: 36,
-          child: pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.white,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-              boxShadow: const [
-                pw.BoxShadow(
-                  color: PdfColor.fromInt(0x33000000),
-                  blurRadius: 10,
-                  offset: PdfPoint(0, 4),
-                ),
-              ],
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              mainAxisSize: pw.MainAxisSize.min,
-              children: [
-                pw.Text(
-                  'PROPOSTA COMERCIAL',
-                  style: pw.TextStyle(
-                    fontSize: 13,
-                    fontWeight: pw.FontWeight.bold,
-                    color: primaryColor,
-                    letterSpacing: 1.0,
+        // Selo / Retângulo de Título Dinâmico Posicionado pelo Usuário
+        if (settings.coverShowBadge)
+          pw.Positioned(
+            left: badgeLeft,
+            top: badgeTop,
+            child: pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              decoration: pw.BoxDecoration(
+                color: badgeBgColor,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                border: pw.Border.all(color: PdfColors.white, width: 1.2),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(
+                    settings.coverTitle.isNotEmpty ? settings.coverTitle : 'PROPOSTA COMERCIAL',
+                    style: pw.TextStyle(
+                      fontSize: settings.coverTitleFontSize > 0 ? settings.coverTitleFontSize : 13.0,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverTitleColorValue),
+                      letterSpacing: 0.8,
+                    ),
                   ),
-                ),
-                pw.SizedBox(height: 2),
-                pw.Text(
-                  'ENERGIA SOLAR FOTOVOLTAICA',
-                  style: pw.TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromHex('#0F172A'),
-                    letterSpacing: 0.5,
+                  pw.SizedBox(height: 3),
+                  pw.Text(
+                    settings.coverSubtitle.isNotEmpty ? settings.coverSubtitle : 'ENERGIA SOLAR FOTOVOLTAICA',
+                    style: pw.TextStyle(
+                      fontSize: settings.coverSubtitleFontSize > 0 ? settings.coverSubtitleFontSize : 8.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverSubtitleColorValue),
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+
+        // Logomarca Personalizada da Empresa Posicionada pelo Usuário
+        if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty)
+          pw.Positioned(
+            left: (a4Width * settings.coverLogoPositionX).clamp(16.0, 480.0),
+            top: (a4Height * settings.coverLogoPositionY).clamp(16.0, 720.0),
+            child: pw.Image(
+              pw.MemoryImage(base64Decode(settings.companyLogoBase64!)),
+              width: (settings.coverLogoWidth / 340.0) * a4Width,
+              fit: pw.BoxFit.contain,
+            ),
+          ),
 
         // Bloco de Dados Rodapé da Capa
+
         pw.Positioned(
           left: 40,
           right: 40,
