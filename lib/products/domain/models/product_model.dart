@@ -161,9 +161,12 @@ class ProductModel {
   bool get isSolarPlantKit {
     if (sector != ProductSector.solarPlant) return false;
     final attrs = specificAttributes;
-    if (attrs['isSolarPlantKit'] == true) return true;
+    if (attrs['isSolarPlantKit'] == true || attrs['isSolarPlant'] == true) return true;
     if (attrs['items'] is List && (attrs['items'] as List).isNotEmpty) return true;
+    if (attrs['solarComponents'] is List && (attrs['solarComponents'] as List).isNotEmpty) return true;
     if (attrs['kilowatts'] != null && ((attrs['kilowatts'] as num?) ?? 0) > 0) return true;
+    if (attrs['solarPlantKwp'] != null && ((attrs['solarPlantKwp'] as num?) ?? 0) > 0) return true;
+    if (name.toLowerCase().startsWith('usina solar')) return true;
     return false;
   }
 
@@ -171,28 +174,43 @@ class ProductModel {
 
   List<Map<String, dynamic>> get solarKitItems {
     final raw = specificAttributes['items'];
-    if (raw is List) {
-      return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    if (raw is List && raw.isNotEmpty) {
+      return raw.map((e) {
+        if (e is Map) return Map<String, dynamic>.from(e);
+        return {'name': e.toString(), 'quantity': 1, 'unit': 'UN'};
+      }).toList();
+    }
+    final comps = specificAttributes['solarComponents'];
+    if (comps is List && comps.isNotEmpty) {
+      return comps.map((e) {
+        if (e is Map) return Map<String, dynamic>.from(e);
+        return {'name': e.toString(), 'quantity': 1, 'unit': 'UN'};
+      }).toList();
     }
     return [];
   }
 
   double? get solarKilowatts {
-    final kw = specificAttributes['kilowatts'];
+    final kw = specificAttributes['kilowatts'] ?? specificAttributes['solarPlantKwp'];
     if (kw is num) return kw.toDouble();
+    final match = RegExp(r'(\d+(?:\.\d+)?)\s*kWp', caseSensitive: false).firstMatch(name);
+    if (match != null) return double.tryParse(match.group(1)!);
     return null;
   }
 
   double? get solarGenerationKwh {
-    final g = specificAttributes['generationKwh'];
+    final g = specificAttributes['generationKwh'] ?? specificAttributes['estimatedMonthlyKwh'];
     if (g is num) return g.toDouble();
+    final match = RegExp(r'(\d+(?:\.\d+)?)\s*kWh', caseSensitive: false).firstMatch(name);
+    if (match != null) return double.tryParse(match.group(1)!);
     return null;
   }
 
-  String? get solarRoofType => specificAttributes['roofType'] as String?;
+  String? get solarRoofType =>
+      (specificAttributes['roofType'] ?? specificAttributes['solarRoofType']) as String?;
 
   double? get solarProductsPrice {
-    final p = specificAttributes['productsPrice'];
+    final p = specificAttributes['productsPrice'] ?? specificAttributes['productsCostPrice'] ?? costPrice;
     if (p is num) return p.toDouble();
     return null;
   }
@@ -210,6 +228,7 @@ class ProductModel {
     }
     return [];
   }
+
 
   Map<String, dynamic> toMap() {
     return {

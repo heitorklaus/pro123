@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/solar_proposal_pdf_service.dart';
 import '../../domain/models/proposal_model.dart';
 import '../../domain/models/proposal_item_model.dart';
 
@@ -139,13 +141,25 @@ class ProposalRepository {
     );
 
     await docRef.set(proposal.toMap());
+
+    // Dispara a compilação do PDF Oficial e upload para o Storage em background na pasta proposals/companyId/userId/
+    SolarProposalPdfService.generateSolarProposalPdf(proposal, autoUploadToStorage: true)
+        .catchError((e) {
+      // Ignora falhas em runtime sem quebrar a criação
+      return Uint8List(0);
+    });
+
     return proposal;
   }
 
-  /// Atualiza os dados de uma proposta existente
+  /// Atualiza os dados de uma proposta existente e regera o PDF no Storage
   Future<void> updateProposal(ProposalModel proposal) async {
     final updated = proposal.copyWith(updatedAt: DateTime.now());
     await _proposalsRef.doc(proposal.id).update(updated.toMap());
+
+    // Regera e atualiza o arquivo físico no Firebase Storage
+    SolarProposalPdfService.generateSolarProposalPdf(updated, autoUploadToStorage: true)
+        .catchError((_) => Uint8List(0));
   }
 
   /// Altera apenas o status de uma proposta

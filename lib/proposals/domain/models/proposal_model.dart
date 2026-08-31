@@ -178,6 +178,8 @@ class ProposalModel {
   final String? companyId;
   final String? createdByUserId;
   final String? createdByUserName;
+  final String? pdfUrl;
+  final String? pdfPath;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -205,6 +207,8 @@ class ProposalModel {
     this.companyId,
     this.createdByUserId,
     this.createdByUserName,
+    this.pdfUrl,
+    this.pdfPath,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -239,6 +243,8 @@ class ProposalModel {
     String? companyId,
     String? createdByUserId,
     String? createdByUserName,
+    String? pdfUrl,
+    String? pdfPath,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -266,6 +272,8 @@ class ProposalModel {
       companyId: companyId ?? this.companyId,
       createdByUserId: createdByUserId ?? this.createdByUserId,
       createdByUserName: createdByUserName ?? this.createdByUserName,
+      pdfUrl: pdfUrl ?? this.pdfUrl,
+      pdfPath: pdfPath ?? this.pdfPath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -295,6 +303,8 @@ class ProposalModel {
       'companyId': companyId,
       'createdByUserId': createdByUserId,
       'createdByUserName': createdByUserName,
+      'pdfUrl': pdfUrl,
+      'pdfPath': pdfPath,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -336,8 +346,11 @@ class ProposalModel {
       companyId: map['companyId'] as String?,
       createdByUserId: map['createdByUserId'] as String?,
       createdByUserName: map['createdByUserName'] as String?,
+      pdfUrl: map['pdfUrl'] as String?,
+      pdfPath: map['pdfPath'] as String?,
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
     );
   }
 }
+

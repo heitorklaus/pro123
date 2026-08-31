@@ -9,6 +9,7 @@ import '../../auth/domain/models/user_model.dart';
 import '../../clients/presentation/clients_view.dart';
 import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/products_view.dart';
+import '../../proposals/data/services/proposal_auto_pdf_sync_service.dart';
 import '../../proposals/domain/models/proposal_item_model.dart';
 import '../../proposals/presentation/proposals_view.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
@@ -53,6 +54,11 @@ class _DashboardPageState extends State<DashboardPage> {
         setState(() {
           _currentUser = user;
         });
+
+        // Inicia o ouvinte em segundo plano para compilar PDFs de propostas criadas externamente
+        if (user != null) {
+          ProposalAutoPdfSyncService.startSync(companyId: user.effectiveCompanyId);
+        }
       }
     });
   }
@@ -60,6 +66,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     _userSub?.cancel();
+    ProposalAutoPdfSyncService.stopSync();
     super.dispose();
   }
 

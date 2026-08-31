@@ -259,6 +259,25 @@ class AuthRepository {
     });
   }
 
+  /// Atualiza os dados cadastrais do usuário (Nome, Telefone/WhatsApp, Role, Status)
+  Future<void> updateUser({
+    required String uid,
+    String? name,
+    String? phone,
+    String? role,
+    String? status,
+  }) async {
+    final Map<String, dynamic> data = {
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (name != null) data['name'] = name.trim();
+    if (phone != null) data['phone'] = phone.trim();
+    if (role != null) data['role'] = role.trim();
+    if (status != null) data['status'] = status.trim();
+
+    await _usersRef.doc(uid).update(data);
+  }
+
   /// Remove o documento do usuário no Firestore
   Future<void> deleteUser(String uid) async {
     await _usersRef.doc(uid).delete();

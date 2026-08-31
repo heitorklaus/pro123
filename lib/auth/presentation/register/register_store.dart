@@ -60,6 +60,15 @@ abstract class _RegisterStoreBase with Store {
     errorMessage = null;
   }
 
+  @observable
+  String phone = '';
+
+  @action
+  void setPhone(String value) {
+    phone = value;
+    errorMessage = null;
+  }
+
   @action
   void toggleObscurePassword() {
     obscurePassword = !obscurePassword;
@@ -97,6 +106,7 @@ abstract class _RegisterStoreBase with Store {
         name: name,
         email: email,
         password: password,
+        phone: phone.trim().isNotEmpty ? phone.trim() : null,
         role: role ?? 'user',
         companyId: companyId,
       );

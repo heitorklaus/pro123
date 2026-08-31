@@ -405,13 +405,16 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
 - [x] **Consulta de CEP Automática:** Auto-preenchimento via API pública ViaCEP com validação e auto-foco.
 - [x] **Cadastro e Gestão de Produtos & Serviços:** Módulo completo com ramificação em 20 segmentos brasileiros, categorização customizada com ícones/cores e controle de estoque.
 - [x] **Cadastro e Gestão de Fornecedores:** Módulo completo de Fornecedores com consulta ViaCEP automática, condições comerciais e integração direta no cadastro de produtos.
-- [x] **Módulo de Propostas Comerciais & Geração de PDF:** Emissão de orçamentos com múltiplos produtos, cliente vinculado ou avulso, escolha de paleta de cores e geração de PDF vetorial de alta qualidade com preview.
+- [x] **Módulo de Propostas Comerciais & Geração de PDF com Armazenamento no Firebase Storage:** Emissão de orçamentos com múltiplos produtos, cliente vinculado ou avulso, escolha de paleta de cores e geração de PDF vetorial de alta qualidade (6 páginas para Usinas Solares e formato padrão). O sistema agora faz o upload automático do arquivo físico `.pdf` diretamente no **Firebase Storage** no caminho oficial `gs://solardino-aea02.appspot.com/propostas_mavis/{companyId}/{userId}/{proposalNumber}_proposta.pdf` e grava `pdfUrl` e `pdfPath` no documento Firestore, garantindo download instantâneo via web, celular ou integrações externas.
 - [x] **Arquitetura SPA estabilizada:** Scaffold único no Dashboard, AppSidebar com enum tipado (`dashboard`, `clients`, `products`, `suppliers`, `proposals`, `users`), troca de miolo dinâmica sem erros de render.
 - [x] **Prontidão Android:** `minSdk = 21`, permissões de Internet e `google-services.json` integrados.
 - [x] **Multi-Empresa & Isolamento de Dados (Multi-tenancy):** Isolamento total por `companyId` em todos os módulos (Clientes, Produtos, Fornecedores, Propostas, Categorias, Usuários). Cada conta registrada atua como empresa/tenant raiz (`companyId == uid` e `role == 'admin'`). Usuários cadastrados internamente herdam o `companyId` da empresa e seu nível de acesso.
+- [ ] **Microserviço Nativo Dart de Geração de PDFs (mavis-pdf):** Microserviço em Dart para rodar no Easypanel (porta 8080) compartilhando a lógica oficial de compilação do `SolarProposalPdfService`. Quando o `mavis-bot` registrar propostas via WhatsApp, aciona o microserviço Dart para compilar o PDF de 6 páginas com fotos HD, salvar no Firebase Storage (`gs://solardino-aea02.appspot.com/propostas_mavis/{companyId}/{userId}/`) e disparar o documento `.pdf` diretamente no WhatsApp do operador.
 - [ ] **Módulo de Leads / Funil de Vendas (CRM):** Criar módulo completo com funil de vendas (Kanban / Lista), filtros por status (Novo, Em Contato, Proposta, Ganho, Perdido) e histórico de interações.
 - [ ] **Recuperação de Senha:** Implementar fluxo `sendPasswordResetEmail` na tela de login.
 - [ ] **Route Guards:** Implementar `RouteGuard` no Modular para proteger `/dashboard/` contra acesso sem autenticação.
 - [ ] **Relatórios e Métricas:** Dashboard com gráficos de conversão e desempenho dos operadores.
 
-> 📚 *Roadmap técnico e tarefas detalhadas em:* [`/docs/roadmap_and_backlog.md`](file:///c:/mavis/docs/roadmap_and_backlog.md)
+> 📚 *Roadmap técnico e tarefas detalhadas em:* [`/docs/roadmap_and_backlog.md`](file:///c:/mavis/docs/roadmap_and_backlog.md) e [`/docs/microservico_pdf_proposta_roadmap.md`](file:///c:/mavis/docs/microservico_pdf_proposta_roadmap.md)
+
+

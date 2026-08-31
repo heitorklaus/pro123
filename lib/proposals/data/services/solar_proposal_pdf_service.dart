@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -12,11 +15,65 @@ class SolarProposalPdfService {
   static final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   static final _numberFormat = NumberFormat.decimalPattern('pt_BR');
 
+  /// Faz upload do PDF da proposta no Firebase Storage na estrutura: propostas_mavis/{companyId}/{userId}/{fileName}
+  static Future<String?> uploadProposalPdfToStorage({
+    required Uint8List pdfBytes,
+    required ProposalModel proposal,
+  }) async {
+    try {
+      final companyId = proposal.companyId != null && proposal.companyId!.isNotEmpty
+          ? proposal.companyId!
+          : 'default_company';
+      final userId = proposal.createdByUserId != null && proposal.createdByUserId!.isNotEmpty
+          ? proposal.createdByUserId!
+          : 'default_user';
+      final cleanPropNumber = proposal.proposalNumber.replaceAll('/', '_').replaceAll('-', '_');
+      final fileName = '${cleanPropNumber}_proposta.pdf';
+      final path = 'propostas_mavis/$companyId/$userId/$fileName';
+
+      final storage = FirebaseStorage.instanceFor(
+        app: Firebase.app(),
+        bucket: 'solardino-aea02.appspot.com',
+      );
+      final ref = storage.ref().child(path);
+      final metadata = SettableMetadata(
+        contentType: 'application/pdf',
+        customMetadata: {
+          'proposalId': proposal.id,
+          'proposalNumber': proposal.proposalNumber,
+          'companyId': companyId,
+          'userId': userId,
+          'clientName': proposal.clientName,
+          'totalAmount': proposal.totalAmount.toString(),
+          'generatedAt': DateTime.now().toIso8601String(),
+        },
+      );
+
+
+      await ref.putData(pdfBytes, metadata);
+      final downloadUrl = await ref.getDownloadURL();
+
+      if (proposal.id.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('proposals').doc(proposal.id).update({
+          'pdfUrl': downloadUrl,
+          'pdfPath': path,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      return downloadUrl;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Gera a proposta comercial solar completa de 6 páginas com design minimalista programático
   static Future<Uint8List> generateSolarProposalPdf(
     ProposalModel proposal, {
     SolarSettingsModel? solarSettings,
+    bool autoUploadToStorage = true,
   }) async {
+
     final pdf = pw.Document();
 
     // Carrega ou usa configurações fornecidas
@@ -233,7 +290,12 @@ class SolarProposalPdfService {
       ),
     );
 
-    return pdf.save();
+    final bytes = await pdf.save();
+    if (autoUploadToStorage) {
+      // Faz upload do PDF em background para o Firebase Storage na pasta proposals/companyId/userId/
+      uploadProposalPdfToStorage(pdfBytes: bytes, proposal: proposal);
+    }
+    return bytes;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1189,8 +1251,8 @@ class SolarProposalPdfService {
       systemKwp: kwp,
     );
 
-    final totalWithoutSolar = yearlyData.fold(0.0, (sum, item) => sum + (item.withoutSolar * 12));
-    final totalWithSolar = yearlyData.fold(0.0, (sum, item) => sum + (((item.withSolarMin + item.withSolarMax) / 2) * 12));
+    final totalWithoutSolar = yearlyData.fold(0.0, (prev, item) => prev + (item.withoutSolar * 12));
+    final totalWithSolar = yearlyData.fold(0.0, (prev, item) => prev + (((item.withSolarMin + item.withSolarMax) / 2) * 12));
     final firstYearSavings = (yearlyData.first.withoutSolar * 12) - (((yearlyData.first.withSolarMin + yearlyData.first.withSolarMax) / 2) * 12);
     final totalSavings = totalWithoutSolar - totalWithSolar;
     final paybackMonths = ((proposal.totalAmount / (firstYearSavings / 12)).round()).clamp(12, 60);

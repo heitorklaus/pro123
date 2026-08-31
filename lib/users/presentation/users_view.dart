@@ -293,6 +293,7 @@ class _TableViewState extends State<_TableView> {
                                 padding: EdgeInsets.zero,
                                 itemBuilder: (_, i) => _UserMobileCard(
                                   user: filtered[i],
+                                  onEdit: () => _openEditUserDialog(filtered[i]),
                                   onEditPermissions: () => _openPermissionsDialog(filtered[i]),
                                   onDelete: () => _showDeleteDialog(filtered[i]),
                                 ),
@@ -305,6 +306,7 @@ class _TableViewState extends State<_TableView> {
                                   height: 1, color: AppColors.divider),
                               itemBuilder: (_, i) => _UserRow(
                                 user: filtered[i],
+                                onEdit: () => _openEditUserDialog(filtered[i]),
                                 onEditPermissions: () => _openPermissionsDialog(filtered[i]),
                                 onDelete: () => _showDeleteDialog(filtered[i]),
                               ),
@@ -319,6 +321,16 @@ class _TableViewState extends State<_TableView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openEditUserDialog(UserModel user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _EditUserDialog(
+        user: user,
+        authRepository: _repo,
       ),
     );
   }
@@ -438,11 +450,13 @@ class _TableHeader extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _UserRow extends StatelessWidget {
   final UserModel user;
+  final VoidCallback onEdit;
   final VoidCallback onEditPermissions;
   final VoidCallback onDelete;
 
   const _UserRow({
     required this.user,
+    required this.onEdit,
     required this.onEditPermissions,
     required this.onDelete,
   });
@@ -471,12 +485,29 @@ class _UserRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    user.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF0F172A)),
+                      ),
+                      if (user.phone?.isNotEmpty == true)
+                        Row(
+                          children: [
+                            const Icon(Icons.phone_android_rounded, size: 11, color: Color(0xFF10B981)),
+                            const SizedBox(width: 3),
+                            Text(
+                              user.phone!,
+                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -520,12 +551,21 @@ class _UserRow extends StatelessWidget {
                   fontSize: 12, color: const Color(0xFF64748B)),
             ),
           ),
-          // Ações (Engrenagem de Permissões + Excluir)
+          // Ações (Editar Dados/Telefone + Engrenagem de Permissões + Excluir)
           SizedBox(
-            width: 96,
+            width: 120,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                IconButton(
+                  tooltip: 'Editar Dados e WhatsApp',
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    color: Color(0xFF0284C7),
+                    size: 19,
+                  ),
+                  onPressed: onEdit,
+                ),
                 IconButton(
                   tooltip: 'Configurar Permissões de Acesso',
                   icon: const Icon(
@@ -558,11 +598,13 @@ class _UserRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _UserMobileCard extends StatelessWidget {
   final UserModel user;
+  final VoidCallback onEdit;
   final VoidCallback onEditPermissions;
   final VoidCallback onDelete;
 
   const _UserMobileCard({
     required this.user,
+    required this.onEdit,
     required this.onEditPermissions,
     required this.onDelete,
   });
@@ -630,9 +672,28 @@ class _UserMobileCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (user.phone?.isNotEmpty == true)
+                        Row(
+                          children: [
+                            const Icon(Icons.phone_android_rounded, size: 11, color: Color(0xFF10B981)),
+                            const SizedBox(width: 3),
+                            Text(
+                              user.phone!,
+                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF0284C7)),
+                  onPressed: onEdit,
+                  tooltip: 'Editar Dados e WhatsApp',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.settings_suggest_rounded, size: 20, color: Color(0xFF6366F1)),
                   onPressed: onEditPermissions,
@@ -754,6 +815,7 @@ class _RegisterCardState extends State<_RegisterCard> {
   late final RegisterStore _store;
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
   String _selectedRole = 'user';
@@ -787,6 +849,7 @@ class _RegisterCardState extends State<_RegisterCard> {
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
@@ -795,10 +858,12 @@ class _RegisterCardState extends State<_RegisterCard> {
   void _clear() {
     _nameCtrl.clear();
     _emailCtrl.clear();
+    _phoneCtrl.clear();
     _passCtrl.clear();
     _confirmCtrl.clear();
     _store.setName('');
     _store.setEmail('');
+    _store.setPhone('');
     _store.setPassword('');
     _store.setConfirmPassword('');
   }
@@ -926,6 +991,19 @@ class _RegisterCardState extends State<_RegisterCard> {
             decoration: const InputDecoration(
               hintText: 'exemplo@mavis.com',
               prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B)),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          _label('WhatsApp / Telefone (para IA do WhatsApp)'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: _phoneCtrl,
+            onChanged: _store.setPhone,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              hintText: '(65) 99349-3626',
+              prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)),
             ),
           ),
           const SizedBox(height: 14),
@@ -1128,6 +1206,304 @@ class _StatusBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DIÁLOGO DE EDIÇÃO DE USUÁRIO (NOME, WHATSAPP, CARGO, STATUS)
+// ─────────────────────────────────────────────────────────────────────────────
+class _EditUserDialog extends StatefulWidget {
+  final UserModel user;
+  final AuthRepository authRepository;
+
+  const _EditUserDialog({
+    required this.user,
+    required this.authRepository,
+  });
+
+  @override
+  State<_EditUserDialog> createState() => _EditUserDialogState();
+}
+
+class _EditUserDialogState extends State<_EditUserDialog> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _phoneCtrl;
+  late String _selectedRole;
+  late String _selectedStatus;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.user.name);
+    _phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
+    _selectedRole = widget.user.role;
+    _selectedStatus = widget.user.status;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, informe o nome do usuário.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await widget.authRepository.updateUser(
+        uid: widget.user.uid,
+        name: name,
+        phone: _phoneCtrl.text.trim(),
+        role: _selectedRole,
+        status: _selectedStatus,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dados do usuário e WhatsApp atualizados com sucesso!'),
+          backgroundColor: Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao salvar: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        width: 480,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Cabeçalho
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.edit_note_rounded,
+                      color: Color(0xFF0284C7), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Editar Operador / Usuário',
+                          style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0F172A))),
+                      Text(widget.user.email,
+                          style: GoogleFonts.inter(
+                              fontSize: 12, color: const Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Divider(height: 1, color: AppColors.divider),
+            const SizedBox(height: 16),
+
+            // Nome
+            Text(
+              'Nome Completo',
+              style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF334155)),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _nameCtrl,
+              decoration: InputDecoration(
+                hintText: 'Nome do usuário',
+                prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF64748B), size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Telefone / WhatsApp com destaque
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_android_rounded, size: 16, color: Color(0xFF16A34A)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'WhatsApp / Celular (IA Copiloto)',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF166534),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Utilizado pela Inteligência Artificial do WhatsApp para identificar o operador e autorizar a emissão de propostas.',
+                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF15803D)),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      hintText: '(65) 99349-3626',
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF16A34A), size: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF86EFAC)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF86EFAC)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Cargo / Nível de Acesso
+            Text(
+              'Cargo / Nível de Acesso',
+              style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF334155)),
+            ),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedRole,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B), size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'user', child: Text('Operador (Acesso Padrão)')),
+                DropdownMenuItem(value: 'manager', child: Text('Gerente (Relatórios e Leads)')),
+                DropdownMenuItem(value: 'admin', child: Text('Administrador (Acesso Total)')),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedRole = val);
+              },
+            ),
+            const SizedBox(height: 14),
+
+            // Status
+            Text(
+              'Status da Conta',
+              style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF334155)),
+            ),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedStatus,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.toggle_on_outlined, color: Color(0xFF64748B), size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'active', child: Text('Ativo (Acesso Liberado)')),
+                DropdownMenuItem(value: 'blocked', child: Text('Bloqueado (Acesso Suspenso)')),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedStatus = val);
+              },
+            ),
+            const SizedBox(height: 22),
+
+            // Botões de Ação
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                  child: Text('CANCELAR',
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF64748B))),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: _isSaving ? null : _save,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text('SALVAR ALTERAÇÕES',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

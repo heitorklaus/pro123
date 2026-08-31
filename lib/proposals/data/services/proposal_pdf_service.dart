@@ -1,4 +1,7 @@
 import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -10,8 +13,63 @@ class ProposalPdfService {
   static final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   static final _dateFormat = DateFormat('dd/MM/yyyy');
 
+  /// Faz upload do PDF da proposta no Firebase Storage na estrutura: propostas_mavis/{companyId}/{userId}/{fileName}
+  static Future<String?> uploadProposalPdfToStorage({
+    required Uint8List pdfBytes,
+    required ProposalModel proposal,
+  }) async {
+    try {
+      final companyId = proposal.companyId != null && proposal.companyId!.isNotEmpty
+          ? proposal.companyId!
+          : 'default_company';
+      final userId = proposal.createdByUserId != null && proposal.createdByUserId!.isNotEmpty
+          ? proposal.createdByUserId!
+          : 'default_user';
+      final cleanPropNumber = proposal.proposalNumber.replaceAll('/', '_').replaceAll('-', '_');
+      final fileName = '${cleanPropNumber}_proposta.pdf';
+      final path = 'propostas_mavis/$companyId/$userId/$fileName';
+
+      final storage = FirebaseStorage.instanceFor(
+        app: Firebase.app(),
+        bucket: 'solardino-aea02.appspot.com',
+      );
+      final ref = storage.ref().child(path);
+      final metadata = SettableMetadata(
+        contentType: 'application/pdf',
+        customMetadata: {
+          'proposalId': proposal.id,
+          'proposalNumber': proposal.proposalNumber,
+          'companyId': companyId,
+          'userId': userId,
+          'clientName': proposal.clientName,
+          'totalAmount': proposal.totalAmount.toString(),
+          'generatedAt': DateTime.now().toIso8601String(),
+        },
+      );
+
+
+      await ref.putData(pdfBytes, metadata);
+      final downloadUrl = await ref.getDownloadURL();
+
+      if (proposal.id.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('proposals').doc(proposal.id).update({
+          'pdfUrl': downloadUrl,
+          'pdfPath': path,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      return downloadUrl;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Gera o arquivo PDF binário (Uint8List) a partir do modelo da proposta
-  static Future<Uint8List> generateProposalPdf(ProposalModel proposal) async {
+  static Future<Uint8List> generateProposalPdf(
+    ProposalModel proposal, {
+    bool autoUploadToStorage = true,
+  }) async {
     final pdf = pw.Document();
 
     // Paleta de Cores Dinâmica
@@ -450,7 +508,11 @@ class ProposalPdfService {
       ),
     );
 
-    return pdf.save();
+    final bytes = await pdf.save();
+    if (autoUploadToStorage) {
+      uploadProposalPdfToStorage(pdfBytes: bytes, proposal: proposal);
+    }
+    return bytes;
   }
 
   static pw.Widget _headerCell(String text, {pw.TextAlign align = pw.TextAlign.left}) {
