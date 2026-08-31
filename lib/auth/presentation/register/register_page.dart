@@ -55,10 +55,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 children: [
                   // Logo / Header
                   const Center(
-                    child: TaosLogo(
-                      iconSize: 46,
-                      fontSize: 28,
-                      isDarkBackground: false,
+                    child: TaosLoginLogo(
+                      width: 250,
                     ),
                   ),
 

@@ -56,10 +56,8 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   // Logo / Header
                   const Center(
-                    child: TaosLogo(
-                      iconSize: 46,
-                      fontSize: 28,
-                      isDarkBackground: false,
+                    child: TaosLoginLogo(
+                      width: 250,
                     ),
                   ),
 
