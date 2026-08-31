@@ -18,11 +18,14 @@ class ProductRepository {
       _firestore.collection('subcategories');
 
   /// Stream em tempo real da lista de produtos cadastrados
-  Stream<List<ProductModel>> getProductsStream({String? companyId}) {
-    if (companyId == null || companyId.isEmpty) {
-      return Stream.value([]);
+  Stream<List<ProductModel>> getProductsStream({String? companyId, bool isSuperAdmin = false}) {
+    Query<Map<String, dynamic>> query = _productsRef;
+    if (!isSuperAdmin || (companyId != null && companyId.isNotEmpty && companyId != 'GLOBAL_MASTER' && companyId != 'ALL')) {
+      if (companyId == null || companyId.isEmpty) {
+        return Stream.value([]);
+      }
+      query = query.where('companyId', isEqualTo: companyId);
     }
-    final query = _productsRef.where('companyId', isEqualTo: companyId);
     return query.snapshots().map((snapshot) {
       final list = snapshot.docs
           .map((doc) => ProductModel.fromMap(doc.data(), doc.id))

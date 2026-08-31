@@ -68,6 +68,7 @@ class _TableViewState extends State<_TableView> {
   String _query = '';
   String? _companyId;
   UserModel? _currentUser;
+  final Set<String> _expandedAdminUids = {};
 
   @override
   void initState() {
@@ -243,15 +244,43 @@ class _TableViewState extends State<_TableView> {
                   borderRadius: BorderRadius.circular(16),
                   child: Column(
                     children: [
-                      if (!isMobile) ...[
-                        _TableHeader(),
-                        const Divider(height: 1, color: AppColors.divider),
-                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        color: const Color(0xFFF8FAFC),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.account_tree_rounded, size: 16, color: Color(0xFF6366F1)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'HIERARQUIA DE CONTAS & OPERADORES',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: const Color(0xFF475569),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              'Clique no [+] para ver os operadores',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, color: AppColors.divider),
                       Expanded(
                         child: StreamBuilder<List<UserModel>>(
-                          stream: _repo.getUsersStream(companyId: _companyId),
+                          stream: _repo.getUsersStream(
+                            companyId: _companyId,
+                            isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
+                          ),
                           builder: (ctx, snap) {
-                            if (_companyId == null ||
+                            final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
+                            if ((_companyId == null && !isSuper) ||
                                 snap.connectionState ==
                                     ConnectionState.waiting) {
                               return const Center(
@@ -287,11 +316,26 @@ class _TableViewState extends State<_TableView> {
                               );
                             }
 
-                            if (isMobile) {
-                              return ListView.builder(
+                            // ── Organização Hierárquica: Admins no Topo com Sanfona (+) para Subordinados ──
+                            final admins = filtered.where((u) => u.isAdmin || u.isSuperAdmin).toList();
+                            final Map<String, List<UserModel>> subordinatesByAdmin = {};
+                            for (final a in admins) {
+                              subordinatesByAdmin[a.uid] = filtered.where((u) =>
+                                  u.uid != a.uid &&
+                                  (u.companyId == a.uid || u.companyId == a.companyId || (u.companyId == null && !u.isAdmin && !u.isSuperAdmin))).toList();
+                            }
+                            final assignedUids = {
+                              ...admins.map((a) => a.uid),
+                              ...subordinatesByAdmin.values.expand((list) => list.map((u) => u.uid)),
+                            };
+                            final orphans = filtered.where((u) => !assignedUids.contains(u.uid)).toList();
+
+                            // Se não houver nenhum admin identificado (todos forem operators), exibe lista direta
+                            if (admins.isEmpty) {
+                              return ListView.separated(
                                 itemCount: filtered.length,
-                                padding: EdgeInsets.zero,
-                                itemBuilder: (_, i) => _UserMobileCard(
+                                separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
+                                itemBuilder: (_, i) => _UserRow(
                                   user: filtered[i],
                                   onEdit: () => _openEditUserDialog(filtered[i]),
                                   onEditPermissions: () => _openPermissionsDialog(filtered[i]),
@@ -300,16 +344,52 @@ class _TableViewState extends State<_TableView> {
                               );
                             }
 
-                            return ListView.separated(
-                              itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const Divider(
-                                  height: 1, color: AppColors.divider),
-                              itemBuilder: (_, i) => _UserRow(
-                                user: filtered[i],
-                                onEdit: () => _openEditUserDialog(filtered[i]),
-                                onEditPermissions: () => _openPermissionsDialog(filtered[i]),
-                                onDelete: () => _showDeleteDialog(filtered[i]),
-                              ),
+                            return ListView(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              children: [
+                                ...admins.map((admin) {
+                                  final subs = subordinatesByAdmin[admin.uid] ?? [];
+                                  final isExpanded = _expandedAdminUids.contains(admin.uid) || _query.isNotEmpty;
+                                  return _AdminTreeGroup(
+                                    admin: admin,
+                                    subordinates: subs,
+                                    isExpanded: isExpanded,
+                                    isMobile: isMobile,
+                                    onToggleExpand: () {
+                                      setState(() {
+                                        if (_expandedAdminUids.contains(admin.uid)) {
+                                          _expandedAdminUids.remove(admin.uid);
+                                        } else {
+                                          _expandedAdminUids.add(admin.uid);
+                                        }
+                                      });
+                                    },
+                                    onEditUser: _openEditUserDialog,
+                                    onEditPermissions: _openPermissionsDialog,
+                                    onDeleteUser: _showDeleteDialog,
+                                  );
+                                }),
+                                if (orphans.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  _OrphansGroup(
+                                    orphans: orphans,
+                                    isMobile: isMobile,
+                                    isExpanded: _expandedAdminUids.contains('__orphans__') || _query.isNotEmpty,
+                                    onToggleExpand: () {
+                                      setState(() {
+                                        if (_expandedAdminUids.contains('__orphans__')) {
+                                          _expandedAdminUids.remove('__orphans__');
+                                        } else {
+                                          _expandedAdminUids.add('__orphans__');
+                                        }
+                                      });
+                                    },
+                                    onEditUser: _openEditUserDialog,
+                                    onEditPermissions: _openPermissionsDialog,
+                                    onDeleteUser: _showDeleteDialog,
+                                  ),
+                                ],
+                              ],
                             );
                           },
                         ),
@@ -408,38 +488,507 @@ class _TableViewState extends State<_TableView> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cabeçalho da tabela
+// GRUPO DE ADMINISTRADOR COM SANFONA (+) / (-) PARA OPERADORES SUBORDINADOS
 // ─────────────────────────────────────────────────────────────────────────────
-class _TableHeader extends StatelessWidget {
+class _AdminTreeGroup extends StatelessWidget {
+  final UserModel admin;
+  final List<UserModel> subordinates;
+  final bool isExpanded;
+  final bool isMobile;
+  final VoidCallback onToggleExpand;
+  final void Function(UserModel) onEditUser;
+  final void Function(UserModel) onEditPermissions;
+  final void Function(UserModel) onDeleteUser;
+
+  const _AdminTreeGroup({
+    required this.admin,
+    required this.subordinates,
+    required this.isExpanded,
+    required this.isMobile,
+    required this.onToggleExpand,
+    required this.onEditUser,
+    required this.onEditPermissions,
+    required this.onDeleteUser,
+  });
+
   @override
   Widget build(BuildContext context) {
+    final isSuper = admin.isSuperAdmin;
+    final cardBgColor = isSuper
+        ? const Color(0xFFFAF5FF)
+        : const Color(0xFFFFFBEB);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: const Color(0xFFF8FAFC),
-      child: Row(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isExpanded ? (isSuper ? const Color(0xFFA855F7) : const Color(0xFFF59E0B)) : AppColors.border,
+          width: isExpanded ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isExpanded ? 0.04 : 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
         children: [
-          _col('USUÁRIO', flex: 3),
-          _col('E-MAIL', flex: 3),
-          _col('PAPEL', flex: 2),
-          _col('STATUS', flex: 2),
-          _col('CADASTRO', flex: 2),
-          const SizedBox(width: 96),
+          // ── Linha Principal do Administrador / Líder da Conta ──
+          Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: onToggleExpand,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isExpanded ? cardBgColor : Colors.white,
+                  borderRadius: isExpanded
+                      ? const BorderRadius.vertical(top: Radius.circular(13))
+                      : BorderRadius.circular(13),
+                ),
+                child: Row(
+                  children: [
+                    // Botão de Sanfona (+) / (-)
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isExpanded
+                            ? (isSuper ? const Color(0xFF9333EA) : const Color(0xFFD97706))
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isExpanded
+                              ? Colors.transparent
+                              : const Color(0xFFCBD5E1),
+                        ),
+                      ),
+                      child: Icon(
+                        isExpanded ? Icons.remove_rounded : Icons.add_rounded,
+                        size: 18,
+                        color: isExpanded ? Colors.white : const Color(0xFF475569),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Avatar
+                    CircleAvatar(
+                      radius: 17,
+                      backgroundColor: isSuper
+                          ? const Color(0xFF7E22CE)
+                          : const Color(0xFFD97706),
+                      child: Text(
+                        admin.name.isNotEmpty ? admin.name[0].toUpperCase() : 'A',
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Nome e Detalhes
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  admin.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _RoleBadge(role: admin.role),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            admin.email,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                          if (admin.phone?.isNotEmpty == true)
+                            Row(
+                              children: [
+                                const Icon(Icons.phone_android_rounded, size: 11, color: Color(0xFF10B981)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  admin.phone!,
+                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    if (!isMobile) ...[
+                      // Contador de Subordinados
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: subordinates.isNotEmpty
+                              ? const Color(0xFFEEF2FF)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: subordinates.isNotEmpty
+                                ? const Color(0xFFC7D2FE)
+                                : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.group_rounded,
+                              size: 14,
+                              color: subordinates.isNotEmpty
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              subordinates.isNotEmpty
+                                  ? '${subordinates.length} ${subordinates.length == 1 ? 'operador' : 'operadores'}'
+                                  : 'Nenhum operador',
+                              style: GoogleFonts.inter(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: subordinates.isNotEmpty
+                                    ? const Color(0xFF4338CA)
+                                    : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+
+                      // Status Badge
+                      _StatusBadge(status: admin.status),
+                      const SizedBox(width: 14),
+                    ],
+
+                    // Ações do Admin
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Editar Dados e WhatsApp',
+                          icon: const Icon(Icons.edit_outlined, color: Color(0xFF0284C7), size: 19),
+                          onPressed: () => onEditUser(admin),
+                        ),
+                        IconButton(
+                          tooltip: 'Configurar Permissões',
+                          icon: const Icon(Icons.settings_suggest_rounded, color: Color(0xFF6366F1), size: 20),
+                          onPressed: () => onEditPermissions(admin),
+                        ),
+                        IconButton(
+                          tooltip: 'Excluir Administrador',
+                          icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                          onPressed: () => onDeleteUser(admin),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Painel Sanfona: Subordinados deste Administrador ──
+          if (isExpanded) ...[
+            const Divider(height: 1, color: AppColors.divider),
+            Container(
+              padding: const EdgeInsets.only(left: 32, right: 16, top: 12, bottom: 14),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.subdirectory_arrow_right_rounded, size: 16, color: Color(0xFF6366F1)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'EQUIPE & OPERADORES VINCULADOS (${subordinates.length})',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
+                          color: const Color(0xFF475569),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (subordinates.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Nenhum operador cadastrado sob a gestão deste administrador.',
+                              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...subordinates.map((sub) => _SubordinateRow(
+                      sub: sub,
+                      isMobile: isMobile,
+                      onEdit: () => onEditUser(sub),
+                      onEditPermissions: () => onEditPermissions(sub),
+                      onDelete: () => onDeleteUser(sub),
+                    )),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
 
-  Widget _col(String label, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontWeight: FontWeight.bold,
-          fontSize: 11,
-          color: const Color(0xFF64748B),
-          letterSpacing: 0.5,
-        ),
+// ─────────────────────────────────────────────────────────────────────────────
+// LINHA DE OPERADOR SUBORDINADO
+// ─────────────────────────────────────────────────────────────────────────────
+class _SubordinateRow extends StatelessWidget {
+  final UserModel sub;
+  final bool isMobile;
+  final VoidCallback onEdit;
+  final VoidCallback onEditPermissions;
+  final VoidCallback onDelete;
+
+  const _SubordinateRow({
+    required this.sub,
+    required this.isMobile,
+    required this.onEdit,
+    required this.onEditPermissions,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 13,
+            backgroundColor: const Color(0xFFEEF2FF),
+            child: Text(
+              sub.name.isNotEmpty ? sub.name[0].toUpperCase() : 'U',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+                fontSize: 11.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  sub.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                if (sub.phone?.isNotEmpty == true)
+                  Text(
+                    sub.phone!,
+                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.w500),
+                  ),
+              ],
+            ),
+          ),
+          if (!isMobile) ...[
+            Expanded(
+              flex: 3,
+              child: Text(
+                sub.email,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF475569)),
+              ),
+            ),
+            _RoleBadge(role: sub.role),
+            const SizedBox(width: 10),
+            _StatusBadge(status: sub.status),
+            const SizedBox(width: 10),
+            Text(
+              '${sub.createdAt.day.toString().padLeft(2, '0')}/${sub.createdAt.month.toString().padLeft(2, '0')}/${sub.createdAt.year}',
+              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Editar Dados e WhatsApp',
+                icon: const Icon(Icons.edit_outlined, color: Color(0xFF0284C7), size: 17),
+                onPressed: onEdit,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+              IconButton(
+                tooltip: 'Permissões de Acesso',
+                icon: const Icon(Icons.settings_suggest_rounded, color: Color(0xFF6366F1), size: 18),
+                onPressed: onEditPermissions,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+              IconButton(
+                tooltip: 'Excluir Operador',
+                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                onPressed: onDelete,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRUPO DE OPERADORES ÓRFÃOS / DIRETOS
+// ─────────────────────────────────────────────────────────────────────────────
+class _OrphansGroup extends StatelessWidget {
+  final List<UserModel> orphans;
+  final bool isMobile;
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
+  final void Function(UserModel) onEditUser;
+  final void Function(UserModel) onEditPermissions;
+  final void Function(UserModel) onDeleteUser;
+
+  const _OrphansGroup({
+    required this.orphans,
+    required this.isMobile,
+    required this.isExpanded,
+    required this.onToggleExpand,
+    required this.onEditUser,
+    required this.onEditPermissions,
+    required this.onDeleteUser,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onToggleExpand,
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: Icon(
+                        isExpanded ? Icons.remove_rounded : Icons.add_rounded,
+                        size: 18,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.people_outline_rounded, size: 20, color: Color(0xFF64748B)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Outros Operadores / Cadastros Diretos (${orphans.length})',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF334155)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1, color: AppColors.divider),
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: const Color(0xFFF8FAFC),
+              child: Column(
+                children: orphans.map((sub) => _SubordinateRow(
+                  sub: sub,
+                  isMobile: isMobile,
+                  onEdit: () => onEditUser(sub),
+                  onEditPermissions: () => onEditPermissions(sub),
+                  onDelete: () => onDeleteUser(sub),
+                )).toList(),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -588,146 +1137,6 @@ class _UserRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Card Mobile de Usuário
-// ─────────────────────────────────────────────────────────────────────────────
-class _UserMobileCard extends StatelessWidget {
-  final UserModel user;
-  final VoidCallback onEdit;
-  final VoidCallback onEditPermissions;
-  final VoidCallback onDelete;
-
-  const _UserMobileCard({
-    required this.user,
-    required this.onEdit,
-    required this.onEditPermissions,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final initials = user.name.isNotEmpty
-        ? user.name.trim().split(' ').take(2).map((e) => e.isNotEmpty ? e[0].toUpperCase() : '').join()
-        : '?';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                  child: Text(
-                    initials,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name,
-                        style: GoogleFonts.inter(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        user.email,
-                        style: GoogleFonts.inter(
-                          fontSize: 11.5,
-                          color: const Color(0xFF64748B),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (user.phone?.isNotEmpty == true)
-                        Row(
-                          children: [
-                            const Icon(Icons.phone_android_rounded, size: 11, color: Color(0xFF10B981)),
-                            const SizedBox(width: 3),
-                            Text(
-                              user.phone!,
-                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF0284C7)),
-                  onPressed: onEdit,
-                  tooltip: 'Editar Dados e WhatsApp',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.settings_suggest_rounded, size: 20, color: Color(0xFF6366F1)),
-                  onPressed: onEditPermissions,
-                  tooltip: 'Configurar Permissões',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
-                  onPressed: onDelete,
-                  tooltip: 'Excluir',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1, color: AppColors.divider),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _RoleBadge(role: user.role),
-                const SizedBox(width: 8),
-                _StatusBadge(status: user.status),
-                const Spacer(),
-                Text(
-                  '${user.createdAt.day.toString().padLeft(2, '0')}/${user.createdAt.month.toString().padLeft(2, '0')}/${user.createdAt.year}',
-                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1151,6 +1560,11 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (Color bg, Color fg, String label) = switch (role.toLowerCase()) {
+      'superadmin' || 'master' => (
+          const Color(0xFFF3E8FF),
+          const Color(0xFF7E22CE),
+          '👑 Super Admin'
+        ),
       'admin' => (const Color(0xFFFEF3C7), const Color(0xFFD97706), 'Admin'),
       'manager' => (
           const Color(0xFFE0E7FF),

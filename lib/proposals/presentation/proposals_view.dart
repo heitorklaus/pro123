@@ -689,9 +689,11 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                 companyId: _companyId,
                 currentUserId: widget.currentUser?.uid ?? _currentUser?.uid,
                 isAllProposalsVisible: widget.currentUser?.canViewAllProposals ?? _currentUser?.canViewAllProposals ?? false,
+                isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
               ),
               builder: (ctx, snap) {
-                if (_companyId == null ||
+                final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
+                if ((_companyId == null && !isSuper) ||
                     snap.connectionState == ConnectionState.waiting) {
                   return const Center(
                       child: CircularProgressIndicator(

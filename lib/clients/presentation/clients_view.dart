@@ -292,9 +292,13 @@ class _ClientTableViewState extends State<_ClientTableView> {
                       ],
                       Expanded(
                         child: StreamBuilder<List<ClientModel>>(
-                          stream: _repo.getClientsStream(companyId: _companyId),
+                          stream: _repo.getClientsStream(
+                            companyId: _companyId,
+                            isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
+                          ),
                           builder: (ctx, snap) {
-                            if (_companyId == null ||
+                            final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
+                            if ((_companyId == null && !isSuper) ||
                                 snap.connectionState ==
                                     ConnectionState.waiting) {
                               return const Center(

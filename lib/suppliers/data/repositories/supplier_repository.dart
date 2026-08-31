@@ -12,11 +12,14 @@ class SupplierRepository {
       _firestore.collection('suppliers');
 
   /// Stream em tempo real dos fornecedores cadastrados
-  Stream<List<SupplierModel>> getSuppliersStream({String? companyId}) {
-    if (companyId == null || companyId.isEmpty) {
-      return Stream.value([]);
+  Stream<List<SupplierModel>> getSuppliersStream({String? companyId, bool isSuperAdmin = false}) {
+    Query<Map<String, dynamic>> query = _suppliersRef;
+    if (!isSuperAdmin || (companyId != null && companyId.isNotEmpty && companyId != 'GLOBAL_MASTER' && companyId != 'ALL')) {
+      if (companyId == null || companyId.isEmpty) {
+        return Stream.value([]);
+      }
+      query = query.where('companyId', isEqualTo: companyId);
     }
-    final query = _suppliersRef.where('companyId', isEqualTo: companyId);
     return query.snapshots().map((snapshot) {
       final list = snapshot.docs
           .map((doc) => SupplierModel.fromMap(doc.data(), doc.id))

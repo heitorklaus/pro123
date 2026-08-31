@@ -245,11 +245,14 @@ class AuthRepository {
   }
 
   /// Retorna o Stream em tempo real da lista de usuários cadastrados no Firestore para a empresa
-  Stream<List<UserModel>> getUsersStream({String? companyId}) {
-    if (companyId == null || companyId.isEmpty) {
-      return Stream.value([]);
+  Stream<List<UserModel>> getUsersStream({String? companyId, bool isSuperAdmin = false}) {
+    Query<Map<String, dynamic>> query = _usersRef;
+    if (!isSuperAdmin || (companyId != null && companyId.isNotEmpty && companyId != 'GLOBAL_MASTER' && companyId != 'ALL')) {
+      if (companyId == null || companyId.isEmpty) {
+        return Stream.value([]);
+      }
+      query = query.where('companyId', isEqualTo: companyId);
     }
-    final query = _usersRef.where('companyId', isEqualTo: companyId);
     return query.snapshots().map((snapshot) {
       final list = snapshot.docs
           .map((doc) => UserModel.fromMap(doc.data(), doc.id))

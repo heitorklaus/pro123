@@ -1044,9 +1044,13 @@ class _ProductTableViewState extends State<_ProductTableView> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: StreamBuilder<List<ProductModel>>(
-                  stream: _repo.getProductsStream(companyId: _companyId),
+                  stream: _repo.getProductsStream(
+                    companyId: _companyId,
+                    isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
+                  ),
                   builder: (ctx, snap) {
-                    if (_companyId == null || snap.connectionState == ConnectionState.waiting) {
+                    final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
+                    if ((_companyId == null && !isSuper) || snap.connectionState == ConnectionState.waiting) {
                       return const Center(
                         child:
                             CircularProgressIndicator(color: AppColors.primary),

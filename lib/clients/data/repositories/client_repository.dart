@@ -12,11 +12,14 @@ class ClientRepository {
       _firestore.collection('clients');
 
   // ── Stream em tempo real ──────────────────────────────────────────────────
-  Stream<List<ClientModel>> getClientsStream({String? companyId}) {
-    if (companyId == null || companyId.isEmpty) {
-      return Stream.value([]);
+  Stream<List<ClientModel>> getClientsStream({String? companyId, bool isSuperAdmin = false}) {
+    Query<Map<String, dynamic>> query = _collection;
+    if (!isSuperAdmin || (companyId != null && companyId.isNotEmpty && companyId != 'GLOBAL_MASTER' && companyId != 'ALL')) {
+      if (companyId == null || companyId.isEmpty) {
+        return Stream.value([]);
+      }
+      query = query.where('companyId', isEqualTo: companyId);
     }
-    final query = _collection.where('companyId', isEqualTo: companyId);
     return query.snapshots().map((snap) {
       final list = snap.docs
           .map((doc) => ClientModel.fromMap(doc.data(), doc.id))

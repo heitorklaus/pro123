@@ -178,23 +178,27 @@ class UserModel {
     this.lastLoginAt,
   });
 
-  bool get isAdmin => role.toLowerCase() == 'admin';
-  bool get isManager => role.toLowerCase() == 'manager' || isAdmin;
+  bool get isSuperAdmin =>
+      role.toLowerCase() == 'superadmin' ||
+      role.toLowerCase() == 'master' ||
+      email.toLowerCase().trim() == 'admin@admin.com.br';
+  bool get isAdmin => isSuperAdmin || role.toLowerCase() == 'admin';
+  bool get isManager => isSuperAdmin || role.toLowerCase() == 'manager' || isAdmin;
   bool get isActive => status == 'active';
   String get effectiveCompanyId => (companyId != null && companyId!.isNotEmpty) ? companyId! : uid;
 
-  // Verificações diretas de permissão com respeito estrito às configurações do RBAC
-  bool get canViewClients => permissions.viewClients;
-  bool get canCreateClients => permissions.createClients;
-  bool get canViewProducts => permissions.viewProducts;
-  bool get canCreateProducts => permissions.createProducts;
-  bool get canViewProposals => permissions.viewProposals;
-  bool get canCreateProposals => permissions.createProposals;
-  bool get canViewAllProposals => permissions.viewAllProposals || isAdmin || isManager;
-  bool get canViewSuppliers => permissions.viewSuppliers;
-  bool get canCreateSuppliers => permissions.createSuppliers;
-  bool get canManageSettings => permissions.manageSettings;
-  bool get canManageUsers => permissions.manageUsers;
+  // Verificações diretas de permissão com respeito estrito às configurações do RBAC (SuperAdmin sempre tem tudo liberado)
+  bool get canViewClients => isSuperAdmin || permissions.viewClients;
+  bool get canCreateClients => isSuperAdmin || permissions.createClients;
+  bool get canViewProducts => isSuperAdmin || permissions.viewProducts;
+  bool get canCreateProducts => isSuperAdmin || permissions.createProducts;
+  bool get canViewProposals => isSuperAdmin || permissions.viewProposals;
+  bool get canCreateProposals => isSuperAdmin || permissions.createProposals;
+  bool get canViewAllProposals => isSuperAdmin || permissions.viewAllProposals || isAdmin || isManager;
+  bool get canViewSuppliers => isSuperAdmin || permissions.viewSuppliers;
+  bool get canCreateSuppliers => isSuperAdmin || permissions.createSuppliers;
+  bool get canManageSettings => isSuperAdmin || permissions.manageSettings;
+  bool get canManageUsers => isSuperAdmin || permissions.manageUsers;
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
     return UserModel(

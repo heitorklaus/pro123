@@ -25,17 +25,21 @@ class ProposalRepository {
     String? companyId,
     String? currentUserId,
     bool isAllProposalsVisible = true,
+    bool isSuperAdmin = false,
   }) {
-    if (companyId == null || companyId.isEmpty) {
-      return Stream.value([]);
+    Query<Map<String, dynamic>> query = _proposalsRef;
+    if (!isSuperAdmin || (companyId != null && companyId.isNotEmpty && companyId != 'GLOBAL_MASTER' && companyId != 'ALL')) {
+      if (companyId == null || companyId.isEmpty) {
+        return Stream.value([]);
+      }
+      query = query.where('companyId', isEqualTo: companyId);
     }
-    final query = _proposalsRef.where('companyId', isEqualTo: companyId);
     return query.snapshots().map((snapshot) {
       var list = snapshot.docs
           .map((doc) => ProposalModel.fromMap(doc.data(), doc.id))
           .toList();
 
-      if (!isAllProposalsVisible && currentUserId != null && currentUserId.isNotEmpty) {
+      if (!isSuperAdmin && !isAllProposalsVisible && currentUserId != null && currentUserId.isNotEmpty) {
         list = list
             .where((p) =>
                 p.createdByUserId == currentUserId ||
