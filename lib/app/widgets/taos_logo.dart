@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Ícone estilizado da letra 'T' da marca TAOS com cortes de painel solar e brilho
+/// Ícone estilizado da letra 'T' da marca TAOS dentro de um quadrado branco com cantos arredondados
 class TaosLogoIcon extends StatelessWidget {
   final double size;
   final double borderRadius;
@@ -35,13 +35,13 @@ class TaosLogoIcon extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Center(
         child: Padding(
-          padding: EdgeInsets.all(size * 0.06),
+          padding: EdgeInsets.all(size * 0.12),
           child: Image.asset(
-            'assets/images/taos_t_logo.png',
+            'assets/images/taos_t_icon.png',
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return CustomPaint(
-                size: Size(size * 0.72, size * 0.72),
+                size: Size(size * 0.76, size * 0.76),
                 painter: _TaosTPainter(),
               );
             },
@@ -51,7 +51,6 @@ class TaosLogoIcon extends StatelessWidget {
     );
   }
 }
-
 
 class _TaosTPainter extends CustomPainter {
   @override
@@ -71,14 +70,12 @@ class _TaosTPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, w, h))
       ..style = PaintingStyle.fill;
 
-    // Espaçamentos proporcionais
     final gap = w * 0.04;
     final topBarH = h * 0.28;
     final stemW = w * 0.32;
     final cornerR = Radius.circular(w * 0.08);
 
-    // ── 1. Barra Horizontal Superior ──────────────────────────────────────
-    // 1.1 Segmento Esquerdo
+    // Barra Superior
     final leftW = w * 0.32;
     final leftPath = Path()
       ..addRRect(RRect.fromRectAndCorners(
@@ -88,13 +85,10 @@ class _TaosTPainter extends CustomPainter {
       ));
     canvas.drawPath(leftPath, paint);
 
-    // 1.2 Segmento Central
     final midLeft = leftW + gap;
     final midW = w * 0.42;
-    final midRect = Rect.fromLTWH(midLeft, 0, midW, topBarH);
-    canvas.drawRect(midRect, paint);
+    canvas.drawRect(Rect.fromLTWH(midLeft, 0, midW, topBarH), paint);
 
-    // 1.3 Segmento Direito
     final rightLeft = midLeft + midW + gap;
     final rightW = w - rightLeft;
     if (rightW > 0) {
@@ -107,7 +101,7 @@ class _TaosTPainter extends CustomPainter {
       canvas.drawPath(rightPath, paint);
     }
 
-    // ── 2. Ponto de Brilho Solar / Flare no canto superior direito ─────────
+    // Flare Solar
     final flareCenter = Offset(w * 0.94, topBarH * 0.18);
     final glowPaint = Paint()
       ..shader = RadialGradient(
@@ -124,18 +118,16 @@ class _TaosTPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawCircle(flareCenter, w * 0.045, flareCorePaint);
 
-    // ── 3. Haste Vertical (Dividida em 2 painéis) ──────────────────────────
+    // Haste Vertical
     final stemLeft = (w - stemW) / 2;
     final stemTop1 = topBarH + gap;
     final stemH1 = (h - stemTop1 - gap) * 0.48;
 
-    // 3.1 Painel Vertical Superior
     canvas.drawRect(
       Rect.fromLTWH(stemLeft, stemTop1, stemW, stemH1),
       paint,
     );
 
-    // 3.2 Painel Vertical Inferior
     final stemTop2 = stemTop1 + stemH1 + gap;
     final stemH2 = h - stemTop2;
     if (stemH2 > 0) {
@@ -153,7 +145,7 @@ class _TaosTPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Logo Completa TAOS CRM com Ícone Branco + Tipografia 'TAOS' e 'CRM'
+/// Logo Completa TAOS CRM com Ícone T Branco + Tipografia Oficial 'TAOS' e 'CRM'
 class TaosLogo extends StatelessWidget {
   final double iconSize;
   final double fontSize;
@@ -170,35 +162,42 @@ class TaosLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final wordmarkHeight = fontSize * 0.82;
+
     return Row(
       mainAxisSize: mainAxisSize,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         TaosLogoIcon(size: iconSize),
-        const SizedBox(width: 12),
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'TAOS',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w900,
-                  fontSize: fontSize,
-                  color: isDarkBackground ? Colors.white : const Color(0xFF0F172A),
-                  letterSpacing: 2.2,
-                ),
+        const SizedBox(width: 10),
+        // Tipografia Oficial TAOS (com o A futurista / lambda)
+        Image.asset(
+          isDarkBackground
+              ? 'assets/images/taos_wordmark_white.png'
+              : 'assets/images/taos_wordmark_dark.png',
+          height: wordmarkHeight,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Text(
+              'TΛOS',
+              style: GoogleFonts.orbitron(
+                fontWeight: FontWeight.w900,
+                fontSize: fontSize,
+                color: isDarkBackground ? Colors.white : const Color(0xFF0F172A),
+                letterSpacing: 3.5,
               ),
-              const WidgetSpan(child: SizedBox(width: 6)),
-              TextSpan(
-                text: 'CRM',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w800,
-                  fontSize: fontSize,
-                  color: const Color(0xFF38BDF8), // Cyan / Sky Blue moderno
-                  letterSpacing: 1.4,
-                ),
-              ),
-            ],
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+        // Badge / Texto CRM
+        Text(
+          'CRM',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w900,
+            fontSize: fontSize * 0.95,
+            color: const Color(0xFF38BDF8), // Sky / Cyan moderno
+            letterSpacing: 1.5,
           ),
         ),
       ],
