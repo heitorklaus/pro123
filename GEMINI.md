@@ -182,9 +182,10 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
 ## 🔐 5. Autenticação e Permissões Granulares (RBAC)
 
 ### Níveis de Acesso (`roles`):
-1. **`admin`**: Acesso irrestrito a todas as operações, gerenciamento de operadores/permissões, configurações globais e acompanhamento da produção total (vê propostas de todos os operadores).
-2. **`manager`**: Gestão comercial de equipe, acesso ampliado a clientes, produtos, fornecedores e visualização de todas as propostas.
-3. **`user` (Operador)**: Acesso restrito e customizável às operações do dia a dia; por padrão visualiza apenas as próprias propostas criadas.
+1. **`superAdmin` / `master` (`admin@admin.com.br`)**: Administrador Geral e Supremo do Ecossistema TAOS CRM. Possui visão global irrestrita de todas as contas, empresas, propostas, clientes e produtos cadastrados por qualquer usuário do sistema. Possui painel executivo master no Dashboard com KPIs consolidados em tempo real e feed de auditoria.
+2. **`admin`**: Administrador da Conta / Empresa local. Acesso irrestrito a todas as operações da sua organização, gerenciamento de operadores e permissões.
+3. **`manager`**: Gestão comercial de equipe, acesso ampliado a clientes, produtos, fornecedores e visualização de todas as propostas da empresa.
+4. **`user` (Operador)**: Acesso restrito e customizável às operações do dia a dia; por padrão visualiza apenas as próprias propostas criadas.
 
 ### Matriz de Permissões Granulares (`UserPermissions`):
 - **Clientes:** `viewClients` (Listar Clientes), `createClients` (Cadastrar / Editar Clientes).
