@@ -8,7 +8,7 @@ COPY . .
 
 # Obtém as dependências e compila para Web em modo Release
 RUN flutter pub get
-RUN flutter build web --release --web-renderer canvaskit
+RUN flutter build web --release
 
 # ── ESTÁGIO 2: SERVIDOR WEB NGINX ULTRA-LEVE ──
 FROM nginx:alpine
