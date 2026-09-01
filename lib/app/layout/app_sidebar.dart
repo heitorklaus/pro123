@@ -8,6 +8,7 @@ enum AppSidebarItem {
   products,
   suppliers,
   proposals,
+  contracts,
   users,
   settings,
 }
@@ -153,6 +154,14 @@ class AppSidebar extends StatelessWidget {
                     isCollapsed: isCollapsed,
                     isSelected: activeItem == AppSidebarItem.proposals,
                     onTap: () => onItemSelected(AppSidebarItem.proposals),
+                  ),
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.history_edu_rounded,
+                    title: 'Contratos',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.contracts,
+                    onTap: () => onItemSelected(AppSidebarItem.contracts),
                   ),
                 ],
                 if (canManageUsers) ...[

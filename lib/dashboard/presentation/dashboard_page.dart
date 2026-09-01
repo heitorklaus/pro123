@@ -19,6 +19,7 @@ import '../../proposals/data/services/proposal_auto_pdf_sync_service.dart';
 import '../../proposals/domain/models/proposal_item_model.dart';
 import '../../proposals/domain/models/proposal_model.dart';
 import '../../proposals/presentation/proposals_view.dart';
+import '../../contracts/presentation/contracts_view.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
 import '../../users/presentation/users_view.dart';
 import '../../settings/data/services/company_service.dart';
@@ -350,6 +351,16 @@ class _DashboardPageState extends State<DashboardPage> {
           initialItem: _pendingProposalItem,
           onClearInitialItem: () => setState(() => _pendingProposalItem = null),
         );
+      case AppSidebarItem.contracts:
+        if (!canViewProposals) {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
+        return ContractsView(currentUser: _currentUser);
       case AppSidebarItem.users:
         if (!canManageUsers) {
           return const Center(

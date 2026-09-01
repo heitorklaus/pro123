@@ -59,6 +59,22 @@ lib/
 │   └── presentation/
 │       └── clients_view.dart         # ⭐ View no SPA com tabela e formulário + ViaCEP auto
 │
+├── contracts/                        # Módulo de Gestão e Emissão de Contratos Jurídicos
+│   ├── data/
+│   │   ├── repositories/
+│   │   │   └── contract_repository.dart# Integração Firestore da coleção contracts
+│   │   └── services/
+│   │       ├── contract_pdf_service.dart# Compilação e Impressão de PDF multipáginas A4
+│   │       └── contract_template_engine.dart# Template oficial de 5 páginas e interpolação de tags
+│   ├── domain/
+│   │   └── models/
+│   │       └── contract_model.dart   # Entidade ContractModel e ContractStatus
+│   └── presentation/
+│       ├── contracts_view.dart       # ⭐ View no SPA com tabela em tempo real, busca e KPIs
+│       └── widgets/
+│           ├── contract_proposal_picker_dialog.dart# Seletor de proposta e resolução inteligente de cliente
+│           └── contract_rich_editor.dart# Editor WYSIWYG estilo Word com folha A4 e tags dinâmicas
+│
 ├── dashboard/                        # Módulo Principal após Autenticação (SPA Container)
 │   ├── dashboard_module.dart         # Rotas e Binds do painel (Auth, Register, Client, Product)
 │   └── presentation/
@@ -364,6 +380,32 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
        - **Montagem de Proposta por Texto Livre / Prompt / Partes:** Permite criar propostas comerciais diretamente por linguagem natural digitada ou mensagens coladas (ex: *"Monte uma proposta pra mim com 15 placas de 615W e 1 inversor AUXSOL de 8kw, com geração de 1000kwh mes e valor de servico R$ 10.000"*), sem obrigatoriedade de anexar PDFs ou imagens. A IA calcula a potência nominal em kWp (`Quantidade × Watts / 1000`), extrai marcas, componentes, geração e serviço.
        - **Passo Final de Revisão e Confirmação de Parâmetros:** Apresenta painel executivo com cards visuais do Cliente e da Usina, permitindo ao operador conferir e ajustar a **Geração Estimada (kWh/mês)** e o **Valor do Serviço (R$)** antes de gerar a proposta.
        - **Integração Completa na UI:** Botão **"✨ CRIAR COM IA"** no cabeçalho das propostas, botão **"✨ ASSISTENTE IA"** dentro do formulário `_ProposalFormCard` e integração com a importação de Usinas Solares (`SolarPdfImportDialog`).
+
+### 8. `ContractsModule` / `ContractsView` / `ContractRichEditor` (`lib/contracts/`)
+- **`contracts_view.dart`, `contract_rich_editor.dart`, `contract_proposal_picker_dialog.dart`, `contract_template_engine.dart` & `contract_pdf_service.dart`:** Gestão, emissão e edição de contratos jurídicos fotovoltaicos com integração direta às propostas comerciais:
+  1. **Emissão de Contratos Baseada em Propostas Comerciais:** Seleciona qualquer proposta comercial cadastrada no CRM e herda automaticamente o número da proposta, usina fotovoltaica, potência em kWp, geração estimada (kWh/mês), composição do kit solar, fornecedor/distribuidor, valor dos equipamentos, valor do serviço de instalação e condições de pagamento.
+  2. **Resolução e Cadastro Inteligente de Clientes:**
+     - Ao selecionar a proposta, o assistente verifica se o cliente possui cadastro completo na base (Nome, CPF/CNPJ e Endereço).
+     - Se a proposta não tiver cliente associado ou faltar dados obrigatórios, exibe alerta visual com opções diretas: *"Vincular Cliente Existente"*, *"+ Cadastrar Novo Cliente"* (abre `ClientFormDialog` com busca ViaCEP na hora) ou *"Completar / Editar Dados"*.
+  3. **Motor de Contrato Padrão Oficial (5 Páginas):**
+     - Template padrão fiel ao contrato de prestação de serviços fotovoltaicos com todas as cláusulas jurídicas:
+       - **Qualificação Completa das Partes:** Contratante (Cliente) e Contratada (Empresa integradora logada no Firestore);
+       - **Considerandos A a D:** Potência da usina, geração média CRESESB, tipo de telhado, kit solar, repasse de valores ao distribuidor parceiro e garantia de instalação de 12 meses;
+       - **Cláusulas 1 a 10:** Objeto do contrato e escopo turn-key, exclusões explícitas de obras civis e reforço de telhado, declarações da contratada, custódia de materiais pela contratante, detalhamento de valores e pagamentos, cronograma de execução, prazos adicionais de concessionária de energia (30 dias para análise, 60 dias em baixa tensão e 120 dias em média tensão caso haja obras de rede), cláusula penal de inadimplência e rescisão com multa de 5%, garantia de funcionamento de 12 meses, foro da comarca da empresa e disposições finais;
+       - **Local, Data por Extenso e Campos de Assinatura** para Contratante e Contratada.
+  4. **Editor WYSIWYG Estilo Word com Folha A4 Realista:**
+     - Visual em canvas de papel A4 com sombra, proporções reais e controles de zoom (80%, 100%, 120%);
+     - Barra de ferramentas completa: Negrito (**B**), Itálico (*I*), Sublinhado (<u>U</u>), Listas com Marcadores (•), Divisores (---), Título 1, Título 2 e Cláusulas (H3);
+     - **Menu "+ INSERIR VARIÁVEL":** Dropdown categorizado com chips interativos de todas as variáveis do banco de dados (`{{NOME_CONTRATANTE}}`, `{{DOCUMENTO_CONTRATANTE}}`, `{{ENDERECO_CONTRATANTE}}`, `{{POTENCIA_KWP}}`, `{{GERACAO_MENSAL_KWH}}`, `{{DESCRICAO_EQUIPAMENTOS_KIT}}`, `{{VALOR_SERVICO_FORMATADO}}`, `{{VALOR_SERVICO_EXTENSO}}`, `{{VALOR_TOTAL_GLOBAL_FORMATADO}}`, `{{FORMA_PAGAMENTO_DETALHADA}}`, etc.);
+     - Botão *"Restaurar Padrão"* para regenerar o modelo inicial a qualquer momento;
+     - Seletor de Status integrado (*Rascunho*, *Aguardando Assinatura*, *Assinado*, *Cancelado*).
+  5. **Compilação & Impressão de PDF Multipáginas A4:**
+     - Geração de PDF oficial diagramado com tipografia formal (*Inter*), cabeçalho institucional com logomarca da empresa integradora, texto justificado, numeração de páginas ("Página X de Y") e linhas de assinatura ao final.
+  6. **Gestão em Tempo Real na Tabela:**
+     - Stream do Firestore (`contracts/{contractId}`) com isolamento multi-tenant por empresa (`companyId`);
+     - KPIs consolidados no topo (Valor Total Contratado, Contratos Assinados, Aguardando Assinatura, Total Emitido);
+     - Filtros rápidos por status e busca inteligente por texto;
+     - Ações rápidas de Editar no Editor Word, Imprimir/Baixar PDF, Alterar Status e Excluir.
 
 ### 9. `SettingsModule` / `SettingsView` / `CompanySetupDialog` (`lib/settings/`)
 - **`settings_view.dart`, `company_setup_dialog.dart`, `company_service.dart` & `settings_service.dart`:** Gestão de preferências, identidade visual e perfil institucional da Empresa no CRM:
