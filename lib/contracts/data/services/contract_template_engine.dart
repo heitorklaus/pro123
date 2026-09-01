@@ -191,14 +191,12 @@ e **{{RAZAO_SOCIAL_EMPRESA}}**, estabelecida à {{ENDERECO_EMPRESA}}, inscrita n
 
 **{{CIDADE_FORUM}} - {{UF_FORUM}}, {{DATA_EXTENSO_CONTRATO}}**
 
-<br><br>
 
 _____________________________________________________
 **CONTRATANTE:**
 **{{NOME_CONTRATANTE}}**
 {{TIPO_DOC_CONTRATANTE}}: {{DOCUMENTO_CONTRATANTE}}
 
-<br><br>
 
 _____________________________________________________
 **CONTRATADA:**
@@ -215,7 +213,7 @@ CNPJ: {{CNPJ_EMPRESA}}
     String? customResponsibleName,
     String? contractNumber,
   }) {
-    String text = defaultContractTemplate;
+    String text = defaultContractTemplate.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
 
     // Dados do Cliente
     final clientName = client?.name ?? (proposal.clientName.isNotEmpty ? proposal.clientName : 'NOME DO CLIENTE');

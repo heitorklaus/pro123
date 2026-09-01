@@ -7,7 +7,14 @@ import '../../data/services/contract_pdf_service.dart';
 import '../../data/services/contract_template_engine.dart';
 import '../../domain/models/contract_model.dart';
 
+enum ContractEditorViewMode {
+  editorOnly,
+  sideBySide,
+  previewOnly,
+}
+
 /// Editor Visual de Contratos no estilo Word / WYSIWYG em Folha A4
+/// Com Lupa Flutuante de Pré-visualização Rápida que acompanha a rolagem
 class ContractRichEditor extends StatefulWidget {
   final ContractModel? initialContract;
   final ProposalModel? proposal;
@@ -36,6 +43,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
   late final TextEditingController _contractNumberCtrl;
 
   ContractStatus _status = ContractStatus.draft;
+  ContractEditorViewMode _viewMode = ContractEditorViewMode.editorOnly;
   bool _isSaving = false;
   bool _isGeneratingPdf = false;
   double _zoomLevel = 1.0; // 80%, 100%, 120%
@@ -49,17 +57,19 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
     String initialTitle = 'Contrato de Prestação de Serviços Fotovoltaicos';
 
     if (widget.initialContract != null) {
-      initialContent = widget.initialContract!.content;
+      initialContent = _sanitizeContent(widget.initialContract!.content);
       initialNumber = widget.initialContract!.contractNumber;
       initialTitle = widget.initialContract!.title;
       _status = widget.initialContract!.status;
     } else if (widget.proposal != null) {
       initialNumber = 'CTR-${DateTime.now().year}-${(100 + DateTime.now().millisecondsSinceEpoch % 900)}';
-      initialContent = ContractTemplateEngine.generateContractText(
-        proposal: widget.proposal!,
-        client: widget.client,
-        company: widget.company,
-        contractNumber: initialNumber,
+      initialContent = _sanitizeContent(
+        ContractTemplateEngine.generateContractText(
+          proposal: widget.proposal!,
+          client: widget.client,
+          company: widget.company,
+          contractNumber: initialNumber,
+        ),
       );
       initialTitle = 'Contrato de Prestação de Serviços - ${widget.client?.name ?? widget.proposal!.clientName}';
     }
@@ -67,6 +77,12 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
     _contentCtrl = TextEditingController(text: initialContent);
     _titleCtrl = TextEditingController(text: initialTitle);
     _contractNumberCtrl = TextEditingController(text: initialNumber);
+
+    _contentCtrl.addListener(() {
+      if (_viewMode == ContractEditorViewMode.sideBySide) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -77,17 +93,23 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
     super.dispose();
   }
 
+  /// Remove tags <br> e formatações indesejadas
+  String _sanitizeContent(String text) {
+    return text.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+  }
+
   /// Insere texto / tag na posição atual do cursor
   void _insertTextAtCursor(String textToInsert) {
+    final cleanInsert = _sanitizeContent(textToInsert);
     final text = _contentCtrl.text;
     final selection = _contentCtrl.selection;
     final start = selection.start >= 0 ? selection.start : text.length;
     final end = selection.end >= 0 ? selection.end : text.length;
 
-    final newText = text.replaceRange(start, end, textToInsert);
+    final newText = text.replaceRange(start, end, cleanInsert);
     _contentCtrl.value = TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(offset: start + textToInsert.length),
+      selection: TextSelection.collapsed(offset: start + cleanInsert.length),
     );
   }
 
@@ -138,18 +160,20 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
             onPressed: () {
               Navigator.pop(ctx);
               if (widget.proposal != null) {
-                final regenerated = ContractTemplateEngine.generateContractText(
-                  proposal: widget.proposal!,
-                  client: widget.client,
-                  company: widget.company,
-                  contractNumber: _contractNumberCtrl.text,
+                final regenerated = _sanitizeContent(
+                  ContractTemplateEngine.generateContractText(
+                    proposal: widget.proposal!,
+                    client: widget.client,
+                    company: widget.company,
+                    contractNumber: _contractNumberCtrl.text,
+                  ),
                 );
                 setState(() {
                   _contentCtrl.text = regenerated;
                 });
               } else {
                 setState(() {
-                  _contentCtrl.text = ContractTemplateEngine.defaultContractTemplate;
+                  _contentCtrl.text = _sanitizeContent(ContractTemplateEngine.defaultContractTemplate);
                 });
               }
             },
@@ -157,6 +181,19 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
             child: const Text('RESTAURAR'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Abre a Lupa de Visualização Rápida em Modal Tela Cheia
+  void _openQuickPreviewModal() {
+    final contract = _buildCurrentContractModel();
+    showDialog(
+      context: context,
+      builder: (ctx) => _ContractQuickPreviewModal(
+        contract: contract,
+        company: widget.company,
+        onPrint: _handlePrintPdf,
       ),
     );
   }
@@ -186,6 +223,8 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
       gen = (kwp * 130);
     }
 
+    final cleanContent = _sanitizeContent(_contentCtrl.text);
+
     return ContractModel(
       id: widget.initialContract?.id ?? '',
       contractNumber: _contractNumberCtrl.text.trim(),
@@ -201,7 +240,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
       companyName: comp?.name,
       companyDocument: comp?.document,
       title: _titleCtrl.text.trim(),
-      content: _contentCtrl.text,
+      content: cleanContent,
       status: _status,
       totalAmount: total,
       servicePrice: service,
@@ -342,6 +381,20 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
                   ),
                 ),
                 const SizedBox(width: 14),
+
+                // Botão Lupa Rápida na Barra Superior
+                ElevatedButton.icon(
+                  onPressed: _openQuickPreviewModal,
+                  icon: const Icon(Icons.search_rounded, size: 18, color: Colors.white),
+                  label: const Text('PRÉVIA RÁPIDA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7), // Sky 600
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(width: 10),
 
                 // Botão Imprimir / PDF
                 OutlinedButton.icon(
@@ -514,6 +567,14 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
 
                   const VerticalDivider(color: Color(0xFF334155), width: 24, thickness: 1),
 
+                  // Alternador de Visualização (Editor | Lado a Lado | Prévia)
+                  _ViewModeToggle(
+                    mode: _viewMode,
+                    onChanged: (mode) => setState(() => _viewMode = mode),
+                  ),
+
+                  const VerticalDivider(color: Color(0xFF334155), width: 24, thickness: 1),
+
                   // Controle de Zoom Visual
                   Text('Zoom:', style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11.5)),
                   const SizedBox(width: 6),
@@ -525,100 +586,652 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
             ),
           ),
 
-          // ── ÁREA DE EDIÇÃO EM FOLHA A4 VISUAL (WORD-LIKE CANVAS) ───────────
+          // ── CORPO PRINCIPAL COM STACK E LUPA FLUTUANTE QUE ACOMPANHA A ROLAGEM ──
           Expanded(
-            child: Container(
-              color: const Color(0xFF090D16),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
-                child: Center(
-                  child: Container(
-                    width: 794 * _zoomLevel, // Proporção da folha A4 em pixels
-                    constraints: const BoxConstraints(minHeight: 1123), // Altura mínima A4
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 50 * _zoomLevel,
-                      vertical: 48 * _zoomLevel,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Cabeçalho da Folha A4
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              widget.company?.name.toUpperCase() ?? 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
-                              style: GoogleFonts.inter(
-                                fontSize: 9.5 * _zoomLevel,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF64748B),
-                              ),
+            child: Stack(
+              children: [
+                // CONTEÚDO PRINCIPAL (EDITOR, LADO A LADO OU PRÉVIA)
+                Container(
+                  color: const Color(0xFF090D16),
+                  child: _buildMainBody(),
+                ),
+
+                // 🔍 LUPA FLUTUANTE DE PRÉ-VISUALIZAÇÃO RÁPIDA (SEMPRE VISÍVEL DURANTE A ROLAGEM)
+                Positioned(
+                  bottom: 24,
+                  right: 28,
+                  child: Material(
+                    color: Colors.transparent,
+                    elevation: 12,
+                    borderRadius: BorderRadius.circular(30),
+                    child: InkWell(
+                      onTap: _openQuickPreviewModal,
+                      borderRadius: BorderRadius.circular(30),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0284C7), Color(0xFF6366F1)], // Sky to Indigo
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6366F1).withOpacity(0.45),
+                              blurRadius: 18,
+                              offset: const Offset(0, 6),
                             ),
+                          ],
+                          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.search_rounded, color: Colors.white, size: 22),
+                            const SizedBox(width: 8),
                             Text(
-                              _contractNumberCtrl.text,
-                              style: GoogleFonts.inter(
-                                fontSize: 9.5 * _zoomLevel,
+                              'LUPA DE PRÉVIA RÁPIDA',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF64748B),
+                                fontSize: 13.5,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ],
                         ),
-                        Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 18 * _zoomLevel),
-                        SizedBox(height: 12 * _zoomLevel),
-
-                        // Campo de Texto Editável em Tempo Real
-                        TextField(
-                          controller: _contentCtrl,
-                          maxLines: null,
-                          style: GoogleFonts.merriweather(
-                            fontSize: 12.5 * _zoomLevel,
-                            color: const Color(0xFF0F172A),
-                            height: 1.65,
-                          ),
-                          cursorColor: const Color(0xFF6366F1),
-                          cursorWidth: 2.0,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-
-                        SizedBox(height: 32 * _zoomLevel),
-                        Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 18 * _zoomLevel),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Documento gerado eletronicamente via Mavis CRM',
-                              style: GoogleFonts.inter(fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
-                            ),
-                            Text(
-                              'Página 1 de 1',
-                              style: GoogleFonts.inter(fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
-                            ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
                   ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainBody() {
+    if (_viewMode == ContractEditorViewMode.previewOnly) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+        child: Center(
+          child: _ContractFormattedPage(
+            contract: _buildCurrentContractModel(),
+            company: widget.company,
+            zoomLevel: _zoomLevel,
+          ),
+        ),
+      );
+    }
+
+    if (_viewMode == ContractEditorViewMode.sideBySide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Lado Esquerdo: Editor
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              child: Center(
+                child: _buildA4EditorCanvas(),
+              ),
+            ),
+          ),
+          Container(width: 1, color: const Color(0xFF334155)),
+          // Lado Direito: Prévia Renderizada ao Vivo
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              child: Center(
+                child: _ContractFormattedPage(
+                  contract: _buildCurrentContractModel(),
+                  company: widget.company,
+                  zoomLevel: _zoomLevel * 0.9,
                 ),
               ),
             ),
           ),
         ],
+      );
+    }
+
+    // Modo Padrão: Editor A4
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      child: Center(
+        child: _buildA4EditorCanvas(),
+      ),
+    );
+  }
+
+  Widget _buildA4EditorCanvas() {
+    return Container(
+      width: 794 * _zoomLevel, // Proporção da folha A4 em pixels
+      constraints: const BoxConstraints(minHeight: 1123), // Altura mínima A4
+      padding: EdgeInsets.symmetric(
+        horizontal: 50 * _zoomLevel,
+        vertical: 48 * _zoomLevel,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho da Folha A4
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.company?.name.toUpperCase() ?? 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
+                style: GoogleFonts.inter(
+                  fontSize: 9.5 * _zoomLevel,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              Text(
+                _contractNumberCtrl.text,
+                style: GoogleFonts.inter(
+                  fontSize: 9.5 * _zoomLevel,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 18 * _zoomLevel),
+          SizedBox(height: 12 * _zoomLevel),
+
+          // Campo de Texto Editável em Tempo Real
+          TextField(
+            controller: _contentCtrl,
+            maxLines: null,
+            style: GoogleFonts.merriweather(
+              fontSize: 12.5 * _zoomLevel,
+              color: const Color(0xFF0F172A),
+              height: 1.65,
+            ),
+            cursorColor: const Color(0xFF6366F1),
+            cursorWidth: 2.0,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+
+          SizedBox(height: 32 * _zoomLevel),
+          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 18 * _zoomLevel),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Documento gerado eletronicamente via Mavis CRM',
+                style: GoogleFonts.inter(fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
+              ),
+              Text(
+                'Página 1 de 1',
+                style: GoogleFonts.inter(fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL DE PRÉ-VISUALIZAÇÃO RÁPIDA (LUPA TELA CHEIA)
+// ─────────────────────────────────────────────────────────────────────────────
+class _ContractQuickPreviewModal extends StatefulWidget {
+  final ContractModel contract;
+  final CompanyModel? company;
+  final VoidCallback onPrint;
+
+  const _ContractQuickPreviewModal({
+    required this.contract,
+    this.company,
+    required this.onPrint,
+  });
+
+  @override
+  State<_ContractQuickPreviewModal> createState() => _ContractQuickPreviewModalState();
+}
+
+class _ContractQuickPreviewModalState extends State<_ContractQuickPreviewModal> {
+  double _previewZoom = 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF0F172A),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 1000,
+        height: 850,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Cabeçalho da Lupa
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.search_rounded, color: Color(0xFF38BDF8), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Lupa de Pré-visualização do Contrato',
+                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        Text(
+                          '${widget.contract.contractNumber} • ${widget.contract.clientName}',
+                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    // Zoom
+                    Text('Zoom:', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
+                    const SizedBox(width: 6),
+                    _ZoomButton(label: '85%', isSelected: _previewZoom == 0.85, onTap: () => setState(() => _previewZoom = 0.85)),
+                    _ZoomButton(label: '100%', isSelected: _previewZoom == 1.0, onTap: () => setState(() => _previewZoom = 1.0)),
+                    _ZoomButton(label: '115%', isSelected: _previewZoom == 1.15, onTap: () => setState(() => _previewZoom = 1.15)),
+                    const SizedBox(width: 14),
+
+                    // Botão Imprimir
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        widget.onPrint();
+                      },
+                      icon: const Icon(Icons.print_outlined, size: 16),
+                      label: const Text('IMPRIMIR / PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Fechar
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: Color(0xFF334155), height: 1),
+            const SizedBox(height: 14),
+
+            // Conteúdo Renderizado da Folha
+            Expanded(
+              child: Container(
+                color: const Color(0xFF090D16),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: _ContractFormattedPage(
+                      contract: widget.contract,
+                      company: widget.company,
+                      zoomLevel: _previewZoom,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PÁGINA RENDERIZADA FORMATADA (DOCUMENTO OFICIAL LIMPO SEM <BR>)
+// ─────────────────────────────────────────────────────────────────────────────
+class _ContractFormattedPage extends StatelessWidget {
+  final ContractModel contract;
+  final CompanyModel? company;
+  final double zoomLevel;
+
+  const _ContractFormattedPage({
+    required this.contract,
+    this.company,
+    this.zoomLevel = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final blocks = _parseTextToWidgets(contract.content, zoomLevel);
+
+    return Container(
+      width: 794 * zoomLevel,
+      constraints: const BoxConstraints(minHeight: 1123),
+      padding: EdgeInsets.symmetric(
+        horizontal: 50 * zoomLevel,
+        vertical: 48 * zoomLevel,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho da Empresa
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                company?.name.toUpperCase() ?? 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
+                style: GoogleFonts.inter(
+                  fontSize: 9.5 * zoomLevel,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF475569),
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8 * zoomLevel, vertical: 3 * zoomLevel),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: Text(
+                  contract.contractNumber,
+                  style: GoogleFonts.inter(
+                    fontSize: 9.0 * zoomLevel,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF334155),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 20 * zoomLevel),
+          SizedBox(height: 10 * zoomLevel),
+
+          // Blocos Formatados
+          ...blocks,
+
+          SizedBox(height: 32 * zoomLevel),
+          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 20 * zoomLevel),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Documento emitido via Mavis CRM • ${contract.title}',
+                style: GoogleFonts.inter(fontSize: 8.5 * zoomLevel, color: const Color(0xFF94A3B8)),
+              ),
+              Text(
+                'Página 1 de 1',
+                style: GoogleFonts.inter(fontSize: 8.5 * zoomLevel, color: const Color(0xFF94A3B8)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _parseTextToWidgets(String rawText, double zoom) {
+    final cleanText = rawText.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    final lines = cleanText.split('\n');
+    final widgets = <Widget>[];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+
+      if (line.isEmpty) {
+        widgets.add(SizedBox(height: 6 * zoom));
+      } else if (line.startsWith('# ')) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: 14 * zoom, bottom: 10 * zoom),
+            child: Center(
+              child: Text(
+                line.substring(2).trim(),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.merriweather(
+                  fontSize: 15 * zoom,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0F172A),
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+        );
+      } else if (line.startsWith('## ')) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: 12 * zoom, bottom: 8 * zoom),
+            child: Text(
+              line.substring(3).trim(),
+              style: GoogleFonts.inter(
+                fontSize: 12.5 * zoom,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+          ),
+        );
+      } else if (line.startsWith('### ')) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: 10 * zoom, bottom: 6 * zoom),
+            child: Text(
+              line.substring(4).trim(),
+              style: GoogleFonts.inter(
+                fontSize: 11 * zoom,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF334155),
+              ),
+            ),
+          ),
+        );
+      } else if (line == '---' || line == '***') {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8 * zoom),
+            child: Divider(color: const Color(0xFFCBD5E1), thickness: 0.8),
+          ),
+        );
+      } else if (line.startsWith('- ') || line.startsWith('• ') || line.startsWith('* ')) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(left: 14 * zoom, bottom: 4 * zoom),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• ', style: TextStyle(fontSize: 10 * zoom, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+                Expanded(child: _buildRichSpan(line.substring(2).trim(), zoom)),
+              ],
+            ),
+          ),
+        );
+      } else if (line.startsWith('_____')) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: 20 * zoom, bottom: 6 * zoom),
+            child: Container(
+              width: 260 * zoom,
+              height: 1.0,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+        );
+      } else {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(bottom: 6 * zoom),
+            child: _buildRichSpan(line, zoom),
+          ),
+        );
+      }
+    }
+
+    return widgets;
+  }
+
+  Widget _buildRichSpan(String text, double zoom) {
+    final spans = <TextSpan>[];
+    final regex = RegExp(r'(\*\*.*?\*\*|\*.*?\*)');
+    int lastEnd = 0;
+
+    for (final match in regex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
+      }
+
+      final matchedText = match.group(0)!;
+      if (matchedText.startsWith('**') && matchedText.endsWith('**')) {
+        spans.add(
+          TextSpan(
+            text: matchedText.substring(2, matchedText.length - 2),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        );
+      } else if (matchedText.startsWith('*') && matchedText.endsWith('*')) {
+        spans.add(
+          TextSpan(
+            text: matchedText.substring(1, matchedText.length - 1),
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
+        );
+      }
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return RichText(
+      textAlign: TextAlign.justify,
+      text: TextSpan(
+        style: GoogleFonts.merriweather(
+          fontSize: 10.5 * zoom,
+          color: const Color(0xFF1E293B),
+          height: 1.6,
+        ),
+        children: spans.isEmpty ? [TextSpan(text: text)] : spans,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENTES AUXILIARES DE TOOLBAR
+// ─────────────────────────────────────────────────────────────────────────────
+class _ViewModeToggle extends StatelessWidget {
+  final ContractEditorViewMode mode;
+  final ValueChanged<ContractEditorViewMode> onChanged;
+
+  const _ViewModeToggle({required this.mode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildItem(
+            icon: Icons.edit_note_rounded,
+            label: 'Editor',
+            isSelected: mode == ContractEditorViewMode.editorOnly,
+            onTap: () => onChanged(ContractEditorViewMode.editorOnly),
+          ),
+          _buildItem(
+            icon: Icons.vertical_split_rounded,
+            label: 'Lado a Lado',
+            isSelected: mode == ContractEditorViewMode.sideBySide,
+            onTap: () => onChanged(ContractEditorViewMode.sideBySide),
+          ),
+          _buildItem(
+            icon: Icons.visibility_rounded,
+            label: 'Prévia',
+            isSelected: mode == ContractEditorViewMode.previewOnly,
+            onTap: () => onChanged(ContractEditorViewMode.previewOnly),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItem({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF6366F1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: isSelected ? Colors.white : const Color(0xFF94A3B8)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
