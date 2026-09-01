@@ -13,8 +13,13 @@ enum ContractEditorViewMode {
   previewOnly,
 }
 
-/// Editor Visual de Contratos no estilo Word / WYSIWYG em Folha A4
-/// Com Lupa Flutuante de Pré-visualização Rápida que acompanha a rolagem
+enum ContractCanvasTheme {
+  dark,
+  light,
+}
+
+/// Editor Visual de Contratos no estilo Word / WYSIWYG
+/// Com Suporte Completo a Dark Mode (Texto Branco em Arial) e Lupa Flutuante que acompanha a rolagem
 class ContractRichEditor extends StatefulWidget {
   final ContractModel? initialContract;
   final ProposalModel? proposal;
@@ -44,6 +49,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
 
   ContractStatus _status = ContractStatus.draft;
   ContractEditorViewMode _viewMode = ContractEditorViewMode.editorOnly;
+  ContractCanvasTheme _canvasTheme = ContractCanvasTheme.dark; // Padrão Dark Mode com texto branco
   bool _isSaving = false;
   bool _isGeneratingPdf = false;
   double _zoomLevel = 1.0; // 80%, 100%, 120%
@@ -193,6 +199,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
       builder: (ctx) => _ContractQuickPreviewModal(
         contract: contract,
         company: widget.company,
+        canvasTheme: _canvasTheme,
         onPrint: _handlePrintPdf,
       ),
     );
@@ -519,7 +526,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(tag.label, style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                                    Text(tag.label, style: const TextStyle(fontFamily: 'Arial', color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
                                     Text('Ex: ${tag.example}', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 11)),
                                   ],
                                 ),
@@ -567,10 +574,18 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
 
                   const VerticalDivider(color: Color(0xFF334155), width: 24, thickness: 1),
 
-                  // Alternador de Visualização (Editor | Lado a Lado | Prévia)
+                  // Alternador de Modo de Visualização (Editor | Lado a Lado | Prévia)
                   _ViewModeToggle(
                     mode: _viewMode,
                     onChanged: (mode) => setState(() => _viewMode = mode),
+                  ),
+
+                  const VerticalDivider(color: Color(0xFF334155), width: 24, thickness: 1),
+
+                  // Alternador de Cor da Folha (Dark Mode vs Light Mode)
+                  _ThemeToggle(
+                    theme: _canvasTheme,
+                    onChanged: (th) => setState(() => _canvasTheme = th),
                   ),
 
                   const VerticalDivider(color: Color(0xFF334155), width: 24, thickness: 1),
@@ -661,6 +676,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
           child: _ContractFormattedPage(
             contract: _buildCurrentContractModel(),
             company: widget.company,
+            canvasTheme: _canvasTheme,
             zoomLevel: _zoomLevel,
           ),
         ),
@@ -689,6 +705,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
                 child: _ContractFormattedPage(
                   contract: _buildCurrentContractModel(),
                   company: widget.company,
+                  canvasTheme: _canvasTheme,
                   zoomLevel: _zoomLevel * 0.9,
                 ),
               ),
@@ -708,6 +725,12 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
   }
 
   Widget _buildA4EditorCanvas() {
+    final isDark = _canvasTheme == ContractCanvasTheme.dark;
+    final bgColor = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final headerColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+
     return Container(
       width: 794 * _zoomLevel, // Proporção da folha A4 em pixels
       constraints: const BoxConstraints(minHeight: 1123), // Altura mínima A4
@@ -716,13 +739,14 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
         vertical: 48 * _zoomLevel,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -735,36 +759,50 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
             children: [
               Text(
                 widget.company?.name.toUpperCase() ?? 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
-                style: GoogleFonts.inter(
+                style: TextStyle(
+                  fontFamily: 'Arial',
                   fontSize: 9.5 * _zoomLevel,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF64748B),
+                  color: headerColor,
+                  letterSpacing: 0.5,
                 ),
               ),
-              Text(
-                _contractNumberCtrl.text,
-                style: GoogleFonts.inter(
-                  fontSize: 9.5 * _zoomLevel,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF64748B),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8 * _zoomLevel, vertical: 3 * _zoomLevel),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: dividerColor),
+                ),
+                child: Text(
+                  _contractNumberCtrl.text,
+                  style: TextStyle(
+                    fontFamily: 'Arial',
+                    fontSize: 9.0 * _zoomLevel,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? const Color(0xFF818CF8) : const Color(0xFF475569),
+                  ),
                 ),
               ),
             ],
           ),
-          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 18 * _zoomLevel),
+          Divider(color: dividerColor, thickness: 0.8, height: 18 * _zoomLevel),
           SizedBox(height: 12 * _zoomLevel),
 
-          // Campo de Texto Editável em Tempo Real
+          // Campo de Texto Editável em Tempo Real com Fonte Arial e Cor Branca
           TextField(
             controller: _contentCtrl,
             maxLines: null,
-            style: GoogleFonts.merriweather(
-              fontSize: 12.5 * _zoomLevel,
-              color: const Color(0xFF0F172A),
+            style: TextStyle(
+              fontFamily: 'Arial',
+              fontSize: 13.0 * _zoomLevel,
+              color: textColor,
+              fontWeight: FontWeight.w400,
               height: 1.65,
+              letterSpacing: 0.15,
             ),
-            cursorColor: const Color(0xFF6366F1),
-            cursorWidth: 2.0,
+            cursorColor: const Color(0xFF38BDF8),
+            cursorWidth: 2.2,
             decoration: const InputDecoration(
               border: InputBorder.none,
               isDense: true,
@@ -772,18 +810,18 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
             ),
           ),
 
-          SizedBox(height: 32 * _zoomLevel),
-          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 18 * _zoomLevel),
+          SizedBox(height: 36 * _zoomLevel),
+          Divider(color: dividerColor, thickness: 0.8, height: 18 * _zoomLevel),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Documento gerado eletronicamente via Mavis CRM',
-                style: GoogleFonts.inter(fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
+                'Documento emitido via Mavis CRM • ${widget.client?.name ?? "Cliente"}',
+                style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
               ),
               Text(
                 'Página 1 de 1',
-                style: GoogleFonts.inter(fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
+                style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
               ),
             ],
           ),
@@ -799,11 +837,13 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
 class _ContractQuickPreviewModal extends StatefulWidget {
   final ContractModel contract;
   final CompanyModel? company;
+  final ContractCanvasTheme canvasTheme;
   final VoidCallback onPrint;
 
   const _ContractQuickPreviewModal({
     required this.contract,
     this.company,
+    required this.canvasTheme,
     required this.onPrint,
   });
 
@@ -813,6 +853,13 @@ class _ContractQuickPreviewModal extends StatefulWidget {
 
 class _ContractQuickPreviewModalState extends State<_ContractQuickPreviewModal> {
   double _previewZoom = 1.0;
+  late ContractCanvasTheme _theme;
+
+  @override
+  void initState() {
+    super.initState();
+    _theme = widget.canvasTheme;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -845,7 +892,7 @@ class _ContractQuickPreviewModalState extends State<_ContractQuickPreviewModal> 
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Lupa de Pré-visualização do Contrato',
+                          'Lupa de Pré-visualização do Contrato (Arial)',
                           style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                         Text(
@@ -858,6 +905,10 @@ class _ContractQuickPreviewModalState extends State<_ContractQuickPreviewModal> 
                 ),
                 Row(
                   children: [
+                    // Alternador de tema no modal
+                    _ThemeToggle(theme: _theme, onChanged: (th) => setState(() => _theme = th)),
+                    const SizedBox(width: 14),
+
                     // Zoom
                     Text('Zoom:', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12)),
                     const SizedBox(width: 6),
@@ -905,6 +956,7 @@ class _ContractQuickPreviewModalState extends State<_ContractQuickPreviewModal> 
                     child: _ContractFormattedPage(
                       contract: widget.contract,
                       company: widget.company,
+                      canvasTheme: _theme,
                       zoomLevel: _previewZoom,
                     ),
                   ),
@@ -919,22 +971,29 @@ class _ContractQuickPreviewModalState extends State<_ContractQuickPreviewModal> 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PÁGINA RENDERIZADA FORMATADA (DOCUMENTO OFICIAL LIMPO SEM <BR>)
+// PÁGINA RENDERIZADA FORMATADA (FONTE ARIAL E SUPORTE A TEXTO BRANCO EM DARK)
 // ─────────────────────────────────────────────────────────────────────────────
 class _ContractFormattedPage extends StatelessWidget {
   final ContractModel contract;
   final CompanyModel? company;
+  final ContractCanvasTheme canvasTheme;
   final double zoomLevel;
 
   const _ContractFormattedPage({
     required this.contract,
     this.company,
+    this.canvasTheme = ContractCanvasTheme.dark,
     this.zoomLevel = 1.0,
   });
 
   @override
   Widget build(BuildContext context) {
-    final blocks = _parseTextToWidgets(contract.content, zoomLevel);
+    final isDark = canvasTheme == ContractCanvasTheme.dark;
+    final bgColor = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final headerColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+    final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+
+    final blocks = _parseTextToWidgets(contract.content, zoomLevel, isDark);
 
     return Container(
       width: 794 * zoomLevel,
@@ -944,13 +1003,14 @@ class _ContractFormattedPage extends StatelessWidget {
         vertical: 48 * zoomLevel,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -963,48 +1023,51 @@ class _ContractFormattedPage extends StatelessWidget {
             children: [
               Text(
                 company?.name.toUpperCase() ?? 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
-                style: GoogleFonts.inter(
+                style: TextStyle(
+                  fontFamily: 'Arial',
                   fontSize: 9.5 * zoomLevel,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF475569),
+                  color: headerColor,
+                  letterSpacing: 0.5,
                 ),
               ),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8 * zoomLevel, vertical: 3 * zoomLevel),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                  border: Border.all(color: dividerColor),
                 ),
                 child: Text(
                   contract.contractNumber,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
+                    fontFamily: 'Arial',
                     fontSize: 9.0 * zoomLevel,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF334155),
+                    color: isDark ? const Color(0xFF818CF8) : const Color(0xFF334155),
                   ),
                 ),
               ),
             ],
           ),
-          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 20 * zoomLevel),
+          Divider(color: dividerColor, thickness: 0.8, height: 20 * zoomLevel),
           SizedBox(height: 10 * zoomLevel),
 
           // Blocos Formatados
           ...blocks,
 
-          SizedBox(height: 32 * zoomLevel),
-          Divider(color: const Color(0xFFCBD5E1), thickness: 0.8, height: 20 * zoomLevel),
+          SizedBox(height: 36 * zoomLevel),
+          Divider(color: dividerColor, thickness: 0.8, height: 20 * zoomLevel),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Documento emitido via Mavis CRM • ${contract.title}',
-                style: GoogleFonts.inter(fontSize: 8.5 * zoomLevel, color: const Color(0xFF94A3B8)),
+                style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * zoomLevel, color: const Color(0xFF94A3B8)),
               ),
               Text(
                 'Página 1 de 1',
-                style: GoogleFonts.inter(fontSize: 8.5 * zoomLevel, color: const Color(0xFF94A3B8)),
+                style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * zoomLevel, color: const Color(0xFF94A3B8)),
               ),
             ],
           ),
@@ -1013,10 +1076,15 @@ class _ContractFormattedPage extends StatelessWidget {
     );
   }
 
-  List<Widget> _parseTextToWidgets(String rawText, double zoom) {
+  List<Widget> _parseTextToWidgets(String rawText, double zoom, bool isDark) {
     final cleanText = rawText.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
     final lines = cleanText.split('\n');
     final widgets = <Widget>[];
+
+    final h1Color = isDark ? Colors.white : const Color(0xFF0F172A);
+    final h2Color = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF1E293B);
+    final h3Color = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155);
+    final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
 
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
@@ -1031,11 +1099,13 @@ class _ContractFormattedPage extends StatelessWidget {
               child: Text(
                 line.substring(2).trim(),
                 textAlign: TextAlign.center,
-                style: GoogleFonts.merriweather(
+                style: TextStyle(
+                  fontFamily: 'Arial',
                   fontSize: 15 * zoom,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF0F172A),
+                  color: h1Color,
                   decoration: TextDecoration.underline,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
@@ -1047,10 +1117,11 @@ class _ContractFormattedPage extends StatelessWidget {
             padding: EdgeInsets.only(top: 12 * zoom, bottom: 8 * zoom),
             child: Text(
               line.substring(3).trim(),
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                fontFamily: 'Arial',
                 fontSize: 12.5 * zoom,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
+                color: h2Color,
               ),
             ),
           ),
@@ -1061,10 +1132,11 @@ class _ContractFormattedPage extends StatelessWidget {
             padding: EdgeInsets.only(top: 10 * zoom, bottom: 6 * zoom),
             child: Text(
               line.substring(4).trim(),
-              style: GoogleFonts.inter(
-                fontSize: 11 * zoom,
+              style: TextStyle(
+                fontFamily: 'Arial',
+                fontSize: 11.5 * zoom,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF334155),
+                color: h3Color,
               ),
             ),
           ),
@@ -1073,7 +1145,7 @@ class _ContractFormattedPage extends StatelessWidget {
         widgets.add(
           Padding(
             padding: EdgeInsets.symmetric(vertical: 8 * zoom),
-            child: Divider(color: const Color(0xFFCBD5E1), thickness: 0.8),
+            child: Divider(color: dividerColor, thickness: 0.8),
           ),
         );
       } else if (line.startsWith('- ') || line.startsWith('• ') || line.startsWith('* ')) {
@@ -1083,8 +1155,8 @@ class _ContractFormattedPage extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('• ', style: TextStyle(fontSize: 10 * zoom, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
-                Expanded(child: _buildRichSpan(line.substring(2).trim(), zoom)),
+                Text('• ', style: TextStyle(fontFamily: 'Arial', fontSize: 11 * zoom, fontWeight: FontWeight.bold, color: h1Color)),
+                Expanded(child: _buildRichSpan(line.substring(2).trim(), zoom, isDark)),
               ],
             ),
           ),
@@ -1092,11 +1164,11 @@ class _ContractFormattedPage extends StatelessWidget {
       } else if (line.startsWith('_____')) {
         widgets.add(
           Padding(
-            padding: EdgeInsets.only(top: 20 * zoom, bottom: 6 * zoom),
+            padding: EdgeInsets.only(top: 22 * zoom, bottom: 6 * zoom),
             child: Container(
               width: 260 * zoom,
-              height: 1.0,
-              color: const Color(0xFF0F172A),
+              height: 1.2,
+              color: h1Color,
             ),
           ),
         );
@@ -1104,7 +1176,7 @@ class _ContractFormattedPage extends StatelessWidget {
         widgets.add(
           Padding(
             padding: EdgeInsets.only(bottom: 6 * zoom),
-            child: _buildRichSpan(line, zoom),
+            child: _buildRichSpan(line, zoom, isDark),
           ),
         );
       }
@@ -1113,10 +1185,12 @@ class _ContractFormattedPage extends StatelessWidget {
     return widgets;
   }
 
-  Widget _buildRichSpan(String text, double zoom) {
+  Widget _buildRichSpan(String text, double zoom, bool isDark) {
     final spans = <TextSpan>[];
     final regex = RegExp(r'(\*\*.*?\*\*|\*.*?\*)');
     int lastEnd = 0;
+
+    final defaultTextColor = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B);
 
     for (final match in regex.allMatches(text)) {
       if (match.start > lastEnd) {
@@ -1128,14 +1202,21 @@ class _ContractFormattedPage extends StatelessWidget {
         spans.add(
           TextSpan(
             text: matchedText.substring(2, matchedText.length - 2),
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontFamily: 'Arial',
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            ),
           ),
         );
       } else if (matchedText.startsWith('*') && matchedText.endsWith('*')) {
         spans.add(
           TextSpan(
             text: matchedText.substring(1, matchedText.length - 1),
-            style: const TextStyle(fontStyle: FontStyle.italic),
+            style: const TextStyle(
+              fontFamily: 'Arial',
+              fontStyle: FontStyle.italic,
+            ),
           ),
         );
       }
@@ -1149,10 +1230,12 @@ class _ContractFormattedPage extends StatelessWidget {
     return RichText(
       textAlign: TextAlign.justify,
       text: TextSpan(
-        style: GoogleFonts.merriweather(
-          fontSize: 10.5 * zoom,
-          color: const Color(0xFF1E293B),
-          height: 1.6,
+        style: TextStyle(
+          fontFamily: 'Arial',
+          fontSize: 11.0 * zoom,
+          color: defaultTextColor,
+          height: 1.65,
+          letterSpacing: 0.1,
         ),
         children: spans.isEmpty ? [TextSpan(text: text)] : spans,
       ),
@@ -1163,6 +1246,66 @@ class _ContractFormattedPage extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTES AUXILIARES DE TOOLBAR
 // ─────────────────────────────────────────────────────────────────────────────
+class _ThemeToggle extends StatelessWidget {
+  final ContractCanvasTheme theme;
+  final ValueChanged<ContractCanvasTheme> onChanged;
+
+  const _ThemeToggle({required this.theme, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme == ContractCanvasTheme.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => onChanged(ContractCanvasTheme.dark),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF6366F1) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.dark_mode_rounded, size: 14, color: isDark ? Colors.white : const Color(0xFF94A3B8)),
+                  const SizedBox(width: 4),
+                  Text('Dark', style: GoogleFonts.inter(fontSize: 11, fontWeight: isDark ? FontWeight.bold : FontWeight.normal, color: isDark ? Colors.white : const Color(0xFF94A3B8))),
+                ],
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () => onChanged(ContractCanvasTheme.light),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: !isDark ? const Color(0xFF6366F1) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.light_mode_rounded, size: 14, color: !isDark ? Colors.white : const Color(0xFF94A3B8)),
+                  const SizedBox(width: 4),
+                  Text('Claro', style: GoogleFonts.inter(fontSize: 11, fontWeight: !isDark ? FontWeight.bold : FontWeight.normal, color: !isDark ? Colors.white : const Color(0xFF94A3B8))),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ViewModeToggle extends StatelessWidget {
   final ContractEditorViewMode mode;
   final ValueChanged<ContractEditorViewMode> onChanged;
