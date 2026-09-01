@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app/layout/app_sidebar.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_theme.dart';
 import '../../app/widgets/taos_logo.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
@@ -20,6 +21,7 @@ import '../../proposals/domain/models/proposal_model.dart';
 import '../../proposals/presentation/proposals_view.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
 import '../../users/presentation/users_view.dart';
+import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
 
@@ -38,21 +40,26 @@ class _DashboardPageState extends State<DashboardPage> {
   AppSidebarItem _activeItem = AppSidebarItem.dashboard;
   bool _isSidebarCollapsed = false;
   ProposalItemModel? _pendingProposalItem;
-  ProductSector? _preferredSector;
+  ProductSector? _preferredSector = ProductSector.solarPlant;
+
+  bool _isOnboardingOpen = false;
 
   @override
   void initState() {
     super.initState();
-    try {
-      _authRepo = Modular.get<AuthRepository>();
-    } catch (_) {
-      _authRepo = AuthRepository();
+    _authRepo = Modular.get<AuthRepository>();
+
+    final initialItem = Modular.args.data;
+    if (initialItem is ProposalItemModel) {
+      _pendingProposalItem = initialItem;
+      _activeItem = AppSidebarItem.proposals;
     }
 
     _listenCurrentUser();
     _loadPreferredSector();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _checkFirstLoginOnboarding());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkFirstLoginOnboarding();
+    });
   }
 
   void _listenCurrentUser() {
@@ -66,6 +73,7 @@ class _DashboardPageState extends State<DashboardPage> {
         if (user != null) {
           ProposalAutoPdfSyncService.startSync(
               companyId: user.effectiveCompanyId);
+          _checkFirstLoginOnboarding();
         }
       }
     });
@@ -88,19 +96,50 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _checkFirstLoginOnboarding() async {
-    final completed = await SettingsService.hasCompletedOnboarding();
-    if (!completed && mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black.withValues(alpha: 0.96),
-        builder: (ctx) => SectorOnboardingDialog(
-          onSectorSelected: (sector) {
-            _loadPreferredSector();
-          },
-        ),
-      );
+    if (_isOnboardingOpen || !mounted) return;
+
+    try {
+      final user = _currentUser ?? await _authRepo.getCurrentUser();
+      // Verifica se é administrador / dono da empresa
+      final isAdmin = user == null || user.isAdmin || user.role == 'admin' || user.isSuperAdmin;
+      if (!isAdmin) return;
+
+      final completed = await SettingsService.hasCompletedOnboarding();
+      final companyCompleted = await CompanyService.hasCompletedOnboarding(companyId: user?.effectiveCompanyId);
+
+      // Se qualquer um dos dois não estiver completo, abre o onboarding
+      if (!completed || !companyCompleted) {
+        if (mounted && !_isOnboardingOpen) {
+          _openOnboardingDialog();
+        }
+      }
+    } catch (e) {
+      debugPrint('[DashboardPage] Erro ao verificar onboarding: $e');
     }
+  }
+
+  void _openOnboardingDialog() {
+    if (_isOnboardingOpen || !mounted) return;
+    _isOnboardingOpen = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.60),
+      builder: (ctx) => SectorOnboardingDialog(
+        onSectorSelected: (sector) {
+          _loadPreferredSector();
+        },
+        onCompleted: () {
+          _isOnboardingOpen = false;
+          _loadPreferredSector();
+          if (mounted) setState(() {});
+        },
+        openCompanyFormAfter: true,
+      ),
+    ).then((_) {
+      _isOnboardingOpen = false;
+    });
   }
 
   void _toggleSidebar() {
@@ -125,7 +164,7 @@ class _DashboardPageState extends State<DashboardPage> {
         isSolar ? Icons.solar_power_rounded : Icons.inventory_2_outlined;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: isMobile
           ? Drawer(
               backgroundColor: const Color(0xFF0F172A),
@@ -176,6 +215,21 @@ class _DashboardPageState extends State<DashboardPage> {
           fontSize: isMobile ? 18 : 20,
         ),
         actions: [
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: AppTheme.themeModeNotifier,
+            builder: (context, themeMode, _) {
+              final isDark = themeMode == ThemeMode.dark;
+              return IconButton(
+                tooltip: isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro',
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? const Color(0xFFFBBF24) : const Color(0xFF94A3B8),
+                  size: 22,
+                ),
+                onPressed: () => AppTheme.toggleThemeMode(),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Sair do Sistema',
             icon: const Icon(Icons.logout_rounded, color: Color(0xFFF87171)),
@@ -326,29 +380,30 @@ class _WelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
       padding: EdgeInsets.all(isMobile ? 24.0 : 40.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
         ],
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: EdgeInsets.all(isMobile ? 16 : 20),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEEF2FF),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFEEF2FF),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -364,7 +419,7 @@ class _WelcomeCard extends StatelessWidget {
             style: GoogleFonts.outfit(
               fontSize: isMobile ? 22 : 28,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -373,7 +428,7 @@ class _WelcomeCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: isMobile ? 14 : 16,
-              color: AppColors.textSecondary,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
               height: 1.5,
             ),
           ),
@@ -381,8 +436,9 @@ class _WelcomeCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: isDark ? const Color(0xFF0B1120) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isDark ? AppColors.darkBorder : Colors.transparent),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -398,7 +454,7 @@ class _WelcomeCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: isMobile ? 12.5 : 14,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF334155),
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF334155),
                   ),
                 ),
               ],

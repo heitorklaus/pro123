@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -6,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
+import '../../../proposals/data/services/gemini_proposal_assistant_service.dart';
 import '../../data/repositories/product_repository.dart';
 import '../../data/services/gemini_solar_vision_service.dart';
 import '../../data/services/solar_proposal_parser_service.dart';
@@ -100,6 +100,7 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
+        allowMultiple: true,
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'txt'],
       );
 
@@ -107,45 +108,58 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
         return;
       }
 
-      final file = files.first;
-
-      final Uint8List bytes;
-      try {
-        bytes = await file.readAsBytes();
-      } catch (e) {
-        setState(() {
-          _errorMessage = 'Erro ao ler arquivo: $e';
-        });
-        return;
+      final filePayloads = <ProposalFilePayload>[];
+      for (final f in files) {
+        try {
+          final b = await f.readAsBytes();
+          if (b.isNotEmpty) {
+            filePayloads.add(ProposalFilePayload(
+              name: f.name,
+              extension: f.extension?.toLowerCase() ?? 'pdf',
+              bytes: b,
+            ));
+          }
+        } catch (_) {}
       }
 
-      if (bytes.isEmpty) {
+      if (filePayloads.isEmpty) {
         setState(() {
-          _errorMessage = 'O arquivo selecionado está vazio.';
+          _errorMessage = 'Nenhum arquivo válido selecionado.';
         });
         return;
       }
 
       setState(() {
-        _selectedFileName = file.name;
+        _selectedFileName = filePayloads.map((f) => f.name).join(', ');
         _isAnalyzing = true;
         _errorMessage = null;
       });
-
-      final ext = file.extension?.toLowerCase() ?? 'pdf';
 
       // 1. Obtém chave ativa
       final activeKey = (_savedApiKey != null && _savedApiKey!.trim().isNotEmpty)
           ? _savedApiKey!.trim()
           : await GeminiSolarVisionService.getSavedApiKey();
 
-      // 2. Se tem chave API do Gemini, usa a IA multimodal do Gemini
+      // 2. Se tem chave API do Gemini, usa a IA multimodal unificada
       if (activeKey.isNotEmpty) {
         try {
-          final parsed = await GeminiSolarVisionService.analyzeSolarProposal(
-            fileBytes: bytes,
-            fileExtension: ext,
+          final unified = await GeminiProposalAssistantService.analyzeProposal(
+            files: filePayloads,
             customApiKey: activeKey,
+          );
+
+          final parsed = ParsedSolarProposal(
+            proposalNumber: unified.proposalNumber ?? 'PROPOSTA-IA',
+            distributorName: unified.distributorName ?? 'Distribuidora Solar',
+            plantName: unified.plantName,
+            kilowatts: unified.kilowatts,
+            generationKwh: unified.generationKwh,
+            roofType: unified.roofType,
+            productsPrice: unified.productsPrice,
+            shippingFee: unified.shippingFee,
+            totalAmount: unified.totalAmount > 0 ? unified.totalAmount : unified.productsPrice,
+            items: unified.items,
+            rawText: unified.rawText,
           );
 
           if (mounted) {
@@ -167,10 +181,12 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
         }
       }
 
-      // 3. Caso não tenha chave API, usa o extrator de texto local como fallback
+      // 3. Fallback de texto
       String extractedText = '';
-      if (ext == 'pdf') {
-        extractedText = SolarProposalParserService.extractTextFromPdfBytes(bytes);
+      for (final f in filePayloads) {
+        if (f.extension == 'pdf') {
+          extractedText = '$extractedText\n${SolarProposalParserService.extractTextFromPdfBytes(f.bytes)}';
+        }
       }
 
       if (extractedText.trim().isNotEmpty) {
@@ -217,11 +233,45 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
       _errorMessage = null;
     });
 
-    final parsed = SolarProposalParserService.parseRawText(text);
-    setState(() {
-      _parsedResult = parsed;
-      _isAnalyzing = false;
-    });
+    try {
+      final activeKey = (_savedApiKey != null && _savedApiKey!.trim().isNotEmpty)
+          ? _savedApiKey!.trim()
+          : await GeminiSolarVisionService.getSavedApiKey();
+
+      final unified = await GeminiProposalAssistantService.analyzeProposal(
+        textPrompt: text,
+        customApiKey: activeKey,
+      );
+
+      final parsed = ParsedSolarProposal(
+        proposalNumber: unified.proposalNumber ?? 'PROPOSTA-IA',
+        distributorName: unified.distributorName ?? 'Distribuidora Solar',
+        plantName: unified.plantName,
+        kilowatts: unified.kilowatts,
+        generationKwh: unified.generationKwh,
+        roofType: unified.roofType,
+        productsPrice: unified.productsPrice,
+        shippingFee: unified.shippingFee,
+        totalAmount: unified.totalAmount > 0 ? unified.totalAmount : unified.productsPrice,
+        items: unified.items,
+        rawText: unified.rawText,
+      );
+
+      if (mounted) {
+        setState(() {
+          _parsedResult = parsed;
+          _isAnalyzing = false;
+        });
+      }
+    } catch (_) {
+      final parsed = SolarProposalParserService.parseRawText(text);
+      if (mounted) {
+        setState(() {
+          _parsedResult = parsed;
+          _isAnalyzing = false;
+        });
+      }
+    }
   }
 
   /// Confirma e aplica no formulário

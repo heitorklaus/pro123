@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../products/domain/models/product_model.dart';
+import '../data/services/company_service.dart';
 import '../data/services/settings_service.dart';
+import '../domain/models/company_model.dart';
+import 'ai_agent_settings_view.dart';
 import 'solar_settings_view.dart';
+import 'widgets/company_setup_dialog.dart';
 
 /// View completa de Configurações do CRM e Gestão do Ramo / Segmento de Atuação
 class SettingsView extends StatefulWidget {
@@ -20,9 +25,11 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   ProductSector? _currentSector = ProductSector.solarPlant;
+  CompanyModel? _company;
   bool _isFixedMode = true;
   bool _isLoading = true;
   bool _editingSolarSettings = false;
+  bool _editingAiSettings = false;
   String _searchFilter = '';
 
   @override
@@ -34,13 +41,30 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _loadSettings() async {
     final sector = await SettingsService.getPreferredSector();
     final fixed = await SettingsService.isFixedSectorMode();
+    final company = await CompanyService.getCompany();
     if (mounted) {
       setState(() {
         _currentSector = sector ?? ProductSector.solarPlant;
         _isFixedMode = fixed;
+        _company = company;
         _isLoading = false;
       });
     }
+  }
+
+  void _openCompanySetupDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => CompanySetupDialog(
+        selectedSector: _currentSector,
+        isFirstAccess: false,
+        onCompleted: () {
+          _loadSettings();
+          widget.onSectorChanged?.call();
+        },
+      ),
+    );
   }
 
   Future<void> _selectSector(ProductSector? sector) async {
@@ -122,6 +146,12 @@ class _SettingsViewState extends State<SettingsView> {
       );
     }
 
+    if (_editingAiSettings) {
+      return AiAgentSettingsView(
+        onBack: () => setState(() => _editingAiSettings = false),
+      );
+    }
+
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
@@ -187,6 +217,338 @@ class _SettingsViewState extends State<SettingsView> {
 
               const SizedBox(height: 16),
               const Divider(color: AppColors.divider),
+              const SizedBox(height: 16),
+
+              // ── Card de Dados da Empresa & Identidade Visual ─────────────
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: isMobile
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: _company?.logoBase64 != null && _company!.logoBase64!.isNotEmpty
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Image.memory(
+                                          base64Decode(_company!.logoBase64!),
+                                          fit: BoxFit.contain,
+                                        ),
+                                      )
+                                    : const Icon(Icons.business_rounded, color: Colors.white, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _company?.name.isNotEmpty == true
+                                          ? _company!.name
+                                          : 'Dados da Empresa Não Configurados',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Text(
+                                      _company?.document.isNotEmpty == true
+                                          ? 'CNPJ/CPF: ${_company!.document}'
+                                          : 'Clique para preencher os dados institucionais',
+                                      style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _openCompanySetupDialog,
+                              icon: const Icon(Icons.edit_note_rounded, size: 18),
+                              label: const Text('EDITAR DADOS DA EMPRESA & LOGO'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F172A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: _company?.logoBase64 != null && _company!.logoBase64!.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Image.memory(
+                                      base64Decode(_company!.logoBase64!),
+                                      fit: BoxFit.contain,
+                                    ),
+                                  )
+                                : const Icon(Icons.business_rounded, color: Colors.white, size: 30),
+                          ),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      _company?.name.isNotEmpty == true
+                                          ? _company!.name
+                                          : 'Dados da Empresa Integradora',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _company?.name.isNotEmpty == true
+                                            ? const Color(0xFFDCFCE7)
+                                            : const Color(0xFFFEF3C7),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        _company?.name.isNotEmpty == true
+                                            ? 'PERFIL CONFIGURADO'
+                                            : 'PENDENTE DE CONFIGURAÇÃO',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: _company?.name.isNotEmpty == true
+                                              ? const Color(0xFF166534)
+                                              : const Color(0xFF92400E),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _company != null && _company!.formattedAddress.isNotEmpty
+                                      ? 'CNPJ/CPF: ${_company!.document} • ${_company!.phone} • ${_company!.formattedAddress}'
+                                      : 'CNPJ, canais de atendimento, endereço com ViaCEP e Logomarca que estampam as propostas comerciais em PDF.',
+                                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          ElevatedButton.icon(
+                            onPressed: _openCompanySetupDialog,
+                            icon: const Icon(Icons.edit_note_rounded, size: 18),
+                            label: const Text('EDITAR DADOS DA EMPRESA & LOGO'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F172A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── Card do Agente de IA & Treinamento da Empresa ────────────
+              Container(
+                padding: EdgeInsets.all(isMobile ? 14 : 22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF8FAFC), Color(0xFFEEF2FF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFC7D2FE)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: isMobile
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Agente de IA do Gemini',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text('PRO', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      'Treine a IA com as regras e marcas da sua empresa',
+                                      style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => setState(() => _editingAiSettings = true),
+                              icon: const Icon(Icons.psychology_rounded, size: 18),
+                              label: const Text('CONFIGURAR & TREINAR IA'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6366F1),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 30),
+                          ),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Agente de IA do Gemini • Treinamento & Regras',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text('MULTI-ARQUIVOS & PROMPT', style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Personalize o prompt mestre do sistema, regras comerciais, marcas preferenciais de módulos e inversores e exemplos de treinamento (Few-Shot) para a sua equipe.',
+                                  style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 18),
+                          ElevatedButton.icon(
+                            onPressed: () => setState(() => _editingAiSettings = true),
+                            icon: const Icon(Icons.psychology_rounded, size: 18),
+                            label: const Text('CONFIGURAR & TREINAR IA'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6366F1),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+
               const SizedBox(height: 16),
 
               // ── Card de Ramo de Atuação Ativo ────────────────────────────
@@ -627,11 +989,15 @@ class _SettingsViewState extends State<SettingsView> {
 
 /// Diálogo Modal de Onboarding Inicial no Primeiro Acesso
 class SectorOnboardingDialog extends StatefulWidget {
-  final ValueChanged<ProductSector> onSectorSelected;
+  final ValueChanged<ProductSector>? onSectorSelected;
+  final VoidCallback? onCompleted;
+  final bool openCompanyFormAfter;
 
   const SectorOnboardingDialog({
     super.key,
-    required this.onSectorSelected,
+    this.onSectorSelected,
+    this.onCompleted,
+    this.openCompanyFormAfter = true,
   });
 
   @override
@@ -641,6 +1007,54 @@ class SectorOnboardingDialog extends StatefulWidget {
 class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
   ProductSector? _selected = ProductSector.solarPlant;
   String _searchFilter = '';
+
+  void _openCompanyDialog(ProductSector sel) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.60),
+      builder: (ctx) => CompanySetupDialog(
+        selectedSector: sel,
+        isFirstAccess: true,
+        onBackToSectors: () {
+          Navigator.of(ctx).pop();
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              barrierColor: Colors.black.withValues(alpha: 0.60),
+              builder: (_) => SectorOnboardingDialog(
+                onSectorSelected: widget.onSectorSelected,
+                onCompleted: widget.onCompleted,
+                openCompanyFormAfter: true,
+              ),
+            );
+          }
+        },
+        onCompleted: () {
+          widget.onCompleted?.call();
+        },
+      ),
+    );
+  }
+
+  Future<void> _selectSectorAndProceed(ProductSector sector) async {
+    setState(() => _selected = sector);
+    await SettingsService.savePreferredSector(sector, isFixed: true);
+    widget.onSectorSelected?.call(sector);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
+    if (widget.openCompanyFormAfter) {
+      _openCompanyDialog(sector);
+    }
+  }
+
+  Future<void> _handleConfirm() async {
+    if (_selected == null) return;
+    await _selectSectorAndProceed(_selected!);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -656,53 +1070,27 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.zero,
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          color: Color(0xFF030712),
-          image: DecorationImage(
-            image: NetworkImage(
-              'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop',
-            ),
-            fit: BoxFit.cover,
-            opacity: 0.18,
-          ),
-        ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Center(
         child: Container(
+          width: dialogWidth,
+          height: dialogHeight,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                const Color(0xFF030712).withValues(alpha: 0.88),
-                const Color(0xFF0B1120).withValues(alpha: 0.95),
-              ],
-            ),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 40,
+                offset: const Offset(0, 16),
+              ),
+            ],
           ),
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Container(
-                width: dialogWidth,
-                height: dialogHeight,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 50,
-                      offset: const Offset(0, 20),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               // Cabeçalho de Boas-vindas
               Row(
                 children: [
@@ -722,11 +1110,11 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Bem-vindo ao Mavis CRM! 🚀',
+                          'Bem-vindo ao TAOS CRM! 🚀',
                           style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                         ),
                         Text(
-                          'Qual é o ramo de atuação principal da sua empresa? Vamos configurar o CRM para você:',
+                          'Clique no ramo de atuação da sua empresa para avançar diretamente para o cadastro dos dados institucionais:',
                           style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
                         ),
                       ],
@@ -776,7 +1164,7 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () => setState(() => _selected = sector),
+                                onTap: () => _selectSectorAndProceed(sector),
                                 borderRadius: BorderRadius.circular(14),
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 150),
@@ -809,7 +1197,11 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          if (isSel) Icon(Icons.check_circle_rounded, color: sector.themeColor, size: 16),
+                                          Icon(
+                                            Icons.arrow_forward_ios_rounded,
+                                            size: 13,
+                                            color: isSel ? sector.themeColor : const Color(0xFF94A3B8),
+                                          ),
                                         ],
                                       ),
                                       Text(
@@ -835,7 +1227,7 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
               const Divider(color: AppColors.divider),
               const SizedBox(height: 12),
 
-              // Botão Confirmar
+              // Botões Rodapé
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -845,23 +1237,23 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
-                    onPressed: _selected == null
-                        ? null
-                        : () async {
-                            final nav = Navigator.of(context);
-                            await SettingsService.savePreferredSector(_selected!, isFixed: true);
-                            widget.onSectorSelected(_selected!);
-                            if (mounted) nav.pop();
-                          },
+                    onPressed: _selected == null ? null : _handleConfirm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _selected?.themeColor ?? AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      'CONFIRMAR E APLICAR',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'AVANÇAR PARA DADOS DA EMPRESA',
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward_rounded, size: 16),
+                      ],
                     ),
                   ),
                 ],
@@ -870,9 +1262,6 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
           ),
         ),
       ),
-    ),
-  ),
-),
     );
   }
 }

@@ -33,6 +33,17 @@ abstract class AppColors {
   static const Color warning = Color(0xFFF59E0B); // Amarelo Alerta
   static const Color info = Color(0xFF3B82F6); // Azul Informação
 
+  // --- TEMA ESCURO (DARK MODE) ---
+  static const Color darkBackground = Color(0xFF0F172A); // Fundo Principal Dark (Slate 900)
+  static const Color darkSurface = Color(0xFF1E293B); // Superfícies e Cards Dark (Slate 800)
+  static const Color darkCard = Color(0xFF1E293B); // Fundo de Cards Dark
+  static const Color darkInputFill = Color(0xFF0B1120); // Fundo dos Inputs Dark (Slate 950)
+  static const Color darkBorder = Color(0xFF334155); // Bordas Dark (Slate 700)
+  static const Color darkDivider = Color(0xFF1E293B); // Divisores Dark
+  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Texto Principal Dark
+  static const Color darkTextSecondary = Color(0xFF94A3B8); // Subtítulos Dark
+  static const Color darkTextMuted = Color(0xFF64748B); // Textos Apagados Dark
+
   // --- GRADIENTES REUTILIZÁVEIS ---
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,

@@ -212,8 +212,8 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
 - Configuração de rotas principais: `/` → `/auth`, `/auth` (Login/Register) e `/dashboard` (Painel SPA).
 
 ### 2. `AuthModule`
-- **Tela de Login (`login_page.dart`):** Interface moderna com glassmorphism, gradientes e formulário validado via MobX (`LoginStore`).
-- **Tela de Cadastro (`register_page.dart`):** Cadastro com confirmação de senha e persistência direta no Firestore e Auth.
+- **Tela de Login (`login_page.dart`):** Interface moderna com `TechBackground` (malha cibernética e orbes luminosos), card branco alargado (480px) com cantos arredondados e elevação suave, logo compacta otimizada, campos estilizados e autenticação E-mail/Senha e Google OAuth validada via MobX (`LoginStore`).
+- **Tela de Cadastro (`register_page.dart`):** Cadastro moderno com `TechBackground`, card branco alargado, campos consistentes e persistência direta no Firestore e Auth com perfil de Admin / Dono da Empresa.
 - **Serviço de Autenticação (`auth_repository.dart`):** Gerenciador de chamadas Firebase com tratamento de erros em português.
 
 ### 4. `ClientsModule` / `ClientsView` / `ClientFormDialog`
@@ -358,14 +358,38 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
           - **Presets de Posicionamento:** Atalhos para *"Topo Direito"*, *"Topo Centro"* e *"Rodapé"*.
           - **Renderização no PDF (`SolarProposalPdfService`):** A logomarca é gravada com precisão milimétrica nas coordenadas e dimensões exatas configuradas pelo usuário.
         - **Integração no Motor de PDF (`SolarProposalPdfService`):** A capa da página 1 do PDF renderiza o modelo escolhido com o retângulo, título, subtítulo, logomarca personalizada e opacidade nas coordenadas milimétricas exatas definidas pelo usuário, com contraste perfeito sobre a área branca inferior.
+   15. **Assistente Inteligente Unificado de IA para Propostas Comerciais (`GeminiProposalAssistantService` & `ProposalAiAssistantDialog`):**
+       - **Análise Multi-Arquivos Simultâneos:** Permite o envio simultâneo de múltiplos documentos (ex: Cotação Fotovoltaica da Distribuidora + Documento de Identificação/Fatura do Cliente). A IA do Google Gemini classifica e diferencia automaticamente qual arquivo é a cotação solar e qual é a identificação do cliente (RG, CNH, CPF, Cartão CNPJ ou Fatura DANF3E).
+       - **Vinculação e Criação Automática do Cliente:** Ao identificar o documento do titular, a IA pesquisa no Firestore se o cliente já existe (por CPF/CNPJ ou e-mail). Se existir, vincula-o diretamente; se for inédito, cria o cadastro com endereço completo preenchido e associa à proposta em 1 clique.
+       - **Montagem de Proposta por Texto Livre / Prompt / Partes:** Permite criar propostas comerciais diretamente por linguagem natural digitada ou mensagens coladas (ex: *"Monte uma proposta pra mim com 15 placas de 615W e 1 inversor AUXSOL de 8kw, com geração de 1000kwh mes e valor de servico R$ 10.000"*), sem obrigatoriedade de anexar PDFs ou imagens. A IA calcula a potência nominal em kWp (`Quantidade × Watts / 1000`), extrai marcas, componentes, geração e serviço.
+       - **Passo Final de Revisão e Confirmação de Parâmetros:** Apresenta painel executivo com cards visuais do Cliente e da Usina, permitindo ao operador conferir e ajustar a **Geração Estimada (kWh/mês)** e o **Valor do Serviço (R$)** antes de gerar a proposta.
+       - **Integração Completa na UI:** Botão **"✨ CRIAR COM IA"** no cabeçalho das propostas, botão **"✨ ASSISTENTE IA"** dentro do formulário `_ProposalFormCard` e integração com a importação de Usinas Solares (`SolarPdfImportDialog`).
 
-### 9. `SettingsModule` / `SettingsView` (`lib/settings/presentation/settings_view.dart`)
-- **`settings_view.dart` & `settings_service.dart`:** Gestão de preferências e nicho do CRM:
-  1. **Configuração de Ramo / Nicho de Atuação:** Permite ao usuário selecionar qual dos 20 ramos do mercado brasileiro (ou Usina Solar) sua empresa atua.
-  2. **Modo Focado (Lock-in):** Quando ativado (padrão ao escolher Usina Solar ou nicho exclusivo), oculta automaticamente o dropdown de 20 segmentos na tela de produtos, deixando o CRM 100% focado e limpo para o ramo escolhido (ex: Usinas Solares, botão "NOVA USINA" e agrupamento de kits).
-  3. **Onboarding no Primeiro Login:** Ao logar pela primeira vez no sistema (ou sem nicho salvo), o modal de setup inicial (`SectorOnboardingDialog`) é exibido automaticamente como primeira tela com fundo total escuro e wallpaper tecnológico fullscreen (`https://images.unsplash.com/...`), cobrindo 100% do app em segundo plano.
-  4. **Persistência Completa:** Salva localmente via `SettingsService` (`SharedPreferences`) e permite alterar o nicho a qualquer momento na aba *Configurações*.
-  5. **Menu Lateral Reativo:** Ao definir o nicho como **Usina Solar**, o menu lateral `Produtos` é transformado automaticamente e em tempo real para `☀️ Usinas Solares` com ícone temático (`solar_power_rounded`).
+### 9. `SettingsModule` / `SettingsView` / `CompanySetupDialog` (`lib/settings/`)
+- **`settings_view.dart`, `company_setup_dialog.dart`, `company_service.dart` & `settings_service.dart`:** Gestão de preferências, identidade visual e perfil institucional da Empresa no CRM:
+  1. **Limpeza Completa de Dados Padrão (Sem dados "Soli"):** Todos os valores fixos e placeholders fictícios de exemplo de empresas terceiras foram removidos dos modelos e views. Os dados carregam limpos e são preenchidos exclusivamente a partir do perfil configurado da empresa no Firestore (`companies/{companyId}`).
+  2. **Onboarding Direto & Sem Flash no Primeiro Acesso do Admin (Dono da Empresa):**
+     - **Carregamento Direto:** A `DashboardPage` inicializa diretamente no `SectorOnboardingDialog` com fundo escuro elegante, eliminando qualquer flash da tela de início antes da abertura do configurador.
+     - **Etapa 1 (Configurador de Nicho - `SectorOnboardingDialog`):** O Admin visualiza a grade com os 20 nichos de mercado ou Usina Solar em modal sobreposto ao Dashboard com fundo translúcido. Ao clicar diretamente no card do seu ramo de atuação, o sistema avança imediatamente para o formulário de dados da empresa.
+     - **Etapa 2 (Formulário da Empresa com Opção de Pular - `CompanySetupDialog`):**
+       - **Botão "PREENCHER DEPOIS":** Permite ao usuário pular o preenchimento dos campos obrigatórios da empresa caso queira configurar mais tarde. O nicho selecionado é salvo como preferência e a Dashboard é liberada imediatamente.
+       - **Dados Cadastrais:** Razão Social / Nome Fantasia, CNPJ/CPF, Telefone/WhatsApp Comercial, E-mail, Site Oficial, Instagram e Slogan.
+       - **Endereço Completo com ViaCEP:** Consulta automática por CEP autocompletando Logradouro, Bairro, Cidade, Estado (UF) e Complemento, com foco automático no campo Número.
+       - **Logomarca da Empresa:** Upload de imagem (PNG, JPG, WEBP) com visualização em tempo real (preview) e opções de troca ou remoção.
+     - **Persistência Centralizada & Sincronização:** Os dados são gravados na coleção `companies/{companyId}` e sincronizados automaticamente com as configurações de proposta (`sector_settings/solarPlant`), garantindo que capas de PDF, propostas web e cabeçalhos recebam imediatamente os dados institucionais e a logomarca da empresa.
+  3. **Card Institucional da Empresa nas Configurações:** Apresenta um painel dedicado com status do perfil, logo, CNPJ, telefone, endereço resumido e botão *"EDITAR DADOS DA EMPRESA & LOGO"* para alteração a qualquer momento.
+  4. **Painel de Treinamento e Administração do Agente de IA (`AiAgentSettingsView`, `AiAgentSettingsService`, `AiAgentSettingsModel`):**
+     - **Isolamento Multi-Tenant por Empresa:** Cada Admin de empresa possui seu próprio painel administrativo isolado para personalizar a inteligência artificial da sua equipe (`companies/{companyId}/settings/ai_agent`).
+     - **Regras Oficiais como DEFAULT:** O sistema já inicializa com todas as regras mestres pré-configuradas (classificação multi-arquivo de cotações vs documentos do cliente, extração de kits fotovoltaicos com kWp, geração e serviços, e montagem por texto livre).
+     - **4 Abas Interativas de Configuração:**
+       1. **🧠 Prompt & Instruções:** Editor com a System Instruction mestre em destaque, permitindo que o Admin adicione ou modifique diretrizes comportamentais e de formatação.
+       2. **💼 Políticas & Marcas:** Configuração da margem padrão de serviço (%), fator de geração regional (kWh/kWp), validade padrão, tipo de telhado e **chips interativos** com botão de adicionar/remover para **Distribuidoras Parceiras**, **Módulos Preferenciais** e **Inversores Preferenciais**.
+       3. **🎓 Exemplos de Treinamento (Few-Shot Learning):** Lista gerenciável de casos reais onde a IA aprende exatamente o padrão esperado de raciocínio da empresa (com switches de ativação e formulário de novo caso).
+       4. **🧪 Playground & Simulador ao Vivo:** Área de testes em tempo real onde o Admin pode executar prompts e verificar como o Agente se comporta com as regras atuais antes de liberar para a equipe comercial.
+     - **Controle de Rigor / Temperatura:** Slider de 0.0 a 1.0 (Padrão: 0.2 para máxima fidelidade técnica).
+     - **Botão "Restaurar Padrões":** Permite resetar as regras da empresa para o padrão oficial Mavis a qualquer momento.
+  5. **Modo Focado (Lock-in):** Quando ativado (padrão ao escolher Usina Solar ou nicho exclusivo), oculta automaticamente o dropdown de 20 segmentos na tela de produtos, deixando o CRM 100% focado e limpo para o ramo escolhido (ex: Usinas Solares, botão "NOVA USINA" e agrupamento de kits).
+  6. **Menu Lateral Reativo:** Ao definir o nicho como **Usina Solar**, o menu lateral `Produtos` é transformado automaticamente e em tempo real para `☀️ Usinas Solares` com ícone temático (`solar_power_rounded`).
 
 ### 10. `AppSidebar` (`lib/app/layout/app_sidebar.dart`)
 - **Menu Lateral Retrátil / Colapsável (Desktop) & Drawer Nativo (Mobile):**
@@ -375,6 +399,13 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
   - **Controles de Alternância (Toggle):** Botão estilizado no topo da Sidebar (`keyboard_double_arrow_left/right`) e botão de menu na AppBar (`menu/menu_open`).
   - **Itens Dinâmicos:** Suporte a títulos e ícones reativos por nicho (ex: "Usinas Solares").
   - Enum `AppSidebarItem` com `dashboard`, `clients`, `products`, `suppliers`, `proposals`, `users`, `settings`.
+
+### 11. `AppTheme` / Dark Mode System (`lib/app/theme/`)
+- **Design System Centralizado com Suporte Completo a Dark Mode:**
+  - **Controlador Reativo (`AppTheme.themeModeNotifier`):** `ValueNotifier<ThemeMode>` permitindo alternar instantaneamente entre `ThemeMode.light` e `ThemeMode.dark` sem necessidade de recarregar a página.
+  - **Persistência Local (`SharedPreferences`):** A escolha do tema é gravada em `mavis_crm_theme_mode` e restaurada automaticamente na inicialização da aplicação (`AppTheme.initThemeMode()` no `main.dart`).
+  - **Botão de Alternância no Dashboard:** Localizado no topo da tela (ao lado do botão de Sair) na `AppBar`, com ícone dinâmico sol/lua (`Icons.light_mode_rounded` dourado quando no modo escuro e `Icons.dark_mode_rounded` cinza quando no modo claro) e tooltip explicativo.
+  - **`darkTheme` Padronizado:** Cores baseadas em Slate escuro (`#0F172A`, `#1E293B`, `#0B1120`), bordas suaves (`#334155`), tipografia de alto contraste (`#F8FAFC` e `#94A3B8`), cards elevados e inputs adaptados.
 
 ---
 

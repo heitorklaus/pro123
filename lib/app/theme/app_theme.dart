@@ -1,12 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_colors.dart';
 import 'app_decorations.dart';
 
-/// Configuração Principal do Tema ThemeData do Mavis CRM
-/// Altere as chamadas do GoogleFonts aqui para trocar a fonte de todo o sistema!
+/// Configuração Principal do Tema ThemeData do TAOS CRM
 abstract class AppTheme {
-  /// Fonte padrão do sistema (Altere para GoogleFonts.poppins, GoogleFonts.inter, etc.)
+  static const _themeModeKey = 'mavis_crm_theme_mode';
+
+  /// Notificador reativo de Tema (Claro / Escuro) - PADRÃO DARK
+  static final ValueNotifier<ThemeMode> themeModeNotifier =
+      ValueNotifier<ThemeMode>(ThemeMode.dark);
+
+  /// Retorna se o tema escuro está atualmente ativo
+  static bool get isDarkMode => themeModeNotifier.value == ThemeMode.dark;
+
+  /// Inicializa a preferência de tema salva no SharedPreferences (Padrão DARK)
+  static Future<void> initThemeMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedMode = prefs.getString(_themeModeKey);
+      if (savedMode == 'light') {
+        themeModeNotifier.value = ThemeMode.light;
+      } else {
+        // Padrão: Tema Dark
+        themeModeNotifier.value = ThemeMode.dark;
+      }
+    } catch (_) {
+      themeModeNotifier.value = ThemeMode.dark;
+    }
+  }
+
+  /// Alterna entre Tema Claro e Tema Escuro e persiste localmente
+  static Future<void> toggleThemeMode() async {
+    final nextMode =
+        themeModeNotifier.value == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    await setThemeMode(nextMode);
+  }
+
+  /// Define um tema específico e persiste no armazenamento local
+  static Future<void> setThemeMode(ThemeMode mode) async {
+    themeModeNotifier.value = mode;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_themeModeKey, mode == ThemeMode.dark ? 'dark' : 'light');
+    } catch (_) {}
+  }
+
+  /// Fonte padrão do sistema
   static TextStyle font({
     double? fontSize,
     FontWeight? fontWeight,
@@ -21,9 +62,13 @@ abstract class AppTheme {
     );
   }
 
+  // ═════════════════════════════════════════════════════════════════════════════
+  // ☀️ TEMA CLARO (LIGHT THEME)
+  // ═════════════════════════════════════════════════════════════════════════════
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.background,
 
       // --- ESQUEMA DE CORES ---
@@ -36,7 +81,7 @@ abstract class AppTheme {
         onSurface: AppColors.textPrimary,
       ),
 
-      // --- TIPOGRAFIA DA APLICAÇÃO (ROBOTO) ---
+      // --- TIPOGRAFIA ---
       textTheme: GoogleFonts.robotoTextTheme().copyWith(
         headlineLarge: font(
           color: AppColors.textPrimary,
@@ -63,21 +108,13 @@ abstract class AppTheme {
         ),
       ),
 
-      // --- ESTILIZAÇÃO DOS CAMPOS DE TEXTO (INPUT TEXT) ---
+      // --- CAMPOS DE TEXTO (INPUT) ---
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.inputFill,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        hintStyle: font(
-          color: AppColors.textMuted,
-          fontSize: 14,
-        ),
-        labelStyle: font(
-          color: AppColors.textSecondary,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        hintStyle: font(color: AppColors.textMuted, fontSize: 14),
+        labelStyle: font(color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
         border: OutlineInputBorder(
           borderRadius: AppDecorations.radiusMedium,
           borderSide: const BorderSide(color: AppColors.border),
@@ -100,7 +137,7 @@ abstract class AppTheme {
         ),
       ),
 
-      // --- ESTILIZAÇÃO DOS BOTÕES PRIMÁRIOS (ELEVATED BUTTON) ---
+      // --- BOTÕES ---
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
@@ -108,50 +145,31 @@ abstract class AppTheme {
           elevation: 0,
           minimumSize: const Size(64, 44),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          textStyle: font(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: AppDecorations.radiusMedium,
-          ),
+          textStyle: font(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: AppDecorations.radiusMedium),
         ),
       ),
 
-      // --- ESTILIZAÇÃO DOS BOTÕES SECUNDÁRIOS / BORDA (OUTLINED BUTTON) ---
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
           minimumSize: const Size(64, 44),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           side: const BorderSide(color: AppColors.primary, width: 1.5),
-          textStyle: font(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: AppDecorations.radiusMedium,
-          ),
+          textStyle: font(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: AppDecorations.radiusMedium),
         ),
       ),
 
-      // --- ESTILIZAÇÃO DOS BOTÕES DE TEXTO (TEXT BUTTON) ---
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          textStyle: font(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: AppDecorations.radiusSmall,
-          ),
+          textStyle: font(fontSize: 14, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(borderRadius: AppDecorations.radiusSmall),
         ),
       ),
 
-      // --- ESTILIZAÇÃO DE CARDS ---
+      // --- CARDS ---
       cardTheme: CardThemeData(
         color: AppColors.card,
         elevation: 0,
@@ -159,6 +177,135 @@ abstract class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: AppDecorations.radiusMedium,
           side: const BorderSide(color: AppColors.border),
+        ),
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 🌙 TEMA ESCURO (DARK THEME)
+  // ═════════════════════════════════════════════════════════════════════════════
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: AppColors.darkBackground,
+
+      // --- ESQUEMA DE CORES DARK ---
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.primary,
+        secondary: AppColors.secondary,
+        surface: AppColors.darkSurface,
+        error: AppColors.error,
+        onPrimary: Colors.white,
+        onSurface: AppColors.darkTextPrimary,
+      ),
+
+      // --- TIPOGRAFIA DARK ---
+      textTheme: GoogleFonts.robotoTextTheme().copyWith(
+        headlineLarge: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+        ),
+        headlineMedium: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
+        titleLarge: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+        bodyLarge: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 16,
+        ),
+        bodyMedium: font(
+          color: AppColors.darkTextSecondary,
+          fontSize: 14,
+        ),
+      ),
+
+      // --- CAMPOS DE TEXTO DARK ---
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.darkInputFill,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        hintStyle: font(color: AppColors.darkTextMuted, fontSize: 14),
+        labelStyle: font(color: AppColors.darkTextSecondary, fontSize: 14, fontWeight: FontWeight.w600),
+        border: OutlineInputBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          borderSide: const BorderSide(color: AppColors.darkBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          borderSide: const BorderSide(color: AppColors.darkBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          borderSide: const BorderSide(color: AppColors.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
+        ),
+      ),
+
+      // --- BOTÕES DARK ---
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          textStyle: font(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: AppDecorations.radiusMedium),
+        ),
+      ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primaryLight,
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          side: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+          textStyle: font(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: AppDecorations.radiusMedium),
+        ),
+      ),
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primaryLight,
+          textStyle: font(fontSize: 14, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(borderRadius: AppDecorations.radiusSmall),
+        ),
+      ),
+
+      // --- CARDS DARK ---
+      cardTheme: CardThemeData(
+        color: AppColors.darkCard,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          side: const BorderSide(color: AppColors.darkBorder),
+        ),
+      ),
+
+      // --- DIALOGS DARK ---
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: AppColors.darkBorder),
         ),
       ),
     );

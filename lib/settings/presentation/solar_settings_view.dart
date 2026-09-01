@@ -804,23 +804,23 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
             if (isMobile) ...[
               _label('Razão Social / Nome Fantasia'),
               const SizedBox(height: 6),
-              TextFormField(controller: _companyNameCtrl, decoration: const InputDecoration(hintText: 'Ex: Soli Energia Solar')),
+              TextFormField(controller: _companyNameCtrl, decoration: const InputDecoration(hintText: 'Ex: Minha Empresa / Razão Social')),
               const SizedBox(height: 12),
               _label('CNPJ / CPF'),
               const SizedBox(height: 6),
-              TextFormField(controller: _companyDocCtrl, decoration: const InputDecoration(hintText: 'Ex: 42.117.511/0001-38')),
+              TextFormField(controller: _companyDocCtrl, decoration: const InputDecoration(hintText: '00.000.000/0000-00')),
               const SizedBox(height: 12),
               _label('Telefone / WhatsApp'),
               const SizedBox(height: 6),
-              TextFormField(controller: _companyPhoneCtrl, decoration: const InputDecoration(hintText: 'Ex: (92) 99999-9999')),
+              TextFormField(controller: _companyPhoneCtrl, decoration: const InputDecoration(hintText: '(00) 00000-0000')),
               const SizedBox(height: 12),
               _label('Site Oficial'),
               const SizedBox(height: 6),
-              TextFormField(controller: _companyWebsiteCtrl, decoration: const InputDecoration(hintText: 'Ex: www.solienergiasolar.com.br')),
+              TextFormField(controller: _companyWebsiteCtrl, decoration: const InputDecoration(hintText: 'www.suaempresa.com.br')),
               const SizedBox(height: 12),
               _label('Instagram / Redes'),
               const SizedBox(height: 6),
-              TextFormField(controller: _companyInstagramCtrl, decoration: const InputDecoration(hintText: 'Ex: @solienergiasolar')),
+              TextFormField(controller: _companyInstagramCtrl, decoration: const InputDecoration(hintText: '@suaempresa')),
             ] else ...[
               Row(
                 children: [
@@ -831,7 +831,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       children: [
                         _label('Razão Social / Nome Fantasia'),
                         const SizedBox(height: 6),
-                        TextFormField(controller: _companyNameCtrl, decoration: const InputDecoration(hintText: 'Ex: Soli Energia Solar', prefixIcon: Icon(Icons.solar_power_outlined, color: Color(0xFF64748B)))),
+                        TextFormField(controller: _companyNameCtrl, decoration: const InputDecoration(hintText: 'Ex: Minha Empresa / Razão Social', prefixIcon: Icon(Icons.solar_power_outlined, color: Color(0xFF64748B)))),
                       ],
                     ),
                   ),
@@ -842,7 +842,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       children: [
                         _label('CNPJ / CPF'),
                         const SizedBox(height: 6),
-                        TextFormField(controller: _companyDocCtrl, decoration: const InputDecoration(hintText: 'Ex: 42.117.511/0001-38', prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF64748B)))),
+                        TextFormField(controller: _companyDocCtrl, decoration: const InputDecoration(hintText: '00.000.000/0000-00', prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF64748B)))),
                       ],
                     ),
                   ),
@@ -857,7 +857,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       children: [
                         _label('Telefone / WhatsApp'),
                         const SizedBox(height: 6),
-                        TextFormField(controller: _companyPhoneCtrl, decoration: const InputDecoration(hintText: 'Ex: (92) 99999-9999', prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)))),
+                        TextFormField(controller: _companyPhoneCtrl, decoration: const InputDecoration(hintText: '(00) 00000-0000', prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF64748B)))),
                       ],
                     ),
                   ),
@@ -868,7 +868,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       children: [
                         _label('Site Oficial'),
                         const SizedBox(height: 6),
-                        TextFormField(controller: _companyWebsiteCtrl, decoration: const InputDecoration(hintText: 'Ex: www.solienergiasolar.com.br', prefixIcon: Icon(Icons.language_rounded, color: Color(0xFF64748B)))),
+                        TextFormField(controller: _companyWebsiteCtrl, decoration: const InputDecoration(hintText: 'www.suaempresa.com.br', prefixIcon: Icon(Icons.language_rounded, color: Color(0xFF64748B)))),
                       ],
                     ),
                   ),
@@ -879,7 +879,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       children: [
                         _label('Instagram / Redes'),
                         const SizedBox(height: 6),
-                        TextFormField(controller: _companyInstagramCtrl, decoration: const InputDecoration(hintText: 'Ex: @solienergiasolar', prefixIcon: Icon(Icons.camera_alt_outlined, color: Color(0xFF64748B)))),
+                        TextFormField(controller: _companyInstagramCtrl, decoration: const InputDecoration(hintText: '@suaempresa', prefixIcon: Icon(Icons.camera_alt_outlined, color: Color(0xFF64748B)))),
                       ],
                     ),
                   ),
@@ -2043,13 +2043,14 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _companyNameCtrl.text.trim().isNotEmpty ? _companyNameCtrl.text.trim() : 'SOLI ENERGIA SOLAR',
+                            _companyNameCtrl.text.trim().isNotEmpty ? _companyNameCtrl.text.trim() : 'EMPRESA INTEGRADORA',
                             style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                           ),
-                          Text(
-                            _companyPhoneCtrl.text.trim().isNotEmpty ? _companyPhoneCtrl.text.trim() : '(92) 99999-9999',
-                            style: GoogleFonts.inter(fontSize: 7.5, color: const Color(0xFF475569)),
-                          ),
+                          if (_companyPhoneCtrl.text.trim().isNotEmpty)
+                            Text(
+                              _companyPhoneCtrl.text.trim(),
+                              style: GoogleFonts.inter(fontSize: 7.5, color: const Color(0xFF475569)),
+                            ),
                         ],
                       ),
                     ],

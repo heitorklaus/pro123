@@ -466,7 +466,7 @@ class SolarProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
                   pw.Text(
-                    settings.companyName?.isNotEmpty == true ? settings.companyName! : 'SOLI ENERGIA SOLAR',
+                    settings.companyName?.isNotEmpty == true ? settings.companyName! : 'EMPRESA INTEGRADORA',
                     style: pw.TextStyle(fontSize: 12.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
                   ),
                   if (settings.companyDocument?.isNotEmpty == true)

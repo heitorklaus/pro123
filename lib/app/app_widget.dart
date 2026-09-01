@@ -7,12 +7,19 @@ class AppWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'TAOS CRM',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routeInformationParser: Modular.routeInformationParser,
-      routerDelegate: Modular.routerDelegate,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppTheme.themeModeNotifier,
+      builder: (context, themeMode, _) {
+        return MaterialApp.router(
+          title: 'TAOS CRM',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
+          routeInformationParser: Modular.routeInformationParser,
+          routerDelegate: Modular.routerDelegate,
+        );
+      },
     );
   }
 }

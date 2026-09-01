@@ -11,6 +11,7 @@ import '../../auth/domain/models/user_model.dart';
 import '../../clients/data/repositories/client_repository.dart';
 import '../../clients/domain/models/client_model.dart';
 import '../data/repositories/proposal_repository.dart';
+import '../data/services/gemini_proposal_assistant_service.dart';
 import '../domain/models/proposal_item_model.dart';
 import '../domain/models/proposal_model.dart';
 import '../../products/domain/models/category_model.dart';
@@ -19,6 +20,7 @@ import '../../products/presentation/solar_plant_form_card.dart';
 import '../../clients/presentation/widgets/client_form_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'web_proposal_page.dart';
+import 'widgets/proposal_ai_assistant_dialog.dart';
 import 'widgets/proposal_client_autocomplete.dart';
 import 'widgets/proposal_pdf_preview_dialog.dart';
 import 'widgets/proposal_product_picker_dialog.dart';
@@ -47,6 +49,8 @@ class _ProposalsViewState extends State<ProposalsView> {
   bool _isCreatingOrEditing = false;
   ProposalModel? _proposalToEdit;
   ProposalItemModel? _activeInitialItem;
+  ClientModel? _aiLinkedClient;
+  ParsedUnifiedProposal? _aiParsedProposal;
 
   @override
   void initState() {
@@ -75,6 +79,18 @@ class _ProposalsViewState extends State<ProposalsView> {
     setState(() {
       _proposalToEdit = null;
       _activeInitialItem = null;
+      _aiLinkedClient = null;
+      _aiParsedProposal = null;
+      _isCreatingOrEditing = true;
+    });
+  }
+
+  void _openCreateFromAi(ParsedUnifiedProposal parsed, ClientModel? linkedClient, ProposalItemModel solarItem) {
+    setState(() {
+      _proposalToEdit = null;
+      _activeInitialItem = solarItem;
+      _aiLinkedClient = linkedClient;
+      _aiParsedProposal = parsed;
       _isCreatingOrEditing = true;
     });
   }
@@ -83,6 +99,8 @@ class _ProposalsViewState extends State<ProposalsView> {
     setState(() {
       _proposalToEdit = proposal;
       _activeInitialItem = null;
+      _aiLinkedClient = null;
+      _aiParsedProposal = null;
       _isCreatingOrEditing = true;
     });
   }
@@ -91,6 +109,8 @@ class _ProposalsViewState extends State<ProposalsView> {
     setState(() {
       _proposalToEdit = null;
       _activeInitialItem = null;
+      _aiLinkedClient = null;
+      _aiParsedProposal = null;
       _isCreatingOrEditing = false;
     });
     widget.onClearInitialItem?.call();
@@ -108,12 +128,15 @@ class _ProposalsViewState extends State<ProposalsView> {
                   currentUser: widget.currentUser,
                   proposal: _proposalToEdit,
                   initialItem: _activeInitialItem,
+                  initialClient: _aiLinkedClient,
+                  initialParsedProposal: _aiParsedProposal,
                   onCancel: _closeForm,
                   onSaved: _closeForm,
                 )
               : _ProposalTableView(
                   currentUser: widget.currentUser,
                   onAddNew: _openCreateForm,
+                  onAiCreate: _openCreateFromAi,
                   onEdit: _openEditForm,
                 ),
         );
@@ -128,11 +151,13 @@ class _ProposalsViewState extends State<ProposalsView> {
 class _ProposalTableView extends StatefulWidget {
   final UserModel? currentUser;
   final VoidCallback onAddNew;
+  final Function(ParsedUnifiedProposal, ClientModel?, ProposalItemModel) onAiCreate;
   final ValueChanged<ProposalModel> onEdit;
 
   const _ProposalTableView({
     this.currentUser,
     required this.onAddNew,
+    required this.onAiCreate,
     required this.onEdit,
   });
 
@@ -177,6 +202,18 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
     });
     _loadCompanyId();
     _loadKanbanPreference();
+  }
+
+  void _openAiAssistantDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => ProposalAiAssistantDialog(
+        onProposalReady: (parsed, linkedClient, solarItem) {
+          widget.onAiCreate(parsed, linkedClient, solarItem);
+        },
+      ),
+    );
   }
 
   Future<void> _loadKanbanPreference() async {
@@ -495,8 +532,49 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                   // Toggle Switcher Modo Tabela / Modo Kanban
                   _buildViewModeToggle(isMobile),
 
-                  // Botão NOVA PROPOSTA (Apenas se tiver permissão)
+                  // Botão CRIAR COM IA & Botão NOVA PROPOSTA (Apenas se tiver permissão)
                   if (widget.currentUser?.canCreateProposals ?? _currentUser?.canCreateProposals ?? false) ...[
+                    const SizedBox(width: 10),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _openAiAssistantDialog,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 12 : 18, vertical: isMobile ? 10 : 12),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.auto_awesome_rounded,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 6),
+                              Text(
+                                isMobile ? 'IA' : 'CRIAR COM IA',
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontSize: isMobile ? 12 : 13,
+                                    letterSpacing: 0.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     Material(
                       color: Colors.transparent,
@@ -1428,6 +1506,8 @@ class _ProposalFormCard extends StatefulWidget {
   final UserModel? currentUser;
   final ProposalModel? proposal;
   final ProposalItemModel? initialItem;
+  final ClientModel? initialClient;
+  final ParsedUnifiedProposal? initialParsedProposal;
   final VoidCallback onCancel;
   final VoidCallback onSaved;
 
@@ -1435,6 +1515,8 @@ class _ProposalFormCard extends StatefulWidget {
     this.currentUser,
     this.proposal,
     this.initialItem,
+    this.initialClient,
+    this.initialParsedProposal,
     required this.onCancel,
     required this.onSaved,
   });
@@ -1602,12 +1684,95 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _notesCtrl.text = p.notes ?? '';
       _themeColorValue = p.themeColorValue;
       _selectedStatus = p.status;
-    } else if (widget.initialItem != null) {
-      _items.add(widget.initialItem!);
-      if (widget.initialItem!.isSolarPlant) {
-        _titleCtrl.text = 'Proposta Comercial - ${widget.initialItem!.name}';
+    } else {
+      if (widget.initialItem != null) {
+        _items.add(widget.initialItem!);
+        if (widget.initialItem!.isSolarPlant) {
+          _titleCtrl.text = 'Proposta Comercial - ${widget.initialItem!.name}';
+        }
+      }
+      if (widget.initialClient != null) {
+        final c = widget.initialClient!;
+        _isClientLinked = true;
+        _selectedClientId = c.id;
+        _clientNameCtrl.text = c.name;
+        _clientEmailCtrl.text = c.email;
+        _clientPhoneCtrl.text = c.phone ?? '';
+        _clientDocCtrl.text = c.document ?? '';
+        _clientAddrCtrl.text = c.fullAddress;
+      }
+      if (widget.initialParsedProposal != null) {
+        final p = widget.initialParsedProposal!;
+        if (p.plantName.isNotEmpty) {
+          _titleCtrl.text = 'Proposta Comercial - ${p.plantName}';
+        }
+        if (p.paymentTerms != null && p.paymentTerms!.isNotEmpty) {
+          _paymentTermsCtrl.text = p.paymentTerms!;
+        }
+        _validityDaysCtrl.text = p.validityDays.toString();
+        if (p.deliveryTime != null && p.deliveryTime!.isNotEmpty) {
+          _deliveryTimeCtrl.text = p.deliveryTime!;
+        }
+        if (p.notes != null && p.notes!.isNotEmpty) {
+          _notesCtrl.text = p.notes!;
+        }
+        if (p.shippingFee > 0) {
+          _shippingCtrl.text = p.shippingFee.toStringAsFixed(2);
+        }
+        if (widget.initialClient == null && p.clientName != null && p.clientName!.isNotEmpty) {
+          _isClientLinked = false;
+          _clientNameCtrl.text = p.clientName!;
+          _clientEmailCtrl.text = p.clientEmail ?? '';
+          _clientPhoneCtrl.text = p.clientPhone ?? '';
+          _clientDocCtrl.text = p.clientDocument ?? '';
+          _clientAddrCtrl.text = p.street != null
+              ? '${p.street!}${p.addressNumber != null ? ", nº ${p.addressNumber!}" : ""}${p.city != null ? ", ${p.city!}" : ""}'
+              : '';
+        }
       }
     }
+  }
+
+  void _openAiAssistant() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => ProposalAiAssistantDialog(
+        onProposalReady: (parsed, linkedClient, solarItem) {
+          setState(() {
+            if (linkedClient != null) {
+              _onClientSelected(linkedClient);
+            } else if (parsed.clientName != null && parsed.clientName!.isNotEmpty) {
+              _isClientLinked = false;
+              _clientNameCtrl.text = parsed.clientName!;
+              _clientEmailCtrl.text = parsed.clientEmail ?? '';
+              _clientPhoneCtrl.text = parsed.clientPhone ?? '';
+              _clientDocCtrl.text = parsed.clientDocument ?? '';
+              _clientAddrCtrl.text = parsed.street != null
+                  ? '${parsed.street!}${parsed.addressNumber != null ? ", nº ${parsed.addressNumber!}" : ""}${parsed.city != null ? ", ${parsed.city!}" : ""}'
+                  : '';
+            }
+            if (parsed.plantName.isNotEmpty) {
+              _titleCtrl.text = 'Proposta Comercial - ${parsed.plantName}';
+            }
+            if (parsed.paymentTerms != null && parsed.paymentTerms!.isNotEmpty) {
+              _paymentTermsCtrl.text = parsed.paymentTerms!;
+            }
+            if (parsed.notes != null && parsed.notes!.isNotEmpty) {
+              _notesCtrl.text = parsed.notes!;
+            }
+            _items.add(solarItem);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dados da IA aplicados na proposta com sucesso!'),
+              backgroundColor: Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _loadCompanyId() async {
@@ -2049,6 +2214,49 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Botão Assistente IA dentro do Formulário
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _openAiAssistant,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 10 : 14, vertical: 10),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.auto_awesome_rounded,
+                                size: 16, color: Colors.white),
+                            const SizedBox(width: 6),
+                            Text(
+                              isMobile ? 'IA' : 'ASSISTENTE IA',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),

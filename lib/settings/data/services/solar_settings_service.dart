@@ -203,9 +203,52 @@ class SolarSettingsService {
             .doc('solarPlant')
             .get();
 
+        SolarSettingsModel? model;
         if (doc.exists && doc.data() != null) {
-          final model = SolarSettingsModel.fromMap(doc.data()!);
-          // Salva no cache local
+          model = SolarSettingsModel.fromMap(doc.data()!);
+        }
+
+        // Se o modelo de usina não tiver dados da empresa, busca da raiz companies/{cid}
+        if (model == null || model.companyName == null || model.companyName!.isEmpty) {
+          final companyDoc = await FirebaseFirestore.instance
+              .collection('companies')
+              .doc(cid)
+              .get();
+          if (companyDoc.exists && companyDoc.data() != null) {
+            final cdata = companyDoc.data()!;
+            final cName = cdata['name'] as String? ?? (cdata['tradeName'] as String?);
+            final cDoc = cdata['document'] as String? ?? (cdata['cnpj'] as String?);
+            final cPhone = cdata['phone'] as String?;
+            final cWeb = cdata['website'] as String?;
+            final cInsta = cdata['instagram'] as String?;
+            final cSlogan = cdata['slogan'] as String?;
+            final cLogo = cdata['logoBase64'] as String?;
+
+            if (model != null) {
+              model = model.copyWith(
+                companyName: model.companyName?.isNotEmpty == true ? model.companyName : cName,
+                companyDocument: model.companyDocument?.isNotEmpty == true ? model.companyDocument : cDoc,
+                companyPhone: model.companyPhone?.isNotEmpty == true ? model.companyPhone : cPhone,
+                companyWebsite: model.companyWebsite?.isNotEmpty == true ? model.companyWebsite : cWeb,
+                companyInstagram: model.companyInstagram?.isNotEmpty == true ? model.companyInstagram : cInsta,
+                companySlogan: model.companySlogan?.isNotEmpty == true ? model.companySlogan : cSlogan,
+                companyLogoBase64: model.companyLogoBase64?.isNotEmpty == true ? model.companyLogoBase64 : cLogo,
+              );
+            } else if (cName != null && cName.isNotEmpty) {
+              model = SolarSettingsModel.initial().copyWith(
+                companyName: cName,
+                companyDocument: cDoc,
+                companyPhone: cPhone,
+                companyWebsite: cWeb,
+                companyInstagram: cInsta,
+                companySlogan: cSlogan,
+                companyLogoBase64: cLogo,
+              );
+            }
+          }
+        }
+
+        if (model != null) {
           _cacheLocalSettings(model);
           return model;
         }
