@@ -34,6 +34,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
   late bool _deleteContracts;
   late bool _viewSuppliers;
   late bool _createSuppliers;
+  late bool _useAi;
   late bool _manageSettings;
   late bool _manageUsers;
 
@@ -57,6 +58,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
     _deleteContracts = p.deleteContracts;
     _viewSuppliers = p.viewSuppliers;
     _createSuppliers = p.createSuppliers;
+    _useAi = p.useAi;
     _manageSettings = p.manageSettings;
     _manageUsers = p.manageUsers;
   }
@@ -77,6 +79,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
       _deleteContracts = preset.deleteContracts;
       _viewSuppliers = preset.viewSuppliers;
       _createSuppliers = preset.createSuppliers;
+      _useAi = preset.useAi;
       _manageSettings = preset.manageSettings;
       _manageUsers = preset.manageUsers;
     });
@@ -99,6 +102,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
         deleteContracts: _deleteContracts,
         viewSuppliers: _viewSuppliers,
         createSuppliers: _createSuppliers,
+        useAi: _useAi,
         manageSettings: _manageSettings,
         manageUsers: _manageUsers,
       );
@@ -492,9 +496,25 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
                     ],
                   ),
 
+                  // 5. Inteligência Artificial (IA)
+                  _categoryGroup(
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Inteligência Artificial (IA)',
+                    subtitle: 'Leitura de faturas de energia, PDFs de usinas solares e assistente de propostas',
+                    color: const Color(0xFF6366F1),
+                    children: [
+                      _permissionSwitch(
+                        title: 'Permitir Recursos com IA',
+                        subtitle: 'Habilita o uso de visão computacional e criação inteligente de orçamentos para este usuário',
+                        value: _useAi,
+                        onChanged: (val) => setState(() => _useAi = val),
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 12),
 
-                  // 5. Configurações & Gestão de Usuários
+                  // 6. Configurações & Gestão de Usuários
                   _categoryGroup(
                     icon: Icons.settings_rounded,
                     title: 'Sistema & Administração',

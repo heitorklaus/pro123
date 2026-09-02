@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../proposals/data/services/gemini_proposal_assistant_service.dart';
+import '../../../settings/data/services/system_settings_service.dart';
 import '../../data/repositories/product_repository.dart';
 import '../../data/services/gemini_solar_vision_service.dart';
 import '../../data/services/solar_proposal_parser_service.dart';
@@ -100,7 +101,6 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowMultiple: true,
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'txt'],
       );
 
@@ -115,8 +115,8 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
           if (b.isNotEmpty) {
             filePayloads.add(ProposalFilePayload(
               name: f.name,
-              extension: f.extension?.toLowerCase() ?? 'pdf',
               bytes: b,
+              extension: f.extension?.toLowerCase() ?? (f.name.split('.').last.toLowerCase()),
             ));
           }
         } catch (_) {}
@@ -128,6 +128,12 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
         });
         return;
       }
+
+      if (!mounted) return;
+
+      // Valida permissão e cota diária de IA
+      final canProceed = await SystemSettingsService.checkAndConsumeAiQuota(context);
+      if (!canProceed) return;
 
       setState(() {
         _selectedFileName = filePayloads.map((f) => f.name).join(', ');
@@ -227,6 +233,12 @@ class _SolarPdfImportDialogState extends State<SolarPdfImportDialog> {
       ));
       return;
     }
+
+    if (!mounted) return;
+
+    // Valida permissão e cota diária de IA
+    final canProceed = await SystemSettingsService.checkAndConsumeAiQuota(context);
+    if (!canProceed) return;
 
     setState(() {
       _isAnalyzing = true;

@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -8,6 +7,7 @@ import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../clients/data/repositories/client_repository.dart';
 import '../../../clients/domain/models/client_model.dart';
 import '../../../products/data/services/gemini_solar_vision_service.dart';
+import '../../../settings/data/services/system_settings_service.dart';
 import '../../data/services/gemini_proposal_assistant_service.dart';
 import '../../domain/models/proposal_item_model.dart';
 
@@ -119,24 +119,18 @@ class _ProposalAiAssistantDialogState extends State<ProposalAiAssistantDialog>
   /// Seleciona um ou múltiplos arquivos simultaneamente (Cotação + Documento do Cliente)
   Future<void> _pickFiles() async {
     try {
-      final result = await FilePicker.pickFiles(
+      final files = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowMultiple: true,
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'txt'],
       );
 
-      if (result.isEmpty) return;
+      if (files.isEmpty) return;
 
-      for (final file in result) {
-        final Uint8List bytes;
-        try {
-          bytes = await file.readAsBytes();
-        } catch (_) {
-          continue;
-        }
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
 
         if (bytes.isNotEmpty) {
-          final ext = file.extension?.toLowerCase() ?? 'pdf';
+          final ext = file.extension?.toLowerCase() ?? (file.name.split('.').last.toLowerCase());
           setState(() {
             _selectedFiles.add(
               ProposalFilePayload(
@@ -171,6 +165,12 @@ class _ProposalAiAssistantDialogState extends State<ProposalAiAssistantDialog>
       setState(() => _errorMessage = 'Selecione ao menos um arquivo ou digite as instruções da proposta.');
       return;
     }
+
+    if (!mounted) return;
+
+    // Valida permissão e cota diária de IA
+    final canProceed = await SystemSettingsService.checkAndConsumeAiQuota(context);
+    if (!canProceed) return;
 
     setState(() {
       _isAnalyzing = true;

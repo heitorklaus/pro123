@@ -25,6 +25,9 @@ class UserPermissions {
   final bool viewSuppliers;
   final bool createSuppliers;
 
+  // Inteligência Artificial
+  final bool useAi; // Acesso à leitura de faturas, PDF de usinas e assistente de propostas IA
+
   // Sistema & Administração
   final bool manageSettings;
   final bool manageUsers;
@@ -43,6 +46,7 @@ class UserPermissions {
     this.deleteContracts = false,
     this.viewSuppliers = true,
     this.createSuppliers = true,
+    this.useAi = true,
     this.manageSettings = false,
     this.manageUsers = false,
   });
@@ -65,6 +69,7 @@ class UserPermissions {
           deleteContracts: true,
           viewSuppliers: true,
           createSuppliers: true,
+          useAi: true,
           manageSettings: true,
           manageUsers: true,
         );
@@ -83,6 +88,7 @@ class UserPermissions {
           deleteContracts: false,
           viewSuppliers: true,
           createSuppliers: true,
+          useAi: true,
           manageSettings: false,
           manageUsers: false,
         );
@@ -102,6 +108,7 @@ class UserPermissions {
           deleteContracts: false,
           viewSuppliers: true,
           createSuppliers: false,
+          useAi: true,
           manageSettings: false,
           manageUsers: false,
         );
@@ -124,6 +131,7 @@ class UserPermissions {
       deleteContracts: map['deleteContracts'] as bool? ?? false,
       viewSuppliers: map['viewSuppliers'] as bool? ?? true,
       createSuppliers: map['createSuppliers'] as bool? ?? (map['editLeads'] as bool? ?? false),
+      useAi: map['useAi'] as bool? ?? true,
       manageSettings: map['manageSettings'] as bool? ?? false,
       manageUsers: map['manageUsers'] as bool? ?? false,
     );
@@ -144,6 +152,7 @@ class UserPermissions {
       'deleteContracts': deleteContracts,
       'viewSuppliers': viewSuppliers,
       'createSuppliers': createSuppliers,
+      'useAi': useAi,
       'manageSettings': manageSettings,
       'manageUsers': manageUsers,
     };
@@ -163,6 +172,7 @@ class UserPermissions {
     bool? deleteContracts,
     bool? viewSuppliers,
     bool? createSuppliers,
+    bool? useAi,
     bool? manageSettings,
     bool? manageUsers,
   }) {
@@ -180,6 +190,7 @@ class UserPermissions {
       deleteContracts: deleteContracts ?? this.deleteContracts,
       viewSuppliers: viewSuppliers ?? this.viewSuppliers,
       createSuppliers: createSuppliers ?? this.createSuppliers,
+      useAi: useAi ?? this.useAi,
       manageSettings: manageSettings ?? this.manageSettings,
       manageUsers: manageUsers ?? this.manageUsers,
     );
@@ -201,6 +212,11 @@ class UserModel {
   final DateTime updatedAt;
   final DateTime? lastLoginAt;
 
+  // Controle de Cota e Utilização de IA
+  final int aiUsageCount; // Quantidade de análises consumidas hoje
+  final String? aiUsageDate; // Data do contador no formato 'yyyy-MM-dd'
+  final int? customDailyAiQuota; // Cota personalizada de IA (se null, usa a da empresa ou global)
+
   const UserModel({
     required this.uid,
     required this.name,
@@ -214,6 +230,9 @@ class UserModel {
     required this.createdAt,
     required this.updatedAt,
     this.lastLoginAt,
+    this.aiUsageCount = 0,
+    this.aiUsageDate,
+    this.customDailyAiQuota,
   });
 
   bool get isSuperAdmin =>
@@ -239,6 +258,7 @@ class UserModel {
   bool get canDeleteContracts => isSuperAdmin || permissions.deleteContracts || isAdmin;
   bool get canViewSuppliers => isSuperAdmin || permissions.viewSuppliers;
   bool get canCreateSuppliers => isSuperAdmin || permissions.createSuppliers;
+  bool get canUseAi => isSuperAdmin || permissions.useAi;
   bool get canManageSettings => isSuperAdmin || permissions.manageSettings;
   bool get canManageUsers => isSuperAdmin || permissions.manageUsers;
 
@@ -256,6 +276,9 @@ class UserModel {
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLoginAt: (map['lastLoginAt'] as Timestamp?)?.toDate(),
+      aiUsageCount: map['aiUsageCount'] as int? ?? 0,
+      aiUsageDate: map['aiUsageDate'] as String?,
+      customDailyAiQuota: map['customDailyAiQuota'] as int?,
     );
   }
 
@@ -273,6 +296,9 @@ class UserModel {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
+      'aiUsageCount': aiUsageCount,
+      'aiUsageDate': aiUsageDate,
+      'customDailyAiQuota': customDailyAiQuota,
     };
   }
 
@@ -289,6 +315,9 @@ class UserModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastLoginAt,
+    int? aiUsageCount,
+    String? aiUsageDate,
+    int? customDailyAiQuota,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -303,6 +332,9 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      aiUsageCount: aiUsageCount ?? this.aiUsageCount,
+      aiUsageDate: aiUsageDate ?? this.aiUsageDate,
+      customDailyAiQuota: customDailyAiQuota ?? this.customDailyAiQuota,
     );
   }
 }

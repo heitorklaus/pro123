@@ -29,6 +29,7 @@ import '../../users/presentation/widgets/user_dossier_dialog.dart';
 import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
+import 'widgets/master_system_config_card.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -724,6 +725,14 @@ class _SuperAdminMasterDashboardState extends State<_SuperAdminMasterDashboard> 
                                 onTap: () => widget.onNavigate(AppSidebarItem.products),
                               ),
                             ],
+                          ),
+
+                          const SizedBox(height: 28),
+
+                          // ── Painel Executivo Master: Cotas de IA & Limite de Vendedores ──
+                          MasterSystemConfigCard(
+                            currentUser: widget.currentUser,
+                            allUsers: users,
                           ),
 
                           const SizedBox(height: 28),

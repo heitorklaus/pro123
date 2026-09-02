@@ -7,6 +7,7 @@ import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../auth/presentation/register/register_store.dart';
+import '../../settings/data/services/system_settings_service.dart';
 import 'widgets/user_permissions_dialog.dart';
 import 'widgets/user_dossier_dialog.dart';
 
@@ -70,6 +71,7 @@ class _TableViewState extends State<_TableView> {
   String? _companyId;
   UserModel? _currentUser;
   final Set<String> _expandedAdminUids = {};
+  List<UserModel> _cachedUsersList = [];
 
   @override
   void initState() {
@@ -102,6 +104,31 @@ class _TableViewState extends State<_TableView> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _handleAddNewUser(List<UserModel> currentUsers) async {
+    final user = widget.currentUser ?? _currentUser;
+    if (user == null || user.isSuperAdmin) {
+      widget.onAddNewUser();
+      return;
+    }
+
+    final cid = user.effectiveCompanyId;
+    final maxSellers = await SystemSettingsService.getCompanyMaxSellers(cid);
+    final sellersCount = currentUsers.where((u) => !u.isAdmin && !u.isSuperAdmin).length;
+
+    if (sellersCount >= maxSellers) {
+      if (mounted) {
+        SystemSettingsService.showSellerLimitExceededDialog(
+          context,
+          limit: maxSellers,
+          companyName: user.name,
+        );
+      }
+      return;
+    }
+
+    widget.onAddNewUser();
   }
 
   @override
@@ -152,7 +179,7 @@ class _TableViewState extends State<_TableView> {
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: widget.onAddNewUser,
+                      onTap: () => _handleAddNewUser(_cachedUsersList),
                       borderRadius: BorderRadius.circular(12),
                       child: Ink(
                         decoration: BoxDecoration(
@@ -301,6 +328,7 @@ class _TableViewState extends State<_TableView> {
                             }
 
                             final all = snap.data ?? [];
+                            _cachedUsersList = all;
                             final filtered = _query.isEmpty
                                 ? all
                                 : all

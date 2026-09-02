@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
+import '../../settings/data/services/system_settings_service.dart';
 import '../data/repositories/client_repository.dart';
 import '../data/services/gemini_energy_bill_service.dart';
 import '../domain/models/client_model.dart';
@@ -1067,6 +1068,12 @@ class _ClientFormCardState extends State<_ClientFormCard> {
         setState(() => _errorMessage = 'O arquivo selecionado está vazio.');
         return;
       }
+
+      if (!mounted) return;
+
+      // Valida permissão e cota diária de IA
+      final canProceed = await SystemSettingsService.checkAndConsumeAiQuota(context, user: widget.currentUser);
+      if (!canProceed) return;
 
       setState(() {
         _isAiAnalyzing = true;

@@ -24,6 +24,8 @@ class CompanyModel {
   final String? state; // UF (ex: SP, AM, MG)
 
   final bool onboardingCompleted; // Se já concluiu o setup inicial
+  final int? maxSellers; // Limite customizado de vendedores para este integrador (se null, usa o global)
+  final int? maxDailyAiAnalyses; // Limite customizado de análises de IA para este integrador (se null, usa o global)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -46,6 +48,8 @@ class CompanyModel {
     this.city,
     this.state,
     this.onboardingCompleted = false,
+    this.maxSellers,
+    this.maxDailyAiAnalyses,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -102,6 +106,8 @@ class CompanyModel {
       city: map['city'] as String? ?? (map['cidade'] as String?),
       state: map['state'] as String? ?? (map['uf'] as String?),
       onboardingCompleted: map['onboardingCompleted'] as bool? ?? false,
+      maxSellers: map['maxSellers'] as int?,
+      maxDailyAiAnalyses: map['maxDailyAiAnalyses'] as int?,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -126,6 +132,8 @@ class CompanyModel {
       'city': city,
       'state': state,
       'onboardingCompleted': onboardingCompleted,
+      'maxSellers': maxSellers,
+      'maxDailyAiAnalyses': maxDailyAiAnalyses,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -150,6 +158,8 @@ class CompanyModel {
     String? city,
     String? state,
     bool? onboardingCompleted,
+    int? maxSellers,
+    int? maxDailyAiAnalyses,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -172,6 +182,8 @@ class CompanyModel {
       city: city ?? this.city,
       state: state ?? this.state,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      maxSellers: maxSellers ?? this.maxSellers,
+      maxDailyAiAnalyses: maxDailyAiAnalyses ?? this.maxDailyAiAnalyses,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

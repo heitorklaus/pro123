@@ -229,12 +229,12 @@ CNPJ: {{CNPJ_EMPRESA}}
     if (client != null) {
       final parts = <String>[];
       if (client.street != null && client.street!.isNotEmpty) {
-        parts.add(client.street! + (client.addressNumber != null ? ', ${client.addressNumber}' : ''));
+        parts.add('${client.street}${client.addressNumber != null ? ', ${client.addressNumber}' : ''}');
       }
       if (client.complement != null && client.complement!.isNotEmpty) parts.add(client.complement!);
       if (client.neighborhood != null && client.neighborhood!.isNotEmpty) parts.add('Bairro ${client.neighborhood}');
       if (client.city != null && client.city!.isNotEmpty) {
-        parts.add('${client.city}' + (client.state != null ? '/${client.state}' : ''));
+        parts.add('${client.city}${client.state != null ? '/${client.state}' : ''}');
       }
       if (client.zipCode != null && client.zipCode!.isNotEmpty) parts.add('CEP ${client.zipCode}');
       if (parts.isNotEmpty) clientAddress = parts.join(' - ');
@@ -257,12 +257,12 @@ CNPJ: {{CNPJ_EMPRESA}}
     if (company != null) {
       final cParts = <String>[];
       if (company.street != null && company.street!.isNotEmpty) {
-        cParts.add(company.street! + (company.number != null ? ', ${company.number}' : ''));
+        cParts.add('${company.street}${company.number != null ? ', ${company.number}' : ''}');
       }
       if (company.complement != null && company.complement!.isNotEmpty) cParts.add(company.complement!);
       if (company.neighborhood != null && company.neighborhood!.isNotEmpty) cParts.add('Bairro ${company.neighborhood}');
       if (company.city != null && company.city!.isNotEmpty) {
-        cParts.add('${company.city}' + (company.state != null ? '/${company.state}' : ''));
+        cParts.add('${company.city}${company.state != null ? '/${company.state}' : ''}');
       }
       if (company.zipCode != null && company.zipCode!.isNotEmpty) cParts.add('CEP ${company.zipCode}');
       if (cParts.isNotEmpty) companyAddress = cParts.join(' - ');
