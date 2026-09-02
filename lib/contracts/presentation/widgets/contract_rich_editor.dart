@@ -893,106 +893,128 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
 
   Widget _buildA4EditorCanvas() {
     final isDark = _canvasTheme == ContractCanvasTheme.dark;
-    final bgColor = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final headerColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final bgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFFFF);
+    final headerColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
     final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
-    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF0F172A);
+    final cursorColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF2563EB);
 
-    return Container(
-      width: 794 * _zoomLevel, // Proporção da folha A4 em pixels
-      constraints: const BoxConstraints(minHeight: 1123), // Altura mínima A4
-      padding: EdgeInsets.symmetric(
-        horizontal: 50 * _zoomLevel,
-        vertical: 48 * _zoomLevel,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+    return Theme(
+      data: (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
+        textTheme: TextTheme(
+          bodyMedium: TextStyle(
+            fontFamily: 'Arial',
+            fontSize: 13.0 * _zoomLevel,
+            color: textColor,
+            height: 1.65,
           ),
-        ],
+        ),
+        textSelectionTheme: TextSelectionThemeData(
+          cursorColor: cursorColor,
+          selectionColor: (isDark ? const Color(0xFF6366F1) : const Color(0xFF93C5FD)).withOpacity(0.4),
+          selectionHandleColor: cursorColor,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Cabeçalho da Folha A4
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                widget.company?.name.toUpperCase() ?? 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
-                style: TextStyle(
-                  fontFamily: 'Arial',
-                  fontSize: 9.5 * _zoomLevel,
-                  fontWeight: FontWeight.bold,
-                  color: headerColor,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8 * _zoomLevel, vertical: 3 * _zoomLevel),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: dividerColor),
-                ),
-                child: Text(
-                  _contractNumberCtrl.text,
+      child: Container(
+        width: 794 * _zoomLevel, // Proporção da folha A4 em pixels
+        constraints: const BoxConstraints(minHeight: 1123), // Altura mínima A4
+        padding: EdgeInsets.symmetric(
+          horizontal: 50 * _zoomLevel,
+          vertical: 48 * _zoomLevel,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.6 : 0.18),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cabeçalho da Folha A4
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.company?.name.toUpperCase() ?? 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
                   style: TextStyle(
                     fontFamily: 'Arial',
-                    fontSize: 9.0 * _zoomLevel,
+                    fontSize: 9.5 * _zoomLevel,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? const Color(0xFF818CF8) : const Color(0xFF334155),
+                    color: headerColor,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-            ],
-          ),
-          Divider(color: dividerColor, thickness: 0.8, height: 18 * _zoomLevel),
-          SizedBox(height: 12 * _zoomLevel),
-
-          // Campo de Texto Editável em Tempo Real com Fonte Arial e Cor Branca
-          TextField(
-            controller: _contentCtrl,
-            maxLines: null,
-            style: TextStyle(
-              fontFamily: 'Arial',
-              fontSize: 13.0 * _zoomLevel,
-              color: textColor,
-              fontWeight: FontWeight.w400,
-              height: 1.65,
-              letterSpacing: 0.15,
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8 * _zoomLevel, vertical: 3 * _zoomLevel),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: dividerColor),
+                  ),
+                  child: Text(
+                    _contractNumberCtrl.text,
+                    style: TextStyle(
+                      fontFamily: 'Arial',
+                      fontSize: 9.0 * _zoomLevel,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? const Color(0xFF818CF8) : const Color(0xFF334155),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            cursorColor: const Color(0xFF38BDF8),
-            cursorWidth: 2.2,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
+            Divider(color: dividerColor, thickness: 0.8, height: 18 * _zoomLevel),
+            SizedBox(height: 12 * _zoomLevel),
 
-          SizedBox(height: 36 * _zoomLevel),
-          Divider(color: dividerColor, thickness: 0.8, height: 18 * _zoomLevel),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Documento emitido via Mavis CRM • ${widget.client?.name ?? "Cliente"}',
-                style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
+            // Campo de Texto Editável em Tempo Real com Fonte Arial e Contraste Adaptativo
+            TextField(
+              controller: _contentCtrl,
+              maxLines: null,
+              style: TextStyle(
+                fontFamily: 'Arial',
+                fontSize: 13.0 * _zoomLevel,
+                color: textColor,
+                fontWeight: FontWeight.w400,
+                height: 1.65,
+                letterSpacing: 0.15,
               ),
-              Text(
-                'Página 1 de 1',
-                style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * _zoomLevel, color: const Color(0xFF94A3B8)),
+              cursorColor: cursorColor,
+              cursorWidth: 2.2,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                hintStyle: TextStyle(
+                  color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                  fontFamily: 'Arial',
+                ),
               ),
-            ],
-          ),
-        ],
+            ),
+
+            SizedBox(height: 36 * _zoomLevel),
+            Divider(color: dividerColor, thickness: 0.8, height: 18 * _zoomLevel),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Documento emitido via Mavis CRM • ${widget.client?.name ?? "Cliente"}',
+                  style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * _zoomLevel, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+                Text(
+                  'Página 1 de 1',
+                  style: TextStyle(fontFamily: 'Arial', fontSize: 8.5 * _zoomLevel, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1357,7 +1379,7 @@ class _ContractFormattedPage extends StatelessWidget {
     final regex = RegExp(r'(\*\*.*?\*\*|\*.*?\*)');
     int lastEnd = 0;
 
-    final defaultTextColor = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B);
+    final defaultTextColor = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
 
     for (final match in regex.allMatches(text)) {
       if (match.start > lastEnd) {
