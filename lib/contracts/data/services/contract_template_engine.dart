@@ -210,10 +210,14 @@ CNPJ: {{CNPJ_EMPRESA}}
     required ProposalModel proposal,
     required ClientModel? client,
     required CompanyModel? company,
+    String? customTemplate,
     String? customResponsibleName,
     String? contractNumber,
   }) {
-    String text = defaultContractTemplate.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    final rawTemplate = (customTemplate != null && customTemplate.trim().isNotEmpty)
+        ? customTemplate
+        : defaultContractTemplate;
+    String text = rawTemplate.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
 
     // Dados do Cliente
     final clientName = client?.name ?? (proposal.clientName.isNotEmpty ? proposal.clientName : 'NOME DO CLIENTE');

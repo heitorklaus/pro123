@@ -65,6 +65,7 @@ lib/
 │   │   │   └── contract_repository.dart# Integração Firestore da coleção contracts
 │   │   └── services/
 │   │       ├── contract_pdf_service.dart# Compilação e Impressão de PDF multipáginas A4
+│   │       ├── contract_settings_service.dart# Persistência de template padrão por empresa e reversão
 │   │       └── contract_template_engine.dart# Template oficial de 5 páginas e interpolação de tags
 │   ├── domain/
 │   │   └── models/
@@ -73,7 +74,7 @@ lib/
 │       ├── contracts_view.dart       # ⭐ View no SPA com tabela em tempo real, busca e KPIs
 │       └── widgets/
 │           ├── contract_proposal_picker_dialog.dart# Seletor de proposta e resolução inteligente de cliente
-│           └── contract_rich_editor.dart# Editor WYSIWYG estilo Word com folha A4 e tags dinâmicas
+│           └── contract_rich_editor.dart# Editor WYSIWYG estilo Word com folha A4, Dark Mode Arial, Lupa Flutuante e Reset
 │
 ├── dashboard/                        # Módulo Principal após Autenticação (SPA Container)
 │   ├── dashboard_module.dart         # Rotas e Binds do painel (Auth, Register, Client, Product)

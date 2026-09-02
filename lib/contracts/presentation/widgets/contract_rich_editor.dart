@@ -4,6 +4,7 @@ import '../../../clients/domain/models/client_model.dart';
 import '../../../proposals/domain/models/proposal_model.dart';
 import '../../../settings/domain/models/company_model.dart';
 import '../../data/services/contract_pdf_service.dart';
+import '../../data/services/contract_settings_service.dart';
 import '../../data/services/contract_template_engine.dart';
 import '../../domain/models/contract_model.dart';
 
@@ -19,7 +20,7 @@ enum ContractCanvasTheme {
 }
 
 /// Editor Visual de Contratos no estilo Word / WYSIWYG
-/// Com Suporte Completo a Dark Mode (Texto Branco em Arial) e Lupa Flutuante que acompanha a rolagem
+/// Com Persistência do Modelo Personalizado por Integrador, Reversão ao Padrão do Sistema e Lupa Flutuante
 class ContractRichEditor extends StatefulWidget {
   final ContractModel? initialContract;
   final ProposalModel? proposal;
@@ -52,6 +53,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
   ContractCanvasTheme _canvasTheme = ContractCanvasTheme.dark; // Padrão Dark Mode com texto branco
   bool _isSaving = false;
   bool _isGeneratingPdf = false;
+  bool _isSavingTemplate = false;
   double _zoomLevel = 1.0; // 80%, 100%, 120%
 
   @override
@@ -89,6 +91,11 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
         setState(() {});
       }
     });
+
+    // Se for novo contrato, verifica se existe template customizado salvo para esta empresa
+    if (widget.initialContract == null && widget.company != null) {
+      _loadCustomCompanyTemplate();
+    }
   }
 
   @override
@@ -97,6 +104,35 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
     _titleCtrl.dispose();
     _contractNumberCtrl.dispose();
     super.dispose();
+  }
+
+  /// Carrega o modelo salvo da empresa se existir
+  Future<void> _loadCustomCompanyTemplate() async {
+    final companyId = widget.company?.id;
+    if (companyId == null || companyId.isEmpty) return;
+
+    try {
+      final customTpl = await ContractSettingsService.getCompanyCustomTemplate(companyId);
+      final customTitle = await ContractSettingsService.getCompanyCustomTitle(companyId);
+
+      if (customTpl != null && customTpl.trim().isNotEmpty && mounted) {
+        final generated = ContractTemplateEngine.generateContractText(
+          proposal: widget.proposal!,
+          client: widget.client,
+          company: widget.company,
+          customTemplate: customTpl,
+          contractNumber: _contractNumberCtrl.text,
+        );
+        setState(() {
+          _contentCtrl.text = _sanitizeContent(generated);
+          if (customTitle != null && customTitle.isNotEmpty) {
+            _titleCtrl.text = customTitle;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar modelo customizado da empresa: $e');
+    }
   }
 
   /// Remove tags <br> e formatações indesejadas
@@ -146,49 +182,147 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
     _insertTextAtCursor('\n$prefix ');
   }
 
-  /// Restaura o contrato para o modelo padrão original
-  void _restoreDefaultContract() {
-    showDialog(
+  /// Salva as alterações feitas no texto atual como o NOVO MODELO PADRÃO DA EMPRESA
+  Future<void> _saveAsCompanyDefaultTemplate() async {
+    final companyId = widget.company?.id;
+    if (companyId == null || companyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível identificar a empresa vinculada para salvar o modelo.')),
+      );
+      return;
+    }
+
+    setState(() => _isSavingTemplate = true);
+    try {
+      final currentContent = _sanitizeContent(_contentCtrl.text);
+      final currentTitle = _titleCtrl.text.trim();
+
+      await ContractSettingsService.saveCompanyCustomTemplate(
+        companyId: companyId,
+        templateContent: currentContent,
+        customTitle: currentTitle,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ As alterações foram salvas como MODELO PADRÃO da sua empresa para os próximos contratos!'),
+            backgroundColor: Color(0xFF059669),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar modelo: $e'), backgroundColor: const Color(0xFFDC2626)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingTemplate = false);
+    }
+  }
+
+  /// Reverte e restaura para o modelo padrão oficial do sistema com diálogo de aviso
+  Future<void> _restoreSystemDefaultWithWarning() async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: Text('Restaurar Contrato Padrão?', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text(
-          'Esta ação substituirá o texto atual pelo template oficial original preenchido com os dados da proposta e do cliente.',
-          style: GoogleFonts.inter(color: const Color(0xFFCBD5E1), fontSize: 13),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFF87171), size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Restaurar Padrão do Sistema?',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '⚠️ ATENÇÃO:',
+              style: GoogleFonts.inter(color: const Color(0xFFF87171), fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Ao restaurar o padrão do sistema, todas as personalizações salvas para a sua empresa (como títulos customizados, cláusulas modificadas e alterações feitas por você) SERÃO RESETADAS.',
+              style: GoogleFonts.inter(color: const Color(0xFFE2E8F0), fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Os novos contratos voltarão a ser gerados utilizando o modelo oficial padrão de 5 páginas do Mavis CRM.',
+              style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCELAR', style: TextStyle(color: Color(0xFF94A3B8))),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('CANCELAR', style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (widget.proposal != null) {
-                final regenerated = _sanitizeContent(
-                  ContractTemplateEngine.generateContractText(
-                    proposal: widget.proposal!,
-                    client: widget.client,
-                    company: widget.company,
-                    contractNumber: _contractNumberCtrl.text,
-                  ),
-                );
-                setState(() {
-                  _contentCtrl.text = regenerated;
-                });
-              } else {
-                setState(() {
-                  _contentCtrl.text = _sanitizeContent(ContractTemplateEngine.defaultContractTemplate);
-                });
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
-            child: const Text('RESTAURAR'),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.restart_alt_rounded, size: 18),
+            label: const Text('RESETAR & RESTAURAR PADRÃO', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
           ),
         ],
       ),
     );
+
+    if (confirm == true) {
+      // 1. Limpa o modelo customizado no Firestore
+      if (widget.company?.id != null) {
+        await ContractSettingsService.resetCompanyTemplateToDefault(companyId: widget.company!.id);
+      }
+
+      // 2. Regenera o texto na tela usando o template oficial original
+      if (widget.proposal != null) {
+        final defaultGenerated = ContractTemplateEngine.generateContractText(
+          proposal: widget.proposal!,
+          client: widget.client,
+          company: widget.company,
+          customTemplate: null, // Força o padrão oficial
+          contractNumber: _contractNumberCtrl.text,
+        );
+        setState(() {
+          _contentCtrl.text = _sanitizeContent(defaultGenerated);
+          _titleCtrl.text = 'Contrato de Prestação de Serviços - ${widget.client?.name ?? widget.proposal!.clientName}';
+        });
+      } else {
+        setState(() {
+          _contentCtrl.text = _sanitizeContent(ContractTemplateEngine.defaultContractTemplate);
+          _titleCtrl.text = 'Contrato de Prestação de Serviços Fotovoltaicos';
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ O contrato foi resetado para o modelo padrão oficial do sistema com sucesso.'),
+            backgroundColor: Color(0xFF059669),
+          ),
+        );
+      }
+    }
   }
 
   /// Abre a Lupa de Visualização Rápida em Modal Tela Cheia
@@ -274,6 +408,16 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
     setState(() => _isSaving = true);
     try {
       final contract = _buildCurrentContractModel();
+
+      // Salva automaticamente as alterações estruturais como o modelo padrão do integrador
+      if (widget.company?.id != null && widget.company!.id.isNotEmpty) {
+        ContractSettingsService.saveCompanyCustomTemplate(
+          companyId: widget.company!.id,
+          templateContent: contract.content,
+          customTitle: contract.title,
+        ).catchError((_) {});
+      }
+
       await widget.onSave(contract);
     } catch (e) {
       if (mounted) {
@@ -565,11 +709,34 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
 
                   const SizedBox(width: 14),
 
-                  // Botão Restaurar Template Padrão
-                  TextButton.icon(
-                    onPressed: _restoreDefaultContract,
-                    icon: const Icon(Icons.restore_page_outlined, size: 16, color: Color(0xFF94A3B8)),
-                    label: Text('Restaurar Padrão', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
+                  // 💾 Botão Salvar como Padrão da Minha Empresa
+                  Tooltip(
+                    message: 'Salva as alterações deste contrato como o modelo padrão para os próximos contratos da sua empresa',
+                    child: TextButton.icon(
+                      onPressed: _isSavingTemplate ? null : _saveAsCompanyDefaultTemplate,
+                      icon: _isSavingTemplate
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)))
+                          : const Icon(Icons.bookmark_add_outlined, size: 16, color: Color(0xFF10B981)),
+                      label: Text(
+                        'Salvar Padrão da Empresa',
+                        style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 6),
+
+                  // 🔄 Botão Restaurar Padrão do Sistema (Com Diálogo de Aviso)
+                  Tooltip(
+                    message: 'Reseta todas as alterações da sua empresa e volta para o contrato oficial do sistema',
+                    child: TextButton.icon(
+                      onPressed: _restoreSystemDefaultWithWarning,
+                      icon: const Icon(Icons.restart_alt_rounded, size: 16, color: Color(0xFFF87171)),
+                      label: Text(
+                        'Restaurar Padrão do Sistema',
+                        style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFF87171)),
+                      ),
+                    ),
                   ),
 
                   const VerticalDivider(color: Color(0xFF334155), width: 24, thickness: 1),
@@ -780,7 +947,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
                     fontFamily: 'Arial',
                     fontSize: 9.0 * _zoomLevel,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? const Color(0xFF818CF8) : const Color(0xFF475569),
+                    color: isDark ? const Color(0xFF818CF8) : const Color(0xFF334155),
                   ),
                 ),
               ),
