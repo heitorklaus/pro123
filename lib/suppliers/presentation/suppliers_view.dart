@@ -237,15 +237,13 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                       style: GoogleFonts.outfit(
                         fontSize: isMobile ? 20 : 24,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Cadastro de distribuidores e parceiros comerciais',
-                      style: GoogleFonts.inter(
-                          fontSize: isMobile ? 12 : 13,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                      style: GoogleFonts.inter(fontSize: isMobile ? 12 : 13, color: const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -387,9 +385,9 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isMobile ? Colors.transparent : (isDark ? AppColors.darkSurface : Colors.white),
+                color: isMobile ? Colors.transparent : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: isMobile ? null : Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                border: isMobile ? null : Border.all(color: AppColors.border),
                 boxShadow: isMobile
                     ? null
                     : [
@@ -488,9 +486,8 @@ class _SupplierTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      color: const Color(0xFFF8FAFC),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
@@ -560,11 +557,7 @@ class _SupplierRow extends StatelessWidget {
                       Text(
                         supplier.displayName,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? AppColors.darkTextPrimary
-                                : const Color(0xFF0F172A)),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
                       ),
                       Text(
                         supplier.corporateName.isNotEmpty && supplier.corporateName != supplier.displayName
@@ -586,13 +579,7 @@ class _SupplierRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(supplier.email,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? AppColors.darkTextPrimary
-                            : const Color(0xFF0F172A))),
+                Text(supplier.email, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF0F172A))),
                 Text(
                   supplier.contactPerson?.isNotEmpty == true
                       ? '${supplier.phone} (${supplier.contactPerson!})'
@@ -684,14 +671,12 @@ class _SupplierMobileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -732,7 +717,7 @@ class _SupplierMobileCard extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 13.5,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                              color: const Color(0xFF0F172A),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

@@ -478,8 +478,6 @@ class _AiAgentSettingsViewState extends State<AiAgentSettingsView>
 
   // ── CABEÇALHO ──────────────────────────────────────────────────────────────
   Widget _buildHeader(bool isMobile) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -489,7 +487,7 @@ class _AiAgentSettingsViewState extends State<AiAgentSettingsView>
               if (widget.onBack != null) ...[
                 IconButton(
                   onPressed: widget.onBack,
-                  icon: Icon(Icons.arrow_back_rounded, color: isDark ? Colors.white : const Color(0xFF0F172A)),
+                  icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
                   tooltip: 'Voltar às Configurações',
                 ),
                 const SizedBox(width: 8),
@@ -521,14 +519,12 @@ class _AiAgentSettingsViewState extends State<AiAgentSettingsView>
                       style: GoogleFonts.outfit(
                         fontSize: isMobile ? 20 : 26,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
                     Text(
                       'Personalize o comportamento, regras comerciais e inteligência do Gemini para sua empresa',
-                      style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

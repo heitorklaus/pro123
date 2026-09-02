@@ -159,7 +159,6 @@ class _SettingsViewState extends State<SettingsView> {
     }
 
     final isMobile = MediaQuery.of(context).size.width < 768;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeSector = _currentSector ?? ProductSector.solarPlant;
 
     return LayoutBuilder(
@@ -203,14 +202,12 @@ class _SettingsViewState extends State<SettingsView> {
                           style: GoogleFonts.outfit(
                             fontSize: isMobile ? 18 : 22,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color: const Color(0xFF0F172A),
                           ),
                         ),
                         Text(
                           'Personalize o comportamento do CRM para sua empresa',
-                          style: GoogleFonts.inter(
-                              fontSize: isMobile ? 11.5 : 13,
-                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                          style: GoogleFonts.inter(fontSize: isMobile ? 11.5 : 13, color: const Color(0xFF64748B)),
                         ),
                       ],
                     ),
@@ -226,9 +223,9 @@ class _SettingsViewState extends State<SettingsView> {
               Container(
                 padding: EdgeInsets.all(isMobile ? 14 : 22),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : Colors.white,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                  border: Border.all(color: AppColors.border),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.03),
@@ -272,7 +269,7 @@ class _SettingsViewState extends State<SettingsView> {
                                       style: GoogleFonts.outfit(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                        color: const Color(0xFF0F172A),
                                       ),
                                     ),
                                     Text(
@@ -336,7 +333,7 @@ class _SettingsViewState extends State<SettingsView> {
                                       style: GoogleFonts.outfit(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                        color: const Color(0xFF0F172A),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -441,7 +438,7 @@ class _SettingsViewState extends State<SettingsView> {
                                           style: GoogleFonts.outfit(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
-                                            color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                            color: const Color(0xFF0F172A),
                                           ),
                                         ),
                                         const SizedBox(width: 6),
@@ -513,7 +510,7 @@ class _SettingsViewState extends State<SettingsView> {
                                       style: GoogleFonts.outfit(
                                         fontSize: 17,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                        color: const Color(0xFF0F172A),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -598,7 +595,7 @@ class _SettingsViewState extends State<SettingsView> {
                                       style: GoogleFonts.outfit(
                                         fontSize: 17,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                        color: const Color(0xFF0F172A),
                                       ),
                                     ),
                                     Container(
@@ -693,7 +690,7 @@ class _SettingsViewState extends State<SettingsView> {
                                       style: GoogleFonts.outfit(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                                        color: const Color(0xFF0F172A),
                                       ),
                                     ),
                                     const SizedBox(width: 10),
@@ -786,7 +783,7 @@ class _SettingsViewState extends State<SettingsView> {
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -822,7 +819,7 @@ class _SettingsViewState extends State<SettingsView> {
                           style: GoogleFonts.outfit(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color: const Color(0xFF0F172A),
                           ),
                         ),
                         Text(
@@ -874,7 +871,6 @@ class _SettingsViewState extends State<SettingsView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         final crossCount = constraints.maxWidth > 800 ? 3 : (constraints.maxWidth > 500 ? 2 : 1);
         final cardWidth = (constraints.maxWidth - ((crossCount - 1) * 12)) / crossCount;
 
@@ -896,12 +892,10 @@ class _SettingsViewState extends State<SettingsView> {
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? sector.themeColor.withValues(alpha: isDark ? 0.15 : 0.06)
-                          : (isDark ? AppColors.darkSurface : Colors.white),
+                      color: isSelected ? sector.themeColor.withValues(alpha: 0.06) : Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? sector.themeColor : (isDark ? AppColors.darkBorder : AppColors.border),
+                        color: isSelected ? sector.themeColor : AppColors.border,
                         width: isSelected ? 2.0 : 1.0,
                       ),
                       boxShadow: [
@@ -932,13 +926,11 @@ class _SettingsViewState extends State<SettingsView> {
                             Expanded(
                               child: Text(
                                 sector.title,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected
-                                        ? sector.themeColor
-                                        : (isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A)),
-                                  ),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? sector.themeColor : const Color(0xFF0F172A),
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),

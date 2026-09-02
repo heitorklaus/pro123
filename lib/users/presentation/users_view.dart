@@ -142,7 +142,6 @@ class _TableViewState extends State<_TableView> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox.expand(
       child: Padding(
@@ -165,15 +164,14 @@ class _TableViewState extends State<_TableView> {
                         style: GoogleFonts.outfit(
                           fontSize: isMobile ? 20 : 26,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: const Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Controle de operadores e permissões',
                         style: GoogleFonts.inter(
-                            fontSize: isMobile ? 12 : 14,
-                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                            fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -258,9 +256,9 @@ class _TableViewState extends State<_TableView> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: isMobile ? Colors.transparent : (isDark ? AppColors.darkSurface : Colors.white),
+                  color: isMobile ? Colors.transparent : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: isMobile ? null : Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                  border: isMobile ? null : Border.all(color: AppColors.border),
                   boxShadow: isMobile
                       ? null
                       : [
@@ -277,7 +275,7 @@ class _TableViewState extends State<_TableView> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        color: const Color(0xFFF8FAFC),
                         child: Row(
                           children: [
                             const Icon(Icons.account_tree_rounded, size: 16, color: Color(0xFF6366F1)),
@@ -656,12 +654,10 @@ class _AdminTreeGroup extends StatelessWidget {
                                   admin.name,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.inter(
-                                     fontWeight: FontWeight.bold,
-                                     fontSize: 13.5,
-                                     color: Theme.of(context).brightness == Brightness.dark
-                                         ? AppColors.darkTextPrimary
-                                         : const Color(0xFF0F172A),
-                                   ),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5,
+                                    color: const Color(0xFF0F172A),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -910,13 +906,11 @@ class _SubordinateRow extends StatelessWidget {
                 Text(
                   sub.name,
                   overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? AppColors.darkTextPrimary
-                          : const Color(0xFF0F172A),
-                    ),
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: const Color(0xFF0F172A),
+                  ),
                 ),
                 if (sub.phone?.isNotEmpty == true)
                   Text(
@@ -1134,9 +1128,7 @@ class _UserRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? AppColors.darkTextPrimary
-                                : const Color(0xFF0F172A)),
+                            color: const Color(0xFF0F172A)),
                       ),
                       if (user.phone?.isNotEmpty == true)
                         Row(
