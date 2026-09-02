@@ -287,6 +287,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final canViewProducts = _currentUser?.canViewProducts ?? false;
     final canViewSuppliers = _currentUser?.canViewSuppliers ?? false;
     final canViewProposals = _currentUser?.canViewProposals ?? false;
+    final canViewContracts = _currentUser?.canViewContracts ?? false;
     final canManageUsers = _currentUser?.canManageUsers ?? false;
     final canManageSettings = _currentUser?.canManageSettings ?? false;
 
@@ -352,7 +353,7 @@ class _DashboardPageState extends State<DashboardPage> {
           onClearInitialItem: () => setState(() => _pendingProposalItem = null),
         );
       case AppSidebarItem.contracts:
-        if (!canViewProposals) {
+        if (!canViewContracts) {
           return const Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.all(32.0),

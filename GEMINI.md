@@ -181,6 +181,10 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
     "viewProposals": true,
     "createProposals": true,
     "viewAllProposals": false,
+    "viewContracts": true,
+    "createContracts": true,
+    "viewAllContracts": false,
+    "deleteContracts": false,
     "viewSuppliers": false,
     "createSuppliers": false,
     "manageSettings": false,
@@ -208,6 +212,7 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
 - **Clientes:** `viewClients` (Listar Clientes), `createClients` (Cadastrar / Editar Clientes).
 - **Produtos & Usinas:** `viewProducts` (Listar Produtos/Usinas), `createProducts` (Cadastrar Produtos, Montar Usinas, Ações em Lote).
 - **Propostas & Vendas:** `viewProposals` (Listar Propostas/Funil Kanban), `createProposals` (Emitir / Gerar Novas Propostas), `viewAllProposals` (Acompanhar Propostas de Todos os Usuários).
+- **Contratos & Jurídico:** `viewContracts` (Visualizar Módulo de Contratos), `createContracts` (Emitir e Editar Minutas de Contratos), `viewAllContracts` (Ver Contratos de Todos os Operadores), `deleteContracts` (Excluir Contratos).
 - **Fornecedores:** `viewSuppliers` (Listar Fornecedores), `createSuppliers` (Cadastrar Fornecedores).
 - **Configurações & Sistema:** `manageSettings` (Acesso às Configurações), `manageUsers` (Gerenciar Usuários e Permissões).
 

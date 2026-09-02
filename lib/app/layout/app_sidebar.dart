@@ -39,6 +39,7 @@ class AppSidebar extends StatelessWidget {
     final canViewProducts = currentUser?.canViewProducts ?? false;
     final canViewSuppliers = currentUser?.canViewSuppliers ?? false;
     final canViewProposals = currentUser?.canViewProposals ?? false;
+    final canViewContracts = currentUser?.canViewContracts ?? false;
     final canManageUsers = currentUser?.canManageUsers ?? false;
     final canManageSettings = currentUser?.canManageSettings ?? false;
 
@@ -155,6 +156,8 @@ class AppSidebar extends StatelessWidget {
                     isSelected: activeItem == AppSidebarItem.proposals,
                     onTap: () => onItemSelected(AppSidebarItem.proposals),
                   ),
+                ],
+                if (canViewContracts) ...[
                   const SizedBox(height: 6),
                   _SidebarMenuItem(
                     icon: Icons.history_edu_rounded,

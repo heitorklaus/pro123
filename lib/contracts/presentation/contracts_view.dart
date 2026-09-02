@@ -217,6 +217,9 @@ class _ContractsViewState extends State<ContractsView> {
                     c.title.toLowerCase().contains(q);
               }).toList();
 
+              final canCreateContracts = widget.currentUser?.canCreateContracts ?? true;
+              final canDeleteContracts = widget.currentUser?.canDeleteContracts ?? true;
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -264,22 +267,23 @@ class _ContractsViewState extends State<ContractsView> {
                         ],
                       ),
 
-                      // Botão Novo Contrato
-                      ElevatedButton.icon(
-                        onPressed: _openNewContractWizard,
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: Text(
-                          'NOVO CONTRATO',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
+                      // Botão Novo Contrato (se tiver permissão)
+                      if (canCreateContracts)
+                        ElevatedButton.icon(
+                          onPressed: _openNewContractWizard,
+                          icon: const Icon(Icons.add_rounded, size: 20),
+                          label: Text(
+                            'NOVO CONTRATO',
+                            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6366F1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 4,
+                          ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          elevation: 4,
-                        ),
-                      ),
                     ],
                   ),
 
@@ -615,11 +619,12 @@ class _ContractsViewState extends State<ContractsView> {
                                                 tooltip: 'Imprimir / Baixar PDF',
                                                 onPressed: () => ContractPdfService.printContract(contract: c, company: _currentCompany),
                                               ),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 19),
-                                                tooltip: 'Excluir Contrato',
-                                                onPressed: () => _handleDeleteContract(c),
-                                              ),
+                                              if (canDeleteContracts)
+                                                IconButton(
+                                                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 19),
+                                                  tooltip: 'Excluir Contrato',
+                                                  onPressed: () => _handleDeleteContract(c),
+                                                ),
                                             ],
                                           ),
                                         ),

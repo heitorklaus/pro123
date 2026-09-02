@@ -15,6 +15,12 @@ class UserPermissions {
   final bool createProposals;
   final bool viewAllProposals; // Ver propostas de todos os operadores (se false, apenas as suas)
 
+  // Contratos & Jurídico
+  final bool viewContracts;
+  final bool createContracts;
+  final bool viewAllContracts;
+  final bool deleteContracts;
+
   // Fornecedores & Parceiros
   final bool viewSuppliers;
   final bool createSuppliers;
@@ -31,6 +37,10 @@ class UserPermissions {
     this.viewProposals = true,
     this.createProposals = true,
     this.viewAllProposals = false,
+    this.viewContracts = true,
+    this.createContracts = true,
+    this.viewAllContracts = false,
+    this.deleteContracts = false,
     this.viewSuppliers = true,
     this.createSuppliers = true,
     this.manageSettings = false,
@@ -49,6 +59,10 @@ class UserPermissions {
           viewProposals: true,
           createProposals: true,
           viewAllProposals: true,
+          viewContracts: true,
+          createContracts: true,
+          viewAllContracts: true,
+          deleteContracts: true,
           viewSuppliers: true,
           createSuppliers: true,
           manageSettings: true,
@@ -63,6 +77,10 @@ class UserPermissions {
           viewProposals: true,
           createProposals: true,
           viewAllProposals: true,
+          viewContracts: true,
+          createContracts: true,
+          viewAllContracts: true,
+          deleteContracts: false,
           viewSuppliers: true,
           createSuppliers: true,
           manageSettings: false,
@@ -78,6 +96,10 @@ class UserPermissions {
           viewProposals: true,
           createProposals: true,
           viewAllProposals: false,
+          viewContracts: true,
+          createContracts: true,
+          viewAllContracts: false,
+          deleteContracts: false,
           viewSuppliers: true,
           createSuppliers: false,
           manageSettings: false,
@@ -96,6 +118,10 @@ class UserPermissions {
       viewProposals: map['viewProposals'] as bool? ?? true,
       createProposals: map['createProposals'] as bool? ?? true,
       viewAllProposals: map['viewAllProposals'] as bool? ?? (map['viewReports'] as bool? ?? false),
+      viewContracts: map['viewContracts'] as bool? ?? (map['viewProposals'] as bool? ?? true),
+      createContracts: map['createContracts'] as bool? ?? (map['createProposals'] as bool? ?? true),
+      viewAllContracts: map['viewAllContracts'] as bool? ?? (map['viewAllProposals'] as bool? ?? false),
+      deleteContracts: map['deleteContracts'] as bool? ?? false,
       viewSuppliers: map['viewSuppliers'] as bool? ?? true,
       createSuppliers: map['createSuppliers'] as bool? ?? (map['editLeads'] as bool? ?? false),
       manageSettings: map['manageSettings'] as bool? ?? false,
@@ -112,6 +138,10 @@ class UserPermissions {
       'viewProposals': viewProposals,
       'createProposals': createProposals,
       'viewAllProposals': viewAllProposals,
+      'viewContracts': viewContracts,
+      'createContracts': createContracts,
+      'viewAllContracts': viewAllContracts,
+      'deleteContracts': deleteContracts,
       'viewSuppliers': viewSuppliers,
       'createSuppliers': createSuppliers,
       'manageSettings': manageSettings,
@@ -127,6 +157,10 @@ class UserPermissions {
     bool? viewProposals,
     bool? createProposals,
     bool? viewAllProposals,
+    bool? viewContracts,
+    bool? createContracts,
+    bool? viewAllContracts,
+    bool? deleteContracts,
     bool? viewSuppliers,
     bool? createSuppliers,
     bool? manageSettings,
@@ -140,6 +174,10 @@ class UserPermissions {
       viewProposals: viewProposals ?? this.viewProposals,
       createProposals: createProposals ?? this.createProposals,
       viewAllProposals: viewAllProposals ?? this.viewAllProposals,
+      viewContracts: viewContracts ?? this.viewContracts,
+      createContracts: createContracts ?? this.createContracts,
+      viewAllContracts: viewAllContracts ?? this.viewAllContracts,
+      deleteContracts: deleteContracts ?? this.deleteContracts,
       viewSuppliers: viewSuppliers ?? this.viewSuppliers,
       createSuppliers: createSuppliers ?? this.createSuppliers,
       manageSettings: manageSettings ?? this.manageSettings,
@@ -163,16 +201,16 @@ class UserModel {
   final DateTime updatedAt;
   final DateTime? lastLoginAt;
 
-  UserModel({
+  const UserModel({
     required this.uid,
     required this.name,
     required this.email,
     this.phone,
     this.avatarUrl,
-    this.role = 'user',
+    required this.role,
     this.status = 'active',
     this.companyId,
-    required this.permissions,
+    this.permissions = const UserPermissions(),
     required this.createdAt,
     required this.updatedAt,
     this.lastLoginAt,
@@ -195,6 +233,10 @@ class UserModel {
   bool get canViewProposals => isSuperAdmin || permissions.viewProposals;
   bool get canCreateProposals => isSuperAdmin || permissions.createProposals;
   bool get canViewAllProposals => isSuperAdmin || permissions.viewAllProposals || isAdmin || isManager;
+  bool get canViewContracts => isSuperAdmin || permissions.viewContracts;
+  bool get canCreateContracts => isSuperAdmin || permissions.createContracts;
+  bool get canViewAllContracts => isSuperAdmin || permissions.viewAllContracts || isAdmin || isManager;
+  bool get canDeleteContracts => isSuperAdmin || permissions.deleteContracts || isAdmin;
   bool get canViewSuppliers => isSuperAdmin || permissions.viewSuppliers;
   bool get canCreateSuppliers => isSuperAdmin || permissions.createSuppliers;
   bool get canManageSettings => isSuperAdmin || permissions.manageSettings;

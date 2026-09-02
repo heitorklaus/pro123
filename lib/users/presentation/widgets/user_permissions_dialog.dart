@@ -28,6 +28,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
   late bool _viewProposals;
   late bool _createProposals;
   late bool _viewAllProposals;
+  late bool _viewContracts;
+  late bool _createContracts;
+  late bool _viewAllContracts;
+  late bool _deleteContracts;
   late bool _viewSuppliers;
   late bool _createSuppliers;
   late bool _manageSettings;
@@ -47,6 +51,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
     _viewProposals = p.viewProposals;
     _createProposals = p.createProposals;
     _viewAllProposals = p.viewAllProposals;
+    _viewContracts = p.viewContracts;
+    _createContracts = p.createContracts;
+    _viewAllContracts = p.viewAllContracts;
+    _deleteContracts = p.deleteContracts;
     _viewSuppliers = p.viewSuppliers;
     _createSuppliers = p.createSuppliers;
     _manageSettings = p.manageSettings;
@@ -63,6 +71,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
       _viewProposals = preset.viewProposals;
       _createProposals = preset.createProposals;
       _viewAllProposals = preset.viewAllProposals;
+      _viewContracts = preset.viewContracts;
+      _createContracts = preset.createContracts;
+      _viewAllContracts = preset.viewAllContracts;
+      _deleteContracts = preset.deleteContracts;
       _viewSuppliers = preset.viewSuppliers;
       _createSuppliers = preset.createSuppliers;
       _manageSettings = preset.manageSettings;
@@ -81,6 +93,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
         viewProposals: _viewProposals,
         createProposals: _createProposals,
         viewAllProposals: _viewAllProposals,
+        viewContracts: _viewContracts,
+        createContracts: _createContracts,
+        viewAllContracts: _viewAllContracts,
+        deleteContracts: _deleteContracts,
         viewSuppliers: _viewSuppliers,
         createSuppliers: _createSuppliers,
         manageSettings: _manageSettings,
@@ -316,6 +332,9 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
                             _createClients = false;
                             _createProducts = false;
                             _createProposals = false;
+                            _createContracts = false;
+                            _viewAllContracts = false;
+                            _deleteContracts = false;
                             _createSuppliers = false;
                             _manageSettings = false;
                             _manageUsers = false;
@@ -409,6 +428,42 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
                         subtitle: 'Se desmarcado, o operador poderá visualizar apenas as propostas criadas por ele mesmo',
                         value: _viewAllProposals,
                         onChanged: (val) => setState(() => _viewAllProposals = val),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // 4. Contratos & Jurídico
+                  _categoryGroup(
+                    icon: Icons.history_edu_rounded,
+                    title: 'Contratos & Jurídico',
+                    subtitle: 'Emissão, minutas em tempo real, assinatura e PDFs de contratos',
+                    color: const Color(0xFF8B5CF6),
+                    children: [
+                      _permissionSwitch(
+                        title: 'Visualizar Módulo de Contratos',
+                        subtitle: 'Acesso à lista de contratos no menu lateral e visualização de minutas',
+                        value: _viewContracts,
+                        onChanged: (val) => setState(() => _viewContracts = val),
+                      ),
+                      _permissionSwitch(
+                        title: 'Emitir & Editar Contratos',
+                        subtitle: 'Habilita o botão "Novo Contrato", assistente de propostas e editor WYSIWYG de cláusulas',
+                        value: _createContracts,
+                        onChanged: (val) => setState(() => _createContracts = val),
+                      ),
+                      _permissionSwitch(
+                        title: 'Ver Contratos de Todos os Usuários',
+                        subtitle: 'Se desmarcado, o operador poderá visualizar apenas os contratos gerados por ele mesmo',
+                        value: _viewAllContracts,
+                        onChanged: (val) => setState(() => _viewAllContracts = val),
+                      ),
+                      _permissionSwitch(
+                        title: 'Excluir Contratos',
+                        subtitle: 'Permite remover e apagar contratos cadastrados no sistema',
+                        value: _deleteContracts,
+                        onChanged: (val) => setState(() => _deleteContracts = val),
                       ),
                     ],
                   ),
