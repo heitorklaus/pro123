@@ -25,6 +25,7 @@ import '../../contracts/domain/models/contract_model.dart';
 import '../../contracts/presentation/contracts_view.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
 import '../../users/presentation/users_view.dart';
+import '../../users/presentation/widgets/ai_usage_badge.dart';
 import '../../users/presentation/widgets/user_dossier_dialog.dart';
 import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
@@ -1687,6 +1688,7 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
                     DataColumn(label: Text('POTÊNCIA', style: _headerStyle())),
                     DataColumn(label: Text('CONTRATOS', style: _headerStyle())),
                     DataColumn(label: Text('CONVERSÃO', style: _headerStyle())),
+                    DataColumn(label: Text('IA HOJE', style: _headerStyle())),
                     DataColumn(label: Text('AÇÃO', style: _headerStyle())),
                   ],
                   rows: List.generate(statsList.length, (index) {
@@ -1797,6 +1799,9 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ),
+                        DataCell(
+                          AiUsageBadge(user: s.user, compact: true),
                         ),
                         DataCell(
                           Material(

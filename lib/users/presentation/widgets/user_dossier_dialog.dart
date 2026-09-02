@@ -14,6 +14,7 @@ import '../../../proposals/data/repositories/proposal_repository.dart';
 import '../../../proposals/domain/models/proposal_model.dart';
 import '../../../proposals/presentation/widgets/proposal_pdf_preview_dialog.dart';
 import '../../../proposals/presentation/web_proposal_page.dart';
+import 'ai_usage_badge.dart';
 
 /// Modal executivo completo: Dossiê 360º de Performance do Vendedor/Operador
 class UserDossierDialog extends StatefulWidget {
@@ -152,6 +153,8 @@ class _UserDossierDialogState extends State<UserDossierDialog> with SingleTicker
                                   ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              AiUsageBadge(user: user),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -265,6 +268,11 @@ class _UserDossierDialogState extends State<UserDossierDialog> with SingleTicker
                                 final totalOfferedKwp = userSolarPlants.fold<double>(0.0, (sum, p) => sum + (p.solarKilowatts ?? 0.0));
                                 final signedContractsCount = userContracts.where((c) => c.status == ContractStatus.signed).length;
 
+                                // Cálculos de IA
+                                final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                                final usedToday = (user.aiUsageDate == todayStr) ? user.aiUsageCount : 0;
+                                final quotaText = user.isSuperAdmin ? 'Ilimitada' : 'Cota: ${user.customDailyAiQuota ?? 25}/dia';
+
                                 return Column(
                                   children: [
                                     // Grid de Cards KPI
@@ -272,31 +280,34 @@ class _UserDossierDialogState extends State<UserDossierDialog> with SingleTicker
                                       padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 20, vertical: 14),
                                       color: const Color(0xFFF8FAFC),
                                       child: LayoutBuilder(builder: (context, constraints) {
-                                        final isCompact = constraints.maxWidth < 700;
+                                        final isCompact = constraints.maxWidth < 900;
                                         if (isCompact) {
                                           return Wrap(
                                             spacing: 8,
                                             runSpacing: 8,
                                             children: [
-                                              _buildKpiCard('TOTAL PROPOSTAS', _currency.format(totalProposalsValue), '${userProposals.length} emitidas', Icons.receipt_long_rounded, const Color(0xFF6366F1), 160),
-                                              _buildKpiCard('VENDAS FECHADAS', _currency.format(closedProposalsValue), '${closedProposals.length} fechadas', Icons.verified_rounded, const Color(0xFF10B981), 160),
-                                              _buildKpiCard('CONVERSÃO', '${conversionRate.toStringAsFixed(1)}%', 'de aprovação', Icons.trending_up_rounded, const Color(0xFF0284C7), 160),
-                                              _buildKpiCard('POTÊNCIA OFERTADA', '${totalOfferedKwp.toStringAsFixed(1)} kWp', '${userSolarPlants.length} usinas', Icons.solar_power_rounded, const Color(0xFFF59E0B), 160),
-                                              _buildKpiCard('CONTRATOS', '${userContracts.length}', '$signedContractsCount assinados', Icons.history_edu_rounded, const Color(0xFF8B5CF6), 160),
+                                              _buildKpiCard('TOTAL PROPOSTAS', _currency.format(totalProposalsValue), '${userProposals.length} emitidas', Icons.receipt_long_rounded, const Color(0xFF6366F1), 150),
+                                              _buildKpiCard('VENDAS FECHADAS', _currency.format(closedProposalsValue), '${closedProposals.length} fechadas', Icons.verified_rounded, const Color(0xFF10B981), 150),
+                                              _buildKpiCard('CONVERSÃO', '${conversionRate.toStringAsFixed(1)}%', 'de aprovação', Icons.trending_up_rounded, const Color(0xFF0284C7), 150),
+                                              _buildKpiCard('POTÊNCIA OFERTADA', '${totalOfferedKwp.toStringAsFixed(1)} kWp', '${userSolarPlants.length} usinas', Icons.solar_power_rounded, const Color(0xFFF59E0B), 150),
+                                              _buildKpiCard('CONTRATOS', '${userContracts.length}', '$signedContractsCount assinados', Icons.history_edu_rounded, const Color(0xFF8B5CF6), 150),
+                                              _buildKpiCard('USO IA HOJE', '$usedToday análises', quotaText, Icons.auto_awesome_rounded, const Color(0xFF9333EA), 150),
                                             ],
                                           );
                                         }
                                         return Row(
                                           children: [
                                             Expanded(child: _buildKpiCard('TOTAL PROPOSTAS', _currency.format(totalProposalsValue), '${userProposals.length} orçamentos', Icons.receipt_long_rounded, const Color(0xFF6366F1))),
-                                            const SizedBox(width: 10),
+                                            const SizedBox(width: 8),
                                             Expanded(child: _buildKpiCard('VENDAS FECHADAS', _currency.format(closedProposalsValue), '${closedProposals.length} fechadas', Icons.verified_rounded, const Color(0xFF10B981))),
-                                            const SizedBox(width: 10),
+                                            const SizedBox(width: 8),
                                             Expanded(child: _buildKpiCard('CONVERSÃO', '${conversionRate.toStringAsFixed(1)}%', 'taxa de sucesso', Icons.trending_up_rounded, const Color(0xFF0284C7))),
-                                            const SizedBox(width: 10),
+                                            const SizedBox(width: 8),
                                             Expanded(child: _buildKpiCard('POTÊNCIA USINAS', '${totalOfferedKwp.toStringAsFixed(1)} kWp', '${userSolarPlants.length} kits criados', Icons.solar_power_rounded, const Color(0xFFF59E0B))),
-                                            const SizedBox(width: 10),
+                                            const SizedBox(width: 8),
                                             Expanded(child: _buildKpiCard('CONTRATOS', '${userContracts.length}', '$signedContractsCount assinados', Icons.history_edu_rounded, const Color(0xFF8B5CF6))),
+                                            const SizedBox(width: 8),
+                                            Expanded(child: _buildKpiCard('USO IA HOJE', '$usedToday análises', quotaText, Icons.auto_awesome_rounded, const Color(0xFF9333EA))),
                                           ],
                                         );
                                       }),

@@ -8,6 +8,7 @@ import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../auth/presentation/register/register_store.dart';
 import '../../settings/data/services/system_settings_service.dart';
+import 'widgets/ai_usage_badge.dart';
 import 'widgets/user_permissions_dialog.dart';
 import 'widgets/user_dossier_dialog.dart';
 
@@ -687,53 +688,68 @@ class _AdminTreeGroup extends StatelessWidget {
                       ),
                     ),
 
-                    if (!isMobile) ...[
-                      // Contador de Subordinados
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: subordinates.isNotEmpty
-                              ? const Color(0xFFEEF2FF)
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: subordinates.isNotEmpty
-                                ? const Color(0xFFC7D2FE)
-                                : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        child: Row(
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.group_rounded,
-                              size: 14,
-                              color: subordinates.isNotEmpty
-                                  ? const Color(0xFF4F46E5)
-                                  : const Color(0xFF64748B),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              subordinates.isNotEmpty
-                                  ? '${subordinates.length} ${subordinates.length == 1 ? 'operador' : 'operadores'}'
-                                  : 'Nenhum operador',
-                              style: GoogleFonts.inter(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: subordinates.isNotEmpty
-                                    ? const Color(0xFF4338CA)
-                                    : const Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 14),
+                            if (!isMobile) ...[
+                              // Contador de Subordinados (somente em telas mais largas)
+                              if (MediaQuery.of(context).size.width >= 992) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: subordinates.isNotEmpty
+                                        ? const Color(0xFFEEF2FF)
+                                        : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: subordinates.isNotEmpty
+                                          ? const Color(0xFFC7D2FE)
+                                          : const Color(0xFFE2E8F0),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.group_rounded,
+                                        size: 14,
+                                        color: subordinates.isNotEmpty
+                                            ? const Color(0xFF4F46E5)
+                                            : const Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        subordinates.isNotEmpty
+                                            ? '${subordinates.length} ${subordinates.length == 1 ? 'operador' : 'operadores'}'
+                                            : 'Nenhum operador',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: subordinates.isNotEmpty
+                                              ? const Color(0xFF4338CA)
+                                              : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                              ],
 
-                      // Status Badge
-                      _StatusBadge(status: admin.status),
-                      const SizedBox(width: 14),
-                    ],
+                              // Consumo de IA Hoje
+                              AiUsageBadge(user: admin, compact: MediaQuery.of(context).size.width < 1100),
+                              const SizedBox(width: 10),
+
+                              // Status Badge
+                              _StatusBadge(status: admin.status),
+                              const SizedBox(width: 10),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
 
                     // Ações do Admin
                     Row(
@@ -914,14 +930,18 @@ class _SubordinateRow extends StatelessWidget {
               ),
             ),
             _RoleBadge(role: sub.role),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
+            AiUsageBadge(user: sub, compact: true),
+            const SizedBox(width: 8),
             _StatusBadge(status: sub.status),
-            const SizedBox(width: 10),
-            Text(
-              '${sub.createdAt.day.toString().padLeft(2, '0')}/${sub.createdAt.month.toString().padLeft(2, '0')}/${sub.createdAt.year}',
-              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
-            ),
-            const SizedBox(width: 10),
+            if (MediaQuery.of(context).size.width >= 1050) ...[
+              const SizedBox(width: 8),
+              Text(
+                '${sub.createdAt.day.toString().padLeft(2, '0')}/${sub.createdAt.month.toString().padLeft(2, '0')}/${sub.createdAt.year}',
+                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+              ),
+            ],
+            const SizedBox(width: 8),
           ],
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -1143,6 +1163,14 @@ class _UserRow extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: _RoleBadge(role: user.role),
+            ),
+          ),
+          // Consumo de IA
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AiUsageBadge(user: user, compact: true),
             ),
           ),
           // Status
