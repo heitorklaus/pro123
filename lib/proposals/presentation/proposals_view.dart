@@ -536,13 +536,14 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                       style: GoogleFonts.outfit(
                           fontSize: isMobile ? 20 : 26,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A)),
+                          color: isDark ? Colors.white : const Color(0xFF0F172A)),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Emissão inteligente de orçamentos, PDF e funil Kanban',
                       style: GoogleFonts.inter(
-                          fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                          fontSize: isMobile ? 12 : 14,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -978,9 +979,9 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: isMobile ? Colors.transparent : Colors.white,
+                    color: isMobile ? Colors.transparent : (isDark ? AppColors.darkSurface : Colors.white),
                     borderRadius: BorderRadius.circular(16),
-                    border: isMobile ? null : Border.all(color: AppColors.border),
+                    border: isMobile ? null : Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                     boxShadow: isMobile
                         ? null
                         : [
@@ -1077,14 +1078,15 @@ class _ProposalMobileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final themeColor = Color(proposal.themeColorValue);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -1148,7 +1150,7 @@ class _ProposalMobileCard extends StatelessWidget {
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
-                                    color: const Color(0xFF0F172A),
+                                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                                   ),
                                 ),
                               ),
@@ -1294,9 +1296,10 @@ class _ProposalMobileCard extends StatelessWidget {
 class _ProposalTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: const Color(0xFFF8FAFC),
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       child: Row(
         children: [
           _col('PROPOSTA & CLIENTE', flex: 4),

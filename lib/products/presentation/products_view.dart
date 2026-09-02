@@ -493,6 +493,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: EdgeInsets.all(isMobile ? 14 : 32),
@@ -514,14 +515,15 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       style: GoogleFonts.outfit(
                         fontSize: isMobile ? 20 : 26,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Catálogo inteligente com 20 segmentos',
                       style: GoogleFonts.inter(
-                          fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                          fontSize: isMobile ? 12 : 14,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -1153,9 +1155,9 @@ class _ProductTableViewState extends State<_ProductTableView> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isMobile ? Colors.transparent : Colors.white,
+                color: isMobile ? Colors.transparent : (isDark ? AppColors.darkSurface : Colors.white),
                 borderRadius: BorderRadius.circular(16),
-                border: isMobile ? null : Border.all(color: AppColors.border),
+                border: isMobile ? null : Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                 boxShadow: isMobile
                     ? null
                     : [
@@ -1433,9 +1435,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
 class _ProductTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: const Color(0xFFF8FAFC),
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       child: Row(
         children: [
           _col('PRODUTO / SERVIÇO', flex: 6),
@@ -1772,7 +1775,9 @@ class _ProductRow extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.darkTextPrimary
+                            : const Color(0xFF0F172A),
                       ),
                     ),
                     if (isPlant) ...[
@@ -2159,16 +2164,19 @@ class _ProductMobileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasKit = product.isSolarPlantKit;
     final themeColor = product.sector.themeColor;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: hasKit ? const Color(0xFFF59E0B).withValues(alpha: 0.4) : AppColors.border,
+          color: hasKit
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+              : (isDark ? AppColors.darkBorder : AppColors.border),
           width: hasKit ? 1.2 : 1.0,
         ),
         boxShadow: [
@@ -2218,7 +2226,7 @@ class _ProductMobileCard extends StatelessWidget {
                                 style: GoogleFonts.inter(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0F172A),
+                                  color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -2239,7 +2247,7 @@ class _ProductMobileCard extends StatelessWidget {
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF0F172A),
+                                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                               ),
                             ),
                             if (hasKit)
@@ -3013,13 +3021,16 @@ class _SectorSelectorViewState extends State<_SectorSelectorView> {
                       style: GoogleFonts.outfit(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
                     Text(
                       'Selecione uma categoria existente ou crie uma nova personalizada para seu segmento',
                       style: GoogleFonts.inter(
-                          fontSize: 13, color: const Color(0xFF64748B)),
+                          fontSize: 13,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -3313,7 +3324,7 @@ class _CategoryCard extends StatelessWidget {
                     style: GoogleFonts.outfit(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -3494,13 +3505,16 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                         style: GoogleFonts.outfit(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                       Text(
                         'Defina o nome, ícone e cor temática da categoria',
                         style: GoogleFonts.inter(
-                            fontSize: 12, color: const Color(0xFF64748B)),
+                            fontSize: 12,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -5700,7 +5714,7 @@ class _SubcategoriesDialogState extends State<_SubcategoriesDialog> {
                         style: GoogleFonts.outfit(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                       Text(

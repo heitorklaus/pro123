@@ -146,6 +146,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox.expand(
       child: Padding(
@@ -168,7 +169,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                         style: GoogleFonts.outfit(
                           fontSize: isMobile ? 20 : 26,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -176,7 +177,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                         'Cadastro e controle de clientes e prospectos',
                         style: GoogleFonts.inter(
                             fontSize: isMobile ? 12 : 14,
-                            color: const Color(0xFF64748B)),
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -271,9 +272,9 @@ class _ClientTableViewState extends State<_ClientTableView> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: isMobile ? Colors.transparent : Colors.white,
+                  color: isMobile ? Colors.transparent : (isDark ? AppColors.darkSurface : Colors.white),
                   borderRadius: BorderRadius.circular(16),
-                  border: isMobile ? null : Border.all(color: AppColors.border),
+                  border: isMobile ? null : Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                   boxShadow: isMobile
                       ? null
                       : [
@@ -447,9 +448,10 @@ class _ClientTableViewState extends State<_ClientTableView> {
 class _ClientTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: const Color(0xFFF8FAFC),
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       child: Row(
         children: [
           _col('CLIENTE', flex: 3),
@@ -540,7 +542,9 @@ class _ClientRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF0F172A)),
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.darkTextPrimary
+                                : const Color(0xFF0F172A)),
                       ),
                       if (client.city != null && client.city!.isNotEmpty)
                         Text(
@@ -665,12 +669,14 @@ class _ClientMobileCard extends StatelessWidget {
             .join()
         : '?';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -715,7 +721,7 @@ class _ClientMobileCard extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 13.5,
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0F172A),
+                              color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -939,7 +945,9 @@ class _ClientEmptyState extends StatelessWidget {
             style: GoogleFonts.outfit(
                 fontWeight: FontWeight.bold,
                 fontSize: 17,
-                color: const Color(0xFF1E293B)),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.darkTextPrimary
+                    : const Color(0xFF1E293B)),
           ),
           const SizedBox(height: 6),
           Text(

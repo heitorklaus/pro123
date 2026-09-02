@@ -230,7 +230,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               style: GoogleFonts.outfit(
                 fontSize: 13.5,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF0F172A),
+                color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
               ),
             ),
           ],
@@ -325,7 +325,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                               letterSpacing: 0.5,
-                              color: const Color(0xFF0F172A),
+                              color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                             ),
                           ),
                         ),
@@ -581,6 +581,8 @@ class _KanbanCardState extends State<_KanbanCard> {
       }
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
       onEnter: (_) => setState(() => _isHovered = true),
@@ -588,10 +590,10 @@ class _KanbanCardState extends State<_KanbanCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppColors.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: _isHovered ? themeColor : AppColors.border,
+            color: _isHovered ? themeColor : (isDark ? AppColors.darkBorder : AppColors.border),
             width: _isHovered ? 1.5 : 1,
           ),
           boxShadow: [
@@ -660,7 +662,7 @@ class _KanbanCardState extends State<_KanbanCard> {
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: const Color(0xFF0F172A),
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                       height: 1.25,
                     ),
                   ),

@@ -488,6 +488,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     }
 
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -508,7 +509,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   if (widget.onBack != null) ...[
                     IconButton(
                       tooltip: 'Voltar',
-                      icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+                      icon: Icon(Icons.arrow_back_rounded, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                       onPressed: widget.onBack,
                     ),
                     const SizedBox(width: 8),
@@ -540,12 +541,14 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                           style: GoogleFonts.outfit(
                             fontSize: isMobile ? 18 : 22,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF0F172A),
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
                         ),
                         Text(
                           'Concessionária, simultaneidade, financiamento, cartões e modelo da proposta',
-                          style: GoogleFonts.inter(fontSize: isMobile ? 11.5 : 13, color: const Color(0xFF64748B)),
+                          style: GoogleFonts.inter(
+                              fontSize: isMobile ? 11.5 : 13,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                         ),
                       ],
                     ),
