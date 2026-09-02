@@ -238,7 +238,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withOpacity(0.15),
+                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFF87171), size: 24),
@@ -532,7 +532,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
                   decoration: BoxDecoration(
                     color: _status.bgColor,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _status.textColor.withOpacity(0.3)),
+                    border: Border.all(color: _status.textColor.withValues(alpha: 0.3)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<ContractStatus>(
@@ -710,7 +710,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.2),
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF6366F1)),
                       ),
@@ -826,12 +826,12 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
                           borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF6366F1).withOpacity(0.45),
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.45),
                               blurRadius: 18,
                               offset: const Offset(0, 6),
                             ),
                           ],
-                          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.2),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -937,7 +937,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
         ),
         textSelectionTheme: TextSelectionThemeData(
           cursorColor: cursorColor,
-          selectionColor: (isDark ? const Color(0xFF6366F1) : const Color(0xFF93C5FD)).withOpacity(0.4),
+          selectionColor: (isDark ? const Color(0xFF6366F1) : const Color(0xFF93C5FD)).withValues(alpha: 0.4),
           selectionHandleColor: cursorColor,
         ),
       ),
@@ -954,7 +954,7 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
           border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.6 : 0.18),
+              color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.18),
               blurRadius: 24,
               offset: const Offset(0, 10),
             ),
@@ -1097,7 +1097,7 @@ class _ContractQuickPreviewModalState extends State<_ContractQuickPreviewModal> 
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withOpacity(0.2),
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.search_rounded, color: Color(0xFF38BDF8), size: 24),
@@ -1223,7 +1223,7 @@ class _ContractFormattedPage extends StatelessWidget {
         border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
+            color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.25),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),

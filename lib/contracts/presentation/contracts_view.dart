@@ -265,9 +265,9 @@ class _ContractsViewState extends State<ContractsView> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF6366F1).withOpacity(0.2),
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.5)),
+                                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5)),
                                 ),
                                 child: Text(
                                   '$totalCount emitidos',
@@ -469,10 +469,12 @@ class _ContractsViewState extends State<ContractsView> {
                               child: SingleChildScrollView(
                                 scrollDirection: Axis.vertical,
                                 child: DataTable(
+                                  dataRowMinHeight: 58,
+                                  dataRowMaxHeight: 68,
                                   headingRowColor: WidgetStateProperty.all(const Color(0xFF0F172A)),
                                   dataRowColor: WidgetStateProperty.resolveWith((states) {
                                     if (states.contains(WidgetState.hovered)) {
-                                      return const Color(0xFF334155).withOpacity(0.5);
+                                      return const Color(0xFF334155).withValues(alpha: 0.5);
                                     }
                                     return Colors.transparent;
                                   }),
@@ -543,48 +545,63 @@ class _ContractsViewState extends State<ContractsView> {
                                           ),
                                         ),
 
-                                        // Cliente
+                                        // Cliente com Tooltip e Limitador
                                         DataCell(
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                c.clientName,
-                                                style: GoogleFonts.inter(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              if (c.clientDocument != null && c.clientDocument!.isNotEmpty)
-                                                Text(
-                                                  c.clientDocument!,
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 11.5,
-                                                    color: const Color(0xFF94A3B8),
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 220),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Tooltip(
+                                                  message: c.clientName,
+                                                  waitDuration: const Duration(milliseconds: 300),
+                                                  child: Text(
+                                                    c.clientName,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: GoogleFonts.inter(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 13,
+                                                      color: Colors.white,
+                                                    ),
                                                   ),
                                                 ),
-                                              if (c.createdByUserName != null && c.createdByUserName!.isNotEmpty)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(top: 2),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(Icons.person_pin_rounded, size: 11, color: Color(0xFF818CF8)),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        c.createdByUserName!,
-                                                        style: GoogleFonts.inter(
-                                                          fontSize: 10.5,
-                                                          fontWeight: FontWeight.w600,
-                                                          color: const Color(0xFF818CF8),
+                                                if (c.clientDocument != null && c.clientDocument!.isNotEmpty)
+                                                  Text(
+                                                    c.clientDocument!,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 11.5,
+                                                      color: const Color(0xFF94A3B8),
+                                                    ),
+                                                  ),
+                                                if (c.createdByUserName != null && c.createdByUserName!.isNotEmpty)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 2),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.person_pin_rounded, size: 11, color: Color(0xFF818CF8)),
+                                                        const SizedBox(width: 3),
+                                                        Flexible(
+                                                          child: Text(
+                                                            c.createdByUserName!,
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 10.5,
+                                                              fontWeight: FontWeight.w600,
+                                                              color: const Color(0xFF818CF8),
+                                                            ),
+                                                          ),
                                                         ),
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
 
@@ -737,7 +754,7 @@ class _ContractsViewState extends State<ContractsView> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 22),
@@ -790,7 +807,7 @@ class _ContractsViewState extends State<ContractsView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withOpacity(0.2) : const Color(0xFF0F172A),
+          color: isSelected ? activeColor.withValues(alpha: 0.2) : const Color(0xFF0F172A),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? activeColor : const Color(0xFF334155),

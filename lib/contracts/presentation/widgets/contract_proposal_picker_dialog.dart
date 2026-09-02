@@ -234,7 +234,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                 return ListTile(
                                   onTap: () => Navigator.pop(ctx, c),
                                   leading: CircleAvatar(
-                                    backgroundColor: const Color(0xFF6366F1).withOpacity(0.2),
+                                    backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
                                     child: const Icon(Icons.person_rounded, color: Color(0xFF818CF8)),
                                   ),
                                   title: Text(
@@ -293,7 +293,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withOpacity(0.15),
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.history_edu_rounded, color: Color(0xFF818CF8), size: 26),
@@ -412,7 +412,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                       child: Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: isSelected ? const Color(0xFF6366F1).withOpacity(0.15) : const Color(0xFF0F172A),
+                                          color: isSelected ? const Color(0xFF6366F1).withValues(alpha: 0.15) : const Color(0xFF0F172A),
                                           borderRadius: BorderRadius.circular(10),
                                           border: Border.all(
                                             color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF334155),
@@ -444,12 +444,18 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                               ],
                                             ),
                                             const SizedBox(height: 4),
-                                            Text(
-                                              p.clientName.isNotEmpty ? p.clientName : 'Cliente não associado',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.white,
+                                            Tooltip(
+                                              message: p.clientName.isNotEmpty ? p.clientName : 'Cliente não associado',
+                                              waitDuration: const Duration(milliseconds: 300),
+                                              child: Text(
+                                                p.clientName.isNotEmpty ? p.clientName : 'Cliente não associado',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(height: 2),
