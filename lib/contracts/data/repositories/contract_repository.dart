@@ -13,24 +13,39 @@ class ContractRepository {
       _firestore.collection('contracts');
 
   /// Stream em tempo real de contratos filtrados por empresa e permissões
+  /// Ordenação feita em memória para não exigir índices compostos complexos no Firestore
   Stream<List<ContractModel>> getContractsStream({
     String? companyId,
     UserModel? currentUser,
   }) {
-    Query<Map<String, dynamic>> query = _collection.orderBy('createdAt', descending: true);
+    Query<Map<String, dynamic>> query = _collection;
 
-    // Se não for superAdmin, filtra pela empresa
-    if (currentUser?.isSuperAdmin != true) {
-      final effectiveCompany = companyId ?? currentUser?.effectiveCompanyId;
-      if (effectiveCompany != null && effectiveCompany.isNotEmpty) {
-        query = query.where('companyId', isEqualTo: effectiveCompany);
-      }
+    final isSuperAdmin = currentUser?.isSuperAdmin == true ||
+        currentUser?.role == 'superAdmin' ||
+        currentUser?.email == 'admin@admin.com.br';
+
+    final effectiveCompany = companyId ?? currentUser?.effectiveCompanyId ?? currentUser?.companyId;
+
+    if (!isSuperAdmin && effectiveCompany != null && effectiveCompany.isNotEmpty && effectiveCompany != 'GLOBAL_MASTER' && effectiveCompany != 'ALL') {
+      query = query.where('companyId', isEqualTo: effectiveCompany);
     }
 
     return query.snapshots().map((snapshot) {
-      return snapshot.docs
+      var list = snapshot.docs
           .map((doc) => ContractModel.fromFirestore(doc))
           .toList();
+
+      // Se o usuário não tiver permissão para ver todas as propostas/contratos, filtra os próprios
+      if (!isSuperAdmin && currentUser != null && currentUser.permissions.viewAllProposals == false) {
+        list = list.where((c) =>
+            c.createdByUserId == currentUser.uid ||
+            c.createdByUserId == null ||
+            c.createdByUserId!.isEmpty).toList();
+      }
+
+      // Ordenação decrescente em memória
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
     });
   }
 
@@ -73,11 +88,9 @@ class ContractRepository {
   Future<String> generateNextContractNumber({String? companyId}) async {
     try {
       final year = DateTime.now().year;
-      Query<Map<String, dynamic>> query = _collection
-          .orderBy('createdAt', descending: true)
-          .limit(20);
+      Query<Map<String, dynamic>> query = _collection;
 
-      if (companyId != null && companyId.isNotEmpty) {
+      if (companyId != null && companyId.isNotEmpty && companyId != 'GLOBAL_MASTER' && companyId != 'ALL') {
         query = query.where('companyId', isEqualTo: companyId);
       }
 

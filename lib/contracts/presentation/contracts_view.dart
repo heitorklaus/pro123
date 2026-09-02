@@ -172,6 +172,7 @@ class _ContractsViewState extends State<ContractsView> {
         proposal: _newContractProposal,
         client: _newContractClient,
         company: _currentCompany,
+        currentUser: widget.currentUser,
         onSave: _handleSaveContract,
         onCancel: () => setState(() {
           _isEditing = false;

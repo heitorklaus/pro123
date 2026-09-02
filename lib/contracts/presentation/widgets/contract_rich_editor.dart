@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../auth/domain/models/user_model.dart';
 import '../../../clients/domain/models/client_model.dart';
 import '../../../proposals/domain/models/proposal_model.dart';
 import '../../../settings/domain/models/company_model.dart';
@@ -26,6 +27,7 @@ class ContractRichEditor extends StatefulWidget {
   final ProposalModel? proposal;
   final ClientModel? client;
   final CompanyModel? company;
+  final UserModel? currentUser;
   final Future<void> Function(ContractModel contract) onSave;
   final VoidCallback onCancel;
 
@@ -35,6 +37,7 @@ class ContractRichEditor extends StatefulWidget {
     this.proposal,
     this.client,
     this.company,
+    this.currentUser,
     required this.onSave,
     required this.onCancel,
   });
@@ -366,6 +369,27 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
 
     final cleanContent = _sanitizeContent(_contentCtrl.text);
 
+    final effectiveCompanyId = widget.initialContract?.companyId ??
+        comp?.id ??
+        prop?.companyId ??
+        widget.currentUser?.effectiveCompanyId ??
+        widget.currentUser?.companyId;
+
+    final effectiveCompanyName = comp?.name ??
+        widget.initialContract?.companyName ??
+        'Integrador Solar';
+
+    final effectiveCompanyDoc = comp?.document ??
+        widget.initialContract?.companyDocument;
+
+    final effectiveCreatedByUserId = widget.initialContract?.createdByUserId ??
+        prop?.createdByUserId ??
+        widget.currentUser?.uid;
+
+    final effectiveCreatedByUserName = widget.initialContract?.createdByUserName ??
+        prop?.createdByUserName ??
+        widget.currentUser?.name;
+
     return ContractModel(
       id: widget.initialContract?.id ?? '',
       contractNumber: _contractNumberCtrl.text.trim(),
@@ -377,9 +401,9 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
       clientEmail: cli?.email ?? prop?.clientEmail,
       clientPhone: cli?.phone ?? prop?.clientPhone,
       clientAddress: cli?.street != null ? '${cli!.street}, ${cli.addressNumber ?? ""} - ${cli.city ?? ""}/${cli.state ?? ""}' : prop?.clientAddress,
-      companyId: widget.initialContract?.companyId ?? comp?.id,
-      companyName: comp?.name,
-      companyDocument: comp?.document,
+      companyId: effectiveCompanyId,
+      companyName: effectiveCompanyName,
+      companyDocument: effectiveCompanyDoc,
       title: _titleCtrl.text.trim(),
       content: cleanContent,
       status: _status,
@@ -392,6 +416,8 @@ class _ContractRichEditorState extends State<ContractRichEditor> {
       supplierName: supplier,
       paymentTerms: prop?.paymentTerms,
       deliveryTime: prop?.deliveryTime,
+      createdByUserId: effectiveCreatedByUserId,
+      createdByUserName: effectiveCreatedByUserName,
       createdAt: widget.initialContract?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
