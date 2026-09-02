@@ -70,6 +70,8 @@ abstract class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.background,
+      canvasColor: AppColors.surface,
+      cardColor: AppColors.card,
 
       // --- ESQUEMA DE CORES ---
       colorScheme: const ColorScheme.light(
@@ -93,18 +95,92 @@ abstract class AppTheme {
           fontSize: 24,
           fontWeight: FontWeight.bold,
         ),
+        headlineSmall: font(
+          color: AppColors.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
         titleLarge: font(
           color: AppColors.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w700,
+        ),
+        titleMedium: font(
+          color: AppColors.textPrimary,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+        titleSmall: font(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
         bodyLarge: font(
           color: AppColors.textPrimary,
           fontSize: 16,
         ),
         bodyMedium: font(
-          color: AppColors.textSecondary,
+          color: AppColors.textPrimary,
           fontSize: 14,
+        ),
+        bodySmall: font(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+        ),
+        labelLarge: font(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        labelMedium: font(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+        ),
+        labelSmall: font(
+          color: AppColors.textMuted,
+          fontSize: 11,
+        ),
+      ),
+
+      // --- DROPDOWN & MENU THEMES LIGHT ---
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: font(color: AppColors.textPrimary, fontSize: 14),
+        menuStyle: const MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(AppColors.surface),
+          surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ),
+
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        textStyle: font(color: AppColors.textPrimary, fontSize: 14),
+        labelTextStyle: WidgetStatePropertyAll(
+          font(color: AppColors.textPrimary, fontSize: 14),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          side: const BorderSide(color: AppColors.border),
+        ),
+      ),
+
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(AppColors.surface),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: AppDecorations.radiusMedium,
+              side: const BorderSide(color: AppColors.border),
+            ),
+          ),
+        ),
+      ),
+
+      menuButtonTheme: MenuButtonThemeData(
+        style: MenuItemButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          textStyle: font(color: AppColors.textPrimary, fontSize: 14),
         ),
       ),
 
@@ -190,19 +266,28 @@ abstract class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.darkBackground,
+      canvasColor: AppColors.darkSurface,
+      cardColor: AppColors.darkCard,
 
       // --- ESQUEMA DE CORES DARK ---
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.darkSurface,
+        surfaceContainer: AppColors.darkSurface,
+        surfaceContainerHigh: AppColors.darkSurface,
+        surfaceContainerHighest: AppColors.darkSurface,
         error: AppColors.error,
         onPrimary: Colors.white,
         onSurface: AppColors.darkTextPrimary,
+        onSurfaceVariant: AppColors.darkTextSecondary,
       ),
 
-      // --- TIPOGRAFIA DARK ---
-      textTheme: GoogleFonts.robotoTextTheme().copyWith(
+      // --- TIPOGRAFIA DARK (TEXTOS BRANCOS / CLAROS POR PADRÃO) ---
+      textTheme: GoogleFonts.robotoTextTheme(ThemeData.dark().textTheme).copyWith(
+        displayLarge: font(color: AppColors.darkTextPrimary),
+        displayMedium: font(color: AppColors.darkTextPrimary),
+        displaySmall: font(color: AppColors.darkTextPrimary),
         headlineLarge: font(
           color: AppColors.darkTextPrimary,
           fontSize: 32,
@@ -213,19 +298,103 @@ abstract class AppTheme {
           fontSize: 24,
           fontWeight: FontWeight.bold,
         ),
+        headlineSmall: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
         titleLarge: font(
           color: AppColors.darkTextPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w700,
+        ),
+        titleMedium: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+        titleSmall: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
         bodyLarge: font(
           color: AppColors.darkTextPrimary,
           fontSize: 16,
         ),
         bodyMedium: font(
-          color: AppColors.darkTextSecondary,
+          color: AppColors.darkTextPrimary,
           fontSize: 14,
         ),
+        bodySmall: font(
+          color: AppColors.darkTextSecondary,
+          fontSize: 12,
+        ),
+        labelLarge: font(
+          color: AppColors.darkTextPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        labelMedium: font(
+          color: AppColors.darkTextSecondary,
+          fontSize: 12,
+        ),
+        labelSmall: font(
+          color: AppColors.darkTextMuted,
+          fontSize: 11,
+        ),
+      ),
+
+      // --- DROPDOWN & MENU THEMES DARK (TEXTOS BRANCOS) ---
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: font(color: AppColors.darkTextPrimary, fontSize: 14),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: AppColors.darkInputFill,
+          labelStyle: font(color: AppColors.darkTextSecondary, fontSize: 14),
+          hintStyle: font(color: AppColors.darkTextMuted, fontSize: 14),
+        ),
+        menuStyle: const MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(AppColors.darkSurface),
+          surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ),
+
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.darkSurface,
+        surfaceTintColor: Colors.transparent,
+        textStyle: font(color: AppColors.darkTextPrimary, fontSize: 14),
+        labelTextStyle: WidgetStatePropertyAll(
+          font(color: AppColors.darkTextPrimary, fontSize: 14),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppDecorations.radiusMedium,
+          side: const BorderSide(color: AppColors.darkBorder),
+        ),
+      ),
+
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(AppColors.darkSurface),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: AppDecorations.radiusMedium,
+              side: const BorderSide(color: AppColors.darkBorder),
+            ),
+          ),
+        ),
+      ),
+
+      menuButtonTheme: MenuButtonThemeData(
+        style: MenuItemButton.styleFrom(
+          foregroundColor: AppColors.darkTextPrimary,
+          textStyle: font(color: AppColors.darkTextPrimary, fontSize: 14),
+        ),
+      ),
+
+      iconTheme: const IconThemeData(
+        color: AppColors.darkTextPrimary,
       ),
 
       // --- CAMPOS DE TEXTO DARK ---

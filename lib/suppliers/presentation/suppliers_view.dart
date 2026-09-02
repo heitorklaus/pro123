@@ -217,6 +217,7 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: EdgeInsets.all(isMobile ? 14 : 32),
@@ -332,26 +333,42 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? AppColors.darkSurface : Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<SupplierStatus?>(
+                    dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
                     value: _filterStatus,
                     hint: Text(
                       'Status: Todos',
-                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                      ),
                     ),
                     items: [
                       DropdownMenuItem(
                         value: null,
-                        child: Text('Todos os Status', style: GoogleFonts.inter(fontSize: 13)),
+                        child: Text(
+                          'Todos os Status',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                          ),
+                        ),
                       ),
                       ...SupplierStatus.values.map(
                         (s) => DropdownMenuItem(
                           value: s,
-                          child: Text(s.label, style: GoogleFonts.inter(fontSize: 13)),
+                          child: Text(
+                            s.label,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                            ),
+                          ),
                         ),
                       ),
                     ],

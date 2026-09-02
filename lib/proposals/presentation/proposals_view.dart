@@ -514,6 +514,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: EdgeInsets.all(isMobile ? 14 : 32),
@@ -673,32 +674,37 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? AppColors.darkSurface : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<ProposalStatus?>(
+                          dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
                           value: _filterStatus,
                           hint: Text('Status',
                               style: GoogleFonts.inter(
-                                  fontSize: 12, color: const Color(0xFF64748B))),
+                                  fontSize: 12, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B))),
                           isExpanded: true,
-                          icon: const Icon(Icons.filter_list_rounded,
-                              size: 16, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.filter_list_rounded,
+                              size: 16, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<ProposalStatus?>(
                               value: null,
                               child: Text('Todos os Status',
                                   style: GoogleFonts.inter(
-                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                             ),
                             ...ProposalStatus.values
                                 .map((s) => DropdownMenuItem<ProposalStatus?>(
                                       value: s,
                                       child: Text(s.label,
-                                          style: GoogleFonts.inter(fontSize: 12)),
+                                          style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                                     )),
                           ],
                           onChanged: (val) => setState(() => _filterStatus = val),
@@ -711,32 +717,37 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? AppColors.darkSurface : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String?>(
+                          dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
                           value: _filterSellerId,
                           hint: Text('Vendedor',
                               style: GoogleFonts.inter(
-                                  fontSize: 12, color: const Color(0xFF64748B))),
+                                  fontSize: 12, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B))),
                           isExpanded: true,
-                          icon: const Icon(Icons.person_outline_rounded,
-                              size: 16, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.person_outline_rounded,
+                              size: 16, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<String?>(
                               value: null,
                               child: Text('Todos Vendedores',
                                   style: GoogleFonts.inter(
-                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                             ),
                             ..._sellersList.map((u) => DropdownMenuItem<String?>(
                                   value: u.uid,
                                   child: Text(u.name,
                                       overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(fontSize: 12)),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                                 )),
                           ],
                           onChanged: (val) => setState(() => _filterSellerId = val),
@@ -753,27 +764,36 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                 // Campo de busca
                 Expanded(
                   flex: 3,
-                  child: TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) =>
-                        setState(() => _query = v.trim().toLowerCase()),
-                    decoration: InputDecoration(
-                      hintText:
-                          'Buscar por número da proposta, cliente ou título...',
-                      hintStyle: GoogleFonts.inter(
-                          fontSize: 13, color: const Color(0xFF94A3B8)),
-                      prefixIcon: const Icon(Icons.search_rounded,
-                          color: Color(0xFF64748B), size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.border)),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.border)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkSurface : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search_rounded,
+                            size: 20, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchCtrl,
+                            onChanged: (v) =>
+                                setState(() => _query = v.trim().toLowerCase()),
+                            style: GoogleFonts.inter(
+                                fontSize: 13.5, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),
+                            decoration: InputDecoration(
+                              hintText: 'Buscar por número da proposta, cliente ou título...',
+                              hintStyle: GoogleFonts.inter(
+                                  fontSize: 13, color: isDark ? AppColors.darkTextMuted : const Color(0xFF94A3B8)),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -784,32 +804,37 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     flex: 2,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? AppColors.darkSurface : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<ProposalStatus?>(
+                          dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
                           value: _filterStatus,
                           hint: Text('Todos os Status',
                               style: GoogleFonts.inter(
-                                  fontSize: 13, color: const Color(0xFF64748B))),
+                                  fontSize: 13, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B))),
                           isExpanded: true,
-                          icon: const Icon(Icons.filter_list_rounded,
-                              size: 18, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.filter_list_rounded,
+                              size: 18, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<ProposalStatus?>(
                               value: null,
                               child: Text('Todos os Status',
                                   style: GoogleFonts.inter(
-                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                             ),
                             ...ProposalStatus.values
                                 .map((s) => DropdownMenuItem<ProposalStatus?>(
                                       value: s,
                                       child: Text(s.label,
-                                          style: GoogleFonts.inter(fontSize: 13)),
+                                          style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                                     )),
                           ],
                           onChanged: (val) => setState(() => _filterStatus = val),
@@ -825,26 +850,29 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     flex: 2,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? AppColors.darkSurface : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String?>(
+                          dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
                           value: _filterSellerId,
                           hint: Text('Todos os Vendedores',
                               style: GoogleFonts.inter(
-                                  fontSize: 13, color: const Color(0xFF64748B))),
+                                  fontSize: 13, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B))),
                           isExpanded: true,
-                          icon: const Icon(Icons.person_outline_rounded,
-                              size: 18, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.person_outline_rounded,
+                              size: 18, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<String?>(
                               value: null,
                               child: Text('👥 Todos os Vendedores',
                                   style: GoogleFonts.inter(
-                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                             ),
                             ..._sellersList.map((u) => DropdownMenuItem<String?>(
                                   value: u.uid,
