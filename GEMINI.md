@@ -226,6 +226,29 @@ Armazena o perfil estendido dos operadores e administradores do CRM com RBAC gra
 - **Configurador de Permissões (`UserPermissionsDialog`):** Localizado na tela de **Usuários**, acionado pelo ícone de engrenagem (`Icons.settings_suggest_rounded`) em cada linha de operador. Permite ao Admin alternar permissões em tempo real com presets rápidos (*Acesso Total*, *Padrão Gerente*, *Padrão Operador*, *Somente Leitura*).
 - **Filtragem de Propostas por Criador:** Propostas gravam `createdByUserId` e `createdByUserName`. Operadores sem `viewAllProposals` visualizam apenas os orçamentos que eles mesmos criaram, enquanto Admins e Gerentes acompanham a produção integral de toda a equipe.
 
+### 👔 5.1. Gestão Comercial, Desempenho & Auditoria 360º da Equipe (Admin & Gerente):
+Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha controle e visibilidade total sobre a atuação de cada vendedor:
+1. **Autoria e Vínculo Automático (`createdByUserId` e `createdByUserName`):** Todo registro gerado (Proposta, Usina Solar / Produto, Cliente e Contrato) armazena a autoria de quem o criou, com fallback seguro para usuários legados.
+2. **Pilar 1 — Filtros por Vendedor & Badges de Autoria:**
+   - **Propostas (`ProposalsView` & `ProposalKanbanView`):** Dropdown de seleção de vendedor na barra de busca (desktop e mobile), filtragem em tempo real no Firestore e chips visuais com o nome do criador em todas as linhas da tabela, cartões mobile e cards do Kanban.
+   - **Contratos (`ContractsView`):** Dropdown seletor de vendedor no cabeçalho com filtragem em tempo real e chip de autoria na coluna do cliente.
+   - **Produtos & Catálogo (`ProductsView`):** Dropdown seletor de criador e badge `👤 [Nome]` na listagem de produtos e usinas solares.
+3. **Pilar 2 — Dossiê 360º de Desempenho do Vendedor (`UserDossierDialog`):**
+   - Modal executivo (1040x760px) com cabeçalho escuro premium e métricas consolidadas em tempo real sobre os Streams do Firestore:
+     - 5 KPIs em tempo real: *Total em Propostas (R$)*, *Vendas Fechadas / Ganhas (R$)*, *Taxa de Conversão (%)*, *Potência Fotovoltaica Ofertada (kWp)* e *Contratos Jurídicos Emitidos*.
+     - 4 Abas completas:
+       - **Aba 1 (Propostas):** Listagem com status badge, valores, datas, visualizador de PDF e atalho de compartilhamento web.
+       - **Aba 2 (Usinas Solares):** Listagem de usinas e kits criados pelo operador com potência em kWp, tipo de telhado e equipamentos.
+       - **Aba 3 (Contratos):** Contratos emitidos pelo vendedor com status e botão de impressão de PDF.
+       - **Aba 4 (Clientes):** Carteira de clientes cadastrados pelo operador com dados de contato.
+   - Acionamento direto pelo botão `📊` (`Icons.analytics_outlined`, cor esmeralda) em todos os níveis da tela de **Usuários** (`_AdminTreeGroup`, `_SubordinateRow`, `_OrphansGroup`, `_UserRow`) e nas linhas do Leaderboard.
+4. **Pilar 3 — Painel Executivo da Empresa & Ranking de Vendas (`_CompanyExecutiveDashboard` & `_TeamPerformanceRankingCard`):**
+   - No Dashboard inicial (SPA) de Administradores e Gerentes comerciais, exibe o painel corporativo consolidado:
+     - Header executivo com identidade da empresa e resumo da equipe.
+     - 6 KPIs Corporativos: Vendas Fechadas (R$), Volume Total de Propostas (R$), Taxa de Conversão Geral da Equipe (%), Potência Solar Ofertada (kWp), Contratos Emitidos e Clientes na Carteira.
+     - **Tabela de Desempenho & Ranking da Equipe de Vendas (`_TeamPerformanceRankingCard`):** Leaderboard dos operadores ordenados por faturamento ganho/emitido com medalhas de pódio (🥇 1º, 🥈 2º, 🥉 3º), volume financeiro, taxa de conversão individual e botão de ação para abrir o Dossiê 360º de cada vendedor em 1 clique.
+     - Feed em tempo real das últimas propostas e clientes cadastrados por qualquer membro da organização.
+
 ---
 
 ## 🧩 6. Módulos e Funcionalidades Existentes

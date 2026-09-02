@@ -56,6 +56,8 @@ class ClientModel {
   final String? state;
   final String? notes;
   final String? companyId; // Multi-tenancy
+  final String? createdByUserId; // UID do Vendedor / Operador que cadastrou
+  final String? createdByUserName; // Nome do Vendedor / Operador
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -77,6 +79,8 @@ class ClientModel {
     this.state,
     this.notes,
     this.companyId,
+    this.createdByUserId,
+    this.createdByUserName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -117,6 +121,8 @@ class ClientModel {
       state: map['state'] as String?,
       notes: map['notes'] as String?,
       companyId: map['companyId'] as String?,
+      createdByUserId: map['createdByUserId'] as String?,
+      createdByUserName: map['createdByUserName'] as String?,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -141,6 +147,8 @@ class ClientModel {
       'state': state,
       'notes': notes,
       'companyId': companyId,
+      'createdByUserId': createdByUserId,
+      'createdByUserName': createdByUserName,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -164,6 +172,8 @@ class ClientModel {
     String? state,
     String? notes,
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -185,6 +195,8 @@ class ClientModel {
       state: state ?? this.state,
       notes: notes ?? this.notes,
       companyId: companyId ?? this.companyId,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      createdByUserName: createdByUserName ?? this.createdByUserName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

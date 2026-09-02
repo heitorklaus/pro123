@@ -41,6 +41,7 @@ class _ClientsViewState extends State<ClientsView> {
             width: 780,
             child: _ClientFormCard(
               client: _editingClient,
+              currentUser: widget.currentUser,
               onBack: () => setState(() {
                 _showForm = false;
                 _editingClient = null;
@@ -993,11 +994,13 @@ class _ClientEmptyState extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _ClientFormCard extends StatefulWidget {
   final ClientModel? client; // null = novo, não-null = edição
+  final UserModel? currentUser;
   final VoidCallback onBack;
   final VoidCallback onSuccess;
 
   const _ClientFormCard({
     this.client,
+    this.currentUser,
     required this.onBack,
     required this.onSuccess,
   });
@@ -1335,7 +1338,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
         } catch (_) {
           auth = AuthRepository();
         }
-        final companyId = await auth.getCurrentCompanyId();
+        final user = widget.currentUser ?? await auth.getCurrentUser();
+        final companyId = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
 
         await _repo.createClient(
           name: name,
@@ -1353,6 +1357,8 @@ class _ClientFormCardState extends State<_ClientFormCard> {
           state: n(_stateCtrl.text),
           notes: n(_notesCtrl.text),
           companyId: companyId,
+          createdByUserId: user?.uid,
+          createdByUserName: user?.name,
         );
       }
 

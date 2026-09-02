@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../app/layout/app_sidebar.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
@@ -19,9 +20,12 @@ import '../../proposals/data/services/proposal_auto_pdf_sync_service.dart';
 import '../../proposals/domain/models/proposal_item_model.dart';
 import '../../proposals/domain/models/proposal_model.dart';
 import '../../proposals/presentation/proposals_view.dart';
+import '../../contracts/data/repositories/contract_repository.dart';
+import '../../contracts/domain/models/contract_model.dart';
 import '../../contracts/presentation/contracts_view.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
 import '../../users/presentation/users_view.dart';
+import '../../users/presentation/widgets/user_dossier_dialog.dart';
 import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
@@ -299,6 +303,12 @@ class _DashboardPageState extends State<DashboardPage> {
             onNavigate: (item) => setState(() => _activeItem = item),
           );
         }
+        if (_currentUser?.isAdmin == true || _currentUser?.isManager == true || _currentUser?.canViewAllProposals == true) {
+          return _CompanyExecutiveDashboard(
+            currentUser: _currentUser!,
+            onNavigate: (item) => setState(() => _activeItem = item),
+          );
+        }
         return const Center(
           child: SingleChildScrollView(
             padding: EdgeInsets.all(32.0),
@@ -499,6 +509,7 @@ class _SuperAdminMasterDashboardState extends State<_SuperAdminMasterDashboard> 
   late final AuthRepository _authRepo;
   late final ProposalRepository _proposalRepo;
   late final ProductRepository _productRepo;
+  late final ContractRepository _contractRepo;
   late final ClientRepository _clientRepo;
 
   @override
@@ -520,6 +531,11 @@ class _SuperAdminMasterDashboardState extends State<_SuperAdminMasterDashboard> 
       _productRepo = ProductRepository();
     }
     try {
+      _contractRepo = Modular.get<ContractRepository>();
+    } catch (_) {
+      _contractRepo = ContractRepository();
+    }
+    try {
       _clientRepo = Modular.get<ClientRepository>();
     } catch (_) {
       _clientRepo = ClientRepository();
@@ -539,19 +555,23 @@ class _SuperAdminMasterDashboardState extends State<_SuperAdminMasterDashboard> 
             return StreamBuilder<List<ProductModel>>(
               stream: _productRepo.getProductsStream(isSuperAdmin: true),
               builder: (context, prodSnap) {
-                return StreamBuilder<List<ClientModel>>(
-                  stream: _clientRepo.getClientsStream(isSuperAdmin: true),
-                  builder: (context, clientSnap) {
-                    final users = userSnap.data ?? [];
-                    final proposals = propSnap.data ?? [];
-                    final products = prodSnap.data ?? [];
-                    final clients = clientSnap.data ?? [];
+                return StreamBuilder<List<ContractModel>>(
+                  stream: _contractRepo.getContractsStream(isSuperAdmin: true),
+                  builder: (context, contSnap) {
+                    return StreamBuilder<List<ClientModel>>(
+                      stream: _clientRepo.getClientsStream(isSuperAdmin: true),
+                      builder: (context, clientSnap) {
+                        final users = userSnap.data ?? [];
+                        final proposals = propSnap.data ?? [];
+                        final products = prodSnap.data ?? [];
+                        final contracts = contSnap.data ?? [];
+                        final clients = clientSnap.data ?? [];
 
-                    final adminsCount = users.where((u) => u.isAdmin || u.isSuperAdmin).length;
-                    final totalRevenue = proposals.fold<double>(
-                      0.0,
-                      (acc, p) => acc + p.totalAmount,
-                    );
+                        final adminsCount = users.where((u) => u.isAdmin || u.isSuperAdmin).length;
+                        final totalRevenue = proposals.fold<double>(
+                          0.0,
+                          (acc, p) => acc + p.totalAmount,
+                        );
 
                     return SingleChildScrollView(
                       padding: EdgeInsets.all(isMobile ? 16 : 32),
@@ -708,6 +728,26 @@ class _SuperAdminMasterDashboardState extends State<_SuperAdminMasterDashboard> 
 
                           const SizedBox(height: 28),
 
+                          // ── Ranking Geral de Vendedores & Operadores ───
+                          _TeamPerformanceRankingCard(
+                            users: users,
+                            proposals: proposals,
+                            products: products,
+                            contracts: contracts,
+                            currentUser: widget.currentUser,
+                            onOpenDossier: (u) {
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => UserDossierDialog(
+                                  user: u,
+                                  currentUser: widget.currentUser,
+                                ),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 28),
+
                           // ── Feed de Auditoria em Tempo Real ────────────
                           if (isMobile) ...[
                             _RecentProposalsAuditCard(
@@ -752,6 +792,8 @@ class _SuperAdminMasterDashboardState extends State<_SuperAdminMasterDashboard> 
         );
       },
     );
+  },
+);
   }
 
   String _formatCurrency(double val) {
@@ -1137,3 +1179,684 @@ class _RecentClientsAuditCard extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAINEL EXECUTIVO DA EMPRESA / GESTÃO COMERCIAL DA EQUIPE (ADMIN / GERENTE)
+// ─────────────────────────────────────────────────────────────────────────────
+class _CompanyExecutiveDashboard extends StatefulWidget {
+  final UserModel currentUser;
+  final void Function(AppSidebarItem) onNavigate;
+
+  const _CompanyExecutiveDashboard({
+    required this.currentUser,
+    required this.onNavigate,
+  });
+
+  @override
+  State<_CompanyExecutiveDashboard> createState() => _CompanyExecutiveDashboardState();
+}
+
+class _CompanyExecutiveDashboardState extends State<_CompanyExecutiveDashboard> {
+  late final AuthRepository _authRepo;
+  late final ProposalRepository _proposalRepo;
+  late final ProductRepository _productRepo;
+  late final ContractRepository _contractRepo;
+  late final ClientRepository _clientRepo;
+  final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+    try {
+      _proposalRepo = Modular.get<ProposalRepository>();
+    } catch (_) {
+      _proposalRepo = ProposalRepository();
+    }
+    try {
+      _productRepo = Modular.get<ProductRepository>();
+    } catch (_) {
+      _productRepo = ProductRepository();
+    }
+    try {
+      _contractRepo = Modular.get<ContractRepository>();
+    } catch (_) {
+      _contractRepo = ContractRepository();
+    }
+    try {
+      _clientRepo = Modular.get<ClientRepository>();
+    } catch (_) {
+      _clientRepo = ClientRepository();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    final cid = widget.currentUser.effectiveCompanyId;
+
+    return StreamBuilder<List<UserModel>>(
+      stream: _authRepo.getUsersStream(companyId: cid, isSuperAdmin: false),
+      builder: (context, userSnap) {
+        return StreamBuilder<List<ProposalModel>>(
+          stream: _proposalRepo.getProposalsStream(
+            companyId: cid,
+            isSuperAdmin: false,
+            isAllProposalsVisible: true,
+          ),
+          builder: (context, propSnap) {
+            return StreamBuilder<List<ProductModel>>(
+              stream: _productRepo.getProductsStream(
+                companyId: cid,
+                isSuperAdmin: false,
+              ),
+              builder: (context, prodSnap) {
+                return StreamBuilder<List<ContractModel>>(
+                  stream: _contractRepo.getContractsStream(
+                    companyId: cid,
+                    isSuperAdmin: false,
+                  ),
+                  builder: (context, contSnap) {
+                    return StreamBuilder<List<ClientModel>>(
+                      stream: _clientRepo.getClientsStream(
+                        companyId: cid,
+                        isSuperAdmin: false,
+                      ),
+                      builder: (context, clientSnap) {
+                        final users = userSnap.data ?? [];
+                        final proposals = propSnap.data ?? [];
+                        final products = prodSnap.data ?? [];
+                        final contracts = contSnap.data ?? [];
+                        final clients = clientSnap.data ?? [];
+
+                        final totalRevenue = proposals.fold<double>(0.0, (acc, p) => acc + p.totalAmount);
+                        final closedProposals = proposals.where((p) => p.status == ProposalStatus.closed).toList();
+                        final closedRevenue = closedProposals.fold<double>(0.0, (acc, p) => acc + p.totalAmount);
+                        final conversionRate = proposals.isEmpty ? 0.0 : (closedProposals.length / proposals.length) * 100;
+                        final solarPlants = products.where((p) => p.sector == ProductSector.solarPlant || p.isSolarPlantKit).toList();
+                        final totalKwp = solarPlants.fold<double>(0.0, (acc, p) => acc + (p.solarKilowatts ?? 0.0));
+                        final signedContracts = contracts.where((c) => c.status == ContractStatus.signed).toList();
+
+                        return SingleChildScrollView(
+                          padding: EdgeInsets.all(isMobile ? 16 : 32),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ── Header Executivo da Empresa ────────────────
+                              Container(
+                                padding: EdgeInsets.all(isMobile ? 18 : 24),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF1E1B4B)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.15),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: const Color(0xFF818CF8).withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.analytics_rounded,
+                                        color: Color(0xFFA5B4FC),
+                                        size: 32,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  'Painel Executivo da Empresa',
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.outfit(
+                                                    fontSize: isMobile ? 18 : 22,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF6366F1),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  widget.currentUser.isAdmin ? 'ADMINISTRADOR' : 'GERENTE COMERCIAL',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Acompanhe o desempenho, faturamento e ranking de vendas de toda a sua equipe em tempo real.',
+                                            style: GoogleFonts.inter(
+                                              fontSize: isMobile ? 12 : 13.5,
+                                              color: const Color(0xFF94A3B8),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // ── KPIs da Empresa ────────────────────────────
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 16,
+                                children: [
+                                  _KpiCard(
+                                    title: 'VENDAS FECHADAS (GANHAS)',
+                                    value: _formatCurrency(closedRevenue),
+                                    subtitle: '${closedProposals.length} propostas ganhas',
+                                    icon: Icons.verified_rounded,
+                                    color: const Color(0xFF10B981),
+                                    isMobile: isMobile,
+                                    onTap: () => widget.onNavigate(AppSidebarItem.proposals),
+                                  ),
+                                  _KpiCard(
+                                    title: 'TOTAL EM PROPOSTAS',
+                                    value: _formatCurrency(totalRevenue),
+                                    subtitle: '${proposals.length} orçamentos emitidos',
+                                    icon: Icons.receipt_long_rounded,
+                                    color: const Color(0xFF6366F1),
+                                    isMobile: isMobile,
+                                    onTap: () => widget.onNavigate(AppSidebarItem.proposals),
+                                  ),
+                                  _KpiCard(
+                                    title: 'TAXA DE CONVERSÃO',
+                                    value: '${conversionRate.toStringAsFixed(1)}%',
+                                    subtitle: 'Aprovação geral da equipe',
+                                    icon: Icons.trending_up_rounded,
+                                    color: const Color(0xFF0284C7),
+                                    isMobile: isMobile,
+                                    onTap: () => widget.onNavigate(AppSidebarItem.proposals),
+                                  ),
+                                  _KpiCard(
+                                    title: 'POTÊNCIA OFERTADA',
+                                    value: '${totalKwp.toStringAsFixed(1)} kWp',
+                                    subtitle: '${solarPlants.length} usinas solares no catálogo',
+                                    icon: Icons.solar_power_rounded,
+                                    color: const Color(0xFFF59E0B),
+                                    isMobile: isMobile,
+                                    onTap: () => widget.onNavigate(AppSidebarItem.products),
+                                  ),
+                                  _KpiCard(
+                                    title: 'CONTRATOS GERADOS',
+                                    value: '${contracts.length}',
+                                    subtitle: '${signedContracts.length} assinados / fechados',
+                                    icon: Icons.gavel_rounded,
+                                    color: const Color(0xFF8B5CF6),
+                                    isMobile: isMobile,
+                                    onTap: () => widget.onNavigate(AppSidebarItem.contracts),
+                                  ),
+                                  _KpiCard(
+                                    title: 'CLIENTES NA CARTEIRA',
+                                    value: '${clients.length}',
+                                    subtitle: 'Cadastrados pela equipe',
+                                    icon: Icons.person_pin_circle_rounded,
+                                    color: const Color(0xFFEC4899),
+                                    isMobile: isMobile,
+                                    onTap: () => widget.onNavigate(AppSidebarItem.clients),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 28),
+
+                              // ── Ranking de Performance da Equipe de Vendas ─
+                              _TeamPerformanceRankingCard(
+                                users: users,
+                                proposals: proposals,
+                                products: products,
+                                contracts: contracts,
+                                currentUser: widget.currentUser,
+                                onOpenDossier: (u) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => UserDossierDialog(
+                                      user: u,
+                                      currentUser: widget.currentUser,
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              const SizedBox(height: 28),
+
+                              // ── Feed de Propostas e Clientes Recentes ──────
+                              if (isMobile) ...[
+                                _RecentProposalsAuditCard(
+                                  proposals: proposals,
+                                  onViewAll: () => widget.onNavigate(AppSidebarItem.proposals),
+                                ),
+                                const SizedBox(height: 16),
+                                _RecentClientsAuditCard(
+                                  clients: clients,
+                                  onViewAll: () => widget.onNavigate(AppSidebarItem.clients),
+                                ),
+                              ] else ...[
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: _RecentProposalsAuditCard(
+                                        proposals: proposals,
+                                        onViewAll: () => widget.onNavigate(AppSidebarItem.proposals),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 20),
+                                    Expanded(
+                                      flex: 2,
+                                      child: _RecentClientsAuditCard(
+                                        clients: clients,
+                                        onViewAll: () => widget.onNavigate(AppSidebarItem.clients),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatCurrency(double val) {
+    if (val >= 1000000) {
+      return 'R\$ ${(val / 1000000).toStringAsFixed(2).replaceAll('.', ',')}M';
+    }
+    if (val >= 1000) {
+      return 'R\$ ${(val / 1000).toStringAsFixed(1).replaceAll('.', ',')}k';
+    }
+    return _currency.format(val);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CARD DE RANKING & PERFORMANCE DA EQUIPE DE VENDAS
+// ─────────────────────────────────────────────────────────────────────────────
+class _TeamPerformanceRankingCard extends StatelessWidget {
+  final List<UserModel> users;
+  final List<ProposalModel> proposals;
+  final List<ProductModel> products;
+  final List<ContractModel> contracts;
+  final UserModel currentUser;
+  final void Function(UserModel) onOpenDossier;
+
+  const _TeamPerformanceRankingCard({
+    required this.users,
+    required this.proposals,
+    required this.products,
+    required this.contracts,
+    required this.currentUser,
+    required this.onOpenDossier,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+    // Estrutura de dados agregados por usuário
+    final List<_UserSellerStats> statsList = users.map((u) {
+      final userProps = proposals.where((p) => p.createdByUserId == u.uid || (p.createdByUserId == null && p.createdByUserName == u.name)).toList();
+      final userClosed = userProps.where((p) => p.status == ProposalStatus.closed).toList();
+      final userProducts = products.where((p) => p.createdByUserId == u.uid || (p.createdByUserId == null && p.createdByUserName == u.name)).toList();
+      final userSolar = userProducts.where((p) => p.sector == ProductSector.solarPlant || p.isSolarPlantKit).toList();
+      final userContracts = contracts.where((c) => c.createdByUserId == u.uid || (c.createdByUserId == null && c.createdByUserName == u.name)).toList();
+
+      final totalPropsVal = userProps.fold<double>(0.0, (acc, p) => acc + p.totalAmount);
+      final closedVal = userClosed.fold<double>(0.0, (acc, p) => acc + p.totalAmount);
+      final totalKwp = userSolar.fold<double>(0.0, (acc, p) => acc + (p.solarKilowatts ?? 0.0));
+      final conversion = userProps.isEmpty ? 0.0 : (userClosed.length / userProps.length) * 100;
+
+      return _UserSellerStats(
+        user: u,
+        proposalsCount: userProps.length,
+        proposalsTotalValue: totalPropsVal,
+        closedCount: userClosed.length,
+        closedTotalValue: closedVal,
+        solarPlantsCount: userSolar.length,
+        totalKwp: totalKwp,
+        contractsCount: userContracts.length,
+        conversionRate: conversion,
+      );
+    }).toList();
+
+    // Ordenar por Faturamento Fechado (ou Total de Propostas)
+    statsList.sort((a, b) {
+      final cmp = b.closedTotalValue.compareTo(a.closedTotalValue);
+      if (cmp != 0) return cmp;
+      return b.proposalsTotalValue.compareTo(a.proposalsTotalValue);
+    });
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.emoji_events_rounded, size: 22, color: Color(0xFFD97706)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Desempenho & Ranking da Equipe de Vendas',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      'Acompanhamento consolidado de propostas, usinas cadastradas, contratos e conversão por operador.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFC7D2FE)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.people_rounded, size: 14, color: Color(0xFF4F46E5)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${statsList.length} ${statsList.length == 1 ? "vendedor" : "vendedores"}',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF4338CA)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (statsList.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  'Nenhum usuário cadastrado na equipe.',
+                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+                ),
+              ),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 800),
+                child: DataTable(
+                  horizontalMargin: 12,
+                  columnSpacing: 20,
+                  headingRowHeight: 40,
+                  dataRowMinHeight: 52,
+                  dataRowMaxHeight: 56,
+                  headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+                  columns: [
+                    DataColumn(label: Text('RANK', style: _headerStyle())),
+                    DataColumn(label: Text('VENDEDOR / OPERADOR', style: _headerStyle())),
+                    DataColumn(label: Text('PROPOSTAS (R\$)', style: _headerStyle())),
+                    DataColumn(label: Text('VENDAS GANHAS', style: _headerStyle())),
+                    DataColumn(label: Text('POTÊNCIA', style: _headerStyle())),
+                    DataColumn(label: Text('CONTRATOS', style: _headerStyle())),
+                    DataColumn(label: Text('CONVERSÃO', style: _headerStyle())),
+                    DataColumn(label: Text('AÇÃO', style: _headerStyle())),
+                  ],
+                  rows: List.generate(statsList.length, (index) {
+                    final s = statsList[index];
+                    final rank = index + 1;
+
+                    Widget rankBadge;
+                    if (rank == 1) {
+                      rankBadge = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
+                        child: const Text('🥇 1º', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFFB45309))),
+                      );
+                    } else if (rank == 2) {
+                      rankBadge = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
+                        child: const Text('🥈 2º', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF475569))),
+                      );
+                    } else if (rank == 3) {
+                      rankBadge = Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: const Color(0xFFFFEDD5), borderRadius: BorderRadius.circular(6)),
+                        child: const Text('🥉 3º', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFFC2410C))),
+                      );
+                    } else {
+                      rankBadge = Text('$rankº', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)));
+                    }
+
+                    return DataRow(
+                      cells: [
+                        DataCell(rankBadge),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: const Color(0xFFEEF2FF),
+                                child: Text(
+                                  s.user.name.isNotEmpty ? s.user.name[0].toUpperCase() : 'U',
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 11),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    s.user.name,
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A)),
+                                  ),
+                                  Text(
+                                    s.user.role.toUpperCase(),
+                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        DataCell(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(currency.format(s.proposalsTotalValue), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A))),
+                              Text('${s.proposalsCount} orçamentos', style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B))),
+                            ],
+                          ),
+                        ),
+                        DataCell(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(currency.format(s.closedTotalValue), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF10B981))),
+                              Text('${s.closedCount} ganhas', style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF059669))),
+                            ],
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            '${s.totalKwp.toStringAsFixed(1)} kWp',
+                            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFFD97706)),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            '${s.contractsCount}',
+                            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFF6366F1)),
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: s.conversionRate > 0 ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${s.conversionRate.toStringAsFixed(1)}%',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: s.conversionRate > 0 ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => onOpenDossier(s.user),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Ink(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.analytics_outlined, size: 14, color: Color(0xFF6366F1)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'DOSSIÊ',
+                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF4F46E5)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  TextStyle _headerStyle() => GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.5,
+        color: const Color(0xFF64748B),
+      );
+}
+
+class _UserSellerStats {
+  final UserModel user;
+  final int proposalsCount;
+  final double proposalsTotalValue;
+  final int closedCount;
+  final double closedTotalValue;
+  final int solarPlantsCount;
+  final double totalKwp;
+  final int contractsCount;
+  final double conversionRate;
+
+  _UserSellerStats({
+    required this.user,
+    required this.proposalsCount,
+    required this.proposalsTotalValue,
+    required this.closedCount,
+    required this.closedTotalValue,
+    required this.solarPlantsCount,
+    required this.totalKwp,
+    required this.contractsCount,
+    required this.conversionRate,
+  });
+}
+

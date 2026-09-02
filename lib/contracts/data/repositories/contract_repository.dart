@@ -17,16 +17,18 @@ class ContractRepository {
   Stream<List<ContractModel>> getContractsStream({
     String? companyId,
     UserModel? currentUser,
+    bool isSuperAdmin = false,
   }) {
     Query<Map<String, dynamic>> query = _collection;
 
-    final isSuperAdmin = currentUser?.isSuperAdmin == true ||
+    final isSuper = isSuperAdmin ||
+        currentUser?.isSuperAdmin == true ||
         currentUser?.role == 'superAdmin' ||
         currentUser?.email == 'admin@admin.com.br';
 
     final effectiveCompany = companyId ?? currentUser?.effectiveCompanyId ?? currentUser?.companyId;
 
-    if (!isSuperAdmin && effectiveCompany != null && effectiveCompany.isNotEmpty && effectiveCompany != 'GLOBAL_MASTER' && effectiveCompany != 'ALL') {
+    if (!isSuper && effectiveCompany != null && effectiveCompany.isNotEmpty && effectiveCompany != 'GLOBAL_MASTER' && effectiveCompany != 'ALL') {
       query = query.where('companyId', isEqualTo: effectiveCompany);
     }
 

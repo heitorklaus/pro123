@@ -136,6 +136,7 @@ class _ProductsViewState extends State<ProductsView> {
                         ? SolarPlantFormCard(
                             category: _selectedCategory,
                             product: _editingProduct,
+                            currentUser: widget.currentUser,
                             onBack: _backToTable,
                             onChangeSector: _editingProduct == null
                                 ? _backToSectorSelection
@@ -146,6 +147,7 @@ class _ProductsViewState extends State<ProductsView> {
                         : _ProductFormCard(
                             category: _selectedCategory,
                             product: _editingProduct,
+                            currentUser: widget.currentUser,
                             onBack: _backToTable,
                             onChangeSector: _editingProduct == null
                                 ? _backToSectorSelection
@@ -186,9 +188,12 @@ class _ProductTableViewState extends State<_ProductTableView> {
   late final ProductRepository _repo;
   late final AuthRepository _authRepo;
   StreamSubscription<UserModel?>? _userSub;
+  StreamSubscription<List<UserModel>>? _sellersSub;
   final _searchCtrl = TextEditingController();
   String _query = '';
   ProductSector? _filterSector;
+  String? _selectedSellerId;
+  List<UserModel> _sellersList = [];
   int _currentPage = 1;
   int _itemsPerPage = 20;
   final List<int> _pageSizeOptions = const [20, 40, 100, 200];
@@ -221,9 +226,24 @@ class _ProductTableViewState extends State<_ProductTableView> {
           _currentUser = user;
           _companyId = user?.effectiveCompanyId ?? _companyId;
         });
+        _listenSellers();
       }
     });
     _loadSavedFilterSector();
+  }
+
+  void _listenSellers() {
+    _sellersSub?.cancel();
+    final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
+    final cid = _companyId ?? widget.currentUser?.effectiveCompanyId;
+    _sellersSub = _authRepo.getUsersStream(
+      companyId: cid,
+      isSuperAdmin: isSuper,
+    ).listen((users) {
+      if (mounted) {
+        setState(() => _sellersList = users);
+      }
+    });
   }
 
   static const _showSolarComponentsStorageKey = 'mavis_saved_show_solar_components';
@@ -269,6 +289,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
             }
           }
         });
+        _listenSellers();
       }
     } catch (_) {}
   }
@@ -294,6 +315,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
   @override
   void dispose() {
     _userSub?.cancel();
+    _sellersSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -837,6 +859,50 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     ),
                   ),
                 ],
+                if (_sellersList.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _selectedSellerId,
+                          hint: Text('Vendedor',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, color: const Color(0xFF64748B))),
+                          isExpanded: true,
+                          icon: const Icon(Icons.person_outline_rounded,
+                              size: 16, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Todos Vendedores',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                            ..._sellersList.map((u) => DropdownMenuItem<String?>(
+                                  value: u.uid,
+                                  child: Text(u.name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(fontSize: 12)),
+                                )),
+                          ],
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedSellerId = val;
+                              _currentPage = 1;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ] else ...[
@@ -933,6 +999,65 @@ class _ProductTableViewState extends State<_ProductTableView> {
                               _currentPage = 1;
                             });
                             _saveFilterSector(val);
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Filtro por Vendedor / Criador
+                if (_sellersList.isNotEmpty) ...[
+                  const SizedBox(width: 14),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _selectedSellerId,
+                          hint: Text(
+                            'Todos os Vendedores',
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: const Color(0xFF64748B)),
+                          ),
+                          isExpanded: true,
+                          icon: const Icon(Icons.person_outline_rounded,
+                              size: 18, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('👥 Todos os Vendedores',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                            ),
+                            ..._sellersList.map((u) => DropdownMenuItem<String?>(
+                                  value: u.uid,
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.person_pin_rounded, size: 16, color: Color(0xFF6366F1)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          u.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                          ],
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedSellerId = val;
+                              _currentPage = 1;
+                            });
                           },
                         ),
                       ),
@@ -1077,7 +1202,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       final matchesSector =
                           _filterSector == null || p.sector == _filterSector;
 
-                      if (!matchesQuery || !matchesSector) return false;
+                      final matchesSeller = _selectedSellerId == null ||
+                          p.createdByUserId == _selectedSellerId;
+
+                      if (!matchesQuery || !matchesSector || !matchesSeller) return false;
 
                       if (_filterSector == ProductSector.solarPlant) {
                         if (!_showSolarComponents && p.isSolarComponent) {
@@ -1587,6 +1715,30 @@ class _ProductRow extends StatelessWidget {
                                       color: const Color(0xFF059669)),
                                 ),
                               ],
+                              if (product.createdByUserName != null && product.createdByUserName!.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.person_pin_rounded, size: 10, color: Color(0xFF2563EB)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        product.createdByUserName!,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF1D4ED8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             ],
                           ),
                         ],
@@ -3704,6 +3856,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
 class _ProductFormCard extends StatefulWidget {
   final CategoryModel category;
   final ProductModel? product;
+  final UserModel? currentUser;
   final VoidCallback onBack;
   final VoidCallback? onChangeSector;
   final VoidCallback onSuccess;
@@ -3711,6 +3864,7 @@ class _ProductFormCard extends StatefulWidget {
   const _ProductFormCard({
     required this.category,
     this.product,
+    this.currentUser,
     required this.onBack,
     this.onChangeSector,
     required this.onSuccess,
@@ -4032,7 +4186,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
         } catch (_) {
           auth = AuthRepository();
         }
-        final companyId = await auth.getCurrentCompanyId();
+        final user = widget.currentUser ?? await auth.getCurrentUser();
+        final companyId = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
 
         await _repo.createProduct(
           name: name,
@@ -4053,6 +4208,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
           status: _status,
           specificAttributes: attributes,
           companyId: companyId,
+          createdByUserId: user?.uid,
+          createdByUserName: user?.name,
         );
       }
 

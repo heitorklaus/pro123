@@ -8,6 +8,7 @@ import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../auth/presentation/register/register_store.dart';
 import 'widgets/user_permissions_dialog.dart';
+import 'widgets/user_dossier_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: inserido diretamente no miolo do DashboardPage (sem Scaffold)
@@ -337,6 +338,7 @@ class _TableViewState extends State<_TableView> {
                                 separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
                                 itemBuilder: (_, i) => _UserRow(
                                   user: filtered[i],
+                                  onViewDossier: () => _openUserDossierDialog(filtered[i]),
                                   onEdit: () => _openEditUserDialog(filtered[i]),
                                   onEditPermissions: () => _openPermissionsDialog(filtered[i]),
                                   onDelete: () => _showDeleteDialog(filtered[i]),
@@ -364,6 +366,7 @@ class _TableViewState extends State<_TableView> {
                                         }
                                       });
                                     },
+                                    onViewDossier: _openUserDossierDialog,
                                     onEditUser: _openEditUserDialog,
                                     onEditPermissions: _openPermissionsDialog,
                                     onDeleteUser: _showDeleteDialog,
@@ -384,6 +387,7 @@ class _TableViewState extends State<_TableView> {
                                         }
                                       });
                                     },
+                                    onViewDossier: _openUserDossierDialog,
                                     onEditUser: _openEditUserDialog,
                                     onEditPermissions: _openPermissionsDialog,
                                     onDeleteUser: _showDeleteDialog,
@@ -401,6 +405,17 @@ class _TableViewState extends State<_TableView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openUserDossierDialog(UserModel user) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => UserDossierDialog(
+        user: user,
+        currentUser: widget.currentUser ?? _currentUser,
       ),
     );
   }
@@ -496,6 +511,7 @@ class _AdminTreeGroup extends StatelessWidget {
   final bool isExpanded;
   final bool isMobile;
   final VoidCallback onToggleExpand;
+  final void Function(UserModel) onViewDossier;
   final void Function(UserModel) onEditUser;
   final void Function(UserModel) onEditPermissions;
   final void Function(UserModel) onDeleteUser;
@@ -506,6 +522,7 @@ class _AdminTreeGroup extends StatelessWidget {
     required this.isExpanded,
     required this.isMobile,
     required this.onToggleExpand,
+    required this.onViewDossier,
     required this.onEditUser,
     required this.onEditPermissions,
     required this.onDeleteUser,
@@ -695,6 +712,11 @@ class _AdminTreeGroup extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
+                          tooltip: 'Dossiê 360º de Desempenho',
+                          icon: const Icon(Icons.analytics_outlined, color: Color(0xFF10B981), size: 19),
+                          onPressed: () => onViewDossier(admin),
+                        ),
+                        IconButton(
                           tooltip: 'Editar Dados e WhatsApp',
                           icon: const Icon(Icons.edit_outlined, color: Color(0xFF0284C7), size: 19),
                           onPressed: () => onEditUser(admin),
@@ -771,6 +793,7 @@ class _AdminTreeGroup extends StatelessWidget {
                     ...subordinates.map((sub) => _SubordinateRow(
                       sub: sub,
                       isMobile: isMobile,
+                      onViewDossier: () => onViewDossier(sub),
                       onEdit: () => onEditUser(sub),
                       onEditPermissions: () => onEditPermissions(sub),
                       onDelete: () => onDeleteUser(sub),
@@ -791,6 +814,7 @@ class _AdminTreeGroup extends StatelessWidget {
 class _SubordinateRow extends StatelessWidget {
   final UserModel sub;
   final bool isMobile;
+  final VoidCallback onViewDossier;
   final VoidCallback onEdit;
   final VoidCallback onEditPermissions;
   final VoidCallback onDelete;
@@ -798,6 +822,7 @@ class _SubordinateRow extends StatelessWidget {
   const _SubordinateRow({
     required this.sub,
     required this.isMobile,
+    required this.onViewDossier,
     required this.onEdit,
     required this.onEditPermissions,
     required this.onDelete,
@@ -874,6 +899,13 @@ class _SubordinateRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
+                tooltip: 'Dossiê 360º de Desempenho',
+                icon: const Icon(Icons.analytics_outlined, color: Color(0xFF10B981), size: 17),
+                onPressed: onViewDossier,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+              IconButton(
                 tooltip: 'Editar Dados e WhatsApp',
                 icon: const Icon(Icons.edit_outlined, color: Color(0xFF0284C7), size: 17),
                 onPressed: onEdit,
@@ -910,6 +942,7 @@ class _OrphansGroup extends StatelessWidget {
   final bool isMobile;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
+  final void Function(UserModel) onViewDossier;
   final void Function(UserModel) onEditUser;
   final void Function(UserModel) onEditPermissions;
   final void Function(UserModel) onDeleteUser;
@@ -919,6 +952,7 @@ class _OrphansGroup extends StatelessWidget {
     required this.isMobile,
     required this.isExpanded,
     required this.onToggleExpand,
+    required this.onViewDossier,
     required this.onEditUser,
     required this.onEditPermissions,
     required this.onDeleteUser,
@@ -981,6 +1015,7 @@ class _OrphansGroup extends StatelessWidget {
                 children: orphans.map((sub) => _SubordinateRow(
                   sub: sub,
                   isMobile: isMobile,
+                  onViewDossier: () => onViewDossier(sub),
                   onEdit: () => onEditUser(sub),
                   onEditPermissions: () => onEditPermissions(sub),
                   onDelete: () => onDeleteUser(sub),
@@ -999,12 +1034,14 @@ class _OrphansGroup extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _UserRow extends StatelessWidget {
   final UserModel user;
+  final VoidCallback onViewDossier;
   final VoidCallback onEdit;
   final VoidCallback onEditPermissions;
   final VoidCallback onDelete;
 
   const _UserRow({
     required this.user,
+    required this.onViewDossier,
     required this.onEdit,
     required this.onEditPermissions,
     required this.onDelete,
@@ -1100,12 +1137,21 @@ class _UserRow extends StatelessWidget {
                   fontSize: 12, color: const Color(0xFF64748B)),
             ),
           ),
-          // Ações (Editar Dados/Telefone + Engrenagem de Permissões + Excluir)
+          // Ações (Dossiê + Editar Dados/Telefone + Engrenagem de Permissões + Excluir)
           SizedBox(
-            width: 120,
+            width: 155,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                IconButton(
+                  tooltip: 'Dossiê 360º de Desempenho',
+                  icon: const Icon(
+                    Icons.analytics_outlined,
+                    color: Color(0xFF10B981),
+                    size: 19,
+                  ),
+                  onPressed: onViewDossier,
+                ),
                 IconButton(
                   tooltip: 'Editar Dados e WhatsApp',
                   icon: const Icon(

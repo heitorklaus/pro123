@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../clients/domain/models/client_model.dart';
 import '../../../proposals/domain/models/proposal_model.dart';
@@ -25,9 +27,13 @@ class ContractsView extends StatefulWidget {
 
 class _ContractsViewState extends State<ContractsView> {
   late final ContractRepository _contractRepo;
+  late final AuthRepository _authRepo;
+  StreamSubscription<List<UserModel>>? _sellersSub;
   final TextEditingController _searchCtrl = TextEditingController();
 
   ContractStatus? _selectedStatusFilter;
+  String? _selectedSellerId;
+  List<UserModel> _sellersList = [];
   String _searchQuery = '';
 
   // Estado do Editor WYSIWYG
@@ -41,11 +47,22 @@ class _ContractsViewState extends State<ContractsView> {
   void initState() {
     super.initState();
     _contractRepo = Modular.get<ContractRepository>();
+    try {
+      _authRepo = Modular.get<AuthRepository>();
+    } catch (_) {
+      _authRepo = AuthRepository();
+    }
+    final isSuper = widget.currentUser?.isSuperAdmin ?? false;
+    final cid = widget.currentUser?.effectiveCompanyId;
+    _sellersSub = _authRepo.getUsersStream(companyId: cid, isSuperAdmin: isSuper).listen((users) {
+      if (mounted) setState(() => _sellersList = users);
+    });
     _loadCompanyData();
   }
 
   @override
   void dispose() {
+    _sellersSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -208,12 +225,16 @@ class _ContractsViewState extends State<ContractsView> {
                 if (_selectedStatusFilter != null && c.status != _selectedStatusFilter) {
                   return false;
                 }
+                if (_selectedSellerId != null && c.createdByUserId != _selectedSellerId) {
+                  return false;
+                }
                 final q = _searchQuery.toLowerCase().trim();
                 if (q.isEmpty) return true;
                 return c.contractNumber.toLowerCase().contains(q) ||
                     c.clientName.toLowerCase().contains(q) ||
                     (c.clientDocument?.contains(q) ?? false) ||
                     c.proposalNumber.toLowerCase().contains(q) ||
+                    (c.createdByUserName?.toLowerCase().contains(q) ?? false) ||
                     c.title.toLowerCase().contains(q);
               }).toList();
 
@@ -377,6 +398,39 @@ class _ContractsViewState extends State<ContractsView> {
                             ),
                           );
                         }),
+
+                        // Filtro por Vendedor
+                        if ((widget.currentUser?.canViewAllContracts ?? true) && _sellersList.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          Container(
+                            height: 38,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF334155)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String?>(
+                                value: _selectedSellerId,
+                                dropdownColor: const Color(0xFF1E293B),
+                                icon: const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF94A3B8)),
+                                hint: Text('Vendedor', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8))),
+                                items: [
+                                  DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('👥 Todos Vendedores', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                                  ),
+                                  ..._sellersList.map((u) => DropdownMenuItem<String?>(
+                                        value: u.uid,
+                                        child: Text(u.name, style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
+                                      )),
+                                ],
+                                onChanged: (val) => setState(() => _selectedSellerId = val),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -509,6 +563,25 @@ class _ContractsViewState extends State<ContractsView> {
                                                   style: GoogleFonts.inter(
                                                     fontSize: 11.5,
                                                     color: const Color(0xFF94A3B8),
+                                                  ),
+                                                ),
+                                              if (c.createdByUserName != null && c.createdByUserName!.isNotEmpty)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(top: 2),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.person_pin_rounded, size: 11, color: Color(0xFF818CF8)),
+                                                      const SizedBox(width: 3),
+                                                      Text(
+                                                        c.createdByUserName!,
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 10.5,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: const Color(0xFF818CF8),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                             ],

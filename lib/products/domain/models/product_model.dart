@@ -120,6 +120,8 @@ class ProductModel {
   final ProductStatus status;
   final Map<String, dynamic> specificAttributes; // Atributos dinâmicos do segmento
   final String? companyId; // Multi-tenancy
+  final String? createdByUserId; // UID do Vendedor / Operador que criou
+  final String? createdByUserName; // Nome do Vendedor / Operador
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -143,6 +145,8 @@ class ProductModel {
     this.status = ProductStatus.active,
     this.specificAttributes = const {},
     this.companyId,
+    this.createdByUserId,
+    this.createdByUserName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -250,6 +254,8 @@ class ProductModel {
       'status': status.name,
       'specificAttributes': specificAttributes,
       'companyId': companyId,
+      'createdByUserId': createdByUserId,
+      'createdByUserName': createdByUserName,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -276,6 +282,8 @@ class ProductModel {
       status: ProductStatus.fromString(map['status'] as String?),
       specificAttributes: (map['specificAttributes'] as Map<String, dynamic>?) ?? {},
       companyId: map['companyId'] as String?,
+      createdByUserId: map['createdByUserId'] as String?,
+      createdByUserName: map['createdByUserName'] as String?,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -301,6 +309,8 @@ class ProductModel {
     ProductStatus? status,
     Map<String, dynamic>? specificAttributes,
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -324,6 +334,8 @@ class ProductModel {
       status: status ?? this.status,
       specificAttributes: specificAttributes ?? this.specificAttributes,
       companyId: companyId ?? this.companyId,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      createdByUserName: createdByUserName ?? this.createdByUserName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

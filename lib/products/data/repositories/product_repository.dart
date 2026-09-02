@@ -109,6 +109,8 @@ class ProductRepository {
     ProductStatus status = ProductStatus.active,
     Map<String, dynamic> specificAttributes = const {},
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
   }) async {
     final now = DateTime.now();
     final docRef = _productsRef.doc();
@@ -133,6 +135,8 @@ class ProductRepository {
       status: status,
       specificAttributes: specificAttributes,
       companyId: companyId,
+      createdByUserId: createdByUserId,
+      createdByUserName: createdByUserName,
       createdAt: now,
       updatedAt: now,
     );

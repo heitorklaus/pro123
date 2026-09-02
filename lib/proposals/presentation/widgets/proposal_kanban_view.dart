@@ -738,6 +738,31 @@ class _KanbanCardState extends State<_KanbanCard> {
                           ),
                         ),
                       ),
+                      if (p.createdByUserName != null && p.createdByUserName!.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.person_pin_rounded,
+                                  size: 11, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 3),
+                              Text(
+                                p.createdByUserName!,
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1D4ED8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
 

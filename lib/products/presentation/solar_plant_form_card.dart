@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
+import '../../auth/domain/models/user_model.dart';
 import '../../proposals/domain/models/proposal_item_model.dart';
 import '../../proposals/presentation/widgets/proposal_product_picker_dialog.dart';
 import '../data/repositories/product_repository.dart';
@@ -78,6 +79,7 @@ class AdditionalServiceItem {
 class SolarPlantFormCard extends StatefulWidget {
   final CategoryModel category;
   final ProductModel? product;
+  final UserModel? currentUser;
   final VoidCallback onBack;
   final VoidCallback? onChangeSector;
   final VoidCallback onSuccess;
@@ -89,6 +91,7 @@ class SolarPlantFormCard extends StatefulWidget {
     super.key,
     required this.category,
     this.product,
+    this.currentUser,
     required this.onBack,
     this.onChangeSector,
     required this.onSuccess,
@@ -426,7 +429,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
         } catch (_) {
           auth = AuthRepository();
         }
-        final companyId = await auth.getCurrentCompanyId();
+        final user = widget.currentUser ?? await auth.getCurrentUser();
+        final companyId = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
 
         savedProduct = await _repo.createProduct(
           name: name,
@@ -441,6 +445,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           unit: ProductUnit.un,
           specificAttributes: specificAttributes,
           companyId: companyId,
+          createdByUserId: user?.uid,
+          createdByUserName: user?.name,
         );
       }
 

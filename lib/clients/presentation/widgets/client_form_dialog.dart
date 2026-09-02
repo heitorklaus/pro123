@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../../../app/theme/app_colors.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
+import '../../../auth/domain/models/user_model.dart';
 import '../../data/repositories/client_repository.dart';
 import '../../data/services/gemini_energy_bill_service.dart';
 import '../../domain/models/client_model.dart';
@@ -16,11 +17,13 @@ import 'energy_bill_summary_dialog.dart';
 /// Modal dialog elegante, espaçoso e com suporte a IA Gemini Vision para análise de contas de energia
 class ClientFormDialog extends StatefulWidget {
   final ClientModel? client;
+  final UserModel? currentUser;
   final ValueChanged<ClientModel> onClientSaved;
 
   const ClientFormDialog({
     super.key,
     this.client,
+    this.currentUser,
     required this.onClientSaved,
   });
 
@@ -399,7 +402,8 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
         } catch (_) {
           auth = AuthRepository();
         }
-        final companyId = await auth.getCurrentCompanyId();
+        final user = widget.currentUser ?? await auth.getCurrentUser();
+        final companyId = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
 
         savedClient = await _repo.createClient(
           name: name,
@@ -417,6 +421,8 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
           state: n(_stateCtrl.text),
           notes: n(_notesCtrl.text),
           companyId: companyId,
+          createdByUserId: user?.uid,
+          createdByUserName: user?.name,
         );
       }
 

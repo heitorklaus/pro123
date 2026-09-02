@@ -46,6 +46,8 @@ class ClientRepository {
     String? state,
     String? notes,
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
   }) async {
     final now = DateTime.now();
     final ref = _collection.doc();
@@ -68,6 +70,8 @@ class ClientRepository {
       state: state?.trim(),
       notes: notes?.trim(),
       companyId: companyId,
+      createdByUserId: createdByUserId,
+      createdByUserName: createdByUserName,
       createdAt: now,
       updatedAt: now,
     );

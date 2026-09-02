@@ -171,9 +171,12 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
   late final ProposalRepository _repo;
   late final AuthRepository _authRepo;
   StreamSubscription<UserModel?>? _userSub;
+  StreamSubscription<List<UserModel>>? _sellersSub;
   final _searchCtrl = TextEditingController();
   String _query = '';
   ProposalStatus? _filterStatus;
+  String? _filterSellerId;
+  List<UserModel> _sellersList = [];
   String? _companyId;
   UserModel? _currentUser;
   bool _isKanbanMode = false;
@@ -198,10 +201,25 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
           _currentUser = user;
           _companyId = user?.effectiveCompanyId ?? _companyId;
         });
+        _listenSellers();
       }
     });
     _loadCompanyId();
     _loadKanbanPreference();
+  }
+
+  void _listenSellers() {
+    _sellersSub?.cancel();
+    final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
+    final cid = _companyId ?? widget.currentUser?.effectiveCompanyId;
+    _sellersSub = _authRepo.getUsersStream(
+      companyId: cid,
+      isSuperAdmin: isSuper,
+    ).listen((users) {
+      if (mounted) {
+        setState(() => _sellersList = users);
+      }
+    });
   }
 
   void _openAiAssistantDialog() {
@@ -243,6 +261,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
           _currentUser = user;
           _companyId = cid;
         });
+        _listenSellers();
       }
     } catch (_) {}
   }
@@ -250,6 +269,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
   @override
   void dispose() {
     _userSub?.cancel();
+    _sellersSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -646,43 +666,87 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     borderSide: const BorderSide(color: AppColors.border)),
               ),
             ),
-            if (!_isKanbanMode) ...[
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<ProposalStatus?>(
-                    value: _filterStatus,
-                    hint: Text('Todos os Status',
-                        style: GoogleFonts.inter(
-                            fontSize: 12.5, color: const Color(0xFF64748B))),
-                    isExpanded: true,
-                    icon: const Icon(Icons.filter_list_rounded,
-                        size: 18, color: Color(0xFF64748B)),
-                    items: [
-                      DropdownMenuItem<ProposalStatus?>(
-                        value: null,
-                        child: Text('Todos os Status',
-                            style: GoogleFonts.inter(
-                                fontSize: 12.5, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (!_isKanbanMode)
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
                       ),
-                      ...ProposalStatus.values
-                          .map((s) => DropdownMenuItem<ProposalStatus?>(
-                                value: s,
-                                child: Text(s.label,
-                                    style: GoogleFonts.inter(fontSize: 12.5)),
-                              )),
-                    ],
-                    onChanged: (val) => setState(() => _filterStatus = val),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<ProposalStatus?>(
+                          value: _filterStatus,
+                          hint: Text('Status',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, color: const Color(0xFF64748B))),
+                          isExpanded: true,
+                          icon: const Icon(Icons.filter_list_rounded,
+                              size: 16, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<ProposalStatus?>(
+                              value: null,
+                              child: Text('Todos os Status',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                            ...ProposalStatus.values
+                                .map((s) => DropdownMenuItem<ProposalStatus?>(
+                                      value: s,
+                                      child: Text(s.label,
+                                          style: GoogleFonts.inter(fontSize: 12)),
+                                    )),
+                          ],
+                          onChanged: (val) => setState(() => _filterStatus = val),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                if ((widget.currentUser?.canViewAllProposals ?? _currentUser?.canViewAllProposals ?? false) && _sellersList.isNotEmpty) ...[
+                  if (!_isKanbanMode) const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _filterSellerId,
+                          hint: Text('Vendedor',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, color: const Color(0xFF64748B))),
+                          isExpanded: true,
+                          icon: const Icon(Icons.person_outline_rounded,
+                              size: 16, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Todos Vendedores',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                            ),
+                            ..._sellersList.map((u) => DropdownMenuItem<String?>(
+                                  value: u.uid,
+                                  child: Text(u.name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(fontSize: 12)),
+                                )),
+                          ],
+                          onChanged: (val) => setState(() => _filterSellerId = val),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ] else ...[
             Row(
               children: [
@@ -754,6 +818,57 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                     ),
                   ),
                 ],
+                // Filtro por Vendedor (se tiver permissão)
+                if ((widget.currentUser?.canViewAllProposals ?? _currentUser?.canViewAllProposals ?? false) && _sellersList.isNotEmpty) ...[
+                  const SizedBox(width: 14),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _filterSellerId,
+                          hint: Text('Todos os Vendedores',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, color: const Color(0xFF64748B))),
+                          isExpanded: true,
+                          icon: const Icon(Icons.person_outline_rounded,
+                              size: 18, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('👥 Todos os Vendedores',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                            ),
+                            ..._sellersList.map((u) => DropdownMenuItem<String?>(
+                                  value: u.uid,
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.person_pin_rounded, size: 16, color: Color(0xFF6366F1)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          u.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                          ],
+                          onChanged: (val) => setState(() => _filterSellerId = val),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -792,11 +907,14 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                           .toLowerCase()
                           .contains(_query) ||
                       p.clientName.toLowerCase().contains(_query) ||
-                      p.title.toLowerCase().contains(_query);
+                      p.title.toLowerCase().contains(_query) ||
+                      (p.createdByUserName ?? '').toLowerCase().contains(_query);
 
                   final matchesStatus = _filterStatus == null ||
                       p.status == _filterStatus;
-                  return matchesQuery && matchesStatus;
+                  final matchesSeller = _filterSellerId == null ||
+                      p.createdByUserId == _filterSellerId;
+                  return matchesQuery && matchesStatus && matchesSeller;
                 }).toList();
 
                 // ── MODO KANBAN ──
@@ -1008,12 +1126,43 @@ class _ProposalMobileCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            proposal.clientName,
-                            style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  proposal.clientName,
+                                  style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (proposal.createdByUserName != null && proposal.createdByUserName!.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.person_pin_rounded, size: 9, color: Color(0xFF2563EB)),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        proposal.createdByUserName!,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF1D4ED8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ],
                       ),
@@ -1238,13 +1387,44 @@ class _ProposalRow extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Cliente: ${proposal.clientName}${proposal.isClientLinked ? ' (Cadastrado)' : ' (Avulso)'}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                            fontSize: 11.5, color: const Color(0xFF64748B)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Cliente: ${proposal.clientName}${proposal.isClientLinked ? ' (Cadastrado)' : ' (Avulso)'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11.5, color: const Color(0xFF64748B)),
+                            ),
+                          ),
+                          if (proposal.createdByUserName != null && proposal.createdByUserName!.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.person_pin_rounded, size: 10, color: Color(0xFF2563EB)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    proposal.createdByUserName!,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF1D4ED8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
