@@ -39,6 +39,8 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final ValueChanged<int>? onEdgeTap;
   final Function(int vertexIndex, RoofPoint newPointMeters)? onVertexMoved;
   final Function(double dxMeters, double dyMeters)? onModuleGroupMoved;
+  final Function(double dxMeters, double dyMeters)? onDrawingMoved; // move polígono + módulos juntos
+  final Function(String rowId, double dxMeters, double dyMeters)? onRowMoved;
   final Function(int index, double dxMeters, double dyMeters)? onModuleMoved;
   final Function(double deltaRadians)? onRotateModuleGroup;
   final Function(int index, double deltaRadians)? onRotateSingleModule;
@@ -47,6 +49,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final VoidCallback? onRotate90;
   final VoidCallback? onOpenAngleDialog;
   final VoidCallback? onAddModule;
+  final Function(int targetIndex, String position)? onAddModuleRelative;
   final VoidCallback? onRemoveModule;
   final VoidCallback? onAddRow;
   final ValueChanged<String>? onDeleteRow;
@@ -55,6 +58,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final VoidCallback? onFinishCurrentSection;
   final VoidCallback? onResumeEditing;
   final VoidCallback? onAddNewSection;
+  final Function(String direction)? onDuplicateCurrentSection;
   final double groupRotationDegrees;
   final double metersPerPixel;
 
@@ -83,6 +87,8 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.onEdgeTap,
     this.onVertexMoved,
     this.onModuleGroupMoved,
+    this.onDrawingMoved,
+    this.onRowMoved,
     this.onModuleMoved,
     this.onRotateModuleGroup,
     this.onRotateSingleModule,
@@ -91,6 +97,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.onRotate90,
     this.onOpenAngleDialog,
     this.onAddModule,
+    this.onAddModuleRelative,
     this.onRemoveModule,
     this.onAddRow,
     this.onDeleteRow,
@@ -99,6 +106,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.onFinishCurrentSection,
     this.onResumeEditing,
     this.onAddNewSection,
+    this.onDuplicateCurrentSection,
     this.groupRotationDegrees = 0.0,
     required this.metersPerPixel,
   });
@@ -111,7 +119,10 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
   int _draggingVertexIndex = -1;
   int _draggingModuleIndex = -1;
   int _selectedModuleIndex = -1;
+  String? _selectedRowId;
+  bool _isDraggingRow = false;
   bool _isDraggingModuleGroup = false;
+  String _moveMode = 'modules'; // 'modules' (apenas placas) ou 'both' (polígono + placas)
   bool _isRotatingGroup = false;
   Offset? _rotationPivotScreen;
   double _lastDragAngle = 0.0;
@@ -217,6 +228,23 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                     }
                   }
 
+                  // Se houver uma linha inteira selecionada e o usuário arrastar sobre uma de suas placas
+                  if (_selectedRowId != null) {
+                    final rowMods = widget.modules.where((m) => m.rowId == _selectedRowId);
+                    if (rowMods.any((m) => m.containsPoint(clickPointMeters))) {
+                      setState(() => _isDraggingRow = true);
+                      return;
+                    }
+                  }
+
+                  // Se houver um módulo selecionado e clicar nele para arrastá-lo
+                  if (_selectedModuleIndex != -1 && _selectedModuleIndex < widget.modules.length) {
+                    if (widget.modules[_selectedModuleIndex].containsPoint(clickPointMeters)) {
+                      setState(() => _draggingModuleIndex = _selectedModuleIndex);
+                      return;
+                    }
+                  }
+
                   // Testa se clicou perto da área do conjunto de módulos para arrastar o conjunto todo
                   if (widget.toolMode == DesignerToolMode.editModules && modulesBbox != null) {
                     if (modulesBbox.inflate(16.0).contains(localPos)) {
@@ -228,6 +256,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
 
                 _draggingVertexIndex = -1;
                 _draggingModuleIndex = -1;
+                _isDraggingRow = false;
                 _isDraggingModuleGroup = false;
                 _isRotatingGroup = false;
               },
@@ -241,6 +270,11 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   final deltaAngle = currentAngle - _lastDragAngle;
                   _lastDragAngle = currentAngle;
                   widget.onRotateModuleGroup?.call(deltaAngle);
+                } else if (_isDraggingRow && _selectedRowId != null) {
+                  // Move todas as placas da fileira selecionada
+                  final dxM = RoofGeometryService.pixelsToMeters(details.delta.dx, widget.metersPerPixel);
+                  final dyM = RoofGeometryService.pixelsToMeters(details.delta.dy, widget.metersPerPixel);
+                  widget.onRowMoved?.call(_selectedRowId!, dxM, dyM);
                 } else if (_draggingVertexIndex != -1 && _draggingVertexIndex < widget.roofVertices.length) {
                   // Move vértice do telhado da água ativa
                   final dxPixels = details.localPosition.dx - centerOffset.dx;
@@ -256,10 +290,14 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   final dyM = RoofGeometryService.pixelsToMeters(details.delta.dy, widget.metersPerPixel);
                   widget.onModuleMoved?.call(_draggingModuleIndex, dxM, dyM);
                 } else if (_isDraggingModuleGroup) {
-                  // Move conjunto todo de módulos
+                  // Move conjunto todo de módulos (ou com o polígono se modo 'both')
                   final dxM = RoofGeometryService.pixelsToMeters(details.delta.dx, widget.metersPerPixel);
                   final dyM = RoofGeometryService.pixelsToMeters(details.delta.dy, widget.metersPerPixel);
-                  widget.onModuleGroupMoved?.call(dxM, dyM);
+                  if (_moveMode == 'both') {
+                    widget.onDrawingMoved?.call(dxM, dyM);
+                  } else {
+                    widget.onModuleGroupMoved?.call(dxM, dyM);
+                  }
                 } else if (widget.toolMode == DesignerToolMode.pan) {
                   widget.onPanUpdate?.call(details.delta);
                 }
@@ -268,6 +306,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                 setState(() {
                   _draggingVertexIndex = -1;
                   _draggingModuleIndex = -1;
+                  _isDraggingRow = false;
                   _isDraggingModuleGroup = false;
                   _isRotatingGroup = false;
                   _rotationPivotScreen = null;
@@ -316,35 +355,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   }
                 }
 
-                // 2. Testa se clicou em uma cota métrica de aresta da água ativa (somente se em edição)
-                if (widget.isEditingActiveSection && widget.roofVertices.length >= 2) {
-                  final edgeCount = widget.isRoofClosed
-                      ? widget.roofVertices.length
-                      : (widget.roofVertices.length - 1);
-
-                  for (int i = 0; i < edgeCount; i++) {
-                    final p1 = widget.roofVertices[i];
-                    final p2 = widget.roofVertices[(i + 1) % widget.roofVertices.length];
-
-                    final sp1 = Offset(
-                      centerOffset.dx + RoofGeometryService.metersToPixels(p1.x, widget.metersPerPixel),
-                      centerOffset.dy + RoofGeometryService.metersToPixels(p1.y, widget.metersPerPixel),
-                    );
-                    final sp2 = Offset(
-                      centerOffset.dx + RoofGeometryService.metersToPixels(p2.x, widget.metersPerPixel),
-                      centerOffset.dy + RoofGeometryService.metersToPixels(p2.y, widget.metersPerPixel),
-                    );
-
-                    final mid = Offset((sp1.dx + sp2.dx) / 2.0, (sp1.dy + sp2.dy) / 2.0);
-
-                    if ((localPos - mid).distance <= 30.0) {
-                      widget.onEdgeTap?.call(i);
-                      return;
-                    }
-                  }
-                }
-
-                // 3. Se clicou em uma placa da água ativa para selecioná-la
+                // 2. Se clicou em uma placa da água ativa para selecioná-la (PRIORIDADE MÁXIMA)
                 if (widget.isEditingActiveSection && widget.modules.isNotEmpty) {
                   int clickedIdx = -1;
                   for (int i = widget.modules.length - 1; i >= 0; i--) {
@@ -355,11 +366,126 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   }
 
                   if (clickedIdx != -1) {
-                    setState(() => _selectedModuleIndex = clickedIdx);
+                    final clickedMod = widget.modules[clickedIdx];
+                    final rowId = clickedMod.rowId;
+
+                    if (rowId != null) {
+                      // Pergunta: "Deseja selecionar a linha toda?"
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: const Color(0xFF0F172A),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+                          ),
+                          title: Row(
+                            children: [
+                              const Icon(Icons.table_rows_rounded, color: Color(0xFF38BDF8), size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Selecionar Linha?',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          content: Text(
+                            'Deseja selecionar a linha toda desta fileira para mover ou excluir juntas, ou apenas esta placa individual?',
+                            style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                setState(() {
+                                  _selectedRowId = null;
+                                  _selectedModuleIndex = clickedIdx;
+                                });
+                              },
+                              child: Text(
+                                'Não, só esta placa',
+                                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                setState(() {
+                                  _selectedRowId = rowId;
+                                  _selectedModuleIndex = -1;
+                                });
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF38BDF8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: Text(
+                                'Sim, selecionar linha',
+                                style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else {
+                      setState(() {
+                        _selectedRowId = null;
+                        _selectedModuleIndex = clickedIdx;
+                      });
+                    }
                     return;
-                  } else {
-                    if (_selectedModuleIndex != -1) {
-                      setState(() => _selectedModuleIndex = -1);
+                  }
+                }
+
+                // 3. Testa se clicou em uma cota métrica de aresta da água ativa (somente se não clicou em placa)
+                if (widget.isEditingActiveSection && widget.roofVertices.length >= 2) {
+                  final edgeCount = widget.isRoofClosed
+                      ? widget.roofVertices.length
+                      : (widget.roofVertices.length - 1);
+
+                  // Calcula o centro do polígono para mesma lógica da normal de 38px
+                  final screenVertices = widget.roofVertices.map((p) {
+                    final pxX = RoofGeometryService.metersToPixels(p.x, widget.metersPerPixel);
+                    final pxY = RoofGeometryService.metersToPixels(p.y, widget.metersPerPixel);
+                    return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
+                  }).toList();
+
+                  double pSumX = 0, pSumY = 0;
+                  for (final sv in screenVertices) {
+                    pSumX += sv.dx;
+                    pSumY += sv.dy;
+                  }
+                  final polyCenter = Offset(pSumX / screenVertices.length, pSumY / screenVertices.length);
+
+                  for (int i = 0; i < edgeCount; i++) {
+                    final sp1 = screenVertices[i];
+                    final sp2 = screenVertices[(i + 1) % screenVertices.length];
+
+                    final mid = Offset((sp1.dx + sp2.dx) / 2.0, (sp1.dy + sp2.dy) / 2.0);
+                    final edgeVec = sp2 - sp1;
+                    final edgeLen = edgeVec.distance;
+                    Offset badgeHitPos = mid;
+
+                    if (edgeLen > 0) {
+                      Offset norm = Offset(-edgeVec.dy, edgeVec.dx) / edgeLen;
+                      final dotWithOutward = (mid.dx + norm.dx * 10 - polyCenter.dx) * (mid.dx - polyCenter.dx) +
+                          (mid.dy + norm.dy * 10 - polyCenter.dy) * (mid.dy - polyCenter.dy);
+                      final dotCenter = (mid.dx - polyCenter.dx) * (mid.dx - polyCenter.dx) +
+                          (mid.dy - polyCenter.dy) * (mid.dy - polyCenter.dy);
+
+                      if (dotWithOutward < dotCenter) {
+                        norm = -norm;
+                      }
+                      badgeHitPos = mid + norm * 38.0;
+                    }
+
+                    if ((localPos - badgeHitPos).distance <= 22.0) {
+                      widget.onEdgeTap?.call(i);
+                      return;
                     }
                   }
                 }
@@ -436,6 +562,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                         draggingIndex: _draggingVertexIndex,
                         draggingModuleIndex: _draggingModuleIndex,
                         selectedModuleIndex: _selectedModuleIndex,
+                        selectedRowId: _selectedRowId,
                         isDraggingGroup: _isDraggingModuleGroup,
                       ),
                     ),
@@ -471,33 +598,41 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       ),
                     ],
 
-                    // 5. Barra e Controles Colados ao Conjunto de Placas (SOMENTE QUANDO EM EDIÇÃO)
-                    if (widget.isEditingActiveSection && modulesBbox != null && widget.modules.isNotEmpty) ...[
-                      // 5.1 Barra Superior Colada ao Conjunto (com Concluir Água)
+                    // 5. Toolbar Horizontal fixa abaixo do menu de pills (ramificada do seletor)
+                    if (widget.isEditingActiveSection && widget.modules.isNotEmpty) ...[
+                      // 5.1 Barra de ação compacta logo abaixo dos pills
                       Positioned(
-                        left: (modulesBbox.left).clamp(16.0, canvasSize.width - 440),
-                        top: (modulesBbox.top - 46).clamp(16.0, canvasSize.height - 54),
-                        child: _buildGluedModuleToolbar(modulesBbox),
+                        top: 108,
+                        left: 20,
+                        child: _buildHorizontalModuleToolbar(),
                       ),
 
                       // 5.2 Alça de Rotação à Mão Livre do Conjunto Todo
-                      Positioned(
-                        left: modulesBbox.center.dx - 15,
-                        top: (modulesBbox.top - 82).clamp(10.0, canvasSize.height - 90),
-                        child: _buildRotationHandleWidget(modulesBbox),
-                      ),
+                      if (modulesBbox != null)
+                        Positioned(
+                          left: modulesBbox.center.dx - 15,
+                          top: (modulesBbox.top - 50).clamp(10.0, canvasSize.height - 90),
+                          child: _buildRotationHandleWidget(modulesBbox),
+                        ),
 
-                      // 5.3 Botão Rápido '+' Colado na Borda Direita do Conjunto
-                      Positioned(
-                        left: (modulesBbox.right + 10).clamp(8.0, canvasSize.width - 44),
-                        top: (modulesBbox.top + (modulesBbox.height - 34) / 2.0).clamp(8.0, canvasSize.height - 44),
-                        child: _buildAddModuleCircleButton(),
-                      ),
+                      // 5.3 Ícone ✥ de Arrastar ancorado no canto superior direito do polígono/bbox
+                      if (modulesBbox != null)
+                        Positioned(
+                          left: (modulesBbox.right - 12).clamp(8.0, canvasSize.width - 28),
+                          top: (modulesBbox.top - 12).clamp(8.0, canvasSize.height - 28),
+                          child: _buildDrawingDragHandle(),
+                        ),
                     ],
+
 
                     // 6. Mini Barra Flutuante da Placa Selecionada Individualmente
                     if (widget.isEditingActiveSection && _selectedModuleIndex >= 0 && _selectedModuleIndex < widget.modules.length) ...[
                       _buildSelectedModuleFloatingBar(canvasSize, centerOffset),
+                    ],
+
+                    // 6.1 Barra Flutuante da Linha/Fileira Selecionada
+                    if (widget.isEditingActiveSection && _selectedRowId != null) ...[
+                      _buildSelectedRowFloatingBar(canvasSize, centerOffset),
                     ],
 
                     // 7. Rosa dos Ventos Flutuante (Norte Geográfico)
@@ -574,6 +709,26 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                           color: isActive ? Colors.white : const Color(0xFF94A3B8),
                         ),
                       ),
+                      // Se estiver concluída (não está editando), mostra o ícone de lápis para editar
+                      if (!widget.isEditingActiveSection || !isActive) ...[
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: 'Editar esta água',
+                          child: InkWell(
+                            onTap: () {
+                              if (!isActive) {
+                                widget.onSectionSelected?.call(idx);
+                              }
+                              widget.onResumeEditing?.call();
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: const Padding(
+                              padding: EdgeInsets.all(2),
+                              child: Icon(Icons.edit_rounded, size: 12, color: Color(0xFF38BDF8)),
+                            ),
+                          ),
+                        ),
+                      ],
                       if (widget.sections.length > 1) ...[
                         const SizedBox(width: 5),
                         InkWell(
@@ -723,6 +878,32 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
             ),
             const SizedBox(width: 4),
 
+            // Botão Adicionar Placa Relativa a esta placa selecionada
+            Tooltip(
+              message: 'Adicionar nova placa ao lado, à frente ou atrás desta',
+              child: InkWell(
+                onTap: () => _showAddRelativeModuleDialog(_selectedModuleIndex),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_rounded, size: 13, color: Color(0xFF10B981)),
+                      const SizedBox(width: 2),
+                      Text('+ Placa', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+
             // Botão Excluir Linha Inteira (se pertencer a uma fileira criada)
             if (mod.rowId != null) ...[
               Tooltip(
@@ -792,258 +973,830 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     );
   }
 
-  /// Barra de ferramentas colada diretamente ao conjunto de módulos
-  Widget _buildGluedModuleToolbar(Rect bbox) {
-    final activeModules = widget.modules.where((m) => !m.isExcluded).length;
-    final normalizedAngle = ((widget.groupRotationDegrees % 360 + 360) % 360).toStringAsFixed(0);
-    final currentSecName = widget.sections.isNotEmpty && widget.activeSectionIndex < widget.sections.length
-        ? widget.sections[widget.activeSectionIndex].name
-        : 'Água Atual';
+  /// Exibe diálogo modal compacto perguntando a posição desejada para a nova placa
+  void _showAddRelativeModuleDialog(int targetIndex) {
+    if (targetIndex < 0 || targetIndex >= widget.modules.length) return;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        Widget positionOption({
+          required String label,
+          required IconData icon,
+          required String positionKey,
+          required Color color,
+        }) {
+          return InkWell(
+            onTap: () {
+              Navigator.of(ctx).pop();
+              widget.onAddModuleRelative?.call(targetIndex, positionKey);
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: color.withValues(alpha: 0.45), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: color),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F172A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.add_box_rounded, color: Color(0xFF10B981), size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Deseja adicionar em que posição?',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
               ),
             ],
           ),
-          child: Row(
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Tag do Nome da Água Ativa
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.roofing_rounded, size: 12, color: Colors.amber),
-                    const SizedBox(width: 4),
-                    Text(
-                      currentSecName,
-                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber),
+              positionOption(
+                label: 'Esquerda da placa',
+                icon: Icons.arrow_back_rounded,
+                positionKey: 'left',
+                color: const Color(0xFF38BDF8),
+              ),
+              const SizedBox(height: 8),
+              positionOption(
+                label: 'Direita da placa',
+                icon: Icons.arrow_forward_rounded,
+                positionKey: 'right',
+                color: const Color(0xFF38BDF8),
+              ),
+              const SizedBox(height: 8),
+              positionOption(
+                label: 'À frente da placa',
+                icon: Icons.arrow_downward_rounded,
+                positionKey: 'front',
+                color: const Color(0xFF10B981),
+              ),
+              const SizedBox(height: 8),
+              positionOption(
+                label: 'Atrás da placa',
+                icon: Icons.arrow_upward_rounded,
+                positionKey: 'back',
+                color: const Color(0xFFF59E0B),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Pergunta para qual lado da cumeeira espelhar: À Frente ou Atrás das placas
+  void _showDuplicateSectionDirectionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        Widget dirButton({
+          required String label,
+          required String subtitle,
+          required IconData icon,
+          required String directionKey,
+          required Color color,
+        }) {
+          return InkWell(
+            onTap: () {
+              Navigator.of(ctx).pop();
+              widget.onDuplicateCurrentSection?.call(directionKey);
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withValues(alpha: 0.5), width: 1.3),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
                     ),
-                  ],
+                    child: Icon(icon, size: 20, color: color),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: color, size: 18),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F172A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.flip_rounded, color: Color(0xFFA5B4FC), size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Duplicar e Espelhar Água',
+                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
-              const SizedBox(width: 6),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Para qual lado da cumeeira você deseja espelhar a água oposta?',
+                style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5),
+              ),
+              const SizedBox(height: 14),
+              dirButton(
+                label: 'À Frente das Placas',
+                subtitle: 'Espelha na cumeeira voltada para a frente',
+                icon: Icons.arrow_downward_rounded,
+                directionKey: 'front',
+                color: const Color(0xFF10B981),
+              ),
+              const SizedBox(height: 10),
+              dirButton(
+                label: 'Atrás das Placas',
+                subtitle: 'Espelha na cumeeira voltada para trás',
+                icon: Icons.arrow_upward_rounded,
+                directionKey: 'back',
+                color: const Color(0xFF38BDF8),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-              // Botão + Linha (Adiciona nova fileira de placas no plano 2D)
-              Tooltip(
-                message: 'Adicionar nova fileira de placas ao conjunto (Acima, Abaixo, Direita ou Esquerda)',
-                child: InkWell(
-                  onTap: widget.onAddRow,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  /// Pergunta se deseja mover somente as placas ou o polígono com as placas
+  void _showMoveSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        Widget moveOption({
+          required String title,
+          required String subtitle,
+          required IconData icon,
+          required String mode,
+          required Color color,
+        }) {
+          final isCurrent = _moveMode == mode;
+          return InkWell(
+            onTap: () {
+              setState(() => _moveMode = mode);
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    mode == 'both'
+                        ? 'Modo ativo: Movendo polígono com as placas'
+                        : 'Modo ativo: Movendo somente as placas',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: color,
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isCurrent ? color.withValues(alpha: 0.22) : color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isCurrent ? color : color.withValues(alpha: 0.4),
+                  width: isCurrent ? 1.8 : 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF38BDF8).withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.6)),
+                      color: color.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 20, color: color),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            if (isCurrent) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text('ATIVO', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.check_circle_rounded, color: isCurrent ? color : Colors.white24, size: 20),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F172A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: Color(0xFFF59E0B), width: 1.5),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.open_with_rounded, color: Color(0xFFF59E0B), size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Como deseja mover?',
+                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Deseja mover somente as placas ou o polígono com as placas?',
+                style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              moveOption(
+                title: 'Mover somente as placas',
+                subtitle: 'O polígono do telhado fica fixo e apenas as placas se movem',
+                icon: Icons.solar_power_rounded,
+                mode: 'modules',
+                color: const Color(0xFF38BDF8),
+              ),
+              const SizedBox(height: 10),
+              moveOption(
+                title: 'Mover polígono com as placas',
+                subtitle: 'O desenho do telhado e todas as placas se movem juntos',
+                icon: Icons.roofing_rounded,
+                mode: 'both',
+                color: const Color(0xFFF59E0B),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Fechar',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Barra de controle flutuante quando a fileira inteira (_selectedRowId) está selecionada
+  Widget _buildSelectedRowFloatingBar(Size canvasSize, Offset centerOffset) {
+    final rowMods = widget.modules.where((m) => m.rowId == _selectedRowId).toList();
+    if (rowMods.isEmpty) return const SizedBox.shrink();
+
+    // Centro da fileira
+    double sumX = 0, sumY = 0;
+    for (final m in rowMods) {
+      sumX += m.center.x;
+      sumY += m.center.y;
+    }
+    final avgX = sumX / rowMods.length;
+    final avgY = sumY / rowMods.length;
+    final screenCenter = Offset(
+      centerOffset.dx + RoofGeometryService.metersToPixels(avgX, widget.metersPerPixel),
+      centerOffset.dy + RoofGeometryService.metersToPixels(avgY, widget.metersPerPixel),
+    );
+
+    return Positioned(
+      left: (screenCenter.dx - 100).clamp(12.0, canvasSize.width - 210),
+      top: (screenCenter.dy - 56).clamp(12.0, canvasSize.height - 50),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF38BDF8), width: 1.6),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Badge com número de placas na linha
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.table_rows_rounded, size: 12, color: Color(0xFF38BDF8)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Linha (${rowMods.length} pl)',
+                    style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+
+            // Botão Mover Linha (ao arrastar este ícone, move a fileira)
+            Tooltip(
+              message: 'Arrastar fileira inteira pelo mapa',
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  final dxM = RoofGeometryService.pixelsToMeters(details.delta.dx, widget.metersPerPixel);
+                  final dyM = RoofGeometryService.pixelsToMeters(details.delta.dy, widget.metersPerPixel);
+                  widget.onRowMoved?.call(_selectedRowId!, dxM, dyM);
+                },
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.move,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.table_rows_rounded, size: 13, color: Color(0xFF38BDF8)),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.open_with_rounded, size: 13, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 3),
                         Text(
-                          '+ Linha',
-                          style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                          'Mover',
+                          style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-
-          // Botão Rotação 90° Rápida do Conjunto Todo
-          Tooltip(
-            message: 'Girar conjunto em 90° (Alternar Retrato e Paisagem)',
-            child: InkWell(
-              onTap: widget.onRotate90,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.rotate_90_degrees_cw_rounded, size: 13, color: Color(0xFFA5B4FC)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '↻ 90°',
-                      style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
             ),
-          ),
-          const SizedBox(width: 6),
+            const SizedBox(width: 6),
 
-          // Chip para Definir Ângulo Específico (ex: 12° ✎)
-          Tooltip(
-            message: 'Definir ângulo exato do conjunto em graus (°)',
-            child: InkWell(
-              onTap: widget.onOpenAngleDialog,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.screen_rotation_alt_rounded, size: 12, color: Color(0xFF38BDF8)),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$normalizedAngle° ✎',
-                      style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-
-          // Botão Adicionar Placa (+)
-          InkWell(
-            onTap: widget.onAddModule,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.add_rounded, size: 14, color: Colors.white),
-                  const SizedBox(width: 2),
-                  Text(
-                    '+ Placa',
-                    style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+            // Botão Excluir Linha
+            Tooltip(
+              message: 'Excluir todas as placas desta linha',
+              child: InkWell(
+                onTap: () {
+                  final rId = _selectedRowId!;
+                  setState(() => _selectedRowId = null);
+                  widget.onDeleteRow?.call(rId);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
                   ),
-                ],
+                  child: const Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                ),
               ),
             ),
-          ),
-
-          // Botão Remover Placa (-)
-          if (widget.modules.isNotEmpty) ...[
             const SizedBox(width: 4),
+
+            // Fechar Seleção da Linha
             InkWell(
-              onTap: widget.onRemoveModule,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.remove_rounded, size: 13, color: Color(0xFFEF4444)),
+              onTap: () => setState(() => _selectedRowId = null),
+              borderRadius: BorderRadius.circular(10),
+              child: const Padding(
+                padding: EdgeInsets.all(3),
+                child: Icon(Icons.close_rounded, size: 14, color: Color(0xFF94A3B8)),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(width: 6),
-          Text(
-            '$activeModules pl',
-            style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+  /// Toolbar horizontal compacta ramificada logo abaixo do seletor de águas
+  Widget _buildHorizontalModuleToolbar() {
+    final activeModules = widget.modules.where((m) => !m.isExcluded).length;
+    final normalizedAngle = ((widget.groupRotationDegrees % 360 + 360) % 360).toStringAsFixed(0);
+
+    const double h = 32.0;
+
+    Widget btn({
+      required Widget child,
+      VoidCallback? onTap,
+      Color borderColor = const Color(0xFF334155),
+      Color bgColor = const Color(0xFF1E293B),
+      String tooltip = '',
+      EdgeInsets padding = const EdgeInsets.symmetric(horizontal: 8),
+    }) {
+      return Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: h,
+            padding: padding,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor, width: 1.1),
+            ),
+            child: Center(child: child),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF334155), width: 1.1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Conector visual ramificado (pequeno ícone ou curva)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(Icons.subdirectory_arrow_right_rounded, size: 14, color: Color(0xFFF59E0B)),
           ),
 
-          const SizedBox(width: 8),
+          // + Linha
+          btn(
+            tooltip: 'Adicionar fileira de placas',
+            onTap: widget.onAddRow,
+            bgColor: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+            borderColor: const Color(0xFF38BDF8).withValues(alpha: 0.6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.table_rows_rounded, size: 12, color: Color(0xFF38BDF8)),
+                const SizedBox(width: 4),
+                Text('+ Linha', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 5),
 
-          // ── Botão CONCLUIR / FINALIZAR CONJUNTO (ÚNICO NO CONJUNTO) ────────
+          // Mover (Placas ou Polígono + Placas)
+          btn(
+            tooltip: _moveMode == 'both'
+                ? 'Mover Polígono + Placas (Clique para alterar)'
+                : 'Mover Somente as Placas (Clique para alterar)',
+            onTap: _showMoveSelectionDialog,
+            bgColor: _moveMode == 'both'
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
+                : const Color(0xFF38BDF8).withValues(alpha: 0.2),
+            borderColor: _moveMode == 'both'
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.8)
+                : const Color(0xFF38BDF8).withValues(alpha: 0.6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.open_with_rounded,
+                  size: 12,
+                  color: _moveMode == 'both' ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  _moveMode == 'both' ? 'Mover (+Telhado)' : 'Mover',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 5),
+
+          // Girar 90°
+          btn(
+            tooltip: 'Girar 90° (Retrato ↔ Paisagem)',
+            onTap: widget.onRotate90,
+            bgColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+            borderColor: const Color(0xFF6366F1).withValues(alpha: 0.5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.rotate_90_degrees_cw_rounded, size: 12, color: Color(0xFFA5B4FC)),
+                const SizedBox(width: 4),
+                Text('90°', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 5),
+
+          // Ângulo livre
+          btn(
+            tooltip: 'Definir ângulo exato',
+            onTap: widget.onOpenAngleDialog,
+            bgColor: const Color(0xFF1E293B),
+            borderColor: const Color(0xFF38BDF8).withValues(alpha: 0.4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.screen_rotation_alt_rounded, size: 11, color: Color(0xFF38BDF8)),
+                const SizedBox(width: 3),
+                Text('$normalizedAngle° ✎', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 5),
+
+          // + Placa
           Tooltip(
-            message: 'Finalizar edição desta água e salvar arranjo',
+            message: 'Adicionar uma placa',
             child: InkWell(
-              onTap: widget.onFinishCurrentSection,
-              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                if (_selectedModuleIndex >= 0 && _selectedModuleIndex < widget.modules.length) {
+                  _showAddRelativeModuleDialog(_selectedModuleIndex);
+                } else {
+                  widget.onAddModule?.call();
+                }
+              },
+              borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                height: h,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF10B981), width: 1.2),
+                  color: const Color(0xFF10B981),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_rounded, size: 14, color: Colors.white),
+                      const SizedBox(width: 2),
+                      Text('+ Placa', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // - Remover placa
+          Tooltip(
+            message: 'Remover última placa',
+            child: InkWell(
+              onTap: widget.onRemoveModule,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 28,
+                height: h,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+                ),
+                child: const Center(child: Icon(Icons.remove_rounded, size: 14, color: Color(0xFFEF4444))),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // Duplicar Água (Espelhar oposta)
+          Tooltip(
+            message: 'Duplicar água',
+            child: InkWell(
+              onTap: _showDuplicateSectionDirectionDialog,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                height: h,
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.6), width: 1.1),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF10B981)),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Concluir Água',
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
-                    ),
+                    const Icon(Icons.flip_rounded, size: 13, color: Color(0xFFA5B4FC)),
+                    const SizedBox(width: 3),
+                    const Icon(Icons.content_copy_rounded, size: 11, color: Color(0xFFA5B4FC)),
                   ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+
+          // Contador de placas
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$activeModules pl',
+              style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+            ),
+          ),
+          const SizedBox(width: 6),
+
+          // Concluir Água
+          Tooltip(
+            message: 'Finalizar edição desta água',
+            child: InkWell(
+              onTap: widget.onFinishCurrentSection,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                height: h,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF10B981), width: 1.3),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF10B981)),
+                      const SizedBox(width: 4),
+                      Text('Concluir Água', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF10B981))),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ],
       ),
-    ),
+    );
+  }
 
-    // Ícone exclusivo de Arraste ancorado no canto superior direito do badge
-    Positioned(
-      top: -8,
-      right: -6,
-      child: Tooltip(
-        message: 'Arrastar todo o conjunto de placas pela foto',
-        child: GestureDetector(
-          onPanUpdate: (details) {
-            final dxM = RoofGeometryService.pixelsToMeters(details.delta.dx, widget.metersPerPixel);
-            final dyM = RoofGeometryService.pixelsToMeters(details.delta.dy, widget.metersPerPixel);
+  /// Ícone circular ✥ colado no canto superior direito do bbox das placas.
+  /// Ao clicar: abre diálogo para escolher mover somente placas ou polígono + placas.
+  /// Ao arrastar: move conforme a opção selecionada.
+  Widget _buildDrawingDragHandle() {
+    final isBoth = _moveMode == 'both';
+    final activeColor = isBoth ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8);
+
+    return Tooltip(
+      message: isBoth
+          ? 'Mover Polígono + Placas (Clique para alterar)'
+          : 'Mover Somente as Placas (Clique para alterar)',
+      child: GestureDetector(
+        onTap: _showMoveSelectionDialog,
+        onPanUpdate: (details) {
+          final dxM = RoofGeometryService.pixelsToMeters(details.delta.dx, widget.metersPerPixel);
+          final dyM = RoofGeometryService.pixelsToMeters(details.delta.dy, widget.metersPerPixel);
+          if (_moveMode == 'both') {
+            widget.onDrawingMoved?.call(dxM, dyM);
+          } else {
             widget.onModuleGroupMoved?.call(dxM, dyM);
-          },
-          child: MouseRegion(
-            cursor: SystemMouseCursors.move,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Icon(Icons.open_with_rounded, size: 13, color: Color(0xFF0F172A)),
-              ),
+          }
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.move,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: activeColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.55), blurRadius: 7, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Center(
+              child: Icon(Icons.open_with_rounded, size: 15, color: Color(0xFF0F172A)),
             ),
           ),
         ),
       ),
-    ),
-  ],
-);
+    );
   }
 
+
   /// Alça circular de rotação livre localizada no topo do conjunto de placas
+
   Widget _buildRotationHandleWidget(Rect bbox) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1079,39 +1832,6 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
           color: const Color(0xFF6366F1).withValues(alpha: 0.6),
         ),
       ],
-    );
-  }
-
-  /// Botão circular '+' colado na lateral direita do conjunto
-  Widget _buildAddModuleCircleButton() {
-    return Tooltip(
-      message: 'Adicionar mais uma placa ao conjunto',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onAddModule,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF10B981),
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Icon(Icons.add_rounded, color: Colors.white, size: 20),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -1295,8 +2015,11 @@ class _RoofOverlayPainter extends CustomPainter {
     this.draggingIndex = -1,
     this.draggingModuleIndex = -1,
     this.selectedModuleIndex = -1,
+    this.selectedRowId,
     this.isDraggingGroup = false,
   });
+
+  final String? selectedRowId;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1379,22 +2102,10 @@ class _RoofOverlayPainter extends CustomPainter {
           if (pt.dy < sMinY) sMinY = pt.dy;
           if (pt.dy > sMaxY) sMaxY = pt.dy;
         }
-        final sBbox = Rect.fromLTRB(sMinX, sMinY, sMaxX, sMaxY);
-        final bool placeRight = (sBbox.right + 45 < size.width);
-        final badgePos = Offset(placeRight ? sBbox.right + 26 : sBbox.left - 26, sBbox.center.dy);
-        final targetPoint = Offset(placeRight ? sBbox.right : sBbox.left, sBbox.center.dy);
-
-        _drawVerticalSectionBadge(
-          canvas,
-          badgePos,
-          '${sec.name} • ${sec.activeModuleCount} pl ✎',
-          sec.themeColor,
-          targetPoint: targetPoint,
-        );
       }
     }
 
-    // ── 2. SE A SEÇÃO ATIVA ESTIVER CONCLUÍDA (MODO REPOUSO / IMAGEM 2) ─────
+    // ── 2. SE A SEÇÃO ATIVA ESTIVER CONCLUÍDA (MODO REPOUSO) ────────────────
     if (!isEditingActiveSection) {
       if (vertices.isNotEmpty) {
         final path = Path();
@@ -1428,11 +2139,8 @@ class _RoofOverlayPainter extends CustomPainter {
         canvas.drawPath(path, borderPaint);
 
         // Módulos solares limpos
-        int activeModCount = 0;
-
         for (final mod in modules) {
           if (mod.isExcluded) continue;
-          activeModCount++;
 
           final corners = mod.getCorners();
           final sCorners = corners.map((p) {
@@ -1459,39 +2167,6 @@ class _RoofOverlayPainter extends CustomPainter {
             ..style = PaintingStyle.stroke;
           canvas.drawPath(mPath, fPaint);
         }
-
-        // Tag identificadora lateral e na vertical (fora das placas para não cobrir)
-        final String curName = sections.isNotEmpty && activeSectionIndex < sections.length
-            ? sections[activeSectionIndex].name
-            : 'Água 1';
-
-        double aMinX = double.infinity, aMaxX = -double.infinity;
-        double aMinY = double.infinity, aMaxY = -double.infinity;
-        final aPoints = modules.isNotEmpty
-            ? modules.where((m) => !m.isExcluded).expand((m) => m.getCorners()).map((p) => Offset(
-                centerOffset.dx + RoofGeometryService.metersToPixels(p.x, metersPerPixel),
-                centerOffset.dy + RoofGeometryService.metersToPixels(p.y, metersPerPixel),
-              ))
-            : screenVertices;
-
-        for (final pt in aPoints) {
-          if (pt.dx < aMinX) aMinX = pt.dx;
-          if (pt.dx > aMaxX) aMaxX = pt.dx;
-          if (pt.dy < aMinY) aMinY = pt.dy;
-          if (pt.dy > aMaxY) aMaxY = pt.dy;
-        }
-        final aBbox = Rect.fromLTRB(aMinX, aMinY, aMaxX, aMaxY);
-        final bool placeRight = (aBbox.right + 45 < size.width);
-        final badgePos = Offset(placeRight ? aBbox.right + 26 : aBbox.left - 26, aBbox.center.dy);
-        final targetPoint = Offset(placeRight ? aBbox.right : aBbox.left, aBbox.center.dy);
-
-        _drawVerticalSectionBadge(
-          canvas,
-          badgePos,
-          '$curName • $activeModCount pl ✎',
-          activeThemeColor,
-          targetPoint: targetPoint,
-        );
       }
       return;
     }
@@ -1526,8 +2201,17 @@ class _RoofOverlayPainter extends CustomPainter {
         ..style = PaintingStyle.stroke;
       canvas.drawPath(path, borderPaint);
 
-      // Cotas métricas nas arestas da água ativa com botão de edição
+      // Cotas métricas posicionadas do lado de FORA do polígono e afastadas das placas solares
       final edgeCount = isClosed ? vertices.length : vertices.length - 1;
+
+      // Calcula o centro do polígono para garantir que o vetor aponte sempre para FORA
+      double polySumX = 0, polySumY = 0;
+      for (final sv in screenVertices) {
+        polySumX += sv.dx;
+        polySumY += sv.dy;
+      }
+      final polyCenter = Offset(polySumX / screenVertices.length, polySumY / screenVertices.length);
+
       for (int i = 0; i < edgeCount; i++) {
         final p1 = vertices[i];
         final p2 = vertices[(i + 1) % vertices.length];
@@ -1537,7 +2221,30 @@ class _RoofOverlayPainter extends CustomPainter {
         final distMeters = p1.distanceTo(p2);
         final mid = Offset((sp1.dx + sp2.dx) / 2, (sp1.dy + sp2.dy) / 2);
 
-        _drawMetricLabel(canvas, mid, '${distMeters.toStringAsFixed(1)}m');
+        // Vetor da aresta
+        final edgeVec = sp2 - sp1;
+        final edgeLen = edgeVec.distance;
+        Offset badgePos = mid;
+
+        if (edgeLen > 0) {
+          // Candidato de normal perpendicular
+          Offset norm = Offset(-edgeVec.dy, edgeVec.dx) / edgeLen;
+
+          // Garante que a normal aponte para FORA do polígono (longe do centróide)
+          final dotWithOutward = (mid.dx + norm.dx * 10 - polyCenter.dx) * (mid.dx - polyCenter.dx) +
+              (mid.dy + norm.dy * 10 - polyCenter.dy) * (mid.dy - polyCenter.dy);
+          final dotCenter = (mid.dx - polyCenter.dx) * (mid.dx - polyCenter.dx) +
+              (mid.dy - polyCenter.dy) * (mid.dy - polyCenter.dy);
+
+          if (dotWithOutward < dotCenter) {
+            norm = -norm; // inverte para apontar para fora
+          }
+
+          // Afasta generosamente 38px para fora do polígono, garantindo limpeza visual total
+          badgePos = mid + norm * 38.0;
+        }
+
+        _drawMetricLabel(canvas, badgePos, '${distMeters.toStringAsFixed(1)}m');
       }
 
       // Vértices do telhado ativo (bolinhas interativas de arraste)
@@ -1599,9 +2306,14 @@ class _RoofOverlayPainter extends CustomPainter {
         Color borderColor = const Color(0xFFE2E8F0);
         double borderWidth = 1.2;
 
+        final bool isRowSelected = selectedRowId != null && mod.rowId == selectedRowId;
+
         if (isSelected) {
           borderColor = const Color(0xFF38BDF8);
           borderWidth = 2.5;
+        } else if (isRowSelected) {
+          borderColor = const Color(0xFF38BDF8);
+          borderWidth = 2.0;
         } else if (isBeingDragged) {
           borderColor = const Color(0xFF10B981);
           borderWidth = 2.5;
@@ -1629,64 +2341,6 @@ class _RoofOverlayPainter extends CustomPainter {
         }
       }
     }
-  }
-
-  /// Desenha uma tag identificadora estilizada lateral e na vertical para não cobrir as placas
-  void _drawVerticalSectionBadge(
-    Canvas canvas,
-    Offset position,
-    String text,
-    Color color, {
-    Offset? targetPoint,
-  }) {
-    final span = TextSpan(
-      text: text,
-      style: GoogleFonts.inter(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
-      ),
-    );
-    final tp = TextPainter(text: span, textDirection: TextDirection.ltr);
-    tp.layout();
-
-    final textWidth = tp.width;
-    final textHeight = tp.height;
-
-    // Linha conectora suave com ponto de ancoragem no telhado
-    if (targetPoint != null) {
-      final linePaint = Paint()
-        ..color = color.withValues(alpha: 0.65)
-        ..strokeWidth = 1.2
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(targetPoint, position, linePaint);
-
-      final dotPaint = Paint()..color = color;
-      canvas.drawCircle(targetPoint, 3.0, dotPaint);
-    }
-
-    canvas.save();
-    canvas.translate(position.dx, position.dy);
-    canvas.rotate(math.pi / 2); // Rotaciona 90° na vertical
-
-    final bgRect = Rect.fromCenter(
-      center: Offset.zero,
-      width: textWidth + 18,
-      height: textHeight + 10,
-    );
-
-    final rrect = RRect.fromRectAndRadius(bgRect, const Radius.circular(12));
-    final bgPaint = Paint()..color = const Color(0xFF0F172A).withValues(alpha: 0.95);
-    final borderPaint = Paint()
-      ..color = color
-      ..strokeWidth = 1.6
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawRRect(rrect, bgPaint);
-    canvas.drawRRect(rrect, borderPaint);
-
-    tp.paint(canvas, Offset(-textWidth / 2, -textHeight / 2));
-    canvas.restore();
   }
 
   /// Desenha uma caixinha com a cota métrica clicável sobre a linha

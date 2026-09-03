@@ -491,6 +491,100 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     });
   }
 
+  /// Adiciona uma nova placa com posição relativa à placa selecionada (targetIndex)
+  /// Posições suportadas: 'left', 'right', 'front', 'back'
+  void _addModuleRelative(int targetIndex, String position) {
+    if (targetIndex < 0 || targetIndex >= _modules.length) return;
+
+    final target = _modules[targetIndex];
+    const spacing = 0.02; // 2cm de folga entre placas
+    final rot = target.rotationRadians;
+    final w = target.widthMeters;
+    final h = target.heightMeters;
+
+    // Vetores unitários no sistema de coordenadas da placa:
+    // U (eixo longitudinal da linha / largura da placa): (cos(rot), sin(rot))
+    // V (eixo transversal / frente-trás da placa): (-sin(rot), cos(rot))
+    final uX = math.cos(rot);
+    final uY = math.sin(rot);
+    final vX = -math.sin(rot);
+    final vY = math.cos(rot);
+
+    // O usuário vê a tela sempre com X para a direita e Y para baixo.
+    // Se a placa estiver virada de cabeça para baixo (rot entre 90° e 270°), o eixo U local aponta para a esquerda da tela!
+    // Para que "Direita" seja SEMPRE à direita do observador na tela (ou à direita da esteira):
+    // Verificamos a projeção de U no eixo X da tela (uX) e de V no eixo Y da tela (vY):
+    final double signU = (uX >= 0) ? 1.0 : -1.0;
+    final double signV = (vY >= 0) ? 1.0 : -1.0;
+
+    double offsetU = 0.0;
+    double offsetV = 0.0;
+
+    switch (position) {
+      case 'left':
+        // Esquerda visual do usuário na tela: sempre no sentido -X
+        offsetU = -signU * (w + spacing);
+        break;
+      case 'right':
+        // Direita visual do usuário na tela: sempre no sentido +X
+        offsetU = signU * (w + spacing);
+        break;
+      case 'front':
+        // À frente visual do usuário na tela: sempre no sentido +Y
+        offsetV = signV * (h + spacing);
+        break;
+      case 'back':
+        // Atrás visual do usuário na tela: sempre no sentido -Y
+        offsetV = -signV * (h + spacing);
+        break;
+    }
+
+    final newCenterX = target.center.x + (offsetU * uX + offsetV * vX);
+    final newCenterY = target.center.y + (offsetU * uY + offsetV * vY);
+
+    setState(() {
+      _modules.add(PlacedModule(
+        id: 'mod_manual_${DateTime.now().millisecondsSinceEpoch}_${_modules.length}',
+        rowId: target.rowId, // mantém vinculada à fileira caso a placa pertença a uma
+        center: RoofPoint(newCenterX, newCenterY),
+        widthMeters: w,
+        heightMeters: h,
+        rotationRadians: rot,
+        watts: target.watts,
+      ));
+      _syncCurrentSection();
+    });
+
+    final String posLabel;
+    switch (position) {
+      case 'left':
+        posLabel = 'à esquerda';
+        break;
+      case 'right':
+        posLabel = 'à direita';
+        break;
+      case 'front':
+        posLabel = 'à frente';
+        break;
+      case 'back':
+      default:
+        posLabel = 'atrás';
+        break;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Placa adicionada $posLabel da placa selecionada!',
+          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: const Color(0xFF10B981),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _removeSingleModule() {
     if (_modules.isNotEmpty) {
       setState(() {
@@ -510,6 +604,29 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   void _handleModuleGroupMoved(double dxMeters, double dyMeters) {
     setState(() {
       _modules = _modules.map((m) => m.translate(dxMeters, dyMeters)).toList();
+      _syncCurrentSection();
+    });
+  }
+
+  /// Move o polígono do telhado junto com todas as placas solares
+  void _handleDrawingMoved(double dxMeters, double dyMeters) {
+    setState(() {
+      _roofVertices = _roofVertices.map((v) => RoofPoint(v.x + dxMeters, v.y + dyMeters)).toList();
+      _modules = _modules.map((m) => m.translate(dxMeters, dyMeters)).toList();
+      _syncCurrentSection();
+    });
+  }
+
+  /// Move apenas as placas de uma fileira/linha específica (rowId)
+  void _handleRowMoved(String rowId, double dxMeters, double dyMeters) {
+    setState(() {
+      _modules = _modules.map((m) {
+        if (m.rowId == rowId) {
+          return m.translate(dxMeters, dyMeters);
+        }
+        return m;
+      }).toList();
+      _syncCurrentSection();
     });
   }
 
@@ -928,12 +1045,21 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   void _addModuleRow(RowDirection direction, int count, ModuleOrientation orientation) {
     if (count <= 0) return;
 
+    // ── CORREÇÃO CRÍTICA: usar a rotação REAL das placas existentes, não _rotationOffsetDegrees
+    // Isso garante que a nova fileira fique paralela ao conjunto já desenhado no telhado.
+    final double rot = _modules.isNotEmpty
+        ? _modules.first.rotationRadians
+        : _rotationOffsetDegrees * math.pi / 180.0;
+
     final double modWidth = _selectedModule.getWidth(orientation);
     final double modHeight = _selectedModule.getHeight(orientation);
     const double colSpacing = 0.02; // 2cm entre placas na mesma fileira
     const double rowSpacing = 0.05; // 5cm entre fileiras adjacentes
-    final double rot = _rotationOffsetDegrees * math.pi / 180.0;
-    final double modRot = orientation == ModuleOrientation.portrait ? rot : rot + math.pi / 2;
+    // A rotação do módulo na nova linha acompanha a rotação real das existentes
+    final double modRot = rot;
+
+    // ID único que identifica esta fileira inteira (para exclusão em lote)
+    final String rowId = 'row_${DateTime.now().millisecondsSinceEpoch}';
 
     if (_modules.isEmpty) {
       final origin = _roofVertices.isNotEmpty
@@ -948,7 +1074,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         final x = origin.x + u * math.cos(rot);
         final y = origin.y + u * math.sin(rot);
         newMods.add(PlacedModule(
-          id: 'mod_row_${DateTime.now().millisecondsSinceEpoch}_$i',
+          id: '${rowId}_$i',
+          rowId: rowId,
           center: RoofPoint(x, y),
           widthMeters: modWidth,
           heightMeters: modHeight,
@@ -990,7 +1117,6 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     final newModules = <PlacedModule>[];
 
     if (direction == RowDirection.above) {
-      // Acima no plano 2D: v negativo
       final vNew = minV - rowSpacing - modHeight / 2.0;
       final centerU = (minU + maxU) / 2.0;
       final totalWidth = count * modWidth + (count - 1) * colSpacing;
@@ -1001,7 +1127,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         final x = pivot.x + u * math.cos(rot) - vNew * math.sin(rot);
         final y = pivot.y + u * math.sin(rot) + vNew * math.cos(rot);
         newModules.add(PlacedModule(
-          id: 'mod_row_${DateTime.now().millisecondsSinceEpoch}_$i',
+          id: '${rowId}_$i',
+          rowId: rowId,
           center: RoofPoint(x, y),
           widthMeters: modWidth,
           heightMeters: modHeight,
@@ -1010,7 +1137,6 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         ));
       }
     } else if (direction == RowDirection.below) {
-      // Abaixo no plano 2D: v positivo
       final vNew = maxV + rowSpacing + modHeight / 2.0;
       final centerU = (minU + maxU) / 2.0;
       final totalWidth = count * modWidth + (count - 1) * colSpacing;
@@ -1021,7 +1147,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         final x = pivot.x + u * math.cos(rot) - vNew * math.sin(rot);
         final y = pivot.y + u * math.sin(rot) + vNew * math.cos(rot);
         newModules.add(PlacedModule(
-          id: 'mod_row_${DateTime.now().millisecondsSinceEpoch}_$i',
+          id: '${rowId}_$i',
+          rowId: rowId,
           center: RoofPoint(x, y),
           widthMeters: modWidth,
           heightMeters: modHeight,
@@ -1030,7 +1157,6 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         ));
       }
     } else if (direction == RowDirection.right) {
-      // À Direita no plano 2D: u positivo
       final uNew = maxU + colSpacing + modWidth / 2.0;
       final centerV = (minV + maxV) / 2.0;
       final totalHeight = count * modHeight + (count - 1) * rowSpacing;
@@ -1041,7 +1167,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         final x = pivot.x + uNew * math.cos(rot) - v * math.sin(rot);
         final y = pivot.y + uNew * math.sin(rot) + v * math.cos(rot);
         newModules.add(PlacedModule(
-          id: 'mod_row_${DateTime.now().millisecondsSinceEpoch}_$i',
+          id: '${rowId}_$i',
+          rowId: rowId,
           center: RoofPoint(x, y),
           widthMeters: modWidth,
           heightMeters: modHeight,
@@ -1050,7 +1177,6 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         ));
       }
     } else if (direction == RowDirection.left) {
-      // À Esquerda no plano 2D: u negativo
       final uNew = minU - colSpacing - modWidth / 2.0;
       final centerV = (minV + maxV) / 2.0;
       final totalHeight = count * modHeight + (count - 1) * rowSpacing;
@@ -1061,7 +1187,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         final x = pivot.x + uNew * math.cos(rot) - v * math.sin(rot);
         final y = pivot.y + uNew * math.sin(rot) + v * math.cos(rot);
         newModules.add(PlacedModule(
-          id: 'mod_row_${DateTime.now().millisecondsSinceEpoch}_$i',
+          id: '${rowId}_$i',
+          rowId: rowId,
           center: RoofPoint(x, y),
           widthMeters: modWidth,
           heightMeters: modHeight,
@@ -1087,6 +1214,14 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  /// Remove todas as placas que pertencem à fileira identificada por [rowId]
+  void _deleteRow(String rowId) {
+    setState(() {
+      _modules.removeWhere((m) => m.rowId == rowId);
+      _syncCurrentSection();
+    });
   }
 
   // ── Múltiplas Águas de Telhado (Finalizar, Nova Água, Alternar) ───────────
@@ -1208,6 +1343,144 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         ),
         backgroundColor: newColor,
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Duplica e espelha a água atual invertida alinhada com a cumeeira (à frente ou atrás das placas).
+  /// Conclui a água atual e seleciona a nova água espelhada já aberta para edição.
+  void _duplicateCurrentSection(String direction) {
+    if (_roofVertices.isEmpty && _modules.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Desenhe o telhado ou adicione placas antes de duplicar a água.',
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // 1. Conclui a água atual
+    _finishCurrentSection();
+
+    // 2. Determina o vetor normal/orientação da cumeeira baseado na rotação dos módulos
+    // Se não houver módulos, usa a rotação do grupo ou 0.0
+    final double baseRotation = _modules.isNotEmpty
+        ? _modules.first.rotationRadians
+        : (_rotationOffsetDegrees * math.pi / 180.0);
+
+    // Eixo V (frente/trás das placas): unitário
+    final double vX = -math.sin(baseRotation);
+    final double vY = math.cos(baseRotation);
+
+    // 3. Projeta todos os pontos dos módulos e vértices no eixo V para achar o limite da cumeeira
+    final List<RoofPoint> referencePoints = [];
+    if (_modules.isNotEmpty) {
+      for (final m in _modules) {
+        referencePoints.addAll(m.getCorners());
+      }
+    }
+    if (_roofVertices.isNotEmpty) {
+      referencePoints.addAll(_roofVertices);
+    }
+
+    // Centro do conjunto atual
+    double sumX = 0, sumY = 0;
+    for (final p in referencePoints) {
+      sumX += p.x;
+      sumY += p.y;
+    }
+    final double centerRefX = sumX / referencePoints.length;
+    final double centerRefY = sumY / referencePoints.length;
+
+    // Projeções escalares no eixo V em relação ao centro: dot(P - C, V)
+    double minV = double.infinity;
+    double maxV = -double.infinity;
+
+    for (final p in referencePoints) {
+      final projV = (p.x - centerRefX) * vX + (p.y - centerRefY) * vY;
+      if (projV < minV) minV = projV;
+      if (projV > maxV) maxV = projV;
+    }
+
+    // Posição da linha de cumeeira no eixo V
+    // 'front': cumeeira fica no maxV (ou minV dependendo da orientação visual)
+    // 'back': cumeeira fica no minV (ou maxV)
+    final double ridgeV = (direction == 'front') ? -minV : maxV;
+    final double ridgeAnchorX = centerRefX + ridgeV * vX;
+    final double ridgeAnchorY = centerRefY + ridgeV * vY;
+
+    // Função para espelhar qualquer ponto em relação à linha da cumeeira perpendicular ao eixo V:
+    // P' = P - 2 * dot(P - RidgeAnchor, V) * V
+    RoofPoint mirrorPointAcrossRidge(RoofPoint p) {
+      final double distV = (p.x - ridgeAnchorX) * vX + (p.y - ridgeAnchorY) * vY;
+      final double mirroredX = p.x - 2.0 * distV * vX;
+      final double mirroredY = p.y - 2.0 * distV * vY;
+      return RoofPoint(mirroredX, mirroredY);
+    }
+
+    // 4. Espelha os vértices do polígono do telhado
+    final List<RoofPoint> mirroredVertices = _roofVertices.map(mirrorPointAcrossRidge).toList();
+
+    // 5. Espelha as placas solares e inverte sua rotação em 180°
+    final List<PlacedModule> mirroredModules = _modules.map((m) {
+      final mirroredCenter = mirrorPointAcrossRidge(m.center);
+
+      return PlacedModule(
+        id: 'mod_mirror_${DateTime.now().millisecondsSinceEpoch}_${m.id}',
+        rowId: m.rowId != null ? 'row_mirror_${m.rowId}' : null,
+        center: mirroredCenter,
+        widthMeters: m.widthMeters,
+        heightMeters: m.heightMeters,
+        rotationRadians: (m.rotationRadians + math.pi) % (2 * math.pi),
+        watts: m.watts,
+        isExcluded: m.isExcluded,
+      );
+    }).toList();
+
+    // 6. Cria a nova seção no sistema
+    final newIndex = _sections.length;
+    final newColor = _sectionPalette[newIndex % _sectionPalette.length];
+    final mirroredRotation = (_rotationOffsetDegrees + 180.0) % 360.0;
+
+    final newSec = RoofSection(
+      id: '${newIndex + 1}',
+      name: 'Água ${newIndex + 1}',
+      vertices: mirroredVertices,
+      isClosed: _isRoofClosed,
+      modules: mirroredModules,
+      moduleSpec: _selectedModule,
+      orientation: _orientation,
+      rotationDegrees: mirroredRotation,
+      setbackMeters: _setbackMeters,
+      themeColor: newColor,
+    );
+
+    setState(() {
+      _sections.add(newSec);
+      _activeSectionIndex = newIndex;
+      _isSectionFinalized = false;
+      _roofVertices = List.from(mirroredVertices);
+      _isRoofClosed = _isRoofClosed;
+      _modules = List.from(mirroredModules);
+      _rotationOffsetDegrees = mirroredRotation;
+      _toolMode = DesignerToolMode.editModules;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Água ${newIndex + 1} criada e encaixada na cumeeira oposta!',
+          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: newColor,
+        duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -1897,6 +2170,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             onEdgeTap: _editEdgeDimension,
             onVertexMoved: _handleVertexMoved,
             onModuleGroupMoved: _handleModuleGroupMoved,
+            onDrawingMoved: _handleDrawingMoved,
+            onRowMoved: _handleRowMoved,
             onModuleMoved: _handleModuleMoved,
             onRotateModuleGroup: _rotateModulesByDelta,
             onRotateSingleModule: _rotateSingleModuleByDelta,
@@ -1906,13 +2181,16 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             onOpenAngleDialog: _showSetAngleDialog,
             groupRotationDegrees: _rotationOffsetDegrees,
             onAddModule: _addSingleModule,
+            onAddModuleRelative: _addModuleRelative,
             onRemoveModule: _removeSingleModule,
             onAddRow: _showAddRowDialog,
+            onDeleteRow: _deleteRow,
             onSectionSelected: _selectSection,
             onDeleteSection: _deleteCurrentSection,
             onFinishCurrentSection: _finishCurrentSection,
             onResumeEditing: () => setState(() => _isSectionFinalized = false),
             onAddNewSection: _addNewSection,
+            onDuplicateCurrentSection: _duplicateCurrentSection,
             onPanUpdate: (delta) {
               setState(() {
                 _panOffsetX += delta.dx;
