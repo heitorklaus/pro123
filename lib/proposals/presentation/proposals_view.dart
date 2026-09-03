@@ -25,6 +25,7 @@ import 'widgets/proposal_client_autocomplete.dart';
 import 'widgets/proposal_pdf_preview_dialog.dart';
 import 'widgets/proposal_product_picker_dialog.dart';
 import 'widgets/proposal_kanban_view.dart';
+import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: Inserido diretamente no miolo do DashboardPage (SPA Container)
@@ -232,6 +233,30 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
         },
       ),
     );
+  }
+
+  void _openRoofDesignerDialog() async {
+    final result = await SolarRoofDesignerDialog.show(context);
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Estudo de telhado gerado! ${result.totalModules} módulos (${result.totalKwp.toStringAsFixed(2)} kWp) em ${result.roofAreaM2.toStringAsFixed(1)} m².',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _loadKanbanPreference() async {
@@ -585,6 +610,47 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                               const SizedBox(width: 6),
                               Text(
                                 isMobile ? 'IA' : 'CRIAR COM IA',
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontSize: isMobile ? 12 : 13,
+                                    letterSpacing: 0.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _openRoofDesignerDialog,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 12 : 18, vertical: isMobile ? 10 : 12),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.satellite_alt_rounded,
+                                  size: 18, color: Colors.white),
+                              const SizedBox(width: 6),
+                              Text(
+                                isMobile ? 'TELHADO' : 'TELHADO SATÉLITE',
                                 style: GoogleFonts.inter(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,

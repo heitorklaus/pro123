@@ -12,6 +12,7 @@ import '../data/repositories/product_repository.dart';
 import '../domain/models/category_model.dart';
 import '../domain/models/product_model.dart';
 import 'widgets/solar_pdf_import_dialog.dart';
+import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
 
 /// Formatador de máscara monetária brasileira (R$ 0,00) em tempo real
 class CurrencyPtBrInputFormatter extends TextInputFormatter {
@@ -310,6 +311,54 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
         },
       ),
     );
+  }
+
+  void _openRoofDesignerDialog() async {
+    final result = await SolarRoofDesignerDialog.show(
+      context,
+      initialAddress: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : null,
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _kilowattsCtrl.text = result.totalKwp.toStringAsFixed(2);
+        _generationKwhCtrl.text = result.estimatedMonthlyKwh.toStringAsFixed(0);
+
+        final moduleIdx = _items.indexWhere((it) =>
+            it.name.toLowerCase().contains('módulo') ||
+            it.name.toLowerCase().contains('modulo') ||
+            it.name.toLowerCase().contains('placa'));
+
+        final qty = result.totalModules.toDouble();
+        if (moduleIdx != -1) {
+          final existing = _items[moduleIdx];
+          _items[moduleIdx] = existing.copyWith(quantity: qty);
+        } else {
+          _items.add(ProposalItemModel(
+            name: result.selectedModule.modelName,
+            sku: 'MOD-${result.selectedModule.watts}W',
+            quantity: qty,
+            unitPrice: 0.0,
+            totalPrice: 0.0,
+            unit: 'UN',
+            moduleWatts: result.selectedModule.watts.toDouble(),
+          ));
+        }
+
+        _recalculatePlantKilowatts();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Estudo de telhado aplicado! ${result.totalModules} módulos (${result.totalKwp.toStringAsFixed(2)} kWp).',
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _openProductPicker() {
@@ -728,6 +777,43 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                             SizedBox(width: 6),
                             Text(
                               'IMPORTAR PDF / IA',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _openRoofDesignerDialog,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.satellite_alt_rounded, color: Colors.white, size: 15),
+                            SizedBox(width: 6),
+                            Text(
+                              'TELHADO SATÉLITE 🛰️',
                               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
                             ),
                           ],

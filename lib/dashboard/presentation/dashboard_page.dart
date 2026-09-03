@@ -31,6 +31,7 @@ import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
 import 'widgets/master_system_config_card.dart';
+import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -94,7 +95,10 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadPreferredSector() async {
-    final sector = await SettingsService.getPreferredSector();
+    final sector = await SettingsService.getPreferredSector(
+      companyId: _currentUser?.effectiveCompanyId,
+      userId: _currentUser?.uid,
+    );
     if (mounted) {
       setState(() {
         _preferredSector = sector;
@@ -111,14 +115,22 @@ class _DashboardPageState extends State<DashboardPage> {
       final isAdmin = user == null || user.isAdmin || user.role == 'admin' || user.isSuperAdmin;
       if (!isAdmin) return;
 
-      final completed = await SettingsService.hasCompletedOnboarding();
-      final companyCompleted = await CompanyService.hasCompletedOnboarding(companyId: user?.effectiveCompanyId);
+      // 1. Verifica no Banco de Dados se o usuário ou a empresa já têm um nicho salvo
+      final hasSectorInDb = await CompanyService.hasCompletedOnboarding(
+        companyId: user?.effectiveCompanyId,
+        userId: user?.uid,
+      );
 
-      // Se qualquer um dos dois não estiver completo, abre o onboarding
-      if (!completed || !companyCompleted) {
-        if (mounted && !_isOnboardingOpen) {
-          _openOnboardingDialog();
-        }
+      if (hasSectorInDb) {
+        // Nicho já está salvo no banco de dados! Garante sincronia local e NÃO abre a janela
+        await _loadPreferredSector();
+        await SettingsService.setCompletedOnboarding(true);
+        return;
+      }
+
+      // 2. Se o usuário NÃO escolheu o nicho no banco de dados ainda, AI SIM abre a janela toda vez
+      if (mounted && !_isOnboardingOpen) {
+        _openOnboardingDialog();
       }
     } catch (e) {
       debugPrint('[DashboardPage] Erro ao verificar onboarding: $e');
@@ -222,6 +234,22 @@ class _DashboardPageState extends State<DashboardPage> {
           fontSize: isMobile ? 18 : 20,
         ),
         actions: [
+          if (isSolar) ...[
+            TextButton.icon(
+              onPressed: () => SolarRoofDesignerDialog.show(context),
+              icon: const Icon(Icons.satellite_alt_rounded, color: Color(0xFF38BDF8), size: 17),
+              label: Text(
+                isMobile ? 'Satélite' : 'Estudo de Telhado 🛰️',
+                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFF1E293B),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
           ValueListenableBuilder<ThemeMode>(
             valueListenable: AppTheme.themeModeNotifier,
             builder: (context, themeMode, _) {

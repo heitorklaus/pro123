@@ -305,9 +305,10 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
     });
 
     try {
-      // 1. Salva o nicho de atuação escolhido como fixo
+      // 1. Salva o nicho de atuação escolhido como fixo no cache e no Firestore
       await SettingsService.savePreferredSector(_sector, isFixed: true);
       await SettingsService.setCompletedOnboarding(true);
+      await CompanyService.saveCompanySector(_sector, companyId: _companyId);
 
       // 2. Se houver algum campo preenchido, salva silenciosamente
       if (_nameCtrl.text.trim().isNotEmpty || _docCtrl.text.trim().isNotEmpty) {

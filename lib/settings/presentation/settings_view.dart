@@ -1042,7 +1042,9 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
   Future<void> _selectSectorAndProceed(ProductSector sector) async {
     setState(() => _selected = sector);
     await SettingsService.savePreferredSector(sector, isFixed: true);
+    await SettingsService.setCompletedOnboarding(true);
     widget.onSectorSelected?.call(sector);
+    widget.onCompleted?.call();
     if (!mounted) return;
     Navigator.of(context).pop();
 
