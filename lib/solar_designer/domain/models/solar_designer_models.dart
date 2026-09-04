@@ -232,6 +232,123 @@ enum BackgroundLayerMode {
   dronePhoto,
 }
 
+/// Marcador do Norte personalizado para foto de drone
+class DroneNorthCompass {
+  final RoofPoint center;
+  final double rotationRadians; // 0 rad = aponta para cima (-Y)
+  final bool showCardinals; // se exibe N, S, L, O
+  final double sizeMeters;
+
+  const DroneNorthCompass({
+    required this.center,
+    this.rotationRadians = 0.0,
+    this.showCardinals = true,
+    this.sizeMeters = 3.2,
+  });
+
+  DroneNorthCompass copyWith({
+    RoofPoint? center,
+    double? rotationRadians,
+    bool? showCardinals,
+    double? sizeMeters,
+  }) {
+    return DroneNorthCompass(
+      center: center ?? this.center,
+      rotationRadians: rotationRadians ?? this.rotationRadians,
+      showCardinals: showCardinals ?? this.showCardinals,
+      sizeMeters: sizeMeters ?? this.sizeMeters,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'centerX': center.x,
+        'centerY': center.y,
+        'rotationRadians': rotationRadians,
+        'showCardinals': showCardinals,
+        'sizeMeters': sizeMeters,
+      };
+
+  factory DroneNorthCompass.fromMap(Map<String, dynamic> map) {
+    return DroneNorthCompass(
+      center: RoofPoint(
+        (map['centerX'] as num?)?.toDouble() ?? 0.0,
+        (map['centerY'] as num?)?.toDouble() ?? 0.0,
+      ),
+      rotationRadians: (map['rotationRadians'] as num?)?.toDouble() ?? 0.0,
+      showCardinals: map['showCardinals'] as bool? ?? true,
+      sizeMeters: (map['sizeMeters'] as num?)?.toDouble() ?? 3.2,
+    );
+  }
+}
+
+/// Seta de indicação da orientação de queda d'água do telhado
+class DroneRoofArrow {
+  final String id;
+  final RoofPoint center;
+  final double rotationRadians; // 0 = aponta para a direita (+X), pi/2 = para baixo (+Y), etc.
+  final double lengthMeters;
+  final String label; // ex: "Leste", "Queda 15°"
+  final ui.Color color;
+  final String? sectionId;
+
+  const DroneRoofArrow({
+    required this.id,
+    required this.center,
+    this.rotationRadians = 0.0,
+    this.lengthMeters = 3.5,
+    this.label = '',
+    this.color = const ui.Color(0xFF38BDF8),
+    this.sectionId,
+  });
+
+  DroneRoofArrow copyWith({
+    String? id,
+    RoofPoint? center,
+    double? rotationRadians,
+    double? lengthMeters,
+    String? label,
+    ui.Color? color,
+    String? sectionId,
+  }) {
+    return DroneRoofArrow(
+      id: id ?? this.id,
+      center: center ?? this.center,
+      rotationRadians: rotationRadians ?? this.rotationRadians,
+      lengthMeters: lengthMeters ?? this.lengthMeters,
+      label: label ?? this.label,
+      color: color ?? this.color,
+      sectionId: sectionId ?? this.sectionId,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'centerX': center.x,
+        'centerY': center.y,
+        'rotationRadians': rotationRadians,
+        'lengthMeters': lengthMeters,
+        'label': label,
+        'color': color.toARGB32(),
+        if (sectionId != null) 'sectionId': sectionId,
+      };
+
+  factory DroneRoofArrow.fromMap(Map<String, dynamic> map) {
+    return DroneRoofArrow(
+      id: map['id'] as String? ?? 'arrow_1',
+      center: RoofPoint(
+        (map['centerX'] as num?)?.toDouble() ?? 0.0,
+        (map['centerY'] as num?)?.toDouble() ?? 0.0,
+      ),
+      rotationRadians: (map['rotationRadians'] as num?)?.toDouble() ?? 0.0,
+      lengthMeters: (map['lengthMeters'] as num?)?.toDouble() ?? 3.5,
+      label: map['label'] as String? ?? '',
+      color: map['color'] != null ? ui.Color(map['color'] as int) : const ui.Color(0xFF38BDF8),
+      sectionId: map['sectionId'] as String?,
+    );
+  }
+}
+
+
 /// Aresta delimitadora do telhado com índice e ponto médio
 class RoofEdge {
   final int index;
@@ -441,6 +558,8 @@ class RoofStudyResult {
   final String address;
   final SolarModuleSpec selectedModule;
   final List<RoofSection>? sections;
+  final DroneNorthCompass? droneNorthCompass;
+  final List<DroneRoofArrow>? droneArrows;
   final DateTime createdAt;
 
   RoofStudyResult({
@@ -454,6 +573,8 @@ class RoofStudyResult {
     required this.address,
     required this.selectedModule,
     this.sections,
+    this.droneNorthCompass,
+    this.droneArrows,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 

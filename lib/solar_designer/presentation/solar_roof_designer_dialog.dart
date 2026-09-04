@@ -13,6 +13,7 @@ import '../data/services/roof_geometry_service.dart';
 import '../data/services/satellite_map_service.dart';
 import '../domain/models/solar_designer_models.dart';
 import '../domain/models/roof_study_model.dart';
+import '../domain/services/brazil_solar_irradiation_service.dart';
 import '../data/repositories/roof_study_repository.dart';
 import 'widgets/satellite_roof_canvas.dart';
 import 'widgets/roof_study_setup_dialog.dart';
@@ -89,6 +90,14 @@ enum RowDirection {
 class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   final GlobalKey _canvasKey = GlobalKey();
   final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _cepController = TextEditingController();
+  final TextEditingController _hspController = TextEditingController();
+
+  // Irradiação Solar CRESESB & Qualificação de Orientação
+  double _dailyHsp = 5.0; // Horas de Sol Pleno (HSP diário médio em kWh/m²/dia)
+  String _resolvedState = 'SP';
+  String _resolvedRegion = 'Sudeste';
+  bool _isRenderMode = false; // Alterna entre modo Qualificação (Heatmap + %) e modo Renderizar realista
 
   // Coordenadas geográficas atuais
   double _latitude = GeoCoordinate.defaultLocation.latitude;
@@ -133,6 +142,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   final List<RoofSection> _sections = [];
   int _activeSectionIndex = 0;
   bool _isSectionFinalized = false;
+  bool _isCurrentClusterFinalized = false;
+  String? _activeClusterId;
+  int _clusterCounter = 1;
   static const List<Color> _sectionPalette = [
     Color(0xFFF59E0B), // Âmbar (Água 1)
     Color(0xFF38BDF8), // Ciano (Água 2)
@@ -169,6 +181,341 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   bool _isLoadingDronePhoto = false;
   int? _snappedModuleIndex;
   Timer? _snapHighlightTimer;
+
+  // Anotações de Orientação e Quedas do Telhado (Drone / Satélite)
+  DroneNorthCompass? _droneNorthCompass;
+  final List<DroneRoofArrow> _droneArrows = [];
+  String? _selectedDroneArrowId;
+  bool _showOrientationPanel = false;
+  Offset _orientationPanelOffset = const Offset(24, 150);
+  bool _snapAlignmentEnabled = true;
+  Color _droneArrowsGlobalColor = const Color(0xFF2563EB);
+  double _droneArrowsGlobalLength = 1.3;
+
+  final ScrollController _orientationScrollController = ScrollController();
+  final Map<String, GlobalKey> _arrowCardKeys = {};
+
+  void _scrollToSelectedArrow(String arrowId) {
+    if (!_showOrientationPanel) {
+      setState(() {
+        _showOrientationPanel = true;
+        _toolMode = DesignerToolMode.select;
+      });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final key = _arrowCardKeys[arrowId];
+      if (key?.currentContext != null) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOutCubic,
+          alignment: 0.25,
+        );
+      } else {
+        Future.delayed(const Duration(milliseconds: 60), () {
+          if (!mounted) return;
+          final retryKey = _arrowCardKeys[arrowId];
+          if (retryKey?.currentContext != null) {
+            Scrollable.ensureVisible(
+              retryKey!.currentContext!,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOutCubic,
+              alignment: 0.25,
+            );
+          }
+        });
+      }
+    });
+  }
+
+  bool get _hasDronePhoto =>
+      _droneImageBytes != null ||
+      (_droneImageUrl != null && _droneImageUrl!.isNotEmpty);
+
+  bool get _hasAnyClosedPolygon {
+    if (_isRoofClosed && _roofVertices.length >= 3) return true;
+    return _sections.any((s) => s.isClosed && s.vertices.length >= 3);
+  }
+
+  bool get _isAnyPolygonSelected {
+    if (_isSectionFinalized) return false;
+    if (_isRoofClosed && _roofVertices.length >= 3) return true;
+    if (_activeSectionIndex >= 0 && _activeSectionIndex < _sections.length) {
+      final sec = _sections[_activeSectionIndex];
+      return sec.isClosed && sec.vertices.length >= 3;
+    }
+    return false;
+  }
+
+  void _showNoPolygonWarning() {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: Color(0xFFF59E0B), size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Para adicionar a orientação você deve definir a área do polígono antes...',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF0F172A),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFFF59E0B), width: 1.4),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Sincroniza as setas de orientação: atualiza rótulos e remove setas de seções deletadas.
+  /// NÃO recria setas automaticamente se o usuário optou por remover ou desenhar sem seta.
+  void _syncArrowsWithSections() {
+    final closedSections = <RoofSection>[];
+    for (int i = 0; i < _sections.length; i++) {
+      final s = _sections[i];
+      if (s.isClosed && s.vertices.length >= 3) {
+        closedSections.add(s);
+      } else if (i == _activeSectionIndex &&
+          _isRoofClosed &&
+          _roofVertices.length >= 3) {
+        closedSections.add(s.copyWith(
+          vertices: List.from(_roofVertices),
+          isClosed: true,
+        ));
+      }
+    }
+
+    if (closedSections.isEmpty && _isRoofClosed && _roofVertices.length >= 3) {
+      closedSections.add(RoofSection(
+        id: '1',
+        name: 'Água 1',
+        vertices: List.from(_roofVertices),
+        isClosed: true,
+        modules: const [],
+        moduleSpec: _selectedModule,
+      ));
+    }
+
+    // Atualiza apenas os rótulos de setas que já existem
+    for (int idx = 0; idx < closedSections.length; idx++) {
+      final sec = closedSections[idx];
+      final existingIdx =
+          _droneArrows.indexWhere((a) => a.sectionId == sec.id);
+
+      if (existingIdx != -1) {
+        final existing = _droneArrows[existingIdx];
+        _droneArrows[existingIdx] = existing.copyWith(
+          label: sec.name.isNotEmpty ? sec.name : existing.label,
+        );
+      }
+    }
+
+    // Remove setas de seções que deixaram de existir
+    _droneArrows.removeWhere((a) =>
+        a.sectionId != null &&
+        !closedSections.any((s) => s.id == a.sectionId));
+
+    if (_selectedDroneArrowId != null &&
+        !_droneArrows.any((a) => a.id == _selectedDroneArrowId)) {
+      _selectedDroneArrowId = null;
+    }
+  }
+
+  void _addDroneArrow() {
+    if (!_hasAnyClosedPolygon) {
+      _showNoPolygonWarning();
+      return;
+    }
+
+    final closedSections = <RoofSection>[];
+    for (int i = 0; i < _sections.length; i++) {
+      final s = _sections[i];
+      if (s.isClosed && s.vertices.length >= 3) {
+        closedSections.add(s);
+      } else if (i == _activeSectionIndex &&
+          _isRoofClosed &&
+          _roofVertices.length >= 3) {
+        closedSections.add(s.copyWith(
+          vertices: List.from(_roofVertices),
+          isClosed: true,
+        ));
+      }
+    }
+    if (closedSections.isEmpty && _isRoofClosed && _roofVertices.length >= 3) {
+      closedSections.add(RoofSection(
+        id: '1',
+        name: 'Água 1',
+        vertices: List.from(_roofVertices),
+        isClosed: true,
+        modules: const [],
+        moduleSpec: _selectedModule,
+      ));
+    }
+
+    // Regra de Ouro: UMA SETA PARA CADA ORIENTAÇÃO
+    // Encontra a seção que ainda não possui seta:
+    RoofSection? targetSec;
+    // 1. Prioriza a seção ativa atual se não possuir seta
+    if (_activeSectionIndex < _sections.length) {
+      final activeSec = _sections[_activeSectionIndex];
+      if (!_droneArrows.any((a) => a.sectionId == activeSec.id)) {
+        targetSec = activeSec;
+      }
+    }
+    // 2. Senão, seleciona a primeira seção fechada sem seta
+    if (targetSec == null) {
+      for (final sec in closedSections) {
+        if (!_droneArrows.any((a) => a.sectionId == sec.id)) {
+          targetSec = sec;
+          break;
+        }
+      }
+    }
+
+    if (targetSec == null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  color: Color(0xFF38BDF8), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Cada orientação já possui sua seta. Desenhe uma nova água de telhado para adicionar outra orientação.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF0F172A),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    final polyVerts = targetSec.vertices.isNotEmpty
+        ? targetSec.vertices
+        : (_roofVertices.isNotEmpty ? _roofVertices : const <RoofPoint>[]);
+    final poly = RoofPolygon(vertices: polyVerts);
+    final centerM = poly.centroid;
+    final newId = 'arrow_${targetSec.id}_${DateTime.now().millisecondsSinceEpoch}';
+    final newAngle = (targetSec.rotationDegrees * math.pi / 180.0);
+
+    final newArrow = DroneRoofArrow(
+      id: newId,
+      sectionId: targetSec.id,
+      center: centerM,
+      rotationRadians: newAngle,
+      lengthMeters: _droneArrowsGlobalLength,
+      label: targetSec.name.isNotEmpty ? targetSec.name : 'Água',
+      color: targetSec.themeColor,
+    );
+
+    setState(() {
+      _droneArrows.add(newArrow);
+      _selectedDroneArrowId = newId;
+      _showOrientationPanel = true;
+    });
+
+    _scrollToSelectedArrow(newId);
+  }
+
+  void _deleteDroneArrow(String id) {
+    setState(() {
+      _droneArrows.removeWhere((a) => a.id == id);
+      _arrowCardKeys.remove(id);
+      if (_selectedDroneArrowId == id) {
+        _selectedDroneArrowId = null;
+      }
+    });
+  }
+
+  void _recenterDroneArrow(String id) {
+    final idx = _droneArrows.indexWhere((a) => a.id == id);
+    if (idx == -1) return;
+    final arrow = _droneArrows[idx];
+
+    RoofPoint newCenter = arrow.center;
+    if (arrow.sectionId != null) {
+      final sec = _sections.where((s) => s.id == arrow.sectionId).firstOrNull;
+      if (sec != null && sec.vertices.length >= 3) {
+        newCenter = sec.polygon.centroid;
+      }
+    } else if (_roofVertices.length >= 3) {
+      newCenter = RoofPolygon(vertices: _roofVertices).centroid;
+    }
+
+    setState(() {
+      _droneArrows[idx] = arrow.copyWith(center: newCenter);
+    });
+  }
+
+  void _updateArrowRotation(int idx, double newAngle) {
+    if (idx < 0 || idx >= _droneArrows.length) return;
+    final arrow = _droneArrows[idx];
+    final updated = arrow.copyWith(rotationRadians: newAngle);
+    setState(() {
+      _droneArrows[idx] = updated;
+      _selectedDroneArrowId = arrow.id;
+      if (arrow.sectionId != null) {
+        final sIdx = _sections.indexWhere((s) => s.id == arrow.sectionId);
+        if (sIdx != -1) {
+          final deg =
+              (((newAngle * 180.0 / math.pi) % 360) + 360) % 360;
+          _sections[sIdx] = _sections[sIdx].copyWith(rotationDegrees: deg);
+        }
+      }
+    });
+  }
+
+  void _addDroneNorthCompass() {
+    final centerM = RoofPoint(
+      RoofGeometryService.pixelsToMeters(-_panOffsetX, _metersPerPixel),
+      RoofGeometryService.pixelsToMeters(-_panOffsetY, _metersPerPixel),
+    );
+    setState(() {
+      _droneNorthCompass = DroneNorthCompass(
+        center: centerM,
+        rotationRadians: 0.0,
+        showCardinals: true,
+        sizeMeters: 3.2,
+      );
+      _showOrientationPanel = true;
+    });
+  }
+
+  void _removeDroneNorthCompass() {
+    setState(() {
+      _droneNorthCompass = null;
+    });
+  }
 
   @override
   void initState() {
@@ -335,6 +682,157 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         _performSearch(_searchCtrl.text);
       });
     }
+
+    // Autocompleta o CEP do cliente e busca a Irradiação Solar (CRESESB / Atlas Solar)
+    String initialCep = '';
+    if (widget.initialClient?.zipCode != null &&
+        widget.initialClient!.zipCode!.trim().isNotEmpty) {
+      initialCep = widget.initialClient!.zipCode!.trim();
+    } else if (widget.initialClient?.fullAddress != null) {
+      final cepMatch = RegExp(r'\b\d{5}-?\d{3}\b')
+          .firstMatch(widget.initialClient!.fullAddress);
+      if (cepMatch != null) initialCep = cepMatch.group(0)!;
+    } else if (widget.initialAddress != null) {
+      final cepMatch =
+          RegExp(r'\b\d{5}-?\d{3}\b').firstMatch(widget.initialAddress!);
+      if (cepMatch != null) initialCep = cepMatch.group(0)!;
+    } else if (_searchCtrl.text.isNotEmpty) {
+      final cepMatch = RegExp(r'\b\d{5}-?\d{3}\b').firstMatch(_searchCtrl.text);
+      if (cepMatch != null) initialCep = cepMatch.group(0)!;
+    }
+
+    if (initialCep.isNotEmpty) {
+      _cepController.text = initialCep;
+      final solarData =
+          BrazilSolarIrradiationService.getIrradiationData(cep: initialCep);
+      _resolvedState = solarData.uf;
+      _resolvedRegion = solarData.region;
+      _dailyHsp = solarData.averageDailyHsp;
+      _hspController.text = _dailyHsp.toStringAsFixed(2);
+    } else {
+      _dailyHsp = 5.0;
+      _hspController.text = '5.00';
+    }
+  }
+
+  /// Atualiza o CEP e recalcula a irradiação solar oficial do CRESESB
+  void _updateCepAndHsp(String rawCep) {
+    final cleanCep = rawCep.trim();
+    final solarData =
+        BrazilSolarIrradiationService.getIrradiationData(cep: cleanCep);
+    setState(() {
+      _resolvedState = solarData.uf;
+      _resolvedRegion = solarData.region;
+      _dailyHsp = solarData.averageDailyHsp;
+      _hspController.text = _dailyHsp.toStringAsFixed(2);
+    });
+  }
+
+  /// Calcula a qualificação de orientação solar para cada seção de telhado
+  /// REGRA CRÍTICA: Se o conjunto/seção AINDA NÃO POSSUI SETA DE QUEDA, NÃO gera qualificação!
+  /// As placas permanecem na textura fotorrealista natural, sem porcentagem e sem filtro colorido.
+  Map<String, SolarOrientationEfficiency> _calculateSectionEfficiencies() {
+    final Map<String, SolarOrientationEfficiency> result = {};
+
+    // Vetor que aponta para a ponta vermelha do Norte na tela
+    final Offset vNorth = _droneNorthCompass != null
+        ? Offset(math.sin(_droneNorthCompass!.rotationRadians),
+            -math.cos(_droneNorthCompass!.rotationRadians))
+        : const Offset(0.0, -1.0); // Topo do canvas por padrão
+
+    for (final sec in _sections) {
+      final arrow = _droneArrows.cast<DroneRoofArrow?>().firstWhere(
+            (a) => a?.sectionId == sec.id,
+            orElse: () => null,
+          );
+
+      // Se ainda não foi adicionada a queda (seta) para esta água, não tem % nem filtro!
+      if (arrow == null) continue;
+
+      final vArrow = Offset(
+        math.cos(arrow.rotationRadians),
+        math.sin(arrow.rotationRadians),
+      );
+
+      result[sec.id] =
+          BrazilSolarIrradiationService.evaluateOrientationFromVectors(
+        roofArrowDir: vArrow,
+        northNeedleDir: vNorth,
+        cep: _cepController.text,
+        uf: _resolvedState,
+      );
+    }
+
+    final activeSecId =
+        _sections.isNotEmpty && _activeSectionIndex < _sections.length
+            ? _sections[_activeSectionIndex].id
+            : 'active';
+    if (!result.containsKey(activeSecId)) {
+      final arrow = _droneArrows.cast<DroneRoofArrow?>().firstWhere(
+            (a) => a?.sectionId == activeSecId,
+            orElse: () => null,
+          );
+
+      // Apenas calcula se a água ativa tiver uma seta de queda desenhada!
+      if (arrow != null) {
+        final vArrow = Offset(
+          math.cos(arrow.rotationRadians),
+          math.sin(arrow.rotationRadians),
+        );
+
+        result[activeSecId] =
+            BrazilSolarIrradiationService.evaluateOrientationFromVectors(
+          roofArrowDir: vArrow,
+          northNeedleDir: vNorth,
+          cep: _cepController.text,
+          uf: _resolvedState,
+        );
+      }
+    }
+
+    return result;
+  }
+
+  /// Calcula a geração mensal estimada em kWh consolidada
+  /// Fórmula: HSP × Potência (kWp) × 30 dias × 0.75 (PR) × Fator de Orientação Angular
+  double _calculateTotalEstimatedGenerationKwh() {
+    final efficiencies = _calculateSectionEfficiencies();
+    double totalGen = 0.0;
+    int totalActiveModules = 0;
+
+    if (_sections.isNotEmpty) {
+      for (final sec in _sections) {
+        final activeCount = sec.modules.where((m) => !m.isExcluded).length;
+        if (activeCount == 0) continue;
+        final kwp = (activeCount * sec.moduleSpec.watts) / 1000.0;
+        final eff = efficiencies[sec.id]?.efficiencyFactor ?? 1.0;
+        totalGen += BrazilSolarIrradiationService.calculateMonthlyGenerationKwh(
+          dailyHsp: _dailyHsp,
+          totalKwp: kwp,
+          performanceRatio: 0.75,
+          efficiencyFactor: eff,
+        );
+        totalActiveModules += activeCount;
+      }
+    }
+
+    if (totalActiveModules == 0 && _modules.isNotEmpty) {
+      final activeCount = _modules.where((m) => !m.isExcluded).length;
+      final kwp = (activeCount * _selectedModule.watts) / 1000.0;
+      final activeSecId =
+          _sections.isNotEmpty && _activeSectionIndex < _sections.length
+              ? _sections[_activeSectionIndex].id
+              : 'active';
+      final eff = efficiencies[activeSecId]?.efficiencyFactor ?? 1.0;
+      totalGen = BrazilSolarIrradiationService.calculateMonthlyGenerationKwh(
+        dailyHsp: _dailyHsp,
+        totalKwp: kwp,
+        performanceRatio: 0.75,
+        efficiencyFactor: eff,
+      );
+    }
+
+    return totalGen;
   }
 
   /// Baixa a foto do drone salva na nuvem (Firebase Storage ou URL externa)
@@ -514,8 +1012,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
   @override
   void dispose() {
+    _orientationScrollController.dispose();
     _snapHighlightTimer?.cancel();
     _searchCtrl.dispose();
+    _cepController.dispose();
+    _hspController.dispose();
     super.dispose();
   }
 
@@ -996,6 +1497,25 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
   // ── Adição e Movimentação Manual de Módulos (Conforme Solicitado) ────────
   void _addSingleModule() {
+    if (!_isAnyPolygonSelected) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Faça um desenho de um telhado e selecione-o para adicionar módulos',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          backgroundColor: const Color(0xFF0F172A),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final width = _orientation == ModuleOrientation.portrait
         ? _selectedModule.widthMeters
         : _selectedModule.heightMeters;
@@ -1004,26 +1524,78 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         : _selectedModule.widthMeters;
     final rot = _rotationOffsetDegrees * math.pi / 180.0;
 
+    // Quando o usuário adiciona placas avulsas pelo menu superior, a seleção fica em MÓDULOS
+    _toolMode = DesignerToolMode.editModules;
+
     if (_modules.isEmpty) {
       // Se não há módulos, coloca no centro do telhado ou na mira central
       final center = _roofVertices.isNotEmpty
           ? _roofPolygon.centroid
           : const RoofPoint(0, 0);
+      _clusterCounter = 1;
+      _activeClusterId = 'conjunto_$_clusterCounter';
+      _isCurrentClusterFinalized = false;
+
       setState(() {
         _modules.add(PlacedModule(
           id: 'mod_manual_${DateTime.now().millisecondsSinceEpoch}',
+          rowId: _activeClusterId,
           center: center,
           widthMeters: width,
           heightMeters: height,
           rotationRadians: rot,
           watts: _selectedModule.watts,
         ));
+        _selectedModuleIndex = 0;
+        _adaptRoofToFitModules();
+        _syncCurrentSection();
       });
       return;
     }
 
-    // Se já existem módulos, calcula a posição da próxima placa à direita da última placa
-    final last = _modules.last;
+    // Se o conjunto anterior foi concluído ou nenhum conjunto está ativo, inicia um NOVO conjunto desacoplado do anterior!
+    if (_isCurrentClusterFinalized || _activeClusterId == null) {
+      _clusterCounter++;
+      _activeClusterId = 'conjunto_$_clusterCounter';
+      _isCurrentClusterFinalized = false;
+
+      // Calcula posição desvinculada do conjunto anterior (abaixo das placas existentes)
+      double maxY = -double.infinity;
+      double avgX = 0;
+      int count = 0;
+      for (final m in _modules.where((m) => !m.isExcluded)) {
+        if (m.center.y > maxY) maxY = m.center.y;
+        avgX += m.center.x;
+        count++;
+      }
+      final double startX = count > 0 ? (avgX / count) : 0.0;
+      final double startY =
+          maxY != -double.infinity ? (maxY + height + 0.8) : 0.0;
+
+      setState(() {
+        final newMod = PlacedModule(
+          id: 'mod_manual_${DateTime.now().millisecondsSinceEpoch}_${_modules.length}',
+          rowId: _activeClusterId,
+          center: RoofPoint(startX, startY),
+          widthMeters: width,
+          heightMeters: height,
+          rotationRadians: rot,
+          watts: _selectedModule.watts,
+        );
+        _modules = List.from(_modules)..add(newMod);
+        _selectedModuleIndex = _modules.length - 1;
+        _adaptRoofToFitModules();
+        _syncCurrentSection();
+      });
+      return;
+    }
+
+    // Se já existe um conjunto ativo, anexa a nova placa à direita da última placa DESSE conjunto ativo
+    final clusterMods = _modules
+        .where((m) => m.rowId == _activeClusterId && !m.isExcluded)
+        .toList();
+    final last = clusterMods.isNotEmpty ? clusterMods.last : _modules.last;
+
     const spacing = 0.02; // 2cm de folga entre placas
     final step = last.widthMeters + spacing;
 
@@ -1033,6 +1605,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     setState(() {
       final newMod = PlacedModule(
         id: 'mod_manual_${DateTime.now().millisecondsSinceEpoch}_${_modules.length}',
+        rowId: _activeClusterId,
         center: RoofPoint(last.center.x + dx, last.center.y + dy),
         widthMeters: width,
         heightMeters: height,
@@ -1044,6 +1617,43 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _adaptRoofToFitModules();
       _syncCurrentSection();
     });
+  }
+
+  /// Finaliza o conjunto de placas em edição, permitindo adicionar novos conjuntos desacoplados no mesmo telhado
+  void _concludeCurrentCluster() {
+    setState(() {
+      _isCurrentClusterFinalized = true;
+      _activeClusterId = null;
+      _selectedModuleIndex = -1;
+      _syncCurrentSection();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF10B981), size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Conjunto de placas concluído! Clique em "+ Placa" para iniciar outro conjunto ou clique no conjunto anterior para reativá-lo.',
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF0F172A),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF10B981), width: 1.2),
+        ),
+      ),
+    );
   }
 
   /// Adiciona uma nova placa com posição relativa à placa selecionada (targetIndex)
@@ -1562,7 +2172,16 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
   void _handleModuleGroupMoved(double dxMeters, double dyMeters) {
     setState(() {
-      _modules = _modules.map((m) => m.translate(dxMeters, dyMeters)).toList();
+      if (_activeClusterId != null) {
+        _modules = _modules.map((m) {
+          if (m.rowId == _activeClusterId) {
+            return m.translate(dxMeters, dyMeters);
+          }
+          return m;
+        }).toList();
+      } else {
+        _modules = _modules.map((m) => m.translate(dxMeters, dyMeters)).toList();
+      }
       _syncCurrentSection();
     });
   }
@@ -1602,27 +2221,40 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       return;
     }
 
-    // Centróide do arranjo de módulos
+    final targetMods = _activeClusterId != null
+        ? _modules
+            .where((m) => m.rowId == _activeClusterId && !m.isExcluded)
+            .toList()
+        : _modules.where((m) => !m.isExcluded).toList();
+
+    if (targetMods.isEmpty) return;
+
+    // Centróide do arranjo do conjunto ativo
     double sumX = 0, sumY = 0;
-    for (final m in _modules) {
+    for (final m in targetMods) {
       sumX += m.center.x;
       sumY += m.center.y;
     }
-    final pivot = RoofPoint(sumX / _modules.length, sumY / _modules.length);
+    final pivot = RoofPoint(sumX / targetMods.length, sumY / targetMods.length);
 
     setState(() {
-      _modules =
-          _modules.map((m) => m.rotateAround(pivot, math.pi / 2)).toList();
+      _modules = _modules.map((m) {
+        if (_activeClusterId == null || m.rowId == _activeClusterId) {
+          return m.rotateAround(pivot, math.pi / 2);
+        }
+        return m;
+      }).toList();
       _rotationOffsetDegrees = (_rotationOffsetDegrees + 90.0) % 360.0;
       _orientation = _orientation == ModuleOrientation.portrait
           ? ModuleOrientation.landscape
           : ModuleOrientation.portrait;
+      _syncCurrentSection();
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Módulos rotacionados em 90° (${_orientation == ModuleOrientation.portrait ? "Retrato" : "Paisagem"})!',
+          'Conjunto rotacionado em 90° (${_orientation == ModuleOrientation.portrait ? "Retrato" : "Paisagem"})!',
           style: GoogleFonts.inter(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF6366F1),
@@ -1635,18 +2267,31 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   void _rotateModulesByDelta(double deltaRadians) {
     if (_modules.isEmpty) return;
 
+    final targetMods = _activeClusterId != null
+        ? _modules
+            .where((m) => m.rowId == _activeClusterId && !m.isExcluded)
+            .toList()
+        : _modules.where((m) => !m.isExcluded).toList();
+
+    if (targetMods.isEmpty) return;
+
     double sumX = 0, sumY = 0;
-    for (final m in _modules) {
+    for (final m in targetMods) {
       sumX += m.center.x;
       sumY += m.center.y;
     }
-    final pivot = RoofPoint(sumX / _modules.length, sumY / _modules.length);
+    final pivot = RoofPoint(sumX / targetMods.length, sumY / targetMods.length);
 
     setState(() {
-      _modules =
-          _modules.map((m) => m.rotateAround(pivot, deltaRadians)).toList();
+      _modules = _modules.map((m) {
+        if (_activeClusterId == null || m.rowId == _activeClusterId) {
+          return m.rotateAround(pivot, deltaRadians);
+        }
+        return m;
+      }).toList();
       _rotationOffsetDegrees =
           (_rotationOffsetDegrees + deltaRadians * 180.0 / math.pi) % 360.0;
+      _syncCurrentSection();
     });
   }
 
@@ -2265,10 +2910,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     setState(() {
       _activeSectionIndex = index;
       _isSectionFinalized = false;
+      _isCurrentClusterFinalized = false;
       final sec = _sections[index];
       _roofVertices = List.from(sec.vertices);
       _isRoofClosed = sec.isClosed;
       _modules = List.from(sec.modules);
+      _activeClusterId = _modules.isNotEmpty ? _modules.last.rowId : null;
       _selectedModule = sec.moduleSpec;
       _orientation = sec.orientation;
       _rotationOffsetDegrees = sec.rotationDegrees;
@@ -2293,10 +2940,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
   void _finishCurrentSection() {
     _syncCurrentSection();
+    _syncArrowsWithSections();
     setState(() {
       _isSectionFinalized = true;
       _toolMode = DesignerToolMode.pan;
       _selectedModuleIndex = -1;
+      _selectedDroneArrowId = null;
     });
     final currentSec = _sections[_activeSectionIndex];
 
@@ -2320,6 +2969,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         _toolMode = DesignerToolMode.drawRoof;
         _isRoofClosed = false;
         _isSectionFinalized = false;
+        _isCurrentClusterFinalized = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2776,6 +3426,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           if (distPixels <= 24.0) {
             _isRoofClosed = true;
             _toolMode = DesignerToolMode.editModules;
+            _syncArrowsWithSections();
             _autoFillModules();
             return;
           }
@@ -2790,15 +3441,33 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         setState(() {
           hit.isExcluded = !hit.isExcluded;
         });
+        return;
       } else if (_roofVertices.isEmpty) {
-        // Se a seção atual está vazia e clicou na tela, inicia o desenho instantaneamente!
+        // Se a seção atual está vazia e clicou na tela, inicia o desenho instantaneamente (se permitido)!
+        if (_backgroundMode == BackgroundLayerMode.dronePhoto && !_hasDronePhoto) {
+          return;
+        }
         setState(() {
           _toolMode = DesignerToolMode.drawRoof;
           _isSectionFinalized = false;
           _isRoofClosed = false;
           _roofVertices = [pointMeters];
+          _selectedDroneArrowId = null;
+          _selectedModuleIndex = -1;
         });
+        return;
       }
+      // Clicou fora das placas / espaço vazio: deseleciona tudo (setas, placas)!
+      setState(() {
+        _selectedDroneArrowId = null;
+        _selectedModuleIndex = -1;
+      });
+    } else {
+      // Qualquer outro modo: ao clicar no vazio, deseleciona tudo!
+      setState(() {
+        _selectedDroneArrowId = null;
+        _selectedModuleIndex = -1;
+      });
     }
   }
 
@@ -2810,6 +3479,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       setState(() {
         _isRoofClosed = true;
         _toolMode = DesignerToolMode.editModules;
+        _syncArrowsWithSections();
         _autoFillModules();
       });
     }
@@ -2844,6 +3514,14 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _modules.clear();
       _selectedModuleIndex = -1;
       _toolMode = DesignerToolMode.drawRoof;
+      if (_activeSectionIndex >= 0 && _activeSectionIndex < _sections.length) {
+        _sections[_activeSectionIndex] =
+            _sections[_activeSectionIndex].copyWith(
+          vertices: [],
+          isClosed: false,
+          modules: [],
+        );
+      }
     });
   }
 
@@ -3668,7 +4346,18 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             isRoofClosed: _isRoofClosed,
             modules: _modules,
             selectedModuleIndex: _selectedModuleIndex,
-            onSelectModule: (idx) => setState(() => _selectedModuleIndex = idx),
+            onSelectModule: (idx) {
+              setState(() {
+                _selectedModuleIndex = idx;
+                if (idx >= 0 && idx < _modules.length) {
+                  final mod = _modules[idx];
+                  _activeClusterId = mod.rowId ?? 'conjunto_1';
+                  _isCurrentClusterFinalized = false;
+                }
+              });
+            },
+            activeClusterId: _activeClusterId,
+            isClusterFinalized: _isCurrentClusterFinalized,
             sections: _sections,
             activeSectionIndex: _activeSectionIndex,
             isEditingActiveSection: !_isSectionFinalized,
@@ -3711,12 +4400,50 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             }),
             onAddNewSection: _addNewSection,
             onDuplicateCurrentSection: _duplicateCurrentSection,
+            onConcludeCluster: _concludeCurrentCluster,
+            droneNorthCompass: _droneNorthCompass,
+            droneArrows: _droneArrows,
+            selectedDroneArrowId: _selectedDroneArrowId,
+            snapAlignmentEnabled: _snapAlignmentEnabled,
+            onUpdateDroneCompass: (compass) =>
+                setState(() => _droneNorthCompass = compass),
+            onUpdateDroneArrow: (arrow) {
+              setState(() {
+                final idx =
+                    _droneArrows.indexWhere((a) => a.id == arrow.id);
+                if (idx != -1) {
+                  _droneArrows[idx] = arrow;
+                }
+                if (arrow.sectionId != null) {
+                  final sIdx =
+                      _sections.indexWhere((s) => s.id == arrow.sectionId);
+                  if (sIdx != -1) {
+                    final deg =
+                        (((arrow.rotationRadians * 180.0 / math.pi) % 360) +
+                                360) %
+                            360;
+                    _sections[sIdx] =
+                        _sections[sIdx].copyWith(rotationDegrees: deg);
+                  }
+                }
+              });
+            },
+            onSelectDroneArrow: (id) {
+              setState(() => _selectedDroneArrowId = id);
+              if (id != null) {
+                _scrollToSelectedArrow(id);
+              }
+            },
+            onDeleteDroneArrow: _deleteDroneArrow,
             onPanUpdate: (delta) {
               setState(() {
                 _panOffsetX += delta.dx;
                 _panOffsetY += delta.dy;
               });
             },
+            isRenderMode: _isRenderMode,
+            sectionEfficiencies: _calculateSectionEfficiencies(),
+            activeSectionEfficiency: _calculateSectionEfficiencies()[_sections.isNotEmpty && _activeSectionIndex < _sections.length ? _sections[_activeSectionIndex].id : 'active'],
           ),
         ),
 
@@ -3726,6 +4453,14 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           left: 20,
           child: _buildFloatingToolbar(),
         ),
+
+        // Painel Flutuante Arrastável de Orientação & Quedas
+        if (_showOrientationPanel)
+          Positioned(
+            left: _orientationPanelOffset.dx,
+            top: _orientationPanelOffset.dy,
+            child: _buildOrientationFloatingPanel(),
+          ),
 
         // Dica contextual na parte inferior do canvas
         Positioned(
@@ -3822,6 +4557,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildToolButton(
+            mode: DesignerToolMode.select,
+            icon: Icons.near_me_rounded,
+            label: 'Selecionar',
+          ),
+          const SizedBox(width: 4),
+          _buildToolButton(
             mode: DesignerToolMode.pan,
             icon: Icons.pan_tool_rounded,
             label: 'Navegar',
@@ -3831,8 +4572,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             mode: DesignerToolMode.drawRoof,
             icon: Icons.polyline_rounded,
             label: 'Desenhar',
-            isEnabled: !_isRoofClosed || _roofVertices.length < 3,
-            disabledTooltip: 'CRIE UM NOVO TELHADO PARA DESENHAR',
+            isEnabled: _backgroundMode == BackgroundLayerMode.dronePhoto
+                ? (_hasDronePhoto && (!_isRoofClosed || _roofVertices.length < 3))
+                : (!_isRoofClosed || _roofVertices.length < 3),
+            disabledTooltip: (_backgroundMode == BackgroundLayerMode.dronePhoto && !_hasDronePhoto)
+                ? 'IMPORTE A FOTO DO DRONE PARA DESENHAR'
+                : 'CRIE UM NOVO TELHADO PARA DESENHAR',
           ),
           const SizedBox(width: 4),
           _buildToolButton(
@@ -3844,55 +4589,71 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           Container(width: 1, height: 24, color: const Color(0xFF334155)),
           const SizedBox(width: 8),
 
-          // Botão Auto-Fill (Preencher Placas)
-          ElevatedButton.icon(
-            onPressed: _isRoofClosed ? _autoFillModules : null,
-            icon: const Icon(Icons.flash_on_rounded, size: 16),
-            label: Text('PREENCHER',
-                style: GoogleFonts.outfit(
-                    fontSize: 12, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF59E0B),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+          // Botão Auto-Fill (Preencher Placas) - Oculto no modo Drone
+          if (_backgroundMode != BackgroundLayerMode.dronePhoto) ...[
+            ElevatedButton.icon(
+              onPressed: _isRoofClosed ? _autoFillModules : null,
+              icon: const Icon(Icons.flash_on_rounded, size: 16),
+              label: Text('PREENCHER',
+                  style: GoogleFonts.outfit(
+                      fontSize: 12, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
             ),
-          ),
-          const SizedBox(width: 6),
+            const SizedBox(width: 6),
+          ],
 
           // Botão + Placa Manual (coloca mais uma placa ao conjunto)
-          OutlinedButton.icon(
-            onPressed: _addSingleModule,
-            icon: const Icon(Icons.add_rounded,
-                size: 16, color: Color(0xFF10B981)),
-            label: Text('+ Placa',
-                style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF10B981), width: 1.2),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-          const SizedBox(width: 6),
-
-          // Botão + Novo Telhado
-          ElevatedButton.icon(
-            onPressed: _addNewSection,
-            icon: const Icon(Icons.add_home_work_rounded, size: 16),
-            label: Text('+ NOVO TELHADO',
-                style: GoogleFonts.outfit(
-                    fontSize: 12, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF38BDF8),
-              foregroundColor: const Color(0xFF0F172A),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+          Tooltip(
+            message: !_isAnyPolygonSelected
+                ? 'Faça um desenho de um telhado e selecione-o para adicionar módulos'
+                : 'Adicionar placa ao telhado selecionado',
+            child: MouseRegion(
+              cursor: _isAnyPolygonSelected
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.forbidden,
+              child: Opacity(
+                opacity: !_isAnyPolygonSelected ? 0.45 : 1.0,
+                child: OutlinedButton.icon(
+                  onPressed: _isAnyPolygonSelected ? _addSingleModule : null,
+                  icon: Icon(
+                    Icons.add_rounded,
+                    size: 16,
+                    color: _isAnyPolygonSelected
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF94A3B8),
+                  ),
+                  label: Text(
+                    '+ Placa',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _isAnyPolygonSelected
+                          ? Colors.white
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: _isAnyPolygonSelected
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF475569),
+                      width: 1.2,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 6),
@@ -3904,71 +4665,1131 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                 color: Color(0xFFEF4444), size: 20),
             tooltip: 'Limpar Telhado',
           ),
+
+          // Seletor de Camada de Satélite (Google Maps / Esri) - Oculto no modo Drone
+          if (_backgroundMode != BackgroundLayerMode.dronePhoto) ...[
+            const SizedBox(width: 4),
+            Container(width: 1, height: 24, color: const Color(0xFF334155)),
+            const SizedBox(width: 6),
+            PopupMenuButton<SatelliteSource>(
+              initialValue: _satelliteSource,
+              tooltip: 'Alterar Satélite',
+              onSelected: (source) => setState(() => _satelliteSource = source),
+              color: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFF334155)),
+              ),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.layers_rounded,
+                        color: Color(0xFF38BDF8), size: 15),
+                    const SizedBox(width: 6),
+                    Text(
+                      _satelliteSource.label,
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                    ),
+                    const Icon(Icons.arrow_drop_down_rounded,
+                        color: Colors.white70, size: 16),
+                  ],
+                ),
+              ),
+              itemBuilder: (ctx) => SatelliteSource.values.map((source) {
+                return PopupMenuItem(
+                  value: source,
+                  child: Row(
+                    children: [
+                      Icon(
+                        source == _satelliteSource
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 16,
+                        color: source == _satelliteSource
+                            ? const Color(0xFF10B981)
+                            : Colors.white38,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(source.label,
+                          style: GoogleFonts.inter(
+                              fontSize: 12.5, color: Colors.white)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+
+          // Botão Orientação & Quedas (Abre janela flutuante arrastável)
           const SizedBox(width: 4),
           Container(width: 1, height: 24, color: const Color(0xFF334155)),
           const SizedBox(width: 6),
-
-          // Seletor de Camada de Satélite (Google Maps / Esri)
-          PopupMenuButton<SatelliteSource>(
-            initialValue: _satelliteSource,
-            tooltip: 'Alterar Satélite',
-            onSelected: (source) => setState(() => _satelliteSource = source),
-            color: const Color(0xFF0F172A),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFF334155)),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF334155)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.layers_rounded,
-                      color: Color(0xFF38BDF8), size: 15),
-                  const SizedBox(width: 6),
-                  Text(
-                    _satelliteSource.label,
-                    style: GoogleFonts.inter(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  const Icon(Icons.arrow_drop_down_rounded,
-                      color: Colors.white70, size: 16),
-                ],
-              ),
-            ),
-            itemBuilder: (ctx) => SatelliteSource.values.map((source) {
-              return PopupMenuItem(
-                value: source,
-                child: Row(
-                  children: [
-                    Icon(
-                      source == _satelliteSource
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                      size: 16,
-                      color: source == _satelliteSource
-                          ? const Color(0xFF10B981)
-                          : Colors.white38,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(source.label,
-                        style: GoogleFonts.inter(
-                            fontSize: 12.5, color: Colors.white)),
-                  ],
+          Tooltip(
+            message: !_hasAnyClosedPolygon
+                ? 'Para definir orientacao, desenhe a queda do telhado primeiro'
+                : 'Configurar orientações solares e quedas de telhado',
+            child: Opacity(
+              opacity: !_hasAnyClosedPolygon ? 0.45 : 1.0,
+              child: ElevatedButton.icon(
+                onPressed: !_hasAnyClosedPolygon
+                    ? () => _showNoPolygonWarning()
+                    : () {
+                        if (!_showOrientationPanel) {
+                          _syncArrowsWithSections();
+                          setState(() {
+                            _showOrientationPanel = true;
+                            _toolMode = DesignerToolMode.select; // Ativa a ferramenta SELECIONAR!
+                          });
+                        } else {
+                          setState(() {
+                            _showOrientationPanel = false;
+                          });
+                        }
+                      },
+                icon: Icon(
+                  Icons.explore_rounded,
+                  size: 16,
+                  color: _showOrientationPanel
+                      ? Colors.white
+                      : const Color(0xFF38BDF8),
                 ),
-              );
-            }).toList(),
+                label: Text(
+                  'Orientação & Quedas',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _showOrientationPanel
+                      ? const Color(0xFF0284C7)
+                      : const Color(0xFF1E293B),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(
+                      color: _showOrientationPanel
+                          ? const Color(0xFF38BDF8)
+                          : const Color(0xFF334155),
+                      width: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Botão RENDERIZAR / QUALIFICAÇÃO SOLAR
+          const SizedBox(width: 6),
+          Tooltip(
+            message: _isRenderMode
+                ? 'Modo Renderizar: Exibindo placas fotovoltaicas fotorrealistas limpas (Sem filtros coloridos). Clique para voltar ao modo Análise Solar'
+                : 'Modo Qualificação: Exibindo mapa de calor solar e porcentagens de eficiência. Clique para Renderizar fotorrealista',
+            child: ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isRenderMode = !_isRenderMode;
+                });
+              },
+              icon: Icon(
+                _isRenderMode
+                    ? Icons.camera_alt_rounded
+                    : Icons.auto_awesome_rounded,
+                size: 16,
+                color: _isRenderMode
+                    ? const Color(0xFFF59E0B)
+                    : const Color(0xFF10B981),
+              ),
+              label: Text(
+                _isRenderMode ? 'Renderizado' : 'Renderizar',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isRenderMode
+                    ? const Color(0xFF78350F)
+                    : const Color(0xFF1E293B),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: _isRenderMode
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFF334155),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  /// Painel Flutuante Arrastável para Configuração de Norte e Setas de Queda
+  Widget _buildOrientationFloatingPanel() {
+    return Container(
+      width: 360,
+      constraints: const BoxConstraints(maxHeight: 560),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF38BDF8).withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(17),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 1. Cabeçalho Arrastável
+            GestureDetector(
+              onPanUpdate: (details) {
+                setState(() {
+                  _orientationPanelOffset += details.delta;
+                });
+              },
+              child: MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1E293B),
+                    border: Border(
+                      bottom:
+                          BorderSide(color: Color(0xFF334155), width: 1.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.explore_rounded,
+                          color: Color(0xFF38BDF8), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Orientação & Quedas',
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                      const Tooltip(
+                        message: 'Arraste para mover este painel',
+                        child: Icon(Icons.drag_indicator_rounded,
+                            color: Colors.white38, size: 16),
+                      ),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () =>
+                            setState(() => _showOrientationPanel = false),
+                        borderRadius: BorderRadius.circular(6),
+                        child: const Padding(
+                          padding: EdgeInsets.all(2),
+                          child: Icon(Icons.close_rounded,
+                              color: Colors.white70, size: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 2. Conteúdo Rolável
+            Flexible(
+              child: SingleChildScrollView(
+                controller: _orientationScrollController,
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // CARD: NORTE DA IMAGEM
+                    _buildNorthCompassSection(),
+                    const SizedBox(height: 12),
+
+                    // CARD: SETAS DE QUEDAS DO TELHADO
+                    _buildRoofArrowsSection(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Seção do Norte da Imagem dentro do painel flutuante
+  Widget _buildNorthCompassSection() {
+    final compass = _droneNorthCompass;
+    final hasCompass = compass != null;
+
+    final degrees = hasCompass
+        ? (((compass.rotationRadians * 180.0 / math.pi) % 360) + 360) % 360
+        : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasCompass
+              ? const Color(0xFFEF4444).withValues(alpha: 0.5)
+              : const Color(0xFF334155),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.navigation_rounded,
+                  color: Color(0xFFEF4444), size: 17),
+              const SizedBox(width: 8),
+              Text(
+                'Indicação do Norte',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              if (hasCompass) ...[
+                Tooltip(
+                  message: 'Recentralizar Norte na tela',
+                  child: IconButton(
+                    icon: const Icon(Icons.center_focus_strong_rounded,
+                        size: 16, color: Color(0xFF38BDF8)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      final centerM = RoofPoint(
+                        RoofGeometryService.pixelsToMeters(
+                            -_panOffsetX, _metersPerPixel),
+                        RoofGeometryService.pixelsToMeters(
+                            -_panOffsetY, _metersPerPixel),
+                      );
+                      setState(() {
+                        _droneNorthCompass =
+                            _droneNorthCompass!.copyWith(center: centerM);
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Remover Norte',
+                  child: IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded,
+                        size: 16, color: Color(0xFFEF4444)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: _removeDroneNorthCompass,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          if (!hasCompass) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _addDroneNorthCompass,
+                icon: const Icon(Icons.add_rounded,
+                    size: 16, color: Color(0xFF38BDF8)),
+                label: Text(
+                  '+ Adicionar Indicação do Norte',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ] else ...[
+            // Rotação do Norte
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Rotação do Norte:',
+                  style: GoogleFonts.inter(
+                      fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Text(
+                    '${degrees.toStringAsFixed(0)}°',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFFEF4444),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+
+            // Slider fino de 0° a 360°
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: const Color(0xFFEF4444),
+                inactiveTrackColor: const Color(0xFF334155),
+                thumbColor: Colors.white,
+                overlayColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                trackHeight: 3,
+                thumbShape:
+                    const RoundSliderThumbShape(enabledThumbRadius: 6.5),
+              ),
+              child: Slider(
+                value: degrees,
+                min: 0,
+                max: 360,
+                divisions: 72,
+                onChanged: (val) {
+                  setState(() {
+                    _droneNorthCompass = _droneNorthCompass!.copyWith(
+                      rotationRadians: val * math.pi / 180.0,
+                    );
+                  });
+                },
+              ),
+            ),
+
+            // Botões rápidos de quadrantes (N, L, S, O)
+            Row(
+              children: [
+                _buildQuickAngleBtn('N (0°)', 0, degrees, (v) {
+                  setState(() => _droneNorthCompass =
+                      _droneNorthCompass!.copyWith(rotationRadians: 0.0));
+                }),
+                const SizedBox(width: 4),
+                _buildQuickAngleBtn('L (90°)', 90, degrees, (v) {
+                  setState(() => _droneNorthCompass = _droneNorthCompass!
+                      .copyWith(rotationRadians: math.pi / 2));
+                }),
+                const SizedBox(width: 4),
+                _buildQuickAngleBtn('S (180°)', 180, degrees, (v) {
+                  setState(() => _droneNorthCompass =
+                      _droneNorthCompass!.copyWith(rotationRadians: math.pi));
+                }),
+                const SizedBox(width: 4),
+                _buildQuickAngleBtn('O (270°)', 270, degrees, (v) {
+                  setState(() => _droneNorthCompass = _droneNorthCompass!
+                      .copyWith(rotationRadians: 3 * math.pi / 2));
+                }),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Switch de Pontos Cardeais
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _droneNorthCompass = _droneNorthCompass!.copyWith(
+                    showCardinals: !_droneNorthCompass!.showCardinals,
+                  );
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      _droneNorthCompass!.showCardinals
+                          ? Icons.check_box_rounded
+                          : Icons.check_box_outline_blank_rounded,
+                      size: 18,
+                      color: _droneNorthCompass!.showCardinals
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Exibir Pontos Cardeais (N, S, L, O)',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Seção das Setas de Quedas do Telhado dentro do painel flutuante
+  Widget _buildRoofArrowsSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.arrow_forward_rounded,
+                  color: Color(0xFF38BDF8), size: 17),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      'Quedas do Telhado',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (_droneArrows.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: const Color(0xFF38BDF8)
+                                  .withValues(alpha: 0.6)),
+                        ),
+                        child: Text(
+                          '${_droneArrows.length}',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF38BDF8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _addDroneArrow,
+                icon: const Icon(Icons.add_rounded, size: 14),
+                label: Text(
+                  '+ Nova Queda',
+                  style: GoogleFonts.inter(
+                      fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Auto-Alinhamento Magnético (Snap)
+          InkWell(
+            onTap: () =>
+                setState(() => _snapAlignmentEnabled = !_snapAlignmentEnabled),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: _snapAlignmentEnabled
+                    ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                    : const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _snapAlignmentEnabled
+                      ? const Color(0xFF10B981).withValues(alpha: 0.5)
+                      : const Color(0xFF334155),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _snapAlignmentEnabled
+                        ? Icons.auto_awesome_rounded
+                        : Icons.auto_awesome_outlined,
+                    size: 15,
+                    color: _snapAlignmentEnabled
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Auto-Alinhamento Magnético',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _snapAlignmentEnabled
+                                ? Colors.white
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                        Text(
+                          'Alinha eixos e ângulos de quedas opostas',
+                          style: GoogleFonts.inter(
+                            fontSize: 9.5,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _snapAlignmentEnabled,
+                    activeThumbColor: const Color(0xFF10B981),
+                    onChanged: (val) =>
+                        setState(() => _snapAlignmentEnabled = val),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Controles Globais de Cor e Escala (Apenas UM controle muda todas as setas)
+          if (_droneArrows.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Seletor Global de Cor
+                  Row(
+                    children: [
+                      Text(
+                        'Cor das Quedas:',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                      const Spacer(),
+                      ...[
+                        const Color(0xFF2563EB), // Azul Royal 3D (da referência)
+                        const Color(0xFF38BDF8), // Ciano
+                        const Color(0xFF6366F1), // Índigo
+                        const Color(0xFF10B981), // Esmeralda
+                        const Color(0xFFF59E0B), // Âmbar
+                        const Color(0xFFF43F5E), // Rosa
+                        const Color(0xFFA855F7), // Roxo
+                        Colors.white,            // Branco
+                      ].map((c) {
+                        final isCurColor =
+                            _droneArrowsGlobalColor.toARGB32() == c.toARGB32();
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _droneArrowsGlobalColor = c;
+                              for (int i = 0; i < _droneArrows.length; i++) {
+                                _droneArrows[i] =
+                                    _droneArrows[i].copyWith(color: c);
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            margin: const EdgeInsets.only(left: 6),
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: c,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color:
+                                    isCurColor ? Colors.white : Colors.black45,
+                                width: isCurColor ? 2.2 : 1.0,
+                              ),
+                              boxShadow: isCurColor
+                                  ? [
+                                      BoxShadow(
+                                        color: c.withValues(alpha: 0.6),
+                                        blurRadius: 6,
+                                      )
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // 2. Slider Global de Escala / Tamanho
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Escala das Quedas:',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(color: const Color(0xFF334155)),
+                        ),
+                        child: Text(
+                          '${_droneArrowsGlobalLength.toStringAsFixed(1)}m',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF38BDF8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: const Color(0xFF38BDF8),
+                      inactiveTrackColor: const Color(0xFF334155),
+                      thumbColor: Colors.white,
+                      overlayColor:
+                          const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 6.0),
+                    ),
+                    child: Slider(
+                      value: _droneArrowsGlobalLength.clamp(0.5, 5.0),
+                      min: 0.5,
+                      max: 5.0,
+                      divisions: 45,
+                      onChanged: (val) {
+                        setState(() {
+                          _droneArrowsGlobalLength = val;
+                          for (int i = 0; i < _droneArrows.length; i++) {
+                            _droneArrows[i] =
+                                _droneArrows[i].copyWith(lengthMeters: val);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          if (_droneArrows.isEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Nenhuma seta de queda adicionada. Clique em "+ Nova Queda" para indicar a orientação das águas do telhado.',
+                style: GoogleFonts.inter(
+                  fontSize: 11.5,
+                  color: const Color(0xFF64748B),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ] else ...[
+            // Lista das Setas (Cards Ultra Enxutos e Interativos)
+            ...List.generate(_droneArrows.length, (idx) {
+              final arrow = _droneArrows[idx];
+              final isSelected = arrow.id == _selectedDroneArrowId;
+              final key =
+                  _arrowCardKeys.putIfAbsent(arrow.id, () => GlobalKey());
+              final degrees =
+                  (((arrow.rotationRadians * 180.0 / math.pi) % 360) + 360) %
+                      360;
+
+              return Container(
+                key: key,
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF38BDF8)
+                        : arrow.color.withValues(alpha: 0.5),
+                    width: isSelected ? 2.0 : 1.0,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF38BDF8).withValues(alpha: 0.28),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      if (_selectedDroneArrowId != arrow.id) {
+                        setState(() => _selectedDroneArrowId = arrow.id);
+                        _scrollToSelectedArrow(arrow.id);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Topo do card da seta
+                          Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: arrow.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      arrow.label.isNotEmpty
+                                          ? arrow.label
+                                          : 'Queda ${idx + 1}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    if (isSelected) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF38BDF8)
+                                              .withValues(alpha: 0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: const Color(0xFF38BDF8),
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 5,
+                                              height: 5,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFF38BDF8),
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              'EM EDIÇÃO',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w800,
+                                                color: const Color(0xFF38BDF8),
+                                                letterSpacing: 0.4,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+
+                              // Botão Inverter 180° (Giro de oposição perfeita)
+                              Tooltip(
+                                message: 'Inverter 180° (Sentido oposto)',
+                                child: InkWell(
+                                  onTap: () {
+                                    final newAngle =
+                                        ((arrow.rotationRadians + math.pi) %
+                                            (2 * math.pi));
+                                    _updateArrowRotation(idx, newAngle);
+                                  },
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF334155),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.sync_alt_rounded,
+                                            size: 12, color: Colors.white),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '180°',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+
+                              // Botão Recentralizar Seta no Polígono
+                              Tooltip(
+                                message: 'Recentralizar no meio do telhado',
+                                child: IconButton(
+                                  icon: const Icon(
+                                      Icons.filter_center_focus_rounded,
+                                      size: 14,
+                                      color: Color(0xFF38BDF8)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () =>
+                                      _recenterDroneArrow(arrow.id),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+
+                              // Botão Excluir
+                              Tooltip(
+                                message: 'Excluir seta',
+                                child: IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded,
+                                      size: 14, color: Color(0xFFEF4444)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _deleteDroneArrow(arrow.id),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Slider de Rotação da Seta
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Rotação da Queda:',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: const Color(0xFF94A3B8)),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(
+                                      color: const Color(0xFF334155)),
+                                ),
+                                child: Text(
+                                  '${degrees.toStringAsFixed(0)}° (${_getDirectionCardinalLabel(degrees)})',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: arrow.color,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: arrow.color,
+                              inactiveTrackColor: const Color(0xFF334155),
+                              thumbColor: Colors.white,
+                              overlayColor: arrow.color.withValues(alpha: 0.2),
+                              trackHeight: 3,
+                              thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 6.0),
+                            ),
+                            child: Slider(
+                              value: degrees,
+                              min: 0,
+                              max: 360,
+                              divisions: 72,
+                              onChanged: (val) {
+                                _updateArrowRotation(
+                                    idx, val * math.pi / 180.0);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+
+                          // Botões rápidos de giro da seta
+                          Row(
+                            children: [
+                              _buildQuickAngleBtn('-90°', -90, degrees, (_) {
+                                final newAngle = (((arrow.rotationRadians -
+                                                math.pi / 2) %
+                                            (2 * math.pi)) +
+                                        (2 * math.pi)) %
+                                    (2 * math.pi);
+                                _updateArrowRotation(idx, newAngle);
+                              }),
+                              const SizedBox(width: 6),
+                              _buildQuickAngleBtn('+90°', 90, degrees, (_) {
+                                final newAngle = ((arrow.rotationRadians +
+                                        math.pi / 2) %
+                                    (2 * math.pi));
+                                _updateArrowRotation(idx, newAngle);
+                              }),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Helper para botão de ângulo rápido
+  Widget _buildQuickAngleBtn(
+      String label, double targetDeg, double currentDeg, ValueChanged<double> onTap) {
+    final isSelected = (currentDeg - targetDeg).abs() < 1.0;
+    return InkWell(
+      onTap: () => onTap(targetDeg),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF0284C7)
+              : const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF38BDF8)
+                : const Color(0xFF334155),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Retorna o nome cardeal aproximado com base no ângulo (0° = Leste, 90° = Sul, 180° = Oeste, 270° = Norte)
+  String _getDirectionCardinalLabel(double degrees) {
+    final d = ((degrees % 360) + 360) % 360;
+    if (d >= 337.5 || d < 22.5) return 'Leste';
+    if (d >= 22.5 && d < 67.5) return 'Sudeste';
+    if (d >= 67.5 && d < 112.5) return 'Sul';
+    if (d >= 112.5 && d < 157.5) return 'Sudoeste';
+    if (d >= 157.5 && d < 202.5) return 'Oeste';
+    if (d >= 202.5 && d < 247.5) return 'Noroeste';
+    if (d >= 247.5 && d < 292.5) return 'Norte';
+    return 'Nordeste';
   }
 
   Widget _buildToolButton({
@@ -4360,6 +6181,428 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
                   const Divider(color: Color(0xFF334155), height: 24),
 
+                  // ── IRRADIAÇÃO SOLAR & GERAÇÃO (CRESESB / INPE) ──────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF334155)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.wb_sunny_rounded,
+                                color: Color(0xFFF59E0B),
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'IRRADIAÇÃO SOLAR',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    'CRESESB / Atlas Solar INPE',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10.5,
+                                      color: const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: const Color(0xFF10B981)
+                                        .withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                '$_resolvedState • $_resolvedRegion',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Linha com CEP e Irradiação HSP
+                        Row(
+                          children: [
+                            // Campo de CEP
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'CEP DA INSTALAÇÃO',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Container(
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: const Color(0xFF334155)),
+                                    ),
+                                    child: TextField(
+                                      controller: _cepController,
+                                      onChanged: (val) {
+                                        final clean =
+                                            val.replaceAll(RegExp(r'\D'), '');
+                                        if (clean.length >= 5) {
+                                          _updateCepAndHsp(val);
+                                        }
+                                      },
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'Ex: 01310-100',
+                                        hintStyle: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          color: const Color(0xFF64748B),
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.place_rounded,
+                                          size: 15,
+                                          color: Color(0xFF38BDF8),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+
+                            // Campo de Irradiação (HSP)
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'HSP (kWh/m²/dia)',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Container(
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: const Color(0xFF334155)),
+                                    ),
+                                    child: TextField(
+                                      controller: _hspController,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      onChanged: (val) {
+                                        final parsed = double.tryParse(
+                                            val.replaceAll(',', '.'));
+                                        if (parsed != null && parsed > 0) {
+                                          setState(() => _dailyHsp = parsed);
+                                        }
+                                      },
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFFF59E0B),
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: '5.00',
+                                        hintStyle: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          color: const Color(0xFF64748B),
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.solar_power_rounded,
+                                          size: 15,
+                                          color: Color(0xFFF59E0B),
+                                        ),
+                                        suffixText: 'h/dia',
+                                        suffixStyle: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          color: const Color(0xFF94A3B8),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 8),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Card de Resultado de Geração Mensal Estimada
+                        Builder(
+                          builder: (ctx) {
+                            final estimatedKwh =
+                                _calculateTotalEstimatedGenerationKwh();
+                            final effs = _calculateSectionEfficiencies();
+                            final bool hasDrop = effs.isNotEmpty;
+
+                            double sumEff = 0.0;
+                            int countEff = 0;
+                            for (final e in effs.values) {
+                              sumEff += e.efficiencyFactor;
+                              countEff++;
+                            }
+                            final avgEffPct = countEff > 0
+                                ? ((sumEff / countEff) * 100).round()
+                                : 100;
+
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFF1E3A8A)
+                                        .withValues(alpha: 0.35),
+                                    const Color(0xFF0F172A),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: const Color(0xFF38BDF8)
+                                        .withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.energy_savings_leaf_rounded,
+                                            size: 16,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'GERAÇÃO ESTIMADA',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF38BDF8),
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: !hasDrop
+                                              ? const Color(0xFF64748B)
+                                                  .withValues(alpha: 0.20)
+                                              : (avgEffPct >= 90
+                                                      ? const Color(0xFF10B981)
+                                                      : (avgEffPct >= 80
+                                                          ? const Color(
+                                                              0xFF38BDF8)
+                                                          : const Color(
+                                                              0xFFF59E0B)))
+                                                  .withValues(alpha: 0.20),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          !hasDrop
+                                              ? 'Aguardando queda'
+                                              : '$avgEffPct% eficiênc.',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: !hasDrop
+                                                ? const Color(0xFF94A3B8)
+                                                : (avgEffPct >= 90
+                                                    ? const Color(0xFF10B981)
+                                                    : (avgEffPct >= 80
+                                                        ? const Color(
+                                                            0xFF38BDF8)
+                                                        : const Color(
+                                                            0xFFF59E0B))),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.baseline,
+                                    textBaseline: TextBaseline.alphabetic,
+                                    children: [
+                                      Text(
+                                        estimatedKwh.toStringAsFixed(0),
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'kWh / mês',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        'PR: 75% • 30d',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          color: const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    hasDrop
+                                        ? '$_dailyHsp HSP × ${totalKwp.toStringAsFixed(2)} kWp × 30d × 0.75 × ${(avgEffPct / 100).toStringAsFixed(2)} (Fator Angular)'
+                                        : '$_dailyHsp HSP × ${totalKwp.toStringAsFixed(2)} kWp × 30d × 0.75 (Adicione a queda para qualificar)',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 9.5,
+                                      color: const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  if (!hasDrop) ...[
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.info_outline_rounded,
+                                          size: 13,
+                                          color: Color(0xFF38BDF8),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            'Adicione a seta de queda em "Orientação & Quedas" para calcular a orientação em relação ao Norte.',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 9.5,
+                                              color: const Color(0xFF38BDF8),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+
+                        // Alerta se o usuário ainda não adicionou o Norte no Drone
+                        if (_backgroundMode == BackgroundLayerMode.dronePhoto &&
+                            _droneNorthCompass == null) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B)
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline_rounded,
+                                    size: 15, color: Color(0xFFF59E0B)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Adicione o Norte em "Orientação & Quedas" para qualificar com exatidão máxima.',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 10.5, color: Colors.white70),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // ── 4 CARDS DE KPIS CONSOLIDADOS ─────────────────────────────────
                   Text(
                     'PRÉ-DIMENSIONAMENTO',
@@ -4400,7 +6643,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                       Expanded(
                           child: _buildKpiCard(
                               'GERAÇÃO ESTIMADA',
-                              '~${monthlyKwh.toStringAsFixed(0)} kWh/mês',
+                              '~${_calculateTotalEstimatedGenerationKwh().toStringAsFixed(0)} kWh/mês',
                               Icons.solar_power_rounded,
                               const Color(0xFF38BDF8))),
                     ],
