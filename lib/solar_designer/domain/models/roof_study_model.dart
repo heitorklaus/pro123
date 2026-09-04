@@ -39,6 +39,25 @@ class RoofStudyModel {
   final double dronePanOffsetY;
   final double droneZoom;
 
+  // Anotações de Orientação e Quedas do Telhado
+  final DroneNorthCompass? northCompass;
+  final List<DroneRoofArrow> roofArrows;
+  final DroneNorthCompass? mapsNorthCompass;
+  final List<DroneRoofArrow> mapsArrows;
+  final DroneNorthCompass? droneNorthCompass;
+  final List<DroneRoofArrow> droneArrows;
+  final int? arrowsGlobalColor;
+  final double? arrowsGlobalLength;
+
+  // Parâmetros Solares e Irradiação CRESESB
+  final String? cep;
+  final String? stateUf;
+  final String? region;
+  final double? dailyHsp;
+
+  // Modo de Exibição / Renderizador
+  final bool isRenderMode;
+
   // Modo ativo ao salvar ('satellite' | 'dronePhoto')
   final String lastActiveMode;
 
@@ -83,6 +102,19 @@ class RoofStudyModel {
     this.dronePanOffsetX = 0.0,
     this.dronePanOffsetY = 0.0,
     this.droneZoom = 18.0,
+    this.northCompass,
+    this.roofArrows = const [],
+    this.mapsNorthCompass,
+    this.mapsArrows = const [],
+    this.droneNorthCompass,
+    this.droneArrows = const [],
+    this.arrowsGlobalColor,
+    this.arrowsGlobalLength,
+    this.cep,
+    this.stateUf,
+    this.region,
+    this.dailyHsp,
+    this.isRenderMode = false,
     this.lastActiveMode = 'satellite',
     required this.sections,
     required this.totalModulesCount,
@@ -157,6 +189,19 @@ class RoofStudyModel {
     double? dronePanOffsetX,
     double? dronePanOffsetY,
     double? droneZoom,
+    DroneNorthCompass? northCompass,
+    List<DroneRoofArrow>? roofArrows,
+    DroneNorthCompass? mapsNorthCompass,
+    List<DroneRoofArrow>? mapsArrows,
+    DroneNorthCompass? droneNorthCompass,
+    List<DroneRoofArrow>? droneArrows,
+    int? arrowsGlobalColor,
+    double? arrowsGlobalLength,
+    String? cep,
+    String? stateUf,
+    String? region,
+    double? dailyHsp,
+    bool? isRenderMode,
     String? lastActiveMode,
     List<RoofSection>? sections,
     int? totalModulesCount,
@@ -196,6 +241,19 @@ class RoofStudyModel {
       dronePanOffsetX: dronePanOffsetX ?? this.dronePanOffsetX,
       dronePanOffsetY: dronePanOffsetY ?? this.dronePanOffsetY,
       droneZoom: droneZoom ?? this.droneZoom,
+      northCompass: northCompass ?? this.northCompass,
+      roofArrows: roofArrows ?? this.roofArrows,
+      mapsNorthCompass: mapsNorthCompass ?? this.mapsNorthCompass,
+      mapsArrows: mapsArrows ?? this.mapsArrows,
+      droneNorthCompass: droneNorthCompass ?? this.droneNorthCompass,
+      droneArrows: droneArrows ?? this.droneArrows,
+      arrowsGlobalColor: arrowsGlobalColor ?? this.arrowsGlobalColor,
+      arrowsGlobalLength: arrowsGlobalLength ?? this.arrowsGlobalLength,
+      cep: cep ?? this.cep,
+      stateUf: stateUf ?? this.stateUf,
+      region: region ?? this.region,
+      dailyHsp: dailyHsp ?? this.dailyHsp,
+      isRenderMode: isRenderMode ?? this.isRenderMode,
       lastActiveMode: lastActiveMode ?? this.lastActiveMode,
       sections: sections ?? this.sections,
       totalModulesCount: totalModulesCount ?? this.totalModulesCount,
@@ -237,6 +295,19 @@ class RoofStudyModel {
       'dronePanOffsetX': dronePanOffsetX,
       'dronePanOffsetY': dronePanOffsetY,
       'droneZoom': droneZoom,
+      'northCompass': northCompass?.toMap(),
+      'roofArrows': roofArrows.map((a) => a.toMap()).toList(),
+      'mapsNorthCompass': mapsNorthCompass?.toMap(),
+      'mapsArrows': mapsArrows.map((a) => a.toMap()).toList(),
+      'droneNorthCompass': droneNorthCompass?.toMap(),
+      'droneArrows': droneArrows.map((a) => a.toMap()).toList(),
+      'arrowsGlobalColor': arrowsGlobalColor,
+      'arrowsGlobalLength': arrowsGlobalLength,
+      'cep': cep,
+      'stateUf': stateUf,
+      'region': region,
+      'dailyHsp': dailyHsp,
+      'isRenderMode': isRenderMode,
       'lastActiveMode': lastActiveMode,
       'sections': sections.map((sec) => _sectionToMap(sec)).toList(),
       'totalModulesCount': totalModulesCount,
@@ -277,6 +348,40 @@ class RoofStudyModel {
         .map((item) => _sectionFromMap(item as Map<String, dynamic>))
         .toList();
 
+    final rawNorthCompass = map['northCompass'] as Map<String, dynamic>?;
+    final parsedNorthCompass = rawNorthCompass != null
+        ? DroneNorthCompass.fromMap(rawNorthCompass)
+        : null;
+
+    final rawMapsNorthCompass = map['mapsNorthCompass'] as Map<String, dynamic>?;
+    final parsedMapsNorthCompass = rawMapsNorthCompass != null
+        ? DroneNorthCompass.fromMap(rawMapsNorthCompass)
+        : null;
+
+    final rawDroneNorthCompass = map['droneNorthCompass'] as Map<String, dynamic>?;
+    final parsedDroneNorthCompass = rawDroneNorthCompass != null
+        ? DroneNorthCompass.fromMap(rawDroneNorthCompass)
+        : parsedNorthCompass;
+
+    final rawRoofArrows = map['roofArrows'] as List<dynamic>? ?? [];
+    final parsedRoofArrows = rawRoofArrows
+        .map((item) => DroneRoofArrow.fromMap(item as Map<String, dynamic>))
+        .toList();
+
+    final rawMapsArrows = map['mapsArrows'] as List<dynamic>?;
+    final parsedMapsArrows = rawMapsArrows != null
+        ? rawMapsArrows
+            .map((item) => DroneRoofArrow.fromMap(item as Map<String, dynamic>))
+            .toList()
+        : <DroneRoofArrow>[];
+
+    final rawDroneArrows = map['droneArrows'] as List<dynamic>?;
+    final parsedDroneArrows = rawDroneArrows != null
+        ? rawDroneArrows
+            .map((item) => DroneRoofArrow.fromMap(item as Map<String, dynamic>))
+            .toList()
+        : parsedRoofArrows;
+
     final lastActiveMode = map['lastActiveMode'] as String? ??
         (parsedDroneSections.isNotEmpty && parsedMapsSections.isEmpty
             ? 'dronePhoto'
@@ -313,6 +418,21 @@ class RoofStudyModel {
       dronePanOffsetX: (map['dronePanOffsetX'] as num?)?.toDouble() ?? 0.0,
       dronePanOffsetY: (map['dronePanOffsetY'] as num?)?.toDouble() ?? 0.0,
       droneZoom: (map['droneZoom'] as num?)?.toDouble() ?? 18.0,
+      northCompass: parsedNorthCompass ?? parsedDroneNorthCompass ?? parsedMapsNorthCompass,
+      roofArrows: parsedRoofArrows.isNotEmpty
+          ? parsedRoofArrows
+          : (parsedDroneArrows.isNotEmpty ? parsedDroneArrows : parsedMapsArrows),
+      mapsNorthCompass: parsedMapsNorthCompass,
+      mapsArrows: parsedMapsArrows,
+      droneNorthCompass: parsedDroneNorthCompass,
+      droneArrows: parsedDroneArrows,
+      arrowsGlobalColor: (map['arrowsGlobalColor'] as num?)?.toInt(),
+      arrowsGlobalLength: (map['arrowsGlobalLength'] as num?)?.toDouble(),
+      cep: map['cep'] as String?,
+      stateUf: map['stateUf'] as String?,
+      region: map['region'] as String?,
+      dailyHsp: (map['dailyHsp'] as num?)?.toDouble(),
+      isRenderMode: map['isRenderMode'] as bool? ?? false,
       lastActiveMode: lastActiveMode,
       sections: activeSections,
       totalModulesCount: (map['totalModulesCount'] as num?)?.toInt() ?? 0,

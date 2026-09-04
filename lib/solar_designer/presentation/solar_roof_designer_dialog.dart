@@ -185,6 +185,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   // Anotações de Orientação e Quedas do Telhado (Drone / Satélite)
   DroneNorthCompass? _droneNorthCompass;
   final List<DroneRoofArrow> _droneArrows = [];
+  DroneNorthCompass? _mapsNorthCompass;
+  final List<DroneRoofArrow> _mapsArrows = [];
+  DroneNorthCompass? _droneSavedNorthCompass;
+  final List<DroneRoofArrow> _droneSavedArrows = [];
   String? _selectedDroneArrowId;
   bool _showOrientationPanel = false;
   Offset _orientationPanelOffset = const Offset(24, 150);
@@ -563,12 +567,45 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         _downloadDroneImage(_droneImageUrl!);
       }
 
+      // Carrega anotações de orientação (Norte e Quedas)
+      if (initialStudy.arrowsGlobalColor != null) {
+        _droneArrowsGlobalColor = Color(initialStudy.arrowsGlobalColor!);
+      }
+      if (initialStudy.arrowsGlobalLength != null) {
+        _droneArrowsGlobalLength = initialStudy.arrowsGlobalLength!;
+      }
+      _isRenderMode = initialStudy.isRenderMode;
+
+      // Restaura CEP e HSP salvos do CRESESB
+      if (initialStudy.cep != null && initialStudy.cep!.isNotEmpty) {
+        _cepController.text = initialStudy.cep!;
+        _resolvedState = initialStudy.stateUf ?? 'SP';
+        _resolvedRegion = initialStudy.region ?? 'Sudeste';
+        _dailyHsp = initialStudy.dailyHsp ?? 5.0;
+        _hspController.text = _dailyHsp.toStringAsFixed(2);
+      }
+
+      _mapsNorthCompass = initialStudy.mapsNorthCompass;
+      _mapsArrows.clear();
+      _mapsArrows.addAll(initialStudy.mapsArrows);
+      _droneSavedNorthCompass = initialStudy.droneNorthCompass;
+      _droneSavedArrows.clear();
+      _droneSavedArrows.addAll(initialStudy.droneArrows);
+
       // Define qual modo abrir (Drone ou Satélite)
       final startInDrone = initialStudy.lastActiveMode == 'dronePhoto' ||
           (initialStudy.hasDroneStudy && !initialStudy.hasMapsStudy);
 
       if (startInDrone) {
         _backgroundMode = BackgroundLayerMode.dronePhoto;
+        _droneNorthCompass =
+            _droneSavedNorthCompass ?? initialStudy.northCompass;
+        _droneArrows.clear();
+        if (_droneSavedArrows.isNotEmpty) {
+          _droneArrows.addAll(_droneSavedArrows);
+        } else if (initialStudy.roofArrows.isNotEmpty) {
+          _droneArrows.addAll(initialStudy.roofArrows);
+        }
         _sections.clear();
         if (_droneSections.isNotEmpty) {
           _sections.addAll(_droneSections);
@@ -592,6 +629,14 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         _zoom = _droneZoom;
       } else {
         _backgroundMode = BackgroundLayerMode.satellite;
+        _droneNorthCompass =
+            _mapsNorthCompass ?? initialStudy.northCompass;
+        _droneArrows.clear();
+        if (_mapsArrows.isNotEmpty) {
+          _droneArrows.addAll(_mapsArrows);
+        } else if (initialStudy.roofArrows.isNotEmpty) {
+          _droneArrows.addAll(initialStudy.roofArrows);
+        }
         _sections.clear();
         if (_mapsSections.isNotEmpty) {
           _sections.addAll(_mapsSections);
@@ -685,7 +730,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     // Autocompleta o CEP do cliente e busca a Irradiação Solar (CRESESB / Atlas Solar)
     String initialCep = '';
-    if (widget.initialClient?.zipCode != null &&
+    if (initialStudy?.cep != null && initialStudy!.cep!.trim().isNotEmpty) {
+      initialCep = initialStudy.cep!.trim();
+    } else if (widget.initialClient?.zipCode != null &&
         widget.initialClient!.zipCode!.trim().isNotEmpty) {
       initialCep = widget.initialClient!.zipCode!.trim();
     } else if (widget.initialClient?.fullAddress != null) {
@@ -705,13 +752,13 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _cepController.text = initialCep;
       final solarData =
           BrazilSolarIrradiationService.getIrradiationData(cep: initialCep);
-      _resolvedState = solarData.uf;
-      _resolvedRegion = solarData.region;
-      _dailyHsp = solarData.averageDailyHsp;
+      _resolvedState = initialStudy?.stateUf ?? solarData.uf;
+      _resolvedRegion = initialStudy?.region ?? solarData.region;
+      _dailyHsp = initialStudy?.dailyHsp ?? solarData.averageDailyHsp;
       _hspController.text = _dailyHsp.toStringAsFixed(2);
     } else {
-      _dailyHsp = 5.0;
-      _hspController.text = '5.00';
+      _dailyHsp = initialStudy?.dailyHsp ?? 5.0;
+      _hspController.text = _dailyHsp.toStringAsFixed(2);
     }
   }
 
@@ -920,12 +967,18 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _mapsPanOffsetX = _panOffsetX;
       _mapsPanOffsetY = _panOffsetY;
       _mapsZoom = _zoom;
+      _mapsNorthCompass = _droneNorthCompass;
+      _mapsArrows.clear();
+      _mapsArrows.addAll(_droneArrows.map((a) => a.copyWith()));
     } else if (_backgroundMode == BackgroundLayerMode.dronePhoto) {
       _droneSections = _sections.map((s) => s.copyWith()).toList();
       _droneActiveSectionIndex = _activeSectionIndex;
       _dronePanOffsetX = _panOffsetX;
       _dronePanOffsetY = _panOffsetY;
       _droneZoom = _zoom;
+      _droneSavedNorthCompass = _droneNorthCompass;
+      _droneSavedArrows.clear();
+      _droneSavedArrows.addAll(_droneArrows.map((a) => a.copyWith()));
     }
 
     // 2. Altera o modo e limpa flags de bloqueio transitórias
@@ -935,6 +988,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     // 3. Restaura o estado do novo modo com deep copy
     if (targetMode == BackgroundLayerMode.satellite) {
+      _droneNorthCompass = _mapsNorthCompass;
+      _droneArrows.clear();
+      _droneArrows.addAll(_mapsArrows.map((a) => a.copyWith()));
+      _selectedDroneArrowId = null;
       _sections.clear();
       if (_mapsSections.isNotEmpty) {
         _sections.addAll(_mapsSections.map((s) => s.copyWith()));
@@ -959,6 +1016,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _activeSectionIndex =
           _mapsActiveSectionIndex.clamp(0, math.max(0, _sections.length - 1));
     } else {
+      _droneNorthCompass = _droneSavedNorthCompass;
+      _droneArrows.clear();
+      _droneArrows.addAll(_droneSavedArrows.map((a) => a.copyWith()));
+      _selectedDroneArrowId = null;
       _sections.clear();
       if (_droneSections.isNotEmpty) {
         _sections.addAll(_droneSections.map((s) => s.copyWith()));
@@ -3575,11 +3636,17 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         _mapsPanOffsetX = _panOffsetX;
         _mapsPanOffsetY = _panOffsetY;
         _mapsZoom = _zoom;
+        _mapsNorthCompass = _droneNorthCompass;
+        _mapsArrows.clear();
+        _mapsArrows.addAll(_droneArrows);
       } else if (_backgroundMode == BackgroundLayerMode.dronePhoto) {
         _droneSections = List.from(_sections);
         _dronePanOffsetX = _panOffsetX;
         _dronePanOffsetY = _panOffsetY;
         _droneZoom = _zoom;
+        _droneSavedNorthCompass = _droneNorthCompass;
+        _droneSavedArrows.clear();
+        _droneSavedArrows.addAll(_droneArrows);
       }
 
       // Se houver foto de drone em memória que ainda não subiu para a nuvem, verifica se já concluiu em background (sem travar o salvamento)
@@ -3637,7 +3704,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       }
 
       final totalKwp = totalWatts / 1000.0;
-      final estimatedMonthlyKwh = totalKwp * 130.0;
+      final calculatedMonthlyKwh = _calculateTotalEstimatedGenerationKwh();
+      final estimatedMonthlyKwh = calculatedMonthlyKwh > 0
+          ? calculatedMonthlyKwh
+          : (totalKwp * 130.0);
 
       final now = DateTime.now();
       final study = RoofStudyModel(
@@ -3666,6 +3736,29 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         dronePanOffsetX: _dronePanOffsetX,
         dronePanOffsetY: _dronePanOffsetY,
         droneZoom: _droneZoom,
+        northCompass: _droneNorthCompass,
+        roofArrows: List.from(_droneArrows),
+        mapsNorthCompass: _backgroundMode == BackgroundLayerMode.satellite
+            ? _droneNorthCompass
+            : _mapsNorthCompass,
+        mapsArrows: _backgroundMode == BackgroundLayerMode.satellite
+            ? List.from(_droneArrows)
+            : List.from(_mapsArrows),
+        droneNorthCompass: _backgroundMode == BackgroundLayerMode.dronePhoto
+            ? _droneNorthCompass
+            : _droneSavedNorthCompass,
+        droneArrows: _backgroundMode == BackgroundLayerMode.dronePhoto
+            ? List.from(_droneArrows)
+            : List.from(_droneSavedArrows),
+        arrowsGlobalColor: _droneArrowsGlobalColor.toARGB32(),
+        arrowsGlobalLength: _droneArrowsGlobalLength,
+        cep: _cepController.text.trim().isNotEmpty
+            ? _cepController.text.trim()
+            : null,
+        stateUf: _resolvedState,
+        region: _resolvedRegion,
+        dailyHsp: _dailyHsp,
+        isRenderMode: _isRenderMode,
         lastActiveMode: _backgroundMode == BackgroundLayerMode.dronePhoto
             ? 'dronePhoto'
             : 'satellite',
