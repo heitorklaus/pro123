@@ -471,12 +471,28 @@ Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha cont
   - **Itens Dinâmicos:** Suporte a títulos e ícones reativos por nicho (ex: "Usinas Solares").
   - Enum `AppSidebarItem` com `dashboard`, `clients`, `products`, `suppliers`, `proposals`, `users`, `settings`.
 
-### 11. `AppTheme` / Dark Mode System (`lib/app/theme/`)
-- **Design System Centralizado com Suporte Completo a Dark Mode:**
-  - **Controlador Reativo (`AppTheme.themeModeNotifier`):** `ValueNotifier<ThemeMode>` permitindo alternar instantaneamente entre `ThemeMode.light` e `ThemeMode.dark` sem necessidade de recarregar a página.
-  - **Persistência Local (`SharedPreferences`):** A escolha do tema é gravada em `mavis_crm_theme_mode` e restaurada automaticamente na inicialização da aplicação (`AppTheme.initThemeMode()` no `main.dart`).
-  - **Botão de Alternância no Dashboard:** Localizado no topo da tela (ao lado do botão de Sair) na `AppBar`, com ícone dinâmico sol/lua (`Icons.light_mode_rounded` dourado quando no modo escuro e `Icons.dark_mode_rounded` cinza quando no modo claro) e tooltip explicativo.
-  - **`darkTheme` Padronizado:** Cores baseadas em Slate escuro (`#0F172A`, `#1E293B`, `#0B1120`), bordas suaves (`#334155`), tipografia de alto contraste (`#F8FAFC` e `#94A3B8`), cards elevados e inputs adaptados.
+### 12. Solar Roof Designer & Módulo de Estudos de Telhado (`lib/solar_designer/`)
+- **Gestão e Mapeamento de Telhados Fotovoltaicos via Satélite & Foto de Drone:**
+  - **Single Page Application (SPA) & Navegação Nativa:** Integrado diretamente na `AppSidebar` (`AppSidebarItem.roofStudies`, ícone `satellite_alt_rounded`) com view dedicada `RoofStudiesView` (layout `LayoutBuilder` finite-bounds, 4 KPIs em tempo real, busca, tabela desktop e cards mobile).
+  - **Fluxo de Inicialização e Vínculos Flexíveis (`RoofStudySetupDialog`):** Ao iniciar um novo estudo, apresenta um modal executivo em tema escuro para:
+    1. Nomear o estudo (com sugestão inteligente baseada em data ou endereço).
+    2. Vincular a um cliente existente ou cadastrar na hora via `+ NOVO CLIENTE` (`ClientFormDialog`).
+    3. Vincular a uma proposta comercial existente da empresa (`ProposalRepository.getProposalsStream`).
+    4. Permitir estudos avulsos (sem cliente e/ou sem proposta), suportando as 4 combinações possíveis.
+    5. Edição de vínculos a qualquer momento via ação rápida na tabela ou no cabeçalho do designer.
+  - **Persistência Completa no Cloud Firestore (`roof_studies`) & Firebase Storage:**
+    - Entidade `RoofStudyModel` com serialização completa de águas (`RoofSection`), vértices do polígono (`RoofPoint`), módulos alocados com rotação e coordenadas cartesianas 2D (`PlacedModule`), especificações do módulo (`SolarModuleSpec`), zoom, offsets de pan, endereço e metadados de multi-tenancy (`companyId`, `createdByUserId`, `createdByUserName`).
+    - **Upload Antecipado em Background & Persistência com Zero Falha de Fotos de Drone:** Para contornar o limite rígido de 1MB por documento do Firestore e garantir salvamento instantâneo:
+      1. Ao selecionar a foto de drone (`_pickDronePhoto`), o sistema inicia imediatamente o upload no **Firebase Storage** (`roof_studies/drone/{studyId}_drone.jpg`) em segundo plano (`_uploadDroneImageInBackground`) com timeout seguro de 45s, enquanto o usuário desenha e posiciona módulos.
+      2. No ato de salvar (`_saveRoofStudy`), aguarda o future de upload com timeout seguro de 35s (eliminando falhas de timeout que ocorriam em conexões lentas).
+      3. Imediatamente após gerar o ID no Firestore (`saveStudy`), grava a imagem no cache local do dispositivo (`_cacheDroneImage(savedId, _droneImageBytes)`), garantindo que ao salvar pela primeira vez a foto já esteja disponível para reabertura imediata.
+      4. Se o upload em segundo plano finalizar após o salvamento, atualiza automaticamente o documento no Firestore via `RoofStudyRepository.updateDroneImageUrl`.
+      5. Ao abrir o estudo salvo, carrega o cache local em 0ms e utiliza o SDK do Firebase Storage (`refFromURL.getData`) com fallback para `http.get`, imune a bloqueios de CORS na Web.
+    - Botão **`SALVAR 💾`** direto no cabeçalho do estúdio de satélite com feedback visual instantâneo e persistência automática ao concluir/exportar.
+  - **Canvas de Desenho & Alocação Inteligente de Placas:**
+    - Cursors dinâmicos (`SystemMouseCursors.grab` no modo Pan/Navegar, `crosshair` no modo Desenhar, e `click` ao passar o mouse sobre módulos no modo de edição).
+    - Adição direcional de placas com detecção matemática de sobreposição (overlap prevention) e seleção automática do novo módulo alocado.
+    - Suporte a múltiplas águas de telhado com paleta de cores e consolidação métrica (kWp, kWh/mês, m²).
 
 ---
 

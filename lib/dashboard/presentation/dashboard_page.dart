@@ -31,7 +31,7 @@ import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
 import 'widgets/master_system_config_card.dart';
-import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
+import '../../solar_designer/presentation/roof_studies_view.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -236,7 +236,7 @@ class _DashboardPageState extends State<DashboardPage> {
         actions: [
           if (isSolar) ...[
             TextButton.icon(
-              onPressed: () => SolarRoofDesignerDialog.show(context),
+              onPressed: () => setState(() => _activeItem = AppSidebarItem.roofStudies),
               icon: const Icon(Icons.satellite_alt_rounded, color: Color(0xFF38BDF8), size: 17),
               label: Text(
                 isMobile ? 'Satélite' : 'Estudo de Telhado 🛰️',
@@ -392,6 +392,8 @@ class _DashboardPageState extends State<DashboardPage> {
           initialItem: _pendingProposalItem,
           onClearInitialItem: () => setState(() => _pendingProposalItem = null),
         );
+      case AppSidebarItem.roofStudies:
+        return RoofStudiesView(currentUser: _currentUser);
       case AppSidebarItem.contracts:
         if (!canViewContracts) {
           return const Center(

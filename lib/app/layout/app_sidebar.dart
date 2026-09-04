@@ -8,6 +8,7 @@ enum AppSidebarItem {
   products,
   suppliers,
   proposals,
+  roofStudies,
   contracts,
   users,
   settings,
@@ -157,6 +158,14 @@ class AppSidebar extends StatelessWidget {
                     onTap: () => onItemSelected(AppSidebarItem.proposals),
                   ),
                 ],
+                const SizedBox(height: 6),
+                _SidebarMenuItem(
+                  icon: Icons.satellite_alt_rounded,
+                  title: 'Estudos de Telhado',
+                  isCollapsed: isCollapsed,
+                  isSelected: activeItem == AppSidebarItem.roofStudies,
+                  onTap: () => onItemSelected(AppSidebarItem.roofStudies),
+                ),
                 if (canViewContracts) ...[
                   const SizedBox(height: 6),
                   _SidebarMenuItem(
@@ -333,15 +342,16 @@ class _SidebarMenuItem extends StatelessWidget {
                   child: Text(
                     title,
                     maxLines: 1,
-                    overflow: TextOverflow.clip,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                       color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
                     ),
                   ),
                 ),
-                if (isSelected)
+                if (isSelected) ...[
+                  const SizedBox(width: 4),
                   Container(
                     width: 5,
                     height: 5,
@@ -350,6 +360,7 @@ class _SidebarMenuItem extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
+                ],
               ],
             ),
           ),

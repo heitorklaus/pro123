@@ -63,6 +63,15 @@ class SolarModuleSpec {
   double getHeight(ModuleOrientation orientation) =>
       orientation == ModuleOrientation.portrait ? heightMeters : widthMeters;
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SolarModuleSpec &&
+          (id == other.id || (watts == other.watts && (widthMeters - other.widthMeters).abs() < 0.01 && (heightMeters - other.heightMeters).abs() < 0.01));
+
+  @override
+  int get hashCode => id.hashCode ^ watts.hashCode;
+
   /// Lista de módulos comerciais padrão mais utilizados no mercado brasileiro
   static const List<SolarModuleSpec> presets = [
     SolarModuleSpec(
@@ -180,14 +189,19 @@ class PlacedModule {
 
   /// Verifica se um ponto (em metros) está contido dentro desta placa
   bool containsPoint(RoofPoint point) {
-    final dx = point.x - center.x;
-    final dy = point.y - center.y;
-    final cosA = math.cos(-rotationRadians);
-    final sinA = math.sin(-rotationRadians);
-    final localX = dx * cosA - dy * sinA;
-    final localY = dx * sinA + dy * cosA;
-
-    return (localX.abs() <= widthMeters / 2.0) && (localY.abs() <= heightMeters / 2.0);
+    final corners = getCorners();
+    bool inside = false;
+    int j = corners.length - 1;
+    for (int i = 0; i < corners.length; i++) {
+      final vi = corners[i];
+      final vj = corners[j];
+      if (((vi.y > point.y) != (vj.y > point.y)) &&
+          (point.x < (vj.x - vi.x) * (point.y - vi.y) / (vj.y - vi.y) + vi.x)) {
+        inside = !inside;
+      }
+      j = i;
+    }
+    return inside;
   }
 
   /// Rotaciona a placa em torno de um ponto pivô (ex: centróide do arranjo)

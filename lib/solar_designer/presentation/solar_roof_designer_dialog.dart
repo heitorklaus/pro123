@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -11,19 +12,38 @@ import '../data/services/module_layout_engine.dart';
 import '../data/services/roof_geometry_service.dart';
 import '../data/services/satellite_map_service.dart';
 import '../domain/models/solar_designer_models.dart';
+import '../domain/models/roof_study_model.dart';
+import '../data/repositories/roof_study_repository.dart';
 import 'widgets/satellite_roof_canvas.dart';
+import 'widgets/roof_study_setup_dialog.dart';
+import '../../clients/domain/models/client_model.dart';
+import '../../proposals/domain/models/proposal_model.dart';
+import '../../auth/domain/models/user_model.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Diálogo Executivo Full-Screen de Estudo de Telhado Fotovoltaico via Satélite
 class SolarRoofDesignerDialog extends StatefulWidget {
   final String? initialAddress;
   final SolarModuleSpec? initialModule;
   final ValueChanged<RoofStudyResult>? onStudyCompleted;
+  final RoofStudyModel? initialStudy;
+  final String? initialStudyName;
+  final ClientModel? initialClient;
+  final ProposalModel? initialProposal;
+  final UserModel? currentUser;
 
   const SolarRoofDesignerDialog({
     super.key,
     this.initialAddress,
     this.initialModule,
     this.onStudyCompleted,
+    this.initialStudy,
+    this.initialStudyName,
+    this.initialClient,
+    this.initialProposal,
+    this.currentUser,
   });
 
   /// Método estático para abrir o modal de estudo de telhado de qualquer tela
@@ -31,6 +51,11 @@ class SolarRoofDesignerDialog extends StatefulWidget {
     BuildContext context, {
     String? initialAddress,
     SolarModuleSpec? initialModule,
+    RoofStudyModel? initialStudy,
+    String? initialStudyName,
+    ClientModel? initialClient,
+    ProposalModel? initialProposal,
+    UserModel? currentUser,
   }) {
     return showDialog<RoofStudyResult>(
       context: context,
@@ -39,6 +64,11 @@ class SolarRoofDesignerDialog extends StatefulWidget {
       builder: (ctx) => SolarRoofDesignerDialog(
         initialAddress: initialAddress,
         initialModule: initialModule,
+        initialStudy: initialStudy,
+        initialStudyName: initialStudyName,
+        initialClient: initialClient,
+        initialProposal: initialProposal,
+        currentUser: currentUser,
       ),
     );
   }
@@ -52,7 +82,7 @@ class SolarRoofDesignerDialog extends StatefulWidget {
 enum RowDirection {
   above, // Acima no plano 2D (em direção ao topo / cumeeira)
   below, // Abaixo no plano 2D (em direção ao beiral)
-  left,  // À Esquerda no plano 2D
+  left, // À Esquerda no plano 2D
   right, // À Direita no plano 2D
 }
 
@@ -83,6 +113,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   ModuleOrientation _orientation = ModuleOrientation.portrait;
   double _setbackMeters = 0.30; // 30cm de recuo da beirada
   double _rotationOffsetDegrees = 0.0; // Rotação adicional manual
+  int _selectedModuleIndex =
+      -1; // Índice da placa selecionada para ações individuais
 
   // Estados de carregamento e feedback
   bool _isSearching = false;
@@ -109,6 +141,35 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     Color(0xFFF43F5E), // Rosa (Água 5)
   ];
 
+  // ── Persistência e Vínculos do Estudo de Telhado (Firestore) ─────────────
+  final RoofStudyRepository _roofStudyRepo = RoofStudyRepository();
+  String? _studyId;
+  String? _studyName;
+  String? _clientId;
+  String? _clientName;
+  String? _proposalId;
+  String? _proposalCode;
+  DateTime? _createdAt;
+  bool _isSavingStudy = false;
+
+  // ── ESTUDO MAPS vs ESTUDO DRONE SEPARADOS ────────────────────────────────
+  List<RoofSection> _mapsSections = [];
+  int _mapsActiveSectionIndex = 0;
+  double _mapsPanOffsetX = 0.0;
+  double _mapsPanOffsetY = 0.0;
+  double _mapsZoom = 18.5;
+
+  List<RoofSection> _droneSections = [];
+  int _droneActiveSectionIndex = 0;
+  double _dronePanOffsetX = 0.0;
+  double _dronePanOffsetY = 0.0;
+  double _droneZoom = 18.0;
+  String? _droneImageUrl;
+  Future<String?>? _droneUploadFuture;
+  bool _isLoadingDronePhoto = false;
+  int? _snappedModuleIndex;
+  Timer? _snapHighlightTimer;
+
   @override
   void initState() {
     super.initState();
@@ -116,23 +177,159 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _selectedModule = widget.initialModule!;
     }
 
-    // Inicializa a primeira água (Água 1)
-    _sections.add(
-      RoofSection(
-        id: '1',
-        name: 'Água 1',
-        vertices: [],
-        modules: [],
-        moduleSpec: _selectedModule,
-        orientation: _orientation,
-        rotationDegrees: _rotationOffsetDegrees,
-        setbackMeters: _setbackMeters,
-        themeColor: _sectionPalette[0],
-      ),
-    );
+    final initialStudy = widget.initialStudy;
+    if (initialStudy != null) {
+      // Carrega dados completos do estudo salvo
+      _studyId = initialStudy.id;
+      _studyName = initialStudy.name;
+      _clientId = initialStudy.clientId;
+      _clientName = initialStudy.clientName;
+      _proposalId = initialStudy.proposalId;
+      _proposalCode = initialStudy.proposalCode;
+      _latitude = initialStudy.latitude;
+      _longitude = initialStudy.longitude;
+      _currentAddress = initialStudy.formattedAddress;
+      _searchCtrl.text = initialStudy.formattedAddress;
+      _createdAt = initialStudy.createdAt;
+
+      // Carrega estado independente do Maps
+      _mapsSections = List.from(initialStudy.mapsSections);
+      _mapsPanOffsetX = initialStudy.mapsPanOffsetX;
+      _mapsPanOffsetY = initialStudy.mapsPanOffsetY;
+      _mapsZoom = initialStudy.mapsZoom;
+
+      // Carrega estado independente do Drone
+      _droneSections = List.from(initialStudy.droneSections);
+      _dronePanOffsetX = initialStudy.dronePanOffsetX;
+      _dronePanOffsetY = initialStudy.dronePanOffsetY;
+      _droneZoom = initialStudy.droneZoom;
+      _droneImageUrl = initialStudy.droneImageUrl;
+      _droneImageFileName = initialStudy.droneImageFileName;
+      _customDroneMetersPerPixel = initialStudy.droneMetersPerPixel;
+
+      // 1. Tenta carregar do cache local do dispositivo para exibição instantânea (0ms)
+      if (initialStudy.id.isNotEmpty) {
+        _loadCachedDroneImage(initialStudy.id);
+      }
+      // 2. Se tiver foto de drone gravada na nuvem e ainda não carregada, baixa em segundo plano
+      if (_droneImageUrl != null && _droneImageUrl!.isNotEmpty) {
+        _downloadDroneImage(_droneImageUrl!);
+      }
+
+      // Define qual modo abrir (Drone ou Satélite)
+      final startInDrone = initialStudy.lastActiveMode == 'dronePhoto' ||
+          (initialStudy.hasDroneStudy && !initialStudy.hasMapsStudy);
+
+      if (startInDrone) {
+        _backgroundMode = BackgroundLayerMode.dronePhoto;
+        _sections.clear();
+        if (_droneSections.isNotEmpty) {
+          _sections.addAll(_droneSections);
+        } else {
+          _sections.add(
+            RoofSection(
+              id: '1',
+              name: 'Telhado 1 (Drone)',
+              vertices: [],
+              modules: [],
+              moduleSpec: _selectedModule,
+              orientation: _orientation,
+              rotationDegrees: 0.0,
+              setbackMeters: _setbackMeters,
+              themeColor: _sectionPalette[0],
+            ),
+          );
+        }
+        _panOffsetX = _dronePanOffsetX;
+        _panOffsetY = _dronePanOffsetY;
+        _zoom = _droneZoom;
+      } else {
+        _backgroundMode = BackgroundLayerMode.satellite;
+        _sections.clear();
+        if (_mapsSections.isNotEmpty) {
+          _sections.addAll(_mapsSections);
+        } else if (initialStudy.sections.isNotEmpty) {
+          _sections.addAll(initialStudy.sections);
+        } else {
+          _sections.add(
+            RoofSection(
+              id: '1',
+              name: 'Telhado 1',
+              vertices: [],
+              modules: [],
+              moduleSpec: _selectedModule,
+              orientation: _orientation,
+              rotationDegrees: 0.0,
+              setbackMeters: _setbackMeters,
+              themeColor: _sectionPalette[0],
+            ),
+          );
+        }
+        _panOffsetX = _mapsPanOffsetX;
+        _panOffsetY = _mapsPanOffsetY;
+        _zoom = _mapsZoom;
+      }
+
+      if (_sections.isNotEmpty) {
+        _activeSectionIndex = 0;
+        final firstSec = _sections.first;
+        _roofVertices = List.from(firstSec.vertices);
+        _isRoofClosed = firstSec.isClosed;
+        _modules = List.from(firstSec.modules);
+        _selectedModule = SolarModuleSpec.presets.firstWhere(
+          (s) =>
+              s.id == firstSec.moduleSpec.id ||
+              (s.watts == firstSec.moduleSpec.watts &&
+                  (s.widthMeters - firstSec.moduleSpec.widthMeters).abs() <
+                      0.05),
+          orElse: () => firstSec.moduleSpec,
+        );
+        _orientation = firstSec.orientation;
+        _rotationOffsetDegrees = firstSec.rotationDegrees;
+        _setbackMeters = firstSec.setbackMeters;
+        _toolMode = firstSec.isClosed
+            ? DesignerToolMode.editModules
+            : DesignerToolMode.drawRoof;
+      }
+    } else {
+      // Novo estudo
+      _studyName = widget.initialStudyName ??
+          'Estudo Solar ${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}';
+      if (widget.initialClient != null) {
+        _clientId = widget.initialClient!.id;
+        _clientName = widget.initialClient!.name;
+        if (widget.initialClient!.fullAddress.trim().isNotEmpty &&
+            (widget.initialAddress == null || widget.initialAddress!.isEmpty)) {
+          _searchCtrl.text = widget.initialClient!.fullAddress.trim();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _performSearch(_searchCtrl.text);
+          });
+        }
+      }
+      if (widget.initialProposal != null) {
+        _proposalId = widget.initialProposal!.id;
+        _proposalCode = '#${widget.initialProposal!.proposalNumber}';
+      }
+
+      // Inicializa o primeiro telhado do Maps (Telhado 1)
+      _sections.add(
+        RoofSection(
+          id: '1',
+          name: 'Telhado 1',
+          vertices: [],
+          modules: [],
+          moduleSpec: _selectedModule,
+          orientation: _orientation,
+          rotationDegrees: _rotationOffsetDegrees,
+          setbackMeters: _setbackMeters,
+          themeColor: _sectionPalette[0],
+        ),
+      );
+    }
 
     if (widget.initialAddress != null &&
-        widget.initialAddress!.trim().isNotEmpty) {
+        widget.initialAddress!.trim().isNotEmpty &&
+        _searchCtrl.text.isEmpty) {
       _searchCtrl.text = widget.initialAddress!.trim();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _performSearch(_searchCtrl.text);
@@ -140,8 +337,184 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     }
   }
 
+  /// Baixa a foto do drone salva na nuvem (Firebase Storage ou URL externa)
+  Future<void> _downloadDroneImage(String url) async {
+    if (_droneImageBytes != null) return;
+    setState(() => _isLoadingDronePhoto = true);
+    try {
+      Uint8List? downloadedBytes;
+
+      // 1. Tenta baixar via Firebase Storage SDK (imune a bloqueios de CORS na Web)
+      try {
+        final ref = FirebaseStorage.instance.refFromURL(url);
+        downloadedBytes = await ref
+            .getData(50 * 1024 * 1024)
+            .timeout(const Duration(seconds: 25));
+      } catch (storageErr) {
+        debugPrint(
+            '[SolarRoofDesigner] Download via Storage SDK falhou ($storageErr), tentando via http.get...');
+      }
+
+      // 2. Se falhar ou não for Storage URL direta, tenta fallback via http.get
+      if (downloadedBytes == null || downloadedBytes.isEmpty) {
+        final response =
+            await http.get(Uri.parse(url)).timeout(const Duration(seconds: 25));
+        if (response.statusCode == 200) {
+          downloadedBytes = response.bodyBytes;
+        }
+      }
+
+      if (downloadedBytes != null && downloadedBytes.isNotEmpty && mounted) {
+        setState(() {
+          _droneImageBytes = downloadedBytes;
+          _isLoadingDronePhoto = false;
+        });
+        if (_studyId != null && _studyId!.isNotEmpty) {
+          _cacheDroneImage(_studyId!, downloadedBytes);
+        }
+      } else {
+        if (mounted) setState(() => _isLoadingDronePhoto = false);
+      }
+    } catch (e) {
+      debugPrint('[SolarRoofDesigner] Erro ao baixar foto do drone: $e');
+      if (mounted) setState(() => _isLoadingDronePhoto = false);
+    }
+  }
+
+  /// Salva foto do drone no cache local do dispositivo para carregamento offline/instantâneo
+  Future<void> _cacheDroneImage(String studyId, Uint8List bytes) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_drone_img_$studyId', base64Encode(bytes));
+    } catch (e) {
+      debugPrint('[SolarRoofDesigner] Erro ao salvar foto no cache local: $e');
+    }
+  }
+
+  /// Carrega foto do drone do cache local do dispositivo
+  Future<void> _loadCachedDroneImage(String studyId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final base64Str = prefs.getString('cached_drone_img_$studyId');
+      if (base64Str != null &&
+          base64Str.isNotEmpty &&
+          mounted &&
+          _droneImageBytes == null) {
+        setState(() {
+          _droneImageBytes = base64Decode(base64Str);
+        });
+      }
+    } catch (e) {
+      debugPrint(
+          '[SolarRoofDesigner] Erro ao carregar foto do cache local: $e');
+    }
+  }
+
+  /// Alterna fluidamente entre Satélite e Drone salvando e restaurando o estado de cada modo
+  void _switchMode(BackgroundLayerMode targetMode) {
+    if (_backgroundMode == targetMode) return;
+
+    // 1. Salva o estado do modo atual com deep copy total
+    _syncCurrentSection();
+    if (_backgroundMode == BackgroundLayerMode.satellite) {
+      _mapsSections = _sections.map((s) => s.copyWith()).toList();
+      _mapsActiveSectionIndex = _activeSectionIndex;
+      _mapsPanOffsetX = _panOffsetX;
+      _mapsPanOffsetY = _panOffsetY;
+      _mapsZoom = _zoom;
+    } else if (_backgroundMode == BackgroundLayerMode.dronePhoto) {
+      _droneSections = _sections.map((s) => s.copyWith()).toList();
+      _droneActiveSectionIndex = _activeSectionIndex;
+      _dronePanOffsetX = _panOffsetX;
+      _dronePanOffsetY = _panOffsetY;
+      _droneZoom = _zoom;
+    }
+
+    // 2. Altera o modo e limpa flags de bloqueio transitórias
+    _backgroundMode = targetMode;
+    _isAnalyzingDrone = false;
+    _isLoadingDronePhoto = false;
+
+    // 3. Restaura o estado do novo modo com deep copy
+    if (targetMode == BackgroundLayerMode.satellite) {
+      _sections.clear();
+      if (_mapsSections.isNotEmpty) {
+        _sections.addAll(_mapsSections.map((s) => s.copyWith()));
+      } else {
+        _sections.add(
+          RoofSection(
+            id: '1',
+            name: 'Telhado 1',
+            vertices: [],
+            modules: [],
+            moduleSpec: _selectedModule,
+            orientation: _orientation,
+            rotationDegrees: 0.0,
+            setbackMeters: _setbackMeters,
+            themeColor: _sectionPalette[0],
+          ),
+        );
+      }
+      _panOffsetX = _mapsPanOffsetX;
+      _panOffsetY = _mapsPanOffsetY;
+      _zoom = _mapsZoom;
+      _activeSectionIndex =
+          _mapsActiveSectionIndex.clamp(0, math.max(0, _sections.length - 1));
+    } else {
+      _sections.clear();
+      if (_droneSections.isNotEmpty) {
+        _sections.addAll(_droneSections.map((s) => s.copyWith()));
+      } else {
+        _sections.add(
+          RoofSection(
+            id: '1',
+            name: 'Telhado 1 (Drone)',
+            vertices: [],
+            modules: [],
+            moduleSpec: _selectedModule,
+            orientation: _orientation,
+            rotationDegrees: 0.0,
+            setbackMeters: _setbackMeters,
+            themeColor: _sectionPalette[0],
+          ),
+        );
+      }
+      _panOffsetX = _dronePanOffsetX;
+      _panOffsetY = _dronePanOffsetY;
+      _zoom = _droneZoom;
+      _activeSectionIndex =
+          _droneActiveSectionIndex.clamp(0, math.max(0, _sections.length - 1));
+    }
+
+    // 4. Sincroniza ponteiros da seção ativa
+    _isSectionFinalized =
+        false; // Garante que a seção esteja desbloqueada para edição imediata
+    if (_sections.isNotEmpty && _activeSectionIndex < _sections.length) {
+      final activeSec = _sections[_activeSectionIndex];
+      _roofVertices = List.from(activeSec.vertices);
+      _isRoofClosed = activeSec.isClosed;
+      _modules = List.from(activeSec.modules);
+      _selectedModule = SolarModuleSpec.presets.firstWhere(
+        (s) =>
+            s.id == activeSec.moduleSpec.id ||
+            (s.watts == activeSec.moduleSpec.watts &&
+                (s.widthMeters - activeSec.moduleSpec.widthMeters).abs() <
+                    0.05),
+        orElse: () => activeSec.moduleSpec,
+      );
+      _orientation = activeSec.orientation;
+      _rotationOffsetDegrees = activeSec.rotationDegrees;
+      _setbackMeters = activeSec.setbackMeters;
+      _toolMode = activeSec.isClosed
+          ? DesignerToolMode.editModules
+          : DesignerToolMode.drawRoof;
+    }
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    _snapHighlightTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -160,6 +533,38 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
   RoofPolygon get _roofPolygon => RoofPolygon(vertices: _roofVertices);
 
+  /// Realiza o upload da foto do drone para o Firebase Storage em segundo plano enquanto o usuário desenha
+  Future<String?> _uploadDroneImageInBackground(Uint8List bytes) {
+    final storageId =
+        _studyId ?? 'study_${DateTime.now().millisecondsSinceEpoch}';
+    final future = () async {
+      try {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('roof_studies')
+            .child('drone')
+            .child('${storageId}_drone.jpg');
+        final uploadTask = storageRef.putData(
+          bytes,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+        final snapshot = await uploadTask.timeout(const Duration(seconds: 45));
+        final url = await snapshot.ref.getDownloadURL();
+        if (mounted) {
+          setState(() => _droneImageUrl = url);
+        } else {
+          _droneImageUrl = url;
+        }
+        return url;
+      } catch (e) {
+        debugPrint('[SolarRoofDesigner] Aviso no upload em background: $e');
+        return null;
+      }
+    }();
+    _droneUploadFuture = future;
+    return future;
+  }
+
   // ── Upload de Foto de Drone ──────────────────────────────────────────────
   Future<void> _pickDronePhoto() async {
     try {
@@ -168,30 +573,174 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
       );
 
-      if (files.isNotEmpty) {
-        final file = files.first;
-        final b = await file.readAsBytes();
-        if (b.isNotEmpty && mounted) {
-          setState(() {
-            _droneImageBytes = b;
-            _droneImageFileName = file.name;
-            _backgroundMode = BackgroundLayerMode.dronePhoto;
-            _customDroneMetersPerPixel = 0.025;
-            _panOffsetX = 0.0;
-            _panOffsetY = 0.0;
-            _zoom = 18.0;
-            _roofVertices.clear();
-            _isRoofClosed = false;
-            _modules.clear();
-          });
+      if (files.isEmpty) return;
 
-          // Dispara a análise com IA Gemini Vision
-          _analyzeDroneWithGemini();
-        }
+      final file = files.first;
+      final b = await file.readAsBytes();
+      if (b.isEmpty || !mounted) return;
+
+      // Dispara o upload no Firebase Storage imediatamente em segundo plano
+      _uploadDroneImageInBackground(b);
+
+      // 1. Salva o estado do modo atual se estiver no satélite
+      _syncCurrentSection();
+      if (_backgroundMode == BackgroundLayerMode.satellite) {
+        _mapsSections = List.from(_sections);
+        _mapsPanOffsetX = _panOffsetX;
+        _mapsPanOffsetY = _panOffsetY;
+        _mapsZoom = _zoom;
       }
+
+      // 2. Verifica se já existem módulos ou desenho nesta água/drone
+      final bool hasExistingDrawing = _droneSections
+              .any((s) => s.vertices.isNotEmpty || s.modules.isNotEmpty) ||
+          (_backgroundMode == BackgroundLayerMode.dronePhoto &&
+              (_roofVertices.isNotEmpty || _modules.isNotEmpty));
+
+      String? userDecision = 'keep'; // padrão se for primeira imagem
+      if (hasExistingDrawing) {
+        userDecision = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF0F172A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.help_outline_rounded,
+                    color: Color(0xFF38BDF8), size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Substituir Imagem do Drone',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'Já existem módulos e telhado demarcados neste estudo.\n\nDeseja limpar os módulos ou apenas trocar a imagem?',
+              style: GoogleFonts.inter(
+                color: const Color(0xFFCBD5E1),
+                fontSize: 13.5,
+                height: 1.45,
+              ),
+            ),
+            actionsAlignment: MainAxisAlignment.spaceBetween,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null), // Cancelar
+                child: Text(
+                  'Cancelar',
+                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, 'clear'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: const BorderSide(color: Color(0xFFEF4444)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text(
+                      'Limpar Tudo',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, 'keep'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                    ),
+                    child: Text(
+                      'Apenas trocar imagem e manter os módulos',
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold, fontSize: 12.5),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (userDecision == null || !mounted) return; // Usuário cancelou
+
+      if (userDecision == 'clear') {
+        // Limpa tudo e inicializa do zero
+        setState(() {
+          _droneImageBytes = b;
+          _droneImageUrl = null;
+          _droneImageFileName = file.name;
+          _backgroundMode = BackgroundLayerMode.dronePhoto;
+          _customDroneMetersPerPixel = 0.025;
+          _panOffsetX = 0.0;
+          _panOffsetY = 0.0;
+          _zoom = 18.0;
+
+          _sections.clear();
+          _sections.add(
+            RoofSection(
+              id: '1',
+              name: 'Telhado 1 (Drone)',
+              vertices: [],
+              modules: [],
+              moduleSpec: _selectedModule,
+              orientation: _orientation,
+              rotationDegrees: 0.0,
+              setbackMeters: _setbackMeters,
+              themeColor: _sectionPalette[0],
+            ),
+          );
+          _droneSections = List.from(_sections);
+          _activeSectionIndex = 0;
+          _roofVertices.clear();
+          _isRoofClosed = false;
+          _modules.clear();
+          _isAnalyzingDrone = true;
+          _toolMode = DesignerToolMode.pan;
+        });
+      } else {
+        // 'keep': Apenas troca imagem e mantém os módulos e o telhado intactos!
+        setState(() {
+          _droneImageBytes = b;
+          _droneImageUrl = null;
+          _droneImageFileName = file.name;
+          _backgroundMode = BackgroundLayerMode.dronePhoto;
+          _isAnalyzingDrone = true;
+          _toolMode = DesignerToolMode.pan;
+        });
+      }
+
+      if (_studyId != null && _studyId!.isNotEmpty) {
+        _cacheDroneImage(_studyId!, b);
+      }
+
+      // Dispara a análise com IA Gemini Vision de forma silenciosa para métricas
+      _analyzeDroneWithGemini();
     } catch (e) {
       debugPrint('[SolarRoofDesigner] Erro ao carregar foto do drone: $e');
       if (mounted) {
+        setState(() => _isAnalyzingDrone = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Erro ao carregar foto: $e'),
@@ -213,29 +762,17 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         mimeType: _droneImageFileName?.toLowerCase().endsWith('.png') == true
             ? 'image/png'
             : 'image/jpeg',
-      );
+      ).timeout(const Duration(seconds: 12));
 
       if (mounted) {
+        // Libera desenhar sobre a imagem somente DEPOIS que a IA terminar de carregar
         setState(() {
           _droneAnalysisResult = result;
           _isAnalyzingDrone = false;
+          if (_roofVertices.isEmpty && !_isRoofClosed) {
+            _toolMode = DesignerToolMode.drawRoof;
+          }
         });
-
-        // Se ainda não tiver telhado desenhado, cria um pré-dimensionamento inicial com base nas medidas da IA
-        if (_roofVertices.isEmpty) {
-          final halfW = result.estimatedWidthMeters / 2.0;
-          final halfH = result.estimatedHeightMeters / 2.0;
-          setState(() {
-            _roofVertices.addAll([
-              RoofPoint(-halfW, -halfH),
-              RoofPoint(halfW, -halfH),
-              RoofPoint(halfW, halfH),
-              RoofPoint(-halfW, halfH),
-            ]);
-            _isRoofClosed = true;
-          });
-          _autoFillModules();
-        }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -245,8 +782,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'IA Gemini analisou o drone: ${result.roofType} (~${result.estimatedAreaM2.toStringAsFixed(1)} m²). Clique nas cotas para ajustar as medidas!',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                    'IA Gemini analisou o drone: ${result.roofType} (~${result.estimatedAreaM2.toStringAsFixed(1)} m²). Clique nos cantos do telhado para desenhar!',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600, fontSize: 12.5),
                   ),
                 ),
               ],
@@ -259,7 +797,13 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     } catch (e) {
       debugPrint('[SolarRoofDesigner] Erro na análise Gemini: $e');
       if (mounted) {
-        setState(() => _isAnalyzingDrone = false);
+        // Libera o desenho mesmo com erro da IA para não prender o operador
+        setState(() {
+          _isAnalyzingDrone = false;
+          if (_roofVertices.isEmpty && !_isRoofClosed) {
+            _toolMode = DesignerToolMode.drawRoof;
+          }
+        });
       }
     }
   }
@@ -382,7 +926,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   }
 
   void _applyEdgeLength(int edgeIndex, double targetLength) {
-    if (_roofVertices.length < 2 || edgeIndex < 0 || edgeIndex >= _roofVertices.length) return;
+    if (_roofVertices.length < 2 ||
+        edgeIndex < 0 ||
+        edgeIndex >= _roofVertices.length) {
+      return;
+    }
 
     final p1 = _roofVertices[edgeIndex];
     final p2 = _roofVertices[(edgeIndex + 1) % _roofVertices.length];
@@ -438,8 +986,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     if (vertexIndex >= 0 && vertexIndex < _roofVertices.length) {
       setState(() {
         _roofVertices[vertexIndex] = newPoint;
+        _syncCurrentSection();
       });
-      if (_isRoofClosed) {
+      if (_isRoofClosed && _modules.isEmpty) {
         _autoFillModules();
       }
     }
@@ -457,7 +1006,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     if (_modules.isEmpty) {
       // Se não há módulos, coloca no centro do telhado ou na mira central
-      final center = _roofVertices.isNotEmpty ? _roofPolygon.centroid : const RoofPoint(0, 0);
+      final center = _roofVertices.isNotEmpty
+          ? _roofPolygon.centroid
+          : const RoofPoint(0, 0);
       setState(() {
         _modules.add(PlacedModule(
           id: 'mod_manual_${DateTime.now().millisecondsSinceEpoch}',
@@ -480,14 +1031,18 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     final dy = step * math.sin(last.rotationRadians);
 
     setState(() {
-      _modules.add(PlacedModule(
+      final newMod = PlacedModule(
         id: 'mod_manual_${DateTime.now().millisecondsSinceEpoch}_${_modules.length}',
         center: RoofPoint(last.center.x + dx, last.center.y + dy),
         widthMeters: width,
         heightMeters: height,
         rotationRadians: last.rotationRadians,
         watts: _selectedModule.watts,
-      ));
+      );
+      _modules = List.from(_modules)..add(newMod);
+      _selectedModuleIndex = _modules.length - 1;
+      _adaptRoofToFitModules();
+      _syncCurrentSection();
     });
   }
 
@@ -541,17 +1096,41 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     final newCenterX = target.center.x + (offsetU * uX + offsetV * vX);
     final newCenterY = target.center.y + (offsetU * uY + offsetV * vY);
+    final newCenter = RoofPoint(newCenterX, newCenterY);
+
+    // ── VALIDAÇÃO DE SOBREPOSIÇÃO ───────────────────────────────────────────
+    // Se o ponto desejado já estiver ocupado por outra placa (ex: usuário clicou
+    // numa placa central em vez da ponta), bloqueia e orienta a selecionar a extremidade.
+    final double minDim = math.min(w, h);
+    bool isOverlapping = false;
+    for (final m in _modules) {
+      if (m.isExcluded) continue;
+      if (newCenter.distanceTo(m.center) < minDim * 0.75) {
+        isOverlapping = true;
+        break;
+      }
+    }
+
+    if (isOverlapping) {
+      _showOverlappingModuleAlert();
+      return;
+    }
 
     setState(() {
-      _modules.add(PlacedModule(
+      final newMod = PlacedModule(
         id: 'mod_manual_${DateTime.now().millisecondsSinceEpoch}_${_modules.length}',
-        rowId: target.rowId, // mantém vinculada à fileira caso a placa pertença a uma
+        rowId: target
+            .rowId, // mantém vinculada à fileira caso a placa pertença a uma
         center: RoofPoint(newCenterX, newCenterY),
         widthMeters: w,
         heightMeters: h,
         rotationRadians: rot,
         watts: target.watts,
-      ));
+      );
+      _modules = List.from(_modules)..add(newMod);
+      _selectedModuleIndex = _modules.length -
+          1; // Seleciona imediatamente a nova placa adicionada!
+      _adaptRoofToFitModules();
       _syncCurrentSection();
     });
 
@@ -585,10 +1164,216 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     );
   }
 
+  /// Alerta modal orientando o usuário a selecionar uma placa da extremidade quando houver sobreposição
+  void _showOverlappingModuleAlert() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFF59E0B), width: 1.5),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFF59E0B),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Espaço Já Ocupado',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Já existe uma placa solar posicionada nesse ponto.',
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Para expandir a fileira nessa direção:',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF38BDF8),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('1. ',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.bold)),
+                      Expanded(
+                        child: Text(
+                          'Selecione a placa da ponta (extremidade) da fileira.',
+                          style: GoogleFonts.inter(
+                              color: Colors.white70, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('2. ',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.bold)),
+                      Expanded(
+                        child: Text(
+                          'Clique novamente em "+ Placa" e escolha a direção para estender o arranjo livremente.',
+                          style: GoogleFonts.inter(
+                              color: Colors.white70, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF59E0B),
+              foregroundColor: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: Text(
+              'ENTENDIDO',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Ajusta dinamicamente os vértices do polígono do telhado para contornar
+  /// de forma harmoniosa o arranjo de placas solares restantes, mantendo o recuo padrão (setback).
+  void _adaptRoofToFitModules() {
+    if (_modules.isEmpty) return;
+    if (_roofVertices.isEmpty) return;
+
+    final activeModules = _modules.where((m) => !m.isExcluded).toList();
+    if (activeModules.isEmpty) return;
+
+    // Rotação base do arranjo (da primeira placa ativa)
+    final double rot = activeModules.first.rotationRadians;
+    final double uX = math.cos(rot);
+    final double uY = math.sin(rot);
+    final double vX = -math.sin(rot);
+    final double vY = math.cos(rot);
+
+    // Centróide de referência de todas as placas
+    double sumX = 0, sumY = 0;
+    for (final m in activeModules) {
+      sumX += m.center.x;
+      sumY += m.center.y;
+    }
+    final pivot =
+        RoofPoint(sumX / activeModules.length, sumY / activeModules.length);
+
+    // Limites (min/max) de todas as placas nos eixos U e V relativos ao pivô
+    double minU = double.infinity, maxU = -double.infinity;
+    double minV = double.infinity, maxV = -double.infinity;
+
+    for (final m in activeModules) {
+      for (final c in m.getCorners()) {
+        final relX = c.x - pivot.x;
+        final relY = c.y - pivot.y;
+        final projU = relX * uX + relY * uY;
+        final projV = relX * vX + relY * vY;
+
+        if (projU < minU) minU = projU;
+        if (projU > maxU) maxU = projU;
+        if (projV < minV) minV = projV;
+        if (projV > maxV) maxV = projV;
+      }
+    }
+
+    // Recuo padrão harmonioso (setback ~0.25m a 0.30m)
+    final double margin = (_setbackMeters >= 0.15) ? _setbackMeters : 0.25;
+
+    final double boundMinU = minU - margin;
+    final double boundMaxU = maxU + margin;
+    final double boundMinV = minV - margin;
+    final double boundMaxV = maxV + margin;
+
+    // Constrói os 4 cantos do polígono orientados na rotação exata das placas:
+    _roofVertices = [
+      RoofPoint(
+        pivot.x + boundMinU * uX + boundMinV * vX,
+        pivot.y + boundMinU * uY + boundMinV * vY,
+      ),
+      RoofPoint(
+        pivot.x + boundMaxU * uX + boundMinV * vX,
+        pivot.y + boundMaxU * uY + boundMinV * vY,
+      ),
+      RoofPoint(
+        pivot.x + boundMaxU * uX + boundMaxV * vX,
+        pivot.y + boundMaxU * uY + boundMaxV * vY,
+      ),
+      RoofPoint(
+        pivot.x + boundMinU * uX + boundMaxV * vX,
+        pivot.y + boundMinU * uY + boundMaxV * vY,
+      ),
+    ];
+    _isRoofClosed = true;
+  }
+
   void _removeSingleModule() {
     if (_modules.isNotEmpty) {
       setState(() {
         _modules.removeLast();
+        _adaptRoofToFitModules();
+        _syncCurrentSection();
       });
     }
   }
@@ -601,6 +1386,180 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     }
   }
 
+  /// Auto-alinha (Snap Magnético) uma placa com a placa vizinha mais próxima.
+  /// Nivela perfeitamente o topo/base (snap lateral) ou laterais (snap vertical),
+  /// aplicando o espaçamento de presilha de 2cm e igualando o paralelismo angular.
+  bool _applyMagneticSnapping(int index) {
+    if (index < 0 || index >= _modules.length) return false;
+
+    final dragged = _modules[index];
+    if (dragged.isExcluded) return false;
+
+    PlacedModule? bestNeighbor;
+    RoofPoint? bestSnappedCenter;
+    double bestDistance = double.infinity;
+    String? bestNeighborRowId;
+    double bestSnappedRotation = dragged.rotationRadians;
+
+    final wDragged = dragged.widthMeters;
+    final hDragged = dragged.heightMeters;
+    const spacing = 0.02; // 2cm padrão entre módulos fotovoltaicos
+
+    for (int i = 0; i < _modules.length; i++) {
+      if (i == index) continue;
+      final other = _modules[i];
+      if (other.isExcluded) continue;
+
+      // Vetores unitários no sistema de coordenadas da placa de referência (other)
+      final rot = other.rotationRadians;
+      final uX = math.cos(rot);
+      final uY = math.sin(rot);
+      final vX = -math.sin(rot);
+      final vY = math.cos(rot);
+
+      // Vetor delta do centro de other para o centro de dragged
+      final dx = dragged.center.x - other.center.x;
+      final dy = dragged.center.y - other.center.y;
+
+      // Projeção nos eixos U (largura) e V (comprimento)
+      final distU = dx * uX + dy * uY;
+      final distV = dx * vX + dy * vY;
+
+      final wTarget = other.widthMeters;
+      final hTarget = other.heightMeters;
+
+      // ── 1. SNAP LATERAL (Lado a Lado - Direita ou Esquerda) ─────────────
+      final gapU = distU.abs() - (wTarget + wDragged) / 2.0;
+
+      // Tolerância calibrada: ativa apenas quando estiver próximo (vão livre até 22cm)
+      // Evita atrair módulos que o usuário queira deixar afastados
+      if (gapU >= -0.20 && gapU <= 0.22 && distV.abs() <= hTarget * 0.35) {
+        final snapSignU = distU >= 0 ? 1.0 : -1.0;
+        final snappedDistU = snapSignU * ((wTarget + wDragged) / 2.0 + spacing);
+        final snappedDistV =
+            0.0; // Nivelamento vertical perfeito de topo e base!
+
+        final candidateCenterX =
+            other.center.x + (snappedDistU * uX + snappedDistV * vX);
+        final candidateCenterY =
+            other.center.y + (snappedDistU * uY + snappedDistV * vY);
+        final candidateCenter = RoofPoint(candidateCenterX, candidateCenterY);
+
+        // Verifica se essa posição de encaixe não colide com uma terceira placa existente
+        bool collidesWithThird = false;
+        for (int k = 0; k < _modules.length; k++) {
+          if (k == index || k == i) continue;
+          if (_modules[k].isExcluded) continue;
+          if (candidateCenter.distanceTo(_modules[k].center) <
+              math.min(wDragged, hDragged) * 0.70) {
+            collidesWithThird = true;
+            break;
+          }
+        }
+
+        if (!collidesWithThird) {
+          final distFromCurrent = candidateCenter.distanceTo(dragged.center);
+          if (distFromCurrent < bestDistance && distFromCurrent <= 0.38) {
+            bestDistance = distFromCurrent;
+            bestNeighbor = other;
+            bestSnappedCenter = candidateCenter;
+            bestNeighborRowId = other.rowId;
+            bestSnappedRotation = other.rotationRadians;
+          }
+        }
+      }
+
+      // ── 2. SNAP VERTICAL (Mesma Coluna - Acima ou Abaixo) ───────────────
+      final gapV = distV.abs() - (hTarget + hDragged) / 2.0;
+
+      // Tolerância calibrada: ativa apenas quando estiver próximo (vão livre até 22cm)
+      if (gapV >= -0.20 && gapV <= 0.22 && distU.abs() <= wTarget * 0.35) {
+        final snapSignV = distV >= 0 ? 1.0 : -1.0;
+        final snappedDistV = snapSignV * ((hTarget + hDragged) / 2.0 + spacing);
+        final snappedDistU = 0.0; // Alinhamento lateral perfeito na coluna!
+
+        final candidateCenterX =
+            other.center.x + (snappedDistU * uX + snappedDistV * vX);
+        final candidateCenterY =
+            other.center.y + (snappedDistU * uY + snappedDistV * vY);
+        final candidateCenter = RoofPoint(candidateCenterX, candidateCenterY);
+
+        // Verifica se essa posição de encaixe não colide com uma terceira placa existente
+        bool collidesWithThird = false;
+        for (int k = 0; k < _modules.length; k++) {
+          if (k == index || k == i) continue;
+          if (_modules[k].isExcluded) continue;
+          if (candidateCenter.distanceTo(_modules[k].center) <
+              math.min(wDragged, hDragged) * 0.70) {
+            collidesWithThird = true;
+            break;
+          }
+        }
+
+        if (!collidesWithThird) {
+          final distFromCurrent = candidateCenter.distanceTo(dragged.center);
+          if (distFromCurrent < bestDistance && distFromCurrent <= 0.38) {
+            bestDistance = distFromCurrent;
+            bestNeighbor = other;
+            bestSnappedCenter = candidateCenter;
+            bestNeighborRowId = other.rowId;
+            bestSnappedRotation = other.rotationRadians;
+          }
+        }
+      }
+    }
+
+    if (bestNeighbor != null && bestSnappedCenter != null) {
+      setState(() {
+        _modules[index] = dragged.copyWith(
+          center: bestSnappedCenter,
+          rotationRadians: bestSnappedRotation,
+          rowId: bestNeighborRowId ?? dragged.rowId,
+        );
+        _snappedModuleIndex = index;
+      });
+
+      _snapHighlightTimer?.cancel();
+      _snapHighlightTimer = Timer(const Duration(milliseconds: 1600), () {
+        if (mounted) {
+          setState(() => _snappedModuleIndex = null);
+        }
+      });
+
+      _syncCurrentSection();
+      return true;
+    }
+
+    return false;
+  }
+
+  void _handleModuleDragEnd(int index) {
+    final didSnap = _applyMagneticSnapping(index);
+    if (didSnap && mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded,
+                  color: Color(0xFF10B981), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Módulo colado e alinhado com precisão!',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold, fontSize: 12.5),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF0F172A),
+          duration: const Duration(milliseconds: 1200),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    _syncCurrentSection();
+  }
+
   void _handleModuleGroupMoved(double dxMeters, double dyMeters) {
     setState(() {
       _modules = _modules.map((m) => m.translate(dxMeters, dyMeters)).toList();
@@ -611,7 +1570,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   /// Move o polígono do telhado junto com todas as placas solares
   void _handleDrawingMoved(double dxMeters, double dyMeters) {
     setState(() {
-      _roofVertices = _roofVertices.map((v) => RoofPoint(v.x + dxMeters, v.y + dyMeters)).toList();
+      _roofVertices = _roofVertices
+          .map((v) => RoofPoint(v.x + dxMeters, v.y + dyMeters))
+          .toList();
       _modules = _modules.map((m) => m.translate(dxMeters, dyMeters)).toList();
       _syncCurrentSection();
     });
@@ -650,7 +1611,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     final pivot = RoofPoint(sumX / _modules.length, sumY / _modules.length);
 
     setState(() {
-      _modules = _modules.map((m) => m.rotateAround(pivot, math.pi / 2)).toList();
+      _modules =
+          _modules.map((m) => m.rotateAround(pivot, math.pi / 2)).toList();
       _rotationOffsetDegrees = (_rotationOffsetDegrees + 90.0) % 360.0;
       _orientation = _orientation == ModuleOrientation.portrait
           ? ModuleOrientation.landscape
@@ -681,8 +1643,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     final pivot = RoofPoint(sumX / _modules.length, sumY / _modules.length);
 
     setState(() {
-      _modules = _modules.map((m) => m.rotateAround(pivot, deltaRadians)).toList();
-      _rotationOffsetDegrees = (_rotationOffsetDegrees + deltaRadians * 180.0 / math.pi) % 360.0;
+      _modules =
+          _modules.map((m) => m.rotateAround(pivot, deltaRadians)).toList();
+      _rotationOffsetDegrees =
+          (_rotationOffsetDegrees + deltaRadians * 180.0 / math.pi) % 360.0;
     });
   }
 
@@ -723,6 +1687,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     if (index < 0 || index >= _modules.length) return;
     setState(() {
       _modules.removeAt(index);
+      _selectedModuleIndex = -1;
+      _adaptRoofToFitModules();
+      _syncCurrentSection();
     });
   }
 
@@ -756,10 +1723,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                            color:
+                                const Color(0xFF38BDF8).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.table_rows_rounded, color: Color(0xFF38BDF8), size: 22),
+                          child: const Icon(Icons.table_rows_rounded,
+                              color: Color(0xFF38BDF8), size: 22),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -787,7 +1756,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                         ),
                         IconButton(
                           onPressed: () => Navigator.of(ctx).pop(false),
-                          icon: const Icon(Icons.close_rounded, color: Colors.white60, size: 20),
+                          icon: const Icon(Icons.close_rounded,
+                              color: Colors.white60, size: 20),
                         ),
                       ],
                     ),
@@ -813,7 +1783,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             icon: Icons.arrow_upward_rounded,
                             title: 'Acima',
                             subtitle: 'Rumo ao topo / cumeeira',
-                            onTap: () => setDialogState(() => selectedDirection = RowDirection.above),
+                            onTap: () => setDialogState(
+                                () => selectedDirection = RowDirection.above),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -824,7 +1795,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             icon: Icons.arrow_downward_rounded,
                             title: 'Abaixo',
                             subtitle: 'Rumo ao beiral / fundo',
-                            onTap: () => setDialogState(() => selectedDirection = RowDirection.below),
+                            onTap: () => setDialogState(
+                                () => selectedDirection = RowDirection.below),
                           ),
                         ),
                       ],
@@ -839,7 +1811,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             icon: Icons.arrow_back_rounded,
                             title: 'À Esquerda',
                             subtitle: 'Lateral esquerda (X-)',
-                            onTap: () => setDialogState(() => selectedDirection = RowDirection.left),
+                            onTap: () => setDialogState(
+                                () => selectedDirection = RowDirection.left),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -850,7 +1823,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             icon: Icons.arrow_forward_rounded,
                             title: 'À Direita',
                             subtitle: 'Lateral direita (X+)',
-                            onTap: () => setDialogState(() => selectedDirection = RowDirection.right),
+                            onTap: () => setDialogState(
+                                () => selectedDirection = RowDirection.right),
                           ),
                         ),
                       ],
@@ -869,7 +1843,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(14),
@@ -882,7 +1857,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             onPressed: moduleCount > 1
                                 ? () => setDialogState(() => moduleCount--)
                                 : null,
-                            icon: const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFF38BDF8), size: 28),
+                            icon: const Icon(
+                                Icons.remove_circle_outline_rounded,
+                                color: Color(0xFF38BDF8),
+                                size: 28),
                           ),
                           Column(
                             children: [
@@ -896,7 +1874,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                               ),
                               Text(
                                 '${(moduleCount * _selectedModule.watts / 1000.0).toStringAsFixed(2)} kWp',
-                                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF10B981), fontWeight: FontWeight.bold),
+                                style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: const Color(0xFF10B981),
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -904,7 +1885,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             onPressed: moduleCount < 30
                                 ? () => setDialogState(() => moduleCount++)
                                 : null,
-                            icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF38BDF8), size: 28),
+                            icon: const Icon(Icons.add_circle_outline_rounded,
+                                color: Color(0xFF38BDF8), size: 28),
                           ),
                         ],
                       ),
@@ -920,9 +1902,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                           onTap: () => setDialogState(() => moduleCount = cnt),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: isSel ? const Color(0xFF38BDF8) : const Color(0xFF1E293B),
+                              color: isSel
+                                  ? const Color(0xFF38BDF8)
+                                  : const Color(0xFF1E293B),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -930,7 +1915,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: isSel ? const Color(0xFF0F172A) : Colors.white70,
+                                color: isSel
+                                    ? const Color(0xFF0F172A)
+                                    : Colors.white70,
                               ),
                             ),
                           ),
@@ -948,9 +1935,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Color(0xFF334155)),
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
-                            child: Text('Cancelar', style: GoogleFonts.inter(color: Colors.white70)),
+                            child: Text('Cancelar',
+                                style:
+                                    GoogleFonts.inter(color: Colors.white70)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -961,13 +1951,15 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                             icon: const Icon(Icons.add_rounded, size: 18),
                             label: Text(
                               'INSERIR FILEIRA',
-                              style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold),
+                              style: GoogleFonts.outfit(
+                                  fontSize: 13, fontWeight: FontWeight.bold),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF38BDF8),
                               foregroundColor: const Color(0xFF0F172A),
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ),
@@ -1001,7 +1993,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF38BDF8).withValues(alpha: 0.15) : const Color(0xFF1E293B),
+          color: selected
+              ? const Color(0xFF38BDF8).withValues(alpha: 0.15)
+              : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? const Color(0xFF38BDF8) : const Color(0xFF334155),
@@ -1010,7 +2004,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         ),
         child: Row(
           children: [
-            Icon(icon, color: selected ? const Color(0xFF38BDF8) : const Color(0xFF94A3B8), size: 18),
+            Icon(icon,
+                color: selected
+                    ? const Color(0xFF38BDF8)
+                    : const Color(0xFF94A3B8),
+                size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -1042,7 +2040,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     );
   }
 
-  void _addModuleRow(RowDirection direction, int count, ModuleOrientation orientation) {
+  void _addModuleRow(
+      RowDirection direction, int count, ModuleOrientation orientation) {
     if (count <= 0) return;
 
     // ── CORREÇÃO CRÍTICA: usar a rotação REAL das placas existentes, não _rotationOffsetDegrees
@@ -1200,6 +2199,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     setState(() {
       _modules.addAll(newModules);
+      _adaptRoofToFitModules();
       _syncCurrentSection();
     });
 
@@ -1220,6 +2220,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   void _deleteRow(String rowId) {
     setState(() {
       _modules.removeWhere((m) => m.rowId == rowId);
+      _adaptRoofToFitModules();
       _syncCurrentSection();
     });
   }
@@ -1230,7 +2231,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _sections.add(
         RoofSection(
           id: '1',
-          name: 'Água 1',
+          name: 'Telhado 1',
           vertices: List.from(_roofVertices),
           isClosed: _isRoofClosed,
           modules: List.from(_modules),
@@ -1257,7 +2258,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   }
 
   void _selectSection(int index) {
-    if (index < 0 || index >= _sections.length || index == _activeSectionIndex) return;
+    if (index < 0 || index >= _sections.length || index == _activeSectionIndex) {
+      return;
+    }
     _syncCurrentSection();
     setState(() {
       _activeSectionIndex = index;
@@ -1270,7 +2273,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _orientation = sec.orientation;
       _rotationOffsetDegrees = sec.rotationDegrees;
       _setbackMeters = sec.setbackMeters;
-      _toolMode = sec.isClosed ? DesignerToolMode.editModules : DesignerToolMode.drawRoof;
+      _toolMode = sec.isClosed
+          ? DesignerToolMode.editModules
+          : DesignerToolMode.drawRoof;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1290,13 +2295,15 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     _syncCurrentSection();
     setState(() {
       _isSectionFinalized = true;
+      _toolMode = DesignerToolMode.pan;
+      _selectedModuleIndex = -1;
     });
     final currentSec = _sections[_activeSectionIndex];
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${currentSec.name} concluída com sucesso (${currentSec.activeModuleCount} placas • ${currentSec.totalKwp.toStringAsFixed(2)} kWp)!',
+          '${currentSec.name} concluído com sucesso (${currentSec.activeModuleCount} placas • ${currentSec.totalKwp.toStringAsFixed(2)} kWp)!',
           style: GoogleFonts.inter(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF10B981),
@@ -1307,13 +2314,34 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   }
 
   void _addNewSection() {
+    // Se o telhado atual já está vazio sem nenhum desenho, vai direto para o modo DESENHAR
+    if (_roofVertices.isEmpty && _modules.isEmpty) {
+      setState(() {
+        _toolMode = DesignerToolMode.drawRoof;
+        _isRoofClosed = false;
+        _isSectionFinalized = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Telhado pronto para desenho! Clique no mapa/foto para marcar os cantos.',
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFF6366F1),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     _syncCurrentSection();
 
     final newIndex = _sections.length;
     final newColor = _sectionPalette[newIndex % _sectionPalette.length];
     final newSec = RoofSection(
       id: '${newIndex + 1}',
-      name: 'Água ${newIndex + 1}',
+      name: 'Telhado ${newIndex + 1}',
       vertices: [],
       isClosed: false,
       modules: [],
@@ -1338,7 +2366,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Nova Água ${newIndex + 1} criada! Clique nos cantos para demarcar a nova queda do telhado.',
+          'Novo Telhado ${newIndex + 1} criado! Clique nos cantos para demarcar.',
           style: GoogleFonts.inter(fontWeight: FontWeight.bold),
         ),
         backgroundColor: newColor,
@@ -1355,7 +2383,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Desenhe o telhado ou adicione placas antes de duplicar a água.',
+            'Desenhe o telhado ou adicione placas antes de duplicar o telhado.',
             style: GoogleFonts.inter(fontWeight: FontWeight.bold),
           ),
           backgroundColor: const Color(0xFFEF4444),
@@ -1419,14 +2447,16 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     // Função para espelhar qualquer ponto em relação à linha da cumeeira perpendicular ao eixo V:
     // P' = P - 2 * dot(P - RidgeAnchor, V) * V
     RoofPoint mirrorPointAcrossRidge(RoofPoint p) {
-      final double distV = (p.x - ridgeAnchorX) * vX + (p.y - ridgeAnchorY) * vY;
+      final double distV =
+          (p.x - ridgeAnchorX) * vX + (p.y - ridgeAnchorY) * vY;
       final double mirroredX = p.x - 2.0 * distV * vX;
       final double mirroredY = p.y - 2.0 * distV * vY;
       return RoofPoint(mirroredX, mirroredY);
     }
 
     // 4. Espelha os vértices do polígono do telhado
-    final List<RoofPoint> mirroredVertices = _roofVertices.map(mirrorPointAcrossRidge).toList();
+    final List<RoofPoint> mirroredVertices =
+        _roofVertices.map(mirrorPointAcrossRidge).toList();
 
     // 5. Espelha as placas solares e inverte sua rotação em 180°
     final List<PlacedModule> mirroredModules = _modules.map((m) {
@@ -1451,7 +2481,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     final newSec = RoofSection(
       id: '${newIndex + 1}',
-      name: 'Água ${newIndex + 1}',
+      name: 'Telhado ${newIndex + 1}',
       vertices: mirroredVertices,
       isClosed: _isRoofClosed,
       modules: mirroredModules,
@@ -1476,7 +2506,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Água ${newIndex + 1} criada e encaixada na cumeeira oposta!',
+          'Telhado ${newIndex + 1} criado e encaixado na cumeeira oposta!',
           style: GoogleFonts.inter(fontWeight: FontWeight.bold),
         ),
         backgroundColor: newColor,
@@ -1493,7 +2523,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     }
     setState(() {
       _sections.removeAt(index);
-      _activeSectionIndex = (_activeSectionIndex >= _sections.length) ? _sections.length - 1 : _activeSectionIndex;
+      _activeSectionIndex = (_activeSectionIndex >= _sections.length)
+          ? _sections.length - 1
+          : _activeSectionIndex;
       _isSectionFinalized = false;
       final sec = _sections[_activeSectionIndex];
       _roofVertices = List.from(sec.vertices);
@@ -1541,12 +2573,16 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                 color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.screen_rotation_alt_rounded, color: Color(0xFF6366F1), size: 20),
+              child: const Icon(Icons.screen_rotation_alt_rounded,
+                  color: Color(0xFF6366F1), size: 20),
             ),
             const SizedBox(width: 10),
             Text(
               'Definir Ângulo de Rotação',
-              style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
             ),
           ],
         ),
@@ -1556,23 +2592,36 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           children: [
             Text(
               'Digite o ângulo exato em graus (0° a 360°) ou clique em um atalho:',
-              style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8)),
+              style: GoogleFonts.inter(
+                  fontSize: 12.5, color: const Color(0xFF94A3B8)),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: ctrl,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Ângulo da Placa (°)',
-                labelStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
+                labelStyle: GoogleFonts.inter(
+                    color: const Color(0xFF94A3B8), fontSize: 13),
                 suffixText: 'graus',
-                suffixStyle: GoogleFonts.inter(color: const Color(0xFF38BDF8), fontWeight: FontWeight.bold),
+                suffixStyle: GoogleFonts.inter(
+                    color: const Color(0xFF38BDF8),
+                    fontWeight: FontWeight.bold),
                 filled: true,
                 fillColor: const Color(0xFF1E293B),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF334155))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFF334155))),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
               ),
               onSubmitted: (val) {
                 final target = double.tryParse(val.replaceAll(',', '.'));
@@ -1585,7 +2634,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             const SizedBox(height: 14),
             Text(
               'Atalhos rápidos:',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF64748B)),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -1593,7 +2645,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
               runSpacing: 6,
               children: [0.0, 15.0, 30.0, 45.0, 90.0, 180.0, 270.0].map((deg) {
                 return ActionChip(
-                  label: Text('${deg.toInt()}°', style: GoogleFonts.inter(fontSize: 11, color: Colors.white)),
+                  label: Text('${deg.toInt()}°',
+                      style:
+                          GoogleFonts.inter(fontSize: 11, color: Colors.white)),
                   backgroundColor: const Color(0xFF1E293B),
                   side: const BorderSide(color: Color(0xFF334155)),
                   onPressed: () {
@@ -1608,7 +2662,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancelar', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+            child: Text('Cancelar',
+                style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1621,9 +2676,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6366F1),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text('Aplicar Ângulo', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            child: Text('Aplicar Ângulo',
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1667,6 +2724,18 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
   // ── Ações do Canvas: Clique para Demarcar ou Excluir ─────────────────────
   void _handleCanvasTap(Offset localPos) {
+    // Bloqueia qualquer ação de desenho se a IA ainda estiver analisando a foto do drone ou baixando
+    if ((_isAnalyzingDrone || _isLoadingDronePhoto) &&
+        _backgroundMode == BackgroundLayerMode.dronePhoto) {
+      return;
+    }
+
+    // Bloqueia se estiver no modo drone mas nenhuma foto foi carregada ainda
+    if (_backgroundMode == BackgroundLayerMode.dronePhoto &&
+        _droneImageBytes == null) {
+      return;
+    }
+
     // Converte o clique na tela para coordenadas métricas relativas ao centro do canvas
     final RenderBox? box =
         _canvasKey.currentContext?.findRenderObject() as RenderBox?;
@@ -1683,26 +2752,51 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     );
 
     if (_toolMode == DesignerToolMode.drawRoof) {
+      // Se a água atual já está delimitada com o polígono fechado:
+      // Conclui a água atual e vai para Navegar, aguardando que o operador crie uma nova água quando desejar
+      if (_isRoofClosed && _roofVertices.length >= 3) {
+        _finishCurrentSection();
+        return;
+      }
+
       setState(() {
-        if (!_isRoofClosed) {
-          // Se clicou muito perto do primeiro vértice, fecha o polígono
-          if (_roofVertices.length >= 3) {
-            final first = _roofVertices.first;
-            if (first.distanceTo(pointMeters) < 1.5) {
-              _isRoofClosed = true;
-              _autoFillModules();
-              return;
-            }
+        _isSectionFinalized = false;
+
+        // Se clicou muito perto do primeiro vértice, fecha o polígono
+        if (_roofVertices.length >= 3) {
+          final first = _roofVertices.first;
+          final firstScreenPos = Offset(
+            canvasCenter.dx +
+                RoofGeometryService.metersToPixels(first.x, _metersPerPixel),
+            canvasCenter.dy +
+                RoofGeometryService.metersToPixels(first.y, _metersPerPixel),
+          );
+          final distPixels = (localPos - firstScreenPos).distance;
+
+          if (distPixels <= 24.0) {
+            _isRoofClosed = true;
+            _toolMode = DesignerToolMode.editModules;
+            _autoFillModules();
+            return;
           }
-          _roofVertices.add(pointMeters);
         }
+        _roofVertices.add(pointMeters);
       });
+      return;
     } else if (_toolMode == DesignerToolMode.editModules) {
       // Alterna a exclusão da placa clicada (contornar chaminés, etc.)
       final hit = ModuleLayoutEngine.findModuleAtPoint(pointMeters, _modules);
       if (hit != null) {
         setState(() {
           hit.isExcluded = !hit.isExcluded;
+        });
+      } else if (_roofVertices.isEmpty) {
+        // Se a seção atual está vazia e clicou na tela, inicia o desenho instantaneamente!
+        setState(() {
+          _toolMode = DesignerToolMode.drawRoof;
+          _isSectionFinalized = false;
+          _isRoofClosed = false;
+          _roofVertices = [pointMeters];
         });
       }
     }
@@ -1715,6 +2809,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         !_isRoofClosed) {
       setState(() {
         _isRoofClosed = true;
+        _toolMode = DesignerToolMode.editModules;
         _autoFillModules();
       });
     }
@@ -1737,6 +2832,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     setState(() {
       _modules = filled;
+      _toolMode = DesignerToolMode.editModules;
     });
   }
 
@@ -1746,11 +2842,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       _roofVertices.clear();
       _isRoofClosed = false;
       _modules.clear();
+      _selectedModuleIndex = -1;
       _toolMode = DesignerToolMode.drawRoof;
     });
   }
 
-  // ── Zoom In / Zoom Out com Ancoragem Focada (Focal Point Zoom) ───────────
+// ── Zoom In / Zoom Out com Ancoragem Focada (Focal Point Zoom) ───────────
   void _zoomIn([Offset? focalPoint]) {
     _applyZoom(0.5, focalPoint);
   }
@@ -1786,21 +2883,260 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     });
   }
 
-  // ── Captura do Estudo e Exportação ───────────────────────────────────────
-  Future<void> _exportStudy() async {
-    String? base64Snapshot;
+  // ── Persistência do Estudo no Firestore ─────────────────────────────────
+  Future<RoofStudyModel?> _saveRoofStudy({bool showFeedback = true}) async {
+    if (_isSavingStudy) return null;
+    setState(() => _isSavingStudy = true);
+
     try {
-      final boundary = _canvasKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary != null) {
-        final image = await boundary.toImage(pixelRatio: 1.5);
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-        if (byteData != null) {
-          base64Snapshot = base64Encode(byteData.buffer.asUint8List());
+      _syncCurrentSection();
+
+      // Sincroniza o estado atual na respectiva lista independente
+      if (_backgroundMode == BackgroundLayerMode.satellite) {
+        _mapsSections = List.from(_sections);
+        _mapsPanOffsetX = _panOffsetX;
+        _mapsPanOffsetY = _panOffsetY;
+        _mapsZoom = _zoom;
+      } else if (_backgroundMode == BackgroundLayerMode.dronePhoto) {
+        _droneSections = List.from(_sections);
+        _dronePanOffsetX = _panOffsetX;
+        _dronePanOffsetY = _panOffsetY;
+        _droneZoom = _zoom;
+      }
+
+      // Se houver foto de drone em memória que ainda não subiu para a nuvem, verifica se já concluiu em background (sem travar o salvamento)
+      String? finalDroneImageUrl = _droneImageUrl;
+      if (_droneImageBytes != null &&
+          (finalDroneImageUrl == null || finalDroneImageUrl.isEmpty)) {
+        if (_droneUploadFuture != null) {
+          try {
+            // Dá tolerância de no máximo 800ms se o upload em background já estiver prestes a concluir
+            finalDroneImageUrl =
+                await _droneUploadFuture!.timeout(const Duration(milliseconds: 800));
+            _droneImageUrl = finalDroneImageUrl;
+          } catch (_) {
+            // Se ainda não concluiu, NÃO TRAVA o salvamento: prossegue imediatamente para o Firestore!
+          }
+        } else {
+          // Se por algum motivo não havia disparado o upload em background, dispara agora de forma assíncrona
+          _uploadDroneImageInBackground(_droneImageBytes!);
         }
       }
+
+      // Captura thumbnail compacta otimizada para o Firestore (< 60KB)
+      String? base64Snapshot;
+      try {
+        final boundary = _canvasKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+        if (boundary != null && boundary.size.width > 0) {
+          // Reduz a escala para gerar uma imagem miniatura compacta (~220px)
+          final scaleRatio = (220.0 / boundary.size.width).clamp(0.08, 0.25);
+          final image = await boundary.toImage(pixelRatio: scaleRatio);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          if (byteData != null) {
+            final bytes = byteData.buffer.asUint8List();
+            if (bytes.length < 350000) {
+              base64Snapshot = base64Encode(bytes);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint(
+            '[SolarRoofDesigner] Erro ao capturar thumbnail para salvar: $e');
+      }
+
+      int totalModules = 0;
+      double totalWatts = 0;
+
+      for (final sec in _sections) {
+        totalModules += sec.activeModuleCount;
+        totalWatts += sec.activeModuleCount * sec.moduleSpec.watts;
+      }
+      if (_sections.isEmpty) {
+        totalModules = _modules.where((m) => !m.isExcluded).length;
+        totalWatts = totalModules * _selectedModule.watts.toDouble();
+      }
+
+      final totalKwp = totalWatts / 1000.0;
+      final estimatedMonthlyKwh = totalKwp * 130.0;
+
+      final now = DateTime.now();
+      final study = RoofStudyModel(
+        id: _studyId ?? '',
+        name: _studyName?.trim().isNotEmpty == true
+            ? _studyName!.trim()
+            : 'Estudo Solar ${_currentAddress.split(',').first}',
+        clientId: _clientId,
+        clientName: _clientName,
+        proposalId: _proposalId,
+        proposalCode: _proposalCode,
+        latitude: _latitude,
+        longitude: _longitude,
+        formattedAddress: _currentAddress,
+        zoom: _zoom,
+        panOffsetX: _panOffsetX,
+        panOffsetY: _panOffsetY,
+        mapsSections: List.from(_mapsSections),
+        mapsPanOffsetX: _mapsPanOffsetX,
+        mapsPanOffsetY: _mapsPanOffsetY,
+        mapsZoom: _mapsZoom,
+        droneSections: List.from(_droneSections),
+        droneImageUrl: finalDroneImageUrl,
+        droneImageFileName: _droneImageFileName,
+        droneMetersPerPixel: _customDroneMetersPerPixel,
+        dronePanOffsetX: _dronePanOffsetX,
+        dronePanOffsetY: _dronePanOffsetY,
+        droneZoom: _droneZoom,
+        lastActiveMode: _backgroundMode == BackgroundLayerMode.dronePhoto
+            ? 'dronePhoto'
+            : 'satellite',
+        sections: List.from(_sections),
+        totalModulesCount: totalModules,
+        totalKwp: totalKwp,
+        estimatedMonthlyKwh: estimatedMonthlyKwh,
+        thumbnailBase64: base64Snapshot,
+        companyId: widget.currentUser?.effectiveCompanyId ??
+            widget.currentUser?.companyId ??
+            '',
+        createdByUserId: widget.currentUser?.uid ?? '',
+        createdByUserName: widget.currentUser?.name ?? '',
+        createdAt: _createdAt ?? now,
+        updatedAt: now,
+      );
+
+      final savedId = await _roofStudyRepo.saveStudy(study);
+      _studyId = savedId;
+      _createdAt ??= now;
+
+      // CRÍTICO: Garante persistência imediata no cache local com o ID gerado na PRIMEIRA VEZ!
+      if (_droneImageBytes != null && savedId.isNotEmpty) {
+        _cacheDroneImage(savedId, _droneImageBytes!);
+      }
+
+      // Se o upload para nuvem ainda estiver em segundo plano, atualiza o Firestore assim que concluir
+      if ((finalDroneImageUrl == null || finalDroneImageUrl.isEmpty) &&
+          _droneUploadFuture != null) {
+        _droneUploadFuture!.then((uploadedUrl) {
+          if (uploadedUrl != null &&
+              uploadedUrl.isNotEmpty &&
+              savedId.isNotEmpty) {
+            _roofStudyRepo.updateDroneImageUrl(savedId, uploadedUrl);
+          }
+        });
+      }
+
+      if (mounted) {
+        if (showFeedback) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Estudo "${study.name}" salvo com sucesso no banco de dados!',
+                      style: GoogleFonts.inter(
+                          color: Colors.white, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+      return study.copyWith(id: savedId);
     } catch (e) {
-      debugPrint('[SolarRoofDesigner] Erro ao capturar snapshot: $e');
+      debugPrint('[SolarRoofDesigner] Erro ao salvar estudo: $e');
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar estudo: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingStudy = false);
+      }
+    }
+  }
+
+  /// Abre diálogo para renomear o estudo ou alterar vínculos de cliente/proposta
+  Future<void> _editStudyLinks() async {
+    final result = await RoofStudySetupDialog.show(
+      context,
+      currentUser: widget.currentUser,
+      isEditingLinksOnly: true,
+      existingStudy: RoofStudyModel(
+        id: _studyId ?? '',
+        name: _studyName ?? '',
+        clientId: _clientId,
+        clientName: _clientName,
+        proposalId: _proposalId,
+        proposalCode: _proposalCode,
+        latitude: _latitude,
+        longitude: _longitude,
+        formattedAddress: _currentAddress,
+        zoom: _zoom,
+        panOffsetX: _panOffsetX,
+        panOffsetY: _panOffsetY,
+        sections: _sections,
+        totalModulesCount: 0,
+        totalKwp: 0,
+        estimatedMonthlyKwh: 0,
+        createdAt: _createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _studyName = result.studyName;
+        _clientId = result.selectedClient?.id;
+        _clientName = result.selectedClient?.name;
+        _proposalId = result.selectedProposal?.id;
+        _proposalCode = result.selectedProposal != null
+            ? '#${result.selectedProposal!.proposalNumber}'
+            : null;
+      });
+      // Salva automaticamente as novas informações de vínculo
+      await _saveRoofStudy(showFeedback: true);
+    }
+  }
+
+  // ── Captura do Estudo e Exportação ───────────────────────────────────────
+  Future<void> _exportStudy() async {
+    // Salva automaticamente no Firestore
+    final saved = await _saveRoofStudy(showFeedback: false);
+
+    String? base64Snapshot = saved?.snapshotImageBase64;
+    if (base64Snapshot == null) {
+      try {
+        final boundary = _canvasKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+        if (boundary != null && boundary.size.width > 0) {
+          final scaleRatio = (260.0 / boundary.size.width).clamp(0.08, 0.3);
+          final image = await boundary.toImage(pixelRatio: scaleRatio);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          if (byteData != null) {
+            base64Snapshot = base64Encode(byteData.buffer.asUint8List());
+          }
+        }
+      } catch (e) {
+        debugPrint('[SolarRoofDesigner] Erro ao capturar snapshot: $e');
+      }
     }
 
     _syncCurrentSection();
@@ -1816,9 +3152,13 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     final totalModules = allModules.length;
     final totalWatts = allModules.fold<int>(0, (sum, m) => sum + m.watts);
-    final totalKwp = totalWatts > 0 ? (totalWatts / 1000.0) : ModuleLayoutEngine.calculateTotalKwp(_modules, _selectedModule);
-    final estimatedKwh = ModuleLayoutEngine.estimateMonthlyGenerationKwh(totalKwp);
-    final totalRoofArea = _sections.fold<double>(0.0, (sum, s) => sum + s.areaM2);
+    final totalKwp = totalWatts > 0
+        ? (totalWatts / 1000.0)
+        : ModuleLayoutEngine.calculateTotalKwp(_modules, _selectedModule);
+    final estimatedKwh =
+        ModuleLayoutEngine.estimateMonthlyGenerationKwh(totalKwp);
+    final totalRoofArea =
+        _sections.fold<double>(0.0, (sum, s) => sum + s.areaM2);
 
     final result = RoofStudyResult(
       snapshotImageBase64: base64Snapshot,
@@ -1834,6 +3174,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     );
 
     widget.onStudyCompleted?.call(result);
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(result);
+    }
   }
 
   @override
@@ -1856,7 +3199,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
     if (_sections.isEmpty) {
       consolidatedModuleCount = _modules.where((m) => !m.isExcluded).length;
-      consolidatedWatts = consolidatedModuleCount * _selectedModule.watts.toDouble();
+      consolidatedWatts =
+          consolidatedModuleCount * _selectedModule.watts.toDouble();
       consolidatedRoofAreaM2 = _roofPolygon.areaM2;
     }
 
@@ -1866,60 +3210,68 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
       backgroundColor: Colors.transparent,
-      child: Container(
-        width: screenSize.width * 0.96,
-        height: screenSize.height * 0.94,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF334155)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: 40,
-              offset: const Offset(0, 16),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── 1. CABEÇALHO DO STUDIO COM BUSCA ───────────────────────────
-              _buildHeader(context),
-
-              // ── 2. CORPO: CANVAS DE SATÉLITE + PAINEL DE KPIS ──────────────
-              Expanded(
-                child: isMobile
-                    ? Column(
-                        children: [
-                          Expanded(child: _buildCanvasArea()),
-                          _buildSidebar(
-                              consolidatedModuleCount,
-                              consolidatedKwp,
-                              consolidatedRoofAreaM2,
-                              consolidatedMonthlyKwh,
-                              isMobile: true),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(child: _buildCanvasArea()),
-                          Container(width: 1, color: const Color(0xFF1E293B)),
-                          SizedBox(
-                            width: 360,
-                            child: _buildSidebar(
-                                consolidatedModuleCount,
-                                consolidatedKwp,
-                                consolidatedRoofAreaM2,
-                                consolidatedMonthlyKwh,
-                                isMobile: false),
-                          ),
-                        ],
-                      ),
+      child: ScaffoldMessenger(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: Container(
+              width: screenSize.width * 0.96,
+              height: screenSize.height * 0.94,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF334155)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    blurRadius: 40,
+                    offset: const Offset(0, 16),
+                  ),
+                ],
               ),
-            ],
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── 1. CABEÇALHO DO STUDIO COM BUSCA ───────────────────────────
+                    _buildHeader(context),
+
+                    // ── 2. CORPO: CANVAS DE SATÉLITE + PAINEL DE KPIS ──────────────
+                    Expanded(
+                      child: isMobile
+                          ? Column(
+                              children: [
+                                Expanded(child: _buildCanvasArea()),
+                                _buildSidebar(
+                                    consolidatedModuleCount,
+                                    consolidatedKwp,
+                                    consolidatedRoofAreaM2,
+                                    consolidatedMonthlyKwh,
+                                    isMobile: true),
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(child: _buildCanvasArea()),
+                                Container(
+                                    width: 1, color: const Color(0xFF1E293B)),
+                                SizedBox(
+                                  width: 360,
+                                  child: _buildSidebar(
+                                      consolidatedModuleCount,
+                                      consolidatedKwp,
+                                      consolidatedRoofAreaM2,
+                                      consolidatedMonthlyKwh,
+                                      isMobile: false),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1952,12 +3304,127 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Solar Roof Designer • Estudo de Telhado & Satélite 🛰️',
-                  style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _studyName ?? 'Estudo de Telhado & Satélite 🛰️',
+                        style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Chip Cliente
+                    InkWell(
+                      onTap: _editStudyLinks,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _clientName != null
+                              ? const Color(0xFF065F46).withValues(alpha: 0.7)
+                              : const Color(0xFF334155),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _clientName != null
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF475569),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _clientName != null
+                                  ? Icons.person_rounded
+                                  : Icons.person_outline_rounded,
+                              size: 13,
+                              color: _clientName != null
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 4),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 140),
+                              child: Text(
+                                _clientName ?? 'Sem Cliente',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _clientName != null
+                                      ? const Color(0xFF34D399)
+                                      : const Color(0xFF94A3B8),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Chip Proposta
+                    InkWell(
+                      onTap: _editStudyLinks,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _proposalCode != null
+                              ? const Color(0xFF3730A3).withValues(alpha: 0.7)
+                              : const Color(0xFF334155),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _proposalCode != null
+                                ? const Color(0xFF6366F1)
+                                : const Color(0xFF475569),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _proposalCode != null
+                                  ? Icons.description_rounded
+                                  : Icons.description_outlined,
+                              size: 13,
+                              color: _proposalCode != null
+                                  ? const Color(0xFF818CF8)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _proposalCode ?? 'Sem Proposta',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _proposalCode != null
+                                    ? const Color(0xFF818CF8)
+                                    : const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: _editStudyLinks,
+                      icon: const Icon(Icons.edit_outlined,
+                          size: 15, color: Color(0xFF94A3B8)),
+                      tooltip: 'Alterar Nome ou Vínculos',
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 24, minHeight: 24),
+                    ),
+                  ],
                 ),
                 Text(
                   _currentAddress,
@@ -1973,7 +3440,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
           // Campo de busca por endereço ou CEP
           SizedBox(
-            width: 380,
+            width: 300,
             child: TextField(
               controller: _searchCtrl,
               onSubmitted: _performSearch,
@@ -1981,7 +3448,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
               decoration: InputDecoration(
                 hintText: 'Buscar endereço ou CEP (ex: 01310-100)...',
                 hintStyle: GoogleFonts.inter(
-                    fontSize: 12.5, color: const Color(0xFF64748B)),
+                    fontSize: 12, color: const Color(0xFF64748B)),
                 prefixIcon: const Icon(Icons.search_rounded,
                     color: Color(0xFF94A3B8), size: 18),
                 suffixIcon: _isSearching
@@ -2030,32 +3497,49 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   isActive: _backgroundMode == BackgroundLayerMode.satellite,
                   label: 'Satélite',
                   icon: Icons.satellite_alt_rounded,
-                  onTap: () => setState(
-                      () => _backgroundMode = BackgroundLayerMode.satellite),
+                  onTap: () => _switchMode(BackgroundLayerMode.satellite),
                 ),
                 _buildModeChoiceButton(
                   isActive: _backgroundMode == BackgroundLayerMode.dronePhoto,
-                  label: _droneImageBytes != null ? 'Drone' : 'Drone 📸',
+                  label: 'Drone',
                   icon: Icons.camera_alt_rounded,
-                  onTap: () {
-                    if (_droneImageBytes == null) {
-                      _pickDronePhoto();
-                    } else {
-                      setState(() =>
-                          _backgroundMode = BackgroundLayerMode.dronePhoto);
-                    }
-                  },
+                  onTap: () => _switchMode(BackgroundLayerMode.dronePhoto),
                 ),
               ],
             ),
           ),
-          if (_droneImageBytes != null) ...[
-            const SizedBox(width: 6),
-            IconButton(
-              onPressed: _pickDronePhoto,
-              icon: const Icon(Icons.file_upload_outlined,
-                  color: Color(0xFF38BDF8), size: 20),
-              tooltip: 'Substituir Foto do Drone',
+          const SizedBox(width: 6),
+          IconButton(
+            onPressed: _pickDronePhoto,
+            icon: Icon(
+              _droneImageBytes != null
+                  ? Icons.photo_library_rounded
+                  : Icons.add_photo_alternate_rounded,
+              color: const Color(0xFF38BDF8),
+              size: 20,
+            ),
+            tooltip: _droneImageBytes != null
+                ? 'Substituir Imagem do Drone'
+                : 'Carregar Foto do Drone',
+          ),
+          if (_isLoadingDronePhoto) ...[
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Color(0xFF38BDF8)),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Baixando drone...',
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: const Color(0xFF38BDF8)),
+                ),
+              ],
             ),
           ],
           if (_isAnalyzingDrone) ...[
@@ -2076,7 +3560,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
               ],
             ),
           ],
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
           // Botões de Zoom In / Zoom Out
           IconButton(
@@ -2088,6 +3572,34 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             onPressed: _zoomOut,
             icon: const Icon(Icons.zoom_out_rounded, color: Colors.white70),
             tooltip: 'Afastar Zoom',
+          ),
+          const SizedBox(width: 8),
+
+          // Botão Salvar Estudo no Banco
+          ElevatedButton.icon(
+            onPressed: _isSavingStudy
+                ? null
+                : () => _saveRoofStudy(showFeedback: true),
+            icon: _isSavingStudy
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.save_rounded, size: 16),
+            label: Text(
+              _isSavingStudy ? 'SALVANDO...' : 'SALVAR 💾',
+              style:
+                  GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
           ),
           const SizedBox(width: 8),
 
@@ -2155,6 +3667,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             roofVertices: _roofVertices,
             isRoofClosed: _isRoofClosed,
             modules: _modules,
+            selectedModuleIndex: _selectedModuleIndex,
+            onSelectModule: (idx) => setState(() => _selectedModuleIndex = idx),
             sections: _sections,
             activeSectionIndex: _activeSectionIndex,
             isEditingActiveSection: !_isSectionFinalized,
@@ -2162,6 +3676,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             satelliteSource: _satelliteSource,
             backgroundMode: _backgroundMode,
             droneImageBytes: _droneImageBytes,
+            isAnalyzingDrone: (_isAnalyzingDrone || _isLoadingDronePhoto),
             metersPerPixel: _metersPerPixel,
             onCanvasTap: _handleCanvasTap,
             onCanvasDoubleTap: (_) => _handleCanvasDoubleTap(),
@@ -2173,6 +3688,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             onDrawingMoved: _handleDrawingMoved,
             onRowMoved: _handleRowMoved,
             onModuleMoved: _handleModuleMoved,
+            onModuleDragEnd: _handleModuleDragEnd,
+            snappedModuleIndex: _snappedModuleIndex,
             onRotateModuleGroup: _rotateModulesByDelta,
             onRotateSingleModule: _rotateSingleModuleByDelta,
             onRotateSingleModule90: _rotateSingleModule90,
@@ -2188,7 +3705,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             onSectionSelected: _selectSection,
             onDeleteSection: _deleteCurrentSection,
             onFinishCurrentSection: _finishCurrentSection,
-            onResumeEditing: () => setState(() => _isSectionFinalized = false),
+            onResumeEditing: () => setState(() {
+              _isSectionFinalized = false;
+              _toolMode = DesignerToolMode.editModules;
+            }),
             onAddNewSection: _addNewSection,
             onDuplicateCurrentSection: _duplicateCurrentSection,
             onPanUpdate: (delta) {
@@ -2213,6 +3733,72 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           left: 140,
           child: _buildContextualHint(),
         ),
+
+        // Overlay bloqueador com CircularProgressIndicator enquanto a IA analisa a foto do drone ou baixa foto
+        if ((_isAnalyzingDrone || _isLoadingDronePhoto) &&
+            _backgroundMode == BackgroundLayerMode.dronePhoto)
+          Positioned.fill(
+            child: AbsorbPointer(
+              absorbing: true,
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.65),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 36, vertical: 30),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.98),
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: const Color(0xFF38BDF8), width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                          blurRadius: 32,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 4,
+                            color: Color(0xFF38BDF8),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Carregando...',
+                          style: GoogleFonts.outfit(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _isLoadingDronePhoto
+                              ? 'Baixando foto do drone...'
+                              : 'Aguarde a IA analisar a imagem para liberar o desenho',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -2244,7 +3830,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           _buildToolButton(
             mode: DesignerToolMode.drawRoof,
             icon: Icons.polyline_rounded,
-            label: _isRoofClosed ? 'Telhado OK' : 'Desenhar',
+            label: 'Desenhar',
+            isEnabled: !_isRoofClosed || _roofVertices.length < 3,
+            disabledTooltip: 'CRIE UM NOVO TELHADO PARA DESENHAR',
           ),
           const SizedBox(width: 4),
           _buildToolButton(
@@ -2276,10 +3864,13 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           // Botão + Placa Manual (coloca mais uma placa ao conjunto)
           OutlinedButton.icon(
             onPressed: _addSingleModule,
-            icon: const Icon(Icons.add_rounded, size: 16, color: Color(0xFF10B981)),
+            icon: const Icon(Icons.add_rounded,
+                size: 16, color: Color(0xFF10B981)),
             label: Text('+ Placa',
                 style: GoogleFonts.outfit(
-                    fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Color(0xFF10B981), width: 1.2),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -2289,11 +3880,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           ),
           const SizedBox(width: 6),
 
-          // Botão + Nova Água (para telhados com múltiplas quedas)
+          // Botão + Novo Telhado
           ElevatedButton.icon(
             onPressed: _addNewSection,
             icon: const Icon(Icons.add_home_work_rounded, size: 16),
-            label: Text('+ NOVA ÁGUA',
+            label: Text('+ NOVO TELHADO',
                 style: GoogleFonts.outfit(
                     fontSize: 12, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
@@ -2384,10 +3975,61 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     required DesignerToolMode mode,
     required IconData icon,
     required String label,
+    bool isEnabled = true,
+    String? disabledTooltip,
   }) {
     final isSelected = _toolMode == mode;
+
+    if (!isEnabled) {
+      final disabledChild = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: const Color(0xFF475569)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (disabledTooltip != null) {
+        return Tooltip(
+          message: disabledTooltip,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF38BDF8), width: 1.2),
+          ),
+          textStyle: GoogleFonts.inter(
+            color: Colors.white,
+            fontSize: 11.5,
+            fontWeight: FontWeight.bold,
+          ),
+          child: disabledChild,
+        );
+      }
+      return disabledChild;
+    }
+
     return InkWell(
-      onTap: () => setState(() => _toolMode = mode),
+      onTap: () => setState(() {
+        _toolMode = mode;
+        if (mode == DesignerToolMode.editModules) {
+          _isSectionFinalized = false;
+        }
+      }),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -2481,364 +4123,412 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   ),
                   const SizedBox(height: 12),
 
-          // Card de Diagnóstico do Drone via IA Gemini
-          if (_droneAnalysisResult != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  // Card de Diagnóstico do Drone via IA Gemini
+                  if (_droneAnalysisResult != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_awesome_rounded,
+                                  color: Color(0xFF38BDF8), size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Diagnóstico IA do Drone',
+                                style: GoogleFonts.outfit(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF38BDF8)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_droneAnalysisResult!.roofType} • ~${_droneAnalysisResult!.estimatedAreaM2.toStringAsFixed(1)} m²',
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                          if (_droneAnalysisResult!.obstacles.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              children:
+                                  _droneAnalysisResult!.obstacles.map((obs) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEF4444)
+                                        .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                        color: const Color(0xFFEF4444)
+                                            .withValues(alpha: 0.3)),
+                                  ),
+                                  child: Text(obs,
+                                      style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          color: const Color(0xFFFCA5A5))),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                          Text(
+                            _droneAnalysisResult!.technicalSummary,
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: const Color(0xFF94A3B8)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Seletor de Modelo de Módulo Solar
+                  Text('Modelo do Módulo:',
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5, color: Colors.white70)),
+                  const SizedBox(height: 6),
+                  Builder(
+                    builder: (context) {
+                      final availableSpecs = <SolarModuleSpec>[
+                        ...SolarModuleSpec.presets
+                      ];
+                      if (!availableSpecs
+                          .any((s) => s.id == _selectedModule.id)) {
+                        availableSpecs.insert(0, _selectedModule);
+                      }
+                      final dropdownValue = availableSpecs.firstWhere(
+                        (s) => s.id == _selectedModule.id,
+                        orElse: () => availableSpecs.first,
+                      );
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF334155)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<SolarModuleSpec>(
+                            value: dropdownValue,
+                            isExpanded: true,
+                            dropdownColor: const Color(0xFF0F172A),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                                color: Colors.white70),
+                            items: availableSpecs.map((spec) {
+                              return DropdownMenuItem(
+                                value: spec,
+                                child: Text(
+                                  spec.modelName,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12, color: Colors.white),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (newSpec) {
+                              if (newSpec != null) {
+                                setState(() => _selectedModule = newSpec);
+                                if (_isRoofClosed) _autoFillModules();
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Orientação: Retrato vs Paisagem
                   Row(
                     children: [
-                      const Icon(Icons.auto_awesome_rounded,
-                          color: Color(0xFF38BDF8), size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Diagnóstico IA do Drone',
-                        style: GoogleFonts.outfit(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF38BDF8)),
+                      Expanded(
+                        child: _buildOrientationChoice(
+                          orientation: ModuleOrientation.portrait,
+                          icon: Icons.crop_portrait_rounded,
+                          label: 'Retrato',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildOrientationChoice(
+                          orientation: ModuleOrientation.landscape,
+                          icon: Icons.crop_landscape_rounded,
+                          label: 'Paisagem',
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_droneAnalysisResult!.roofType} • ~${_droneAnalysisResult!.estimatedAreaM2.toStringAsFixed(1)} m²',
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  if (_droneAnalysisResult!.obstacles.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: _droneAnalysisResult!.obstacles.map((obs) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color:
-                                const Color(0xFFEF4444).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                                color: const Color(0xFFEF4444)
-                                    .withValues(alpha: 0.3)),
-                          ),
-                          child: Text(obs,
-                              style: GoogleFonts.inter(
-                                  fontSize: 10.5,
-                                  color: const Color(0xFFFCA5A5))),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Text(
-                    _droneAnalysisResult!.technicalSummary,
-                    style: GoogleFonts.inter(
-                        fontSize: 11, color: const Color(0xFF94A3B8)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
 
-          // Seletor de Modelo de Módulo Solar
-          Text('Modelo do Módulo:',
-              style: GoogleFonts.inter(fontSize: 11.5, color: Colors.white70)),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF334155)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<SolarModuleSpec>(
-                value: _selectedModule,
-                isExpanded: true,
-                dropdownColor: const Color(0xFF0F172A),
-                icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                    color: Colors.white70),
-                items: SolarModuleSpec.presets.map((spec) {
-                  return DropdownMenuItem(
-                    value: spec,
-                    child: Text(
-                      spec.modelName,
-                      style:
-                          GoogleFonts.inter(fontSize: 12, color: Colors.white),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                }).toList(),
-                onChanged: (newSpec) {
-                  if (newSpec != null) {
-                    setState(() => _selectedModule = newSpec);
-                    if (_isRoofClosed) _autoFillModules();
-                  }
-                },
-              ),
-            ),
-          ),
+                  const SizedBox(height: 14),
 
-          const SizedBox(height: 14),
-
-          // Orientação: Retrato vs Paisagem
-          Row(
-            children: [
-              Expanded(
-                child: _buildOrientationChoice(
-                  orientation: ModuleOrientation.portrait,
-                  icon: Icons.crop_portrait_rounded,
-                  label: 'Retrato',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildOrientationChoice(
-                  orientation: ModuleOrientation.landscape,
-                  icon: Icons.crop_landscape_rounded,
-                  label: 'Paisagem',
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          // Ajuste fino de Rotação da Grade
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Giro da Grade:',
-                  style: GoogleFonts.inter(fontSize: 11.5, color: Colors.white70)),
-              InkWell(
-                onTap: _showSetAngleDialog,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        '${((_rotationOffsetDegrees % 360 + 360) % 360).toStringAsFixed(0)}°',
-                        style: GoogleFonts.inter(
-                            fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.amber),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.edit_rounded, size: 11, color: Colors.amber),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Slider(
-            value: ((_rotationOffsetDegrees % 360 + 360) % 360).clamp(0.0, 360.0),
-            min: 0,
-            max: 360,
-            divisions: 72,
-            activeColor: const Color(0xFFF59E0B),
-            inactiveColor: const Color(0xFF334155),
-            onChanged: (val) {
-              setState(() {
-                _setAbsoluteRotationAngle(val);
-              });
-            },
-          ),
-
-          const SizedBox(height: 10),
-
-          // Recuo de borda (Setback de segurança)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Recuo de Borda:',
-                  style:
-                      GoogleFonts.inter(fontSize: 11.5, color: Colors.white70)),
-              Text('${(_setbackMeters * 100).toStringAsFixed(0)} cm',
-                  style: GoogleFonts.inter(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.amber)),
-            ],
-          ),
-          Slider(
-            value: _setbackMeters,
-            min: 0.15,
-            max: 0.80,
-            divisions: 13,
-            activeColor: const Color(0xFFF59E0B),
-            inactiveColor: const Color(0xFF334155),
-            onChanged: (val) {
-              setState(() => _setbackMeters = val);
-              if (_isRoofClosed) _autoFillModules();
-            },
-          ),
-
-          const Divider(color: Color(0xFF334155), height: 24),
-
-          // ── 4 CARDS DE KPIS CONSOLIDADOS ─────────────────────────────────
-          Text(
-            'PRÉ-DIMENSIONAMENTO',
-            style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF94A3B8)),
-          ),
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Expanded(
-                  child: _buildKpiCard(
-                      'POTÊNCIA',
-                      '${totalKwp.toStringAsFixed(2)} kWp',
-                      Icons.bolt_rounded,
-                      const Color(0xFF10B981))),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: _buildKpiCard('MÓDULOS', '$activeCount placas',
-                      Icons.grid_view_rounded, const Color(0xFF6366F1))),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                  child: _buildKpiCard(
-                      'ÁREA TELHADO',
-                      '${areaM2.toStringAsFixed(1)} m²',
-                      Icons.square_foot_rounded,
-                      const Color(0xFFF59E0B))),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: _buildKpiCard(
-                      'GERAÇÃO ESTIMADA',
-                      '~${monthlyKwh.toStringAsFixed(0)} kWh/mês',
-                      Icons.solar_power_rounded,
-                      const Color(0xFF38BDF8))),
-            ],
-          ),
-
-          // ── Resumo de Quedas Mapeadas (Múltiplas Águas) ───────────────────
-          if (_sections.length > 1 || (_sections.isNotEmpty && _sections.first.activeModuleCount > 0)) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF334155)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  // Ajuste fino de Rotação da Grade
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'QUEDAS DE TELHADO (${_sections.length})',
-                        style: GoogleFonts.outfit(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF94A3B8)),
-                      ),
+                      Text('Giro da Grade:',
+                          style: GoogleFonts.inter(
+                              fontSize: 11.5, color: Colors.white70)),
                       InkWell(
-                        onTap: _addNewSection,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.add_rounded, size: 12, color: Color(0xFF38BDF8)),
-                            const SizedBox(width: 2),
-                            Text(
-                              'Nova Água',
-                              style: GoogleFonts.inter(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF38BDF8)),
-                            ),
-                          ],
+                        onTap: _showSetAngleDialog,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: Colors.amber.withValues(alpha: 0.4)),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                '${((_rotationOffsetDegrees % 360 + 360) % 360).toStringAsFixed(0)}°',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.edit_rounded,
+                                  size: 11, color: Colors.amber),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  ..._sections.asMap().entries.map((e) {
-                    final idx = e.key;
-                    final sec = e.value;
-                    final isCur = idx == _activeSectionIndex;
+                  Slider(
+                    value: ((_rotationOffsetDegrees % 360 + 360) % 360)
+                        .clamp(0.0, 360.0),
+                    min: 0,
+                    max: 360,
+                    divisions: 72,
+                    activeColor: const Color(0xFFF59E0B),
+                    inactiveColor: const Color(0xFF334155),
+                    onChanged: (val) {
+                      setState(() {
+                        _setAbsoluteRotationAngle(val);
+                      });
+                    },
+                  ),
 
-                    return InkWell(
-                      onTap: () => _selectSection(idx),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: isCur ? sec.themeColor.withValues(alpha: 0.15) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isCur ? sec.themeColor : Colors.transparent),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(color: sec.themeColor, shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                sec.name,
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: isCur ? FontWeight.bold : FontWeight.normal,
-                                  color: isCur ? Colors.white : Colors.white70,
+                  const SizedBox(height: 10),
+
+                  // Recuo de borda (Setback de segurança)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Recuo de Borda:',
+                          style: GoogleFonts.inter(
+                              fontSize: 11.5, color: Colors.white70)),
+                      Text('${(_setbackMeters * 100).toStringAsFixed(0)} cm',
+                          style: GoogleFonts.inter(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber)),
+                    ],
+                  ),
+                  Slider(
+                    value: _setbackMeters,
+                    min: 0.15,
+                    max: 0.80,
+                    divisions: 13,
+                    activeColor: const Color(0xFFF59E0B),
+                    inactiveColor: const Color(0xFF334155),
+                    onChanged: (val) {
+                      setState(() => _setbackMeters = val);
+                      if (_isRoofClosed) _autoFillModules();
+                    },
+                  ),
+
+                  const Divider(color: Color(0xFF334155), height: 24),
+
+                  // ── 4 CARDS DE KPIS CONSOLIDADOS ─────────────────────────────────
+                  Text(
+                    'PRÉ-DIMENSIONAMENTO',
+                    style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF94A3B8)),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildKpiCard(
+                              'POTÊNCIA',
+                              '${totalKwp.toStringAsFixed(2)} kWp',
+                              Icons.bolt_rounded,
+                              const Color(0xFF10B981))),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: _buildKpiCard(
+                              'MÓDULOS',
+                              '$activeCount placas',
+                              Icons.grid_view_rounded,
+                              const Color(0xFF6366F1))),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildKpiCard(
+                              'ÁREA TELHADO',
+                              '${areaM2.toStringAsFixed(1)} m²',
+                              Icons.square_foot_rounded,
+                              const Color(0xFFF59E0B))),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: _buildKpiCard(
+                              'GERAÇÃO ESTIMADA',
+                              '~${monthlyKwh.toStringAsFixed(0)} kWh/mês',
+                              Icons.solar_power_rounded,
+                              const Color(0xFF38BDF8))),
+                    ],
+                  ),
+
+                  // ── Resumo de Quedas Mapeadas (Múltiplas Águas) ───────────────────
+                  if (_sections.length > 1 ||
+                      (_sections.isNotEmpty &&
+                          _sections.first.activeModuleCount > 0)) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'TELHADOS (${_sections.length})',
+                                style: GoogleFonts.outfit(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF94A3B8)),
+                              ),
+                              InkWell(
+                                onTap: _addNewSection,
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.add_rounded,
+                                        size: 12, color: Color(0xFF38BDF8)),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      'Novo Telhado',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF38BDF8)),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            Text(
-                              '${sec.activeModuleCount} pl • ${sec.totalKwp.toStringAsFixed(2)} kWp',
-                              style: GoogleFonts.inter(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                color: isCur ? sec.themeColor : const Color(0xFF94A3B8),
-                              ),
-                            ),
-                            if (isCur) ...[
-                              const SizedBox(width: 4),
-                              const Icon(Icons.edit_rounded, size: 11, color: Colors.amber),
                             ],
-                            if (_sections.length > 1) ...[
-                              const SizedBox(width: 6),
-                              InkWell(
-                                onTap: () => _deleteCurrentSection(idx),
-                                child: const Icon(Icons.close_rounded, size: 13, color: Color(0xFFEF4444)),
+                          ),
+                          const SizedBox(height: 6),
+                          ..._sections.asMap().entries.map((e) {
+                            final idx = e.key;
+                            final sec = e.value;
+                            final isCur = idx == _activeSectionIndex;
+
+                            return InkWell(
+                              onTap: () => _selectSection(idx),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: isCur
+                                      ? sec.themeColor.withValues(alpha: 0.15)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: isCur
+                                          ? sec.themeColor
+                                          : Colors.transparent),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                          color: sec.themeColor,
+                                          shape: BoxShape.circle),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        sec.name,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight: isCur
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: isCur
+                                              ? Colors.white
+                                              : Colors.white70,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${sec.activeModuleCount} pl • ${sec.totalKwp.toStringAsFixed(2)} kWp',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: isCur
+                                            ? sec.themeColor
+                                            : const Color(0xFF94A3B8),
+                                      ),
+                                    ),
+                                    if (isCur) ...[
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.edit_rounded,
+                                          size: 11, color: Colors.amber),
+                                    ],
+                                    if (_sections.length > 1) ...[
+                                      const SizedBox(width: 6),
+                                      InkWell(
+                                        onTap: () => _deleteCurrentSection(idx),
+                                        child: const Icon(Icons.close_rounded,
+                                            size: 13, color: Color(0xFFEF4444)),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                            ],
-                          ],
-                        ),
+                            );
+                          }),
+                        ],
                       ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2847,11 +4537,23 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
 
           // ── BOTÕES DE CONFIRMAÇÃO / EXPORTAÇÃO (FIXO NO RODAPÉ) ──────────
           ElevatedButton.icon(
-            onPressed: activeCount > 0 ? _exportStudy : null,
-            icon: const Icon(Icons.check_circle_rounded, size: 20),
-            label: Text('SALVAR ESTUDO & APLICAR',
-                style: GoogleFonts.outfit(
-                    fontSize: 14, fontWeight: FontWeight.bold)),
+            onPressed:
+                (activeCount > 0 && !_isSavingStudy) ? _exportStudy : null,
+            icon: _isSavingStudy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.check_circle_rounded, size: 20),
+            label: Text(
+              _isSavingStudy
+                  ? 'SALVANDO & APLICANDO...'
+                  : 'SALVAR ESTUDO & APLICAR',
+              style: GoogleFonts.outfit(
+                  fontSize: 14, fontWeight: FontWeight.bold),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
               foregroundColor: Colors.white,
