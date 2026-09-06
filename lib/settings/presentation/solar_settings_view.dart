@@ -12,6 +12,8 @@ import '../../proposals/presentation/web_proposal_page.dart';
 import '../data/services/solar_settings_service.dart';
 import '../domain/models/solar_settings_model.dart';
 import 'widgets/solar_cover_divider_painter.dart';
+import 'widgets/solar_vertical_split_painter.dart';
+import 'widgets/solar_cover_customizer_dialog.dart';
 
 class SolarSettingsView extends StatefulWidget {
   final VoidCallback? onBack;
@@ -68,6 +70,20 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   int _coverPage = 1;
   String _coverSearchQuery = '';
   int _coverSubTab = 0; // 0 = 100 Capas Prontas, 1 = Criar Capa Personalizada
+
+  // ── Estilo de Proposta & Vertical Split ───────────────────────────────
+  String _proposalStyle = 'modern'; // 'modern' ou 'verticalSplit'
+  String _selectedVerticalSplit = 'vertical_split_1';
+  int _verticalSplitDividerType = 0;
+  final _verticalSplitHeadlineCtrl = TextEditingController(text: 'ENERGIA\nQUE MOVE\nO SEU\nAMANHÃ');
+  final _verticalSplitSubheadlineCtrl = TextEditingController(text: 'MAIS ECONOMIA.\nMAIS LIBERDADE.\nUM FUTURO SUSTENTÁVEL.');
+  final _verticalSplitLeftFooterCtrl = TextEditingController(text: 'PESSOAS  •  TECNOLOGIA  •  UM PLANETA MELHOR');
+  final _verticalSplitRightTitleCtrl = TextEditingController(text: 'PROPOSTA');
+  final _verticalSplitRightSubtitleCtrl = TextEditingController(text: 'SOLAR');
+  final _verticalSplitRightTaglineCtrl = TextEditingController(text: 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR');
+  final _verticalSplitRightFooterCtrl = TextEditingController(text: 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.');
+  String _verticalSplitAccentColor = '#EAB308';
+  List<CoverFooterBadge> _verticalSplitFooterBadges = List.from(CoverFooterBadge.defaultBadges());
 
   // Logomarca Customizada na Capa
   String? _companyLogoBase64;
@@ -129,6 +145,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     _tabController = TabController(length: 5, vsync: this);
     _coverTitleCtrl.addListener(() => setState(() {}));
     _coverSubtitleCtrl.addListener(() => setState(() {}));
+    _verticalSplitHeadlineCtrl.addListener(() => setState(() {}));
+    _verticalSplitSubheadlineCtrl.addListener(() => setState(() {}));
+    _verticalSplitLeftFooterCtrl.addListener(() => setState(() {}));
+    _verticalSplitRightTitleCtrl.addListener(() => setState(() {}));
+    _verticalSplitRightSubtitleCtrl.addListener(() => setState(() {}));
+    _verticalSplitRightTaglineCtrl.addListener(() => setState(() {}));
+    _verticalSplitRightFooterCtrl.addListener(() => setState(() {}));
     _loadAll();
   }
 
@@ -184,6 +207,19 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       _selectedSvgTheme = loaded.selectedSvgTheme;
       _selectedWebBg = loaded.webBackgroundTemplate;
 
+      _proposalStyle = loaded.proposalStyle;
+      _selectedVerticalSplit = loaded.selectedVerticalSplitTemplate;
+      _verticalSplitDividerType = loaded.verticalSplitDividerType;
+      _verticalSplitHeadlineCtrl.text = loaded.verticalSplitHeadline;
+      _verticalSplitSubheadlineCtrl.text = loaded.verticalSplitSubheadline;
+      _verticalSplitLeftFooterCtrl.text = loaded.verticalSplitLeftFooter;
+      _verticalSplitRightTitleCtrl.text = loaded.verticalSplitRightTitle;
+      _verticalSplitRightSubtitleCtrl.text = loaded.verticalSplitRightSubtitle;
+      _verticalSplitRightTaglineCtrl.text = loaded.verticalSplitRightTagline;
+      _verticalSplitRightFooterCtrl.text = loaded.verticalSplitRightFooter;
+      _verticalSplitAccentColor = loaded.verticalSplitAccentColor;
+      _verticalSplitFooterBadges = List.from(loaded.verticalSplitFooterBadges);
+
       setState(() => _isLoading = false);
       _loadCoversList();
     } catch (e) {
@@ -225,6 +261,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     _companySloganCtrl.dispose();
     _coverTitleCtrl.dispose();
     _coverSubtitleCtrl.dispose();
+    _verticalSplitHeadlineCtrl.dispose();
+    _verticalSplitSubheadlineCtrl.dispose();
+    _verticalSplitLeftFooterCtrl.dispose();
+    _verticalSplitRightTitleCtrl.dispose();
+    _verticalSplitRightSubtitleCtrl.dispose();
+    _verticalSplitRightTaglineCtrl.dispose();
+    _verticalSplitRightFooterCtrl.dispose();
     super.dispose();
   }
 
@@ -278,6 +321,18 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         coverLogoPositionX: _coverLogoPosX,
         coverLogoPositionY: _coverLogoPosY,
         coverLogoWidth: _coverLogoWidth,
+        proposalStyle: _proposalStyle,
+        selectedVerticalSplitTemplate: _selectedVerticalSplit,
+        verticalSplitDividerType: _verticalSplitDividerType,
+        verticalSplitHeadline: _verticalSplitHeadlineCtrl.text,
+        verticalSplitSubheadline: _verticalSplitSubheadlineCtrl.text,
+        verticalSplitLeftFooter: _verticalSplitLeftFooterCtrl.text,
+        verticalSplitRightTitle: _verticalSplitRightTitleCtrl.text,
+        verticalSplitRightSubtitle: _verticalSplitRightSubtitleCtrl.text,
+        verticalSplitRightTagline: _verticalSplitRightTaglineCtrl.text,
+        verticalSplitRightFooter: _verticalSplitRightFooterCtrl.text,
+        verticalSplitAccentColor: _verticalSplitAccentColor,
+        verticalSplitFooterBadges: _verticalSplitFooterBadges,
       );
 
       await SolarSettingsService.saveSettings(updated);
@@ -448,7 +503,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 child: PdfPreview(
                   build: (format) => SolarProposalPdfService.generateSolarProposalPdf(
                     sampleProposal,
-                    solarSettings: _settings.copyWith(
+                    solarSettings: _buildCurrentLiveSettings().copyWith(
                       selectedCoverTemplate: _selectedCover,
                       selectedSvgTheme: _selectedSvgTheme,
                       webBackgroundTemplate: _selectedWebBg,
@@ -1769,17 +1824,167 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   // COMPONENTES DO ESTÚDIO DE CAPAS EM TEMPO REAL
   // ───────────────────────────────────────────────────────────────────────────
 
+  SolarSettingsModel _buildCurrentLiveSettings() {
+    return _settings.copyWith(
+      proposalStyle: _proposalStyle,
+      selectedVerticalSplitTemplate: _selectedVerticalSplit,
+      verticalSplitDividerType: _verticalSplitDividerType,
+      verticalSplitHeadline: _verticalSplitHeadlineCtrl.text,
+      verticalSplitSubheadline: _verticalSplitSubheadlineCtrl.text,
+      verticalSplitLeftFooter: _verticalSplitLeftFooterCtrl.text,
+      verticalSplitRightTitle: _verticalSplitRightTitleCtrl.text,
+      verticalSplitRightSubtitle: _verticalSplitRightSubtitleCtrl.text,
+      verticalSplitRightTagline: _verticalSplitRightTaglineCtrl.text,
+      verticalSplitRightFooter: _verticalSplitRightFooterCtrl.text,
+      verticalSplitAccentColor: _verticalSplitAccentColor,
+      verticalSplitFooterBadges: _verticalSplitFooterBadges,
+      webBackgroundTemplate: _selectedWebBg,
+      companyLogoBase64: _companyLogoBase64,
+      coverShowLogo: _coverShowLogo,
+      coverLogoPositionX: _coverLogoPosX,
+      coverLogoPositionY: _coverLogoPosY,
+      coverLogoWidth: _coverLogoWidth,
+      selectedSvgTheme: _selectedSvgTheme,
+      verticalSplitHeadlineTop: _settings.verticalSplitHeadlineTop,
+      verticalSplitHeadlineLeft: _settings.verticalSplitHeadlineLeft,
+      verticalSplitRightBlockTop: _settings.verticalSplitRightBlockTop,
+      verticalSplitRightBlockRight: _settings.verticalSplitRightBlockRight,
+      verticalSplitLeftFooterBottom: _settings.verticalSplitLeftFooterBottom,
+      verticalSplitLeftFooterLeft: _settings.verticalSplitLeftFooterLeft,
+      verticalSplitRightFooterBottom: _settings.verticalSplitRightFooterBottom,
+      verticalSplitRightFooterRight: _settings.verticalSplitRightFooterRight,
+      // ── Configurações do Estilo Modern ──
+      coverTitle: _coverTitleCtrl.text,
+      coverSubtitle: _coverSubtitleCtrl.text,
+      coverShowBadge: _coverShowBadge,
+      coverBadgeColor: _coverBadgeColor,
+      coverBadgeOpacity: _coverBadgeOpacity,
+      coverTitleColor: _coverTitleColor,
+      coverSubtitleColor: _coverSubtitleColor,
+      coverTitleFontSize: _coverTitleFontSize,
+      coverSubtitleFontSize: _coverSubtitleFontSize,
+      coverBadgePositionX: _coverBadgePosX,
+      coverBadgePositionY: _coverBadgePosY,
+      isCustomCoverMode: _isCustomCoverMode,
+      customCoverImageBase64: _customCoverImageBase64,
+      customDividerStyle: _customDividerStyle,
+      customDividerColor: _customDividerColor,
+      selectedCoverTemplate: _selectedCover,
+      customTextItems: _settings.customTextItems,
+      customIconItems: _settings.customIconItems,
+    );
+  }
+
+  Future<void> _openCoverCustomizer() async {
+    final updated = await SolarCoverCustomizerDialog.show(
+      context,
+      initialSettings: _buildCurrentLiveSettings(),
+      onSave: (val) {
+        setState(() {
+          _settings = val;
+          _proposalStyle = val.proposalStyle;
+          _selectedVerticalSplit = val.selectedVerticalSplitTemplate;
+          _verticalSplitDividerType = val.verticalSplitDividerType;
+          _verticalSplitHeadlineCtrl.text = val.verticalSplitHeadline;
+          _verticalSplitSubheadlineCtrl.text = val.verticalSplitSubheadline;
+          _verticalSplitLeftFooterCtrl.text = val.verticalSplitLeftFooter;
+          _verticalSplitRightTitleCtrl.text = val.verticalSplitRightTitle;
+          _verticalSplitRightSubtitleCtrl.text = val.verticalSplitRightSubtitle;
+          _verticalSplitRightTaglineCtrl.text = val.verticalSplitRightTagline;
+          _verticalSplitRightFooterCtrl.text = val.verticalSplitRightFooter;
+          _verticalSplitAccentColor = val.verticalSplitAccentColor;
+          _selectedWebBg = val.webBackgroundTemplate;
+          _companyLogoBase64 = val.companyLogoBase64;
+          _coverShowLogo = val.coverShowLogo;
+          _coverLogoPosX = val.coverLogoPositionX;
+          _coverLogoPosY = val.coverLogoPositionY;
+          _coverLogoWidth = val.coverLogoWidth;
+          // Sincronização dos campos do Estilo Modern
+          _coverTitleCtrl.text = val.coverTitle;
+          _coverSubtitleCtrl.text = val.coverSubtitle;
+          _coverShowBadge = val.coverShowBadge;
+          _coverBadgeColor = val.coverBadgeColor;
+          _coverBadgeOpacity = val.coverBadgeOpacity;
+          _coverTitleColor = val.coverTitleColor;
+          _coverSubtitleColor = val.coverSubtitleColor;
+          _coverTitleFontSize = val.coverTitleFontSize;
+          _coverSubtitleFontSize = val.coverSubtitleFontSize;
+          _coverBadgePosX = val.coverBadgePositionX;
+          _coverBadgePosY = val.coverBadgePositionY;
+          _isCustomCoverMode = val.isCustomCoverMode;
+          _customCoverImageBase64 = val.customCoverImageBase64;
+          _customDividerStyle = val.customDividerStyle;
+          _customDividerColor = val.customDividerColor;
+          _selectedCover = val.selectedCoverTemplate;
+        });
+      },
+    );
+    if (updated != null && mounted) {
+      setState(() {
+        _settings = updated;
+        _proposalStyle = updated.proposalStyle;
+        _selectedVerticalSplit = updated.selectedVerticalSplitTemplate;
+        _verticalSplitDividerType = updated.verticalSplitDividerType;
+        _verticalSplitHeadlineCtrl.text = updated.verticalSplitHeadline;
+        _verticalSplitSubheadlineCtrl.text = updated.verticalSplitSubheadline;
+        _verticalSplitLeftFooterCtrl.text = updated.verticalSplitLeftFooter;
+        _verticalSplitRightTitleCtrl.text = updated.verticalSplitRightTitle;
+        _verticalSplitRightSubtitleCtrl.text = updated.verticalSplitRightSubtitle;
+        _verticalSplitRightTaglineCtrl.text = updated.verticalSplitRightTagline;
+        _verticalSplitRightFooterCtrl.text = updated.verticalSplitRightFooter;
+        _verticalSplitAccentColor = updated.verticalSplitAccentColor;
+        _selectedWebBg = updated.webBackgroundTemplate;
+        _companyLogoBase64 = updated.companyLogoBase64;
+        _coverShowLogo = updated.coverShowLogo;
+        _coverLogoPosX = updated.coverLogoPositionX;
+        _coverLogoPosY = updated.coverLogoPositionY;
+        _coverLogoWidth = updated.coverLogoWidth;
+        // Sincronização dos campos do Estilo Modern
+        _coverTitleCtrl.text = updated.coverTitle;
+        _coverSubtitleCtrl.text = updated.coverSubtitle;
+        _coverShowBadge = updated.coverShowBadge;
+        _coverBadgeColor = updated.coverBadgeColor;
+        _coverBadgeOpacity = updated.coverBadgeOpacity;
+        _coverTitleColor = updated.coverTitleColor;
+        _coverSubtitleColor = updated.coverSubtitleColor;
+        _coverTitleFontSize = updated.coverTitleFontSize;
+        _coverSubtitleFontSize = updated.coverSubtitleFontSize;
+        _coverBadgePosX = updated.coverBadgePositionX;
+        _coverBadgePosY = updated.coverBadgePositionY;
+        _isCustomCoverMode = updated.isCustomCoverMode;
+        _customCoverImageBase64 = updated.customCoverImageBase64;
+        _customDividerStyle = updated.customDividerStyle;
+        _customDividerColor = updated.customDividerColor;
+        _selectedCover = updated.selectedCoverTemplate;
+      });
+    }
+  }
+
   /// Card A4 Interativo com Drag & Drop do Retângulo e Textos em Tempo Real
   Widget _buildLiveCoverPreviewCard() {
     const previewW = 340.0;
     const previewH = 480.0; // Proporção A4 (1:1.414)
-
-    final titleText = _coverTitleCtrl.text.trim().isNotEmpty ? _coverTitleCtrl.text.trim() : 'PROPOSTA COMERCIAL';
-    final subtitleText = _coverSubtitleCtrl.text.trim().isNotEmpty ? _coverSubtitleCtrl.text.trim() : 'ENERGIA SOLAR FOTOVOLTAICA';
+    final scale = previewW / 595.28;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── BOTÃO DESTACADO: PERSONALIZAR CAPA & VISUAL ─────────────────────
+        ElevatedButton.icon(
+          onPressed: _openCoverCustomizer,
+          icon: const Icon(Icons.palette_rounded, size: 18),
+          label: const Text('🎨 PERSONALIZAR CAPA & VISUAL'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFEAB308),
+            foregroundColor: const Color(0xFF0F172A),
+            elevation: 4,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, letterSpacing: 0.5),
+          ),
+        ),
+        const SizedBox(height: 12),
+
         // Header com Badge de Modo Interativo
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1789,11 +1994,17 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           ),
           child: Row(
             children: [
-              const Icon(Icons.touch_app_rounded, color: Color(0xFF38BDF8), size: 18),
+              Icon(
+                _proposalStyle == 'verticalSplit' ? Icons.view_sidebar_rounded : Icons.picture_as_pdf_rounded,
+                color: const Color(0xFF38BDF8),
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Prévia da Capa A4 (Arraste o Título)',
+                  _proposalStyle == 'verticalSplit'
+                      ? 'Prévia da Capa A4 (Vertical Split)'
+                      : 'Prévia da Capa A4',
                   style: GoogleFonts.outfit(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -1824,11 +2035,20 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           ),
           child: ClipRRect(
             borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(14), bottomRight: Radius.circular(14)),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // 1. Imagem de Fundo da Capa
-                if (_isCustomCoverMode) ...[
+            child: _proposalStyle == 'verticalSplit'
+                ? SolarVerticalSplitCoverView(
+                    width: previewW,
+                    height: previewH,
+                    settings: _buildCurrentLiveSettings(),
+                    clientName: 'João da Silva Santos',
+                    proposalNumber: 'PROP-2026/001',
+                    kwp: '8.61',
+                  )
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 1. Imagem de Fundo da Capa
+                      if (_isCustomCoverMode) ...[
                   if (_customCoverImageBase64 != null && _customCoverImageBase64!.isNotEmpty)
                     Image.memory(
                       base64Decode(_customCoverImageBase64!),
@@ -1878,180 +2098,235 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   ),
                 ],
 
-                // 2. Retângulo e Título Interativo Movimentável por Drag & Drop
-                Positioned(
-                  left: (previewW * _coverBadgePosX).clamp(6.0, previewW - 130.0),
-                  top: (previewH * _coverBadgePosY).clamp(6.0, previewH * 0.60),
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        _coverBadgePosX = ((_coverBadgePosX * previewW + details.delta.dx) / previewW).clamp(0.02, 0.58);
-                        _coverBadgePosY = ((_coverBadgePosY * previewH + details.delta.dy) / previewH).clamp(0.02, 0.58);
-                      });
-                    },
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.move,
-                      child: Tooltip(
-                        message: 'Clique e arraste para posicionar o título na capa',
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 60),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                          decoration: _coverShowBadge
-                              ? BoxDecoration(
-                                  color: Color(_hexToInt(_coverBadgeColor)).withValues(alpha: _coverBadgeOpacity),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: Colors.white, width: 1.5),
-                                  boxShadow: const [
-                                    BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3)),
-                                  ],
-                                )
-                              : null,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                // 2. Frase de Impacto da Foto (Headline & Subheadline)
+                if (_settings.verticalSplitShowHeadline)
+                  Positioned(
+                    left: (previewW * _settings.verticalSplitHeadlineLeft).clamp(12.0, previewW * 0.70),
+                    top: (previewH * _settings.verticalSplitHeadlineTop).clamp(12.0, previewH * 0.50),
+                    child: SizedBox(
+                      width: previewW * 0.72,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _verticalSplitHeadlineCtrl.text.isNotEmpty
+                                ? _verticalSplitHeadlineCtrl.text
+                                : 'ENERGIA QUE MOVE O SEU AMANHÃ',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Container(
+                            width: 32,
+                            height: 2.5,
+                            decoration: BoxDecoration(
+                              color: Color(_hexToInt(_verticalSplitAccentColor)),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _verticalSplitSubheadlineCtrl.text.isNotEmpty
+                                ? _verticalSplitSubheadlineCtrl.text
+                                : 'MAIS ECONOMIA. MAIS LIBERDADE. MAIS FUTURO.',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 7.2,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white.withValues(alpha: 0.95),
+                              letterSpacing: 0.4,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // 3. Badges Informativos na Foto
+                if (_settings.verticalSplitShowLeftFooter) ...[
+                  Positioned(
+                    left: (previewW * _settings.verticalSplitLeftFooterLeft).clamp(12.0, previewW * 0.70),
+                    top: previewH - (((_settings.verticalSplitLeftFooterBottom <= 0.08) ? 0.32 : _settings.verticalSplitLeftFooterBottom) * previewH) - 24,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Color(_hexToInt(_verticalSplitAccentColor)).withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Color(_hexToInt(_verticalSplitAccentColor)), width: 0.8),
+                          ),
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              const Icon(Icons.verified_rounded, size: 8.5, color: Colors.white),
+                              const SizedBox(width: 3),
                               Text(
-                                titleText,
-                                style: GoogleFonts.outfit(
-                                  fontSize: (_coverTitleFontSize * 0.58).clamp(11.0, 24.0),
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(_hexToInt(_coverTitleColor)),
-                                  height: 1.1,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                subtitleText,
-                                style: GoogleFonts.inter(
-                                  fontSize: (_coverSubtitleFontSize * 0.58).clamp(7.0, 13.0),
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(_hexToInt(_coverSubtitleColor)),
-                                  height: 1.1,
-                                ),
+                                'GARANTIA 25 ANOS',
+                                style: GoogleFonts.montserrat(fontSize: 6.5, fontWeight: FontWeight.bold, color: Colors.white),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 3. Logomarca Interativa Movimentável por Drag & Drop
-                if (_coverShowLogo && _companyLogoBase64 != null && _companyLogoBase64!.isNotEmpty)
-                  Positioned(
-                    left: (previewW * _coverLogoPosX).clamp(0.0, previewW - _coverLogoWidth),
-                    top: (previewH * _coverLogoPosY).clamp(0.0, previewH * 0.85),
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
-                          _coverLogoPosX = ((_coverLogoPosX * previewW + details.delta.dx) / previewW).clamp(0.0, 0.78);
-                          _coverLogoPosY = ((_coverLogoPosY * previewH + details.delta.dy) / previewH).clamp(0.0, 0.85);
-                        });
-                      },
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.move,
-                        child: Tooltip(
-                          message: 'Clique e arraste para posicionar a logomarca na capa',
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 60),
-                            width: _coverLogoWidth,
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.8), width: 1.5),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
-                              ],
-                            ),
-                            child: Image.memory(
-                              base64Decode(_companyLogoBase64!),
-                              width: _coverLogoWidth,
-                              fit: BoxFit.contain,
-                            ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Color(_hexToInt(_verticalSplitAccentColor)).withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Color(_hexToInt(_verticalSplitAccentColor)), width: 0.8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.eco_rounded, size: 8.5, color: Colors.white),
+                              const SizedBox(width: 3),
+                              Text(
+                                'ENERGIA LIMPA',
+                                style: GoogleFonts.montserrat(fontSize: 6.5, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ],
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // 4. Bloco Institucional na Área Branca Preservada
+                if (_settings.verticalSplitShowRightBlock)
+                  Positioned(
+                    left: previewW - (((_settings.verticalSplitRightBlockRight <= 0.12) ? 0.53 : _settings.verticalSplitRightBlockRight) * previewW) - (previewW * 0.42),
+                    top: ((_settings.verticalSplitRightBlockTop <= 0.25) ? 0.72 : _settings.verticalSplitRightBlockTop) * previewH,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _verticalSplitRightTitleCtrl.text.isNotEmpty
+                              ? _verticalSplitRightTitleCtrl.text
+                              : 'PROPOSTA',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF334155),
+                            letterSpacing: 2.8,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          _verticalSplitRightSubtitleCtrl.text.isNotEmpty
+                              ? _verticalSplitRightSubtitleCtrl.text
+                              : 'SOLAR',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF0F172A),
+                            letterSpacing: 1.0,
+                            height: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Container(
+                          width: 28,
+                          height: 2.4,
+                          decoration: BoxDecoration(
+                            color: Color(_hexToInt(_verticalSplitAccentColor)),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          _verticalSplitRightTaglineCtrl.text.isNotEmpty
+                              ? _verticalSplitRightTaglineCtrl.text
+                              : 'SOLUÇÕES EM ENERGIA PARA UM FUTURO MELHOR',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 6.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF475569),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // 5. Logomarca Estática (Exibição Limpa ao Vivo)
+                if (_coverShowLogo && _companyLogoBase64 != null && _companyLogoBase64!.isNotEmpty)
+                  Positioned(
+                    left: (previewW * _coverLogoPosX).clamp(0.0, previewW - (_coverLogoWidth * scale)),
+                    top: (previewH * _coverLogoPosY).clamp(0.0, previewH * 0.85),
+                    child: Container(
+                      width: (_coverLogoWidth * scale).clamp(30.0, previewW * 0.6),
+                      padding: const EdgeInsets.all(2),
+                      child: Image.memory(
+                        base64Decode(_companyLogoBase64!),
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
 
-                // 4. Rodapé Informativo na Área Branca Preservada
-                Positioned(
-                  bottom: 14,
-                  left: 14,
-                  right: 14,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // Cliente & Usina
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'PROPOSTA COMERCIAL',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Container(
-                                  width: 3,
-                                  height: 3,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'PROP-2026/001',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Geração: 990 kWh/mês (8.61 kWp)',
-                              style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                            ),
-                            Text(
-                              'Cliente: João da Silva Santos',
-                              style: GoogleFonts.inter(fontSize: 7.5, color: const Color(0xFF475569)),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Empresa
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                // 6. Rodapé Informativo na Área Branca Preservada
+                if (_settings.verticalSplitShowRightFooter)
+                  Positioned(
+                    left: previewW - (((_settings.verticalSplitRightFooterRight <= 0.12) ? 0.50 : _settings.verticalSplitRightFooterRight) * previewW) - (previewW * 0.45),
+                    bottom: (previewH * _settings.verticalSplitRightFooterBottom).clamp(8.0, previewH * 0.20),
+                    child: SizedBox(
+                      width: previewW * 0.45,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _companyNameCtrl.text.trim().isNotEmpty ? _companyNameCtrl.text.trim() : 'EMPRESA INTEGRADORA',
-                            style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                          ),
-                          if (_companyPhoneCtrl.text.trim().isNotEmpty)
-                            Text(
-                              _companyPhoneCtrl.text.trim(),
-                              style: GoogleFonts.inter(fontSize: 7.5, color: const Color(0xFF475569)),
+                            _verticalSplitRightFooterCtrl.text.isNotEmpty
+                                ? _verticalSplitRightFooterCtrl.text
+                                : 'ENERGIA HOJE. MAIS POSSIBILIDADES AMANHÃ.',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 6.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF64748B),
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'PROP-2026/001 • Emissão: 06/09/2026',
+                            style: GoogleFonts.inter(fontSize: 6.0, color: const Color(0xFF94A3B8)),
+                          ),
                         ],
+                      ),
+                    ),
+                  ),
+
+                // Informações do Cliente & Usina (Canto inferior direito fixo)
+                Positioned(
+                  bottom: 8,
+                  right: 14,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Cliente: João da Silva Santos',
+                        style: GoogleFonts.inter(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Geração: 990 kWh/mês (8.61 kWp)',
+                        style: GoogleFonts.inter(
+                          fontSize: 7.0,
+                          fontWeight: FontWeight.w600,
+                          color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
+                        ),
                       ),
                     ],
                   ),
@@ -2063,48 +2338,26 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
 
         const SizedBox(height: 10),
 
-        // Botões de Ação Rápida de Posicionamento do Título
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _coverBadgePosX = 0.08;
-                  _coverBadgePosY = 0.06;
-                });
-              },
-              icon: const Icon(Icons.near_me_rounded, size: 14),
-              label: const Text('Topo Esquerdo', style: TextStyle(fontSize: 11)),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0284C7),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        // Barra informativa elegante indicando personalização visual
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF0284C7)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Arraste a logo, edite os textos e configure o separador no botão amarelo acima.',
+                  style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF475569)),
+                ),
               ),
-            ),
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _coverTitleCtrl.text = 'PROPOSTA COMERCIAL';
-                  _coverSubtitleCtrl.text = 'ENERGIA SOLAR FOTOVOLTAICA';
-                  _coverTitleColor = '#0284C7';
-                  _coverSubtitleColor = '#0F172A';
-                  _coverBadgeColor = '#FFFFFF';
-                  _coverBadgeOpacity = 0.92;
-                  _coverShowBadge = true;
-                  _coverTitleFontSize = 26.0;
-                  _coverSubtitleFontSize = 11.0;
-                  _coverBadgePosX = 0.08;
-                  _coverBadgePosY = 0.06;
-                });
-              },
-              icon: const Icon(Icons.restart_alt_rounded, size: 14),
-              label: const Text('Restaurar Padrões', style: TextStyle(fontSize: 11)),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF64748B),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         const SizedBox(height: 8),
@@ -2333,16 +2586,208 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     );
   }
 
-  /// Grade dos 100 Modelos de Capa com Paginação e Busca Rápida
+  /// Grade dos Modelos de Capa com Dropdown de Estilo, Paginação de 50 em 50 e Busca
   Widget _build100CoversPicker() {
-    final allCovers = _availableCovers.isNotEmpty ? _availableCovers : SolarSettingsService.getDefaultCoverList();
+    const pageSize = 50;
 
-    // Filtra por busca se houver
+    // Se for Estilo Vertical Split (100 Novos Modelos)
+    if (_proposalStyle == 'verticalSplit') {
+      final allVertical = SolarSettingsService.getDefaultVerticalSplitList();
+      final filteredVertical = _coverSearchQuery.trim().isEmpty
+          ? allVertical
+          : allVertical.where((m) =>
+              m.name.toLowerCase().contains(_coverSearchQuery.toLowerCase().trim()) ||
+              m.headline.toLowerCase().contains(_coverSearchQuery.toLowerCase().trim())).toList();
+
+      final totalPages = (filteredVertical.length / pageSize).ceil().clamp(1, 99);
+      final currentPage = _coverPage.clamp(1, totalPages);
+      final startIndex = (currentPage - 1) * pageSize;
+      final endIndex = (startIndex + pageSize).clamp(0, filteredVertical.length);
+      final pagedVertical = filteredVertical.sublist(startIndex, endIndex);
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildProposalStyleDropdown(),
+          const SizedBox(height: 14),
+
+          // Barra de Busca e Paginação (50 em 50)
+          _buildSearchAndPaginationBar(currentPage, totalPages, 'Buscar modelo vertical...'),
+          const SizedBox(height: 14),
+
+          // Grade com 50 modelos verticais por página
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.72,
+            ),
+            itemCount: pagedVertical.length,
+            itemBuilder: (context, idx) {
+              final model = pagedVertical[idx];
+              final isSelected = !_isCustomCoverMode &&
+                  _proposalStyle == 'verticalSplit' &&
+                  _selectedVerticalSplit == model.id;
+
+              return InkWell(
+                onTap: () => setState(() {
+                  _proposalStyle = 'verticalSplit';
+                  _selectedVerticalSplit = model.id;
+                  _verticalSplitDividerType = model.dividerType;
+                  _selectedWebBg = model.imageName;
+                  _verticalSplitHeadlineCtrl.text = model.headline;
+                  _verticalSplitSubheadlineCtrl.text = model.subheadline;
+                  _verticalSplitRightTaglineCtrl.text = model.rightTagline;
+                  _verticalSplitRightFooterCtrl.text = model.rightFooter;
+                  _verticalSplitAccentColor = model.accentColor;
+                  _isCustomCoverMode = false;
+                }),
+                borderRadius: BorderRadius.circular(10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFFEAB308) : const Color(0xFFCBD5E1),
+                      width: isSelected ? 3 : 1,
+                    ),
+                    boxShadow: isSelected
+                        ? [BoxShadow(color: const Color(0xFFEAB308).withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3))]
+                        : null,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(isSelected ? 7 : 9),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Mini preview completo do modelo com foto limpa, divisor vetorial e textos em Montserrat
+                        LayoutBuilder(
+                          builder: (ctx, box) {
+                            return SolarVerticalSplitCoverView(
+                              settings: _settings.copyWith(
+                                proposalStyle: 'verticalSplit',
+                                verticalSplitDividerType: model.dividerType,
+                                webBackgroundTemplate: model.imageName,
+                                verticalSplitHeadline: model.headline,
+                                verticalSplitSubheadline: model.subheadline,
+                                verticalSplitRightTitle: 'PROPOSTA',
+                                verticalSplitRightSubtitle: 'SOLAR',
+                                verticalSplitRightTagline: model.rightTagline,
+                                verticalSplitRightFooter: model.rightFooter,
+                                verticalSplitAccentColor: model.accentColor,
+                                verticalSplitFooterBadges: CoverFooterBadge.defaultBadges(),
+                              ),
+                              customWebBgUrl: SolarSettingsService.getWebBackgroundUrl(model.imageName),
+                              width: box.maxWidth,
+                              height: box.maxHeight,
+                            );
+                          },
+                        ),
+
+                        // Tag do Modelo
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              '#${model.id.replaceAll(RegExp(r'\D'), '')}',
+                              style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+
+                        // Chip do Tipo de Divisor
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: model.dividerType == 1
+                                  ? const Color(0xFFEAB308)
+                                  : model.dividerType == 2
+                                      ? const Color(0xFFF97316)
+                                      : const Color(0xFF0284C7),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              model.dividerType == 1
+                                  ? '⚡ RAIO'
+                                  : model.dividerType == 2
+                                      ? '☀️ SOL'
+                                      : '📐 DIAGONAL',
+                              style: const TextStyle(color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+
+                        // Nome & Headline no Rodapé do Card
+                        Positioned(
+                          left: 6,
+                          right: 6,
+                          bottom: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              model.name,
+                              style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+
+                        // Badge Ativo
+                        if (isSelected)
+                          Positioned(
+                            top: 28,
+                            right: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAB308),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.check_circle_rounded, size: 10, color: Colors.white),
+                                  SizedBox(width: 3),
+                                  Text('ATIVO', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      );
+    }
+
+    // ── Se for Estilo Modern (100 Capas Clássicas do Banco) ────────────────
+    final allCovers = _availableCovers.isNotEmpty ? _availableCovers : SolarSettingsService.getDefaultCoverList();
     final filtered = _coverSearchQuery.trim().isEmpty
         ? allCovers
         : allCovers.where((c) => c.toLowerCase().contains(_coverSearchQuery.toLowerCase().trim())).toList();
 
-    const pageSize = 20;
     final totalPages = (filtered.length / pageSize).ceil().clamp(1, 99);
     final currentPage = _coverPage.clamp(1, totalPages);
     final startIndex = (currentPage - 1) * pageSize;
@@ -2352,68 +2797,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            // Campo de Busca Rápida
-            Expanded(
-              child: SizedBox(
-                height: 38,
-                child: TextField(
-                  onChanged: (v) => setState(() {
-                    _coverSearchQuery = v;
-                    _coverPage = 1;
-                  }),
-                  decoration: InputDecoration(
-                    hintText: 'Buscar modelo (ex: 1, 15, 88)...',
-                    hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF64748B)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
+        _buildProposalStyleDropdown(),
+        const SizedBox(height: 14),
 
-            // Paginação (<< Página X de Y >>)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left_rounded, size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: currentPage > 1 ? () => setState(() => _coverPage = currentPage - 1) : null,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Pág. $currentPage de $totalPages',
-                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF334155)),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right_rounded, size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: currentPage < totalPages ? () => setState(() => _coverPage = currentPage + 1) : null,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 12),
+        // Barra de Busca e Paginação (50 em 50)
+        _buildSearchAndPaginationBar(currentPage, totalPages, 'Buscar modelo modern (ex: 1, 15, 88)...'),
+        const SizedBox(height: 14),
 
         if (_loadingCovers && _availableCovers.isEmpty)
           const Padding(
@@ -2421,7 +2810,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
             child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
           )
         else
-          // Grid com 20 capas por página
+          // Grid com 50 capas por página
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -2431,106 +2820,265 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               mainAxisSpacing: 10,
               childAspectRatio: 0.72,
             ),
-          itemCount: pagedCovers.length,
-          itemBuilder: (context, idx) {
-            final coverName = pagedCovers[idx];
-            final isSelected = !_isCustomCoverMode && _selectedCover == coverName;
-            final numStr = coverName.replaceAll(RegExp(r'\D'), '');
+            itemCount: pagedCovers.length,
+            itemBuilder: (context, idx) {
+              final coverName = pagedCovers[idx];
+              final isSelected = !_isCustomCoverMode && _proposalStyle == 'modern' && _selectedCover == coverName;
+              final numStr = coverName.replaceAll(RegExp(r'\D'), '');
 
-            return InkWell(
-              onTap: () => setState(() {
-                _selectedCover = coverName;
-                _isCustomCoverMode = false;
-              }),
-              borderRadius: BorderRadius.circular(10),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
-                    width: isSelected ? 3 : 1,
+              return InkWell(
+                onTap: () => setState(() {
+                  _selectedCover = coverName;
+                  _proposalStyle = 'modern';
+                  _isCustomCoverMode = false;
+                }),
+                borderRadius: BorderRadius.circular(10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFCBD5E1),
+                      width: isSelected ? 3 : 1,
+                    ),
+                    boxShadow: isSelected
+                        ? [BoxShadow(color: const Color(0xFF0284C7).withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3))]
+                        : null,
                   ),
-                  boxShadow: isSelected
-                      ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3))]
-                      : null,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(isSelected ? 7 : 9),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        SolarSettingsService.getSmallCoverUrl(coverName),
-                        fit: BoxFit.cover,
-                        loadingBuilder: (ctx, child, progress) {
-                          if (progress == null) return child;
-                          return Container(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(isSelected ? 7 : 9),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          SolarSettingsService.getSmallCoverUrl(coverName),
+                          fit: BoxFit.cover,
+                          loadingBuilder: (ctx, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              color: const Color(0xFF0F172A),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Color(0xFF38BDF8), strokeWidth: 2),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => Container(
                             color: const Color(0xFF0F172A),
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(color: Color(0xFFF59E0B), strokeWidth: 2),
+                            child: Center(
+                              child: Text(
+                                '#$numStr',
+                                style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFF0F172A),
-                          child: Center(
-                            child: Text(
-                              '#$numStr',
-                              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
                           ),
                         ),
-                      ),
 
-                      // Tag com o Número do Modelo
-                      Positioned(
-                        top: 5,
-                        left: 5,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(
-                            '#$numStr',
-                            style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-
-                      // Badge Ativo
-                      if (isSelected)
+                        // Tag com o Número do Modelo
                         Positioned(
                           top: 5,
-                          right: 5,
+                          left: 5,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B),
+                              color: Colors.black.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(5),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.check_circle_rounded, size: 11, color: Colors.white),
-                                SizedBox(width: 3),
-                                Text('ATIVO', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold)),
-                              ],
+                            child: Text(
+                              '#$numStr',
+                              style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
-                    ],
+
+                        // Badge Ativo
+                        if (isSelected)
+                          Positioned(
+                            top: 5,
+                            right: 5,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0284C7),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.check_circle_rounded, size: 11, color: Colors.white),
+                                  SizedBox(width: 3),
+                                  Text('ATIVO', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  /// Dropdown Seletor de Estilo das Propostas (Estilo Modern vs Estilo Vertical Split)
+  Widget _buildProposalStyleDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _proposalStyle == 'verticalSplit'
+                  ? const Color(0xFFEAB308).withValues(alpha: 0.15)
+                  : const Color(0xFF0284C7).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _proposalStyle == 'verticalSplit' ? Icons.view_sidebar_rounded : Icons.style_rounded,
+              color: _proposalStyle == 'verticalSplit' ? const Color(0xFFD97706) : const Color(0xFF0284C7),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ESTILO DAS PROPOSTAS',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF64748B),
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _proposalStyle,
+                    isDense: true,
+                    icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF334155)),
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF0F172A),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'modern',
+                        child: Text('Estilo Modern (100 Capas Clássicas do Banco)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'verticalSplit',
+                        child: Text('Estilo Vertical Split (100 Novos Modelos com Divisores)'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _proposalStyle = val;
+                          _coverPage = 1;
+                          _isCustomCoverMode = false;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _proposalStyle == 'verticalSplit' ? const Color(0xFFFEF08A) : const Color(0xFFE0F2FE),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _proposalStyle == 'verticalSplit' ? '100 Modelos Verticais' : '100 Capas Modern',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: _proposalStyle == 'verticalSplit' ? const Color(0xFF854D0E) : const Color(0xFF0369A1),
               ),
-            );
-          },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Barra de busca e paginação de 50 em 50
+  Widget _buildSearchAndPaginationBar(int currentPage, int totalPages, String hint) {
+    return Row(
+      children: [
+        // Campo de Busca Rápida
+        Expanded(
+          child: SizedBox(
+            height: 38,
+            child: TextField(
+              onChanged: (v) => setState(() {
+                _coverSearchQuery = v;
+                _coverPage = 1;
+              }),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF64748B)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Paginação (Pág. X de Y - 50 em 50)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: currentPage > 1 ? () => setState(() => _coverPage = currentPage - 1) : null,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Pág. $currentPage de $totalPages (50/pág)',
+                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF334155)),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: currentPage < totalPages ? () => setState(() => _coverPage = currentPage + 1) : null,
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -2694,202 +3242,14 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     );
   }
 
-  /// Editor do Título, Subtítulo, Fundo do Retângulo e Tipografia
+  /// Editor de Textos, Tipografia e Emblemas de acordo com o Estilo Selecionado
   Widget _buildTypographyAndBadgeEditor() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.edit_note_rounded, color: Color(0xFF0284C7), size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Personalização de Textos & Retângulo da Capa',
-                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Linha 1: Título da Capa
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Texto Principal (Título):'),
-                    const SizedBox(height: 4),
-                    TextFormField(
-                      controller: _coverTitleCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'PROPOSTA COMERCIAL',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.restore_rounded, size: 16, color: Color(0xFF64748B)),
-                          tooltip: 'Restaurar PROPOSTA COMERCIAL',
-                          onPressed: () => _coverTitleCtrl.text = 'PROPOSTA COMERCIAL',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Tamanho: ${_coverTitleFontSize.toInt()} pt'),
-                    Slider(
-                      value: _coverTitleFontSize,
-                      min: 16,
-                      max: 40,
-                      divisions: 24,
-                      activeColor: const Color(0xFF0284C7),
-                      onChanged: (v) => setState(() => _coverTitleFontSize = v),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-          _label('Cor do Título:'),
-          const SizedBox(height: 4),
-          _buildColorChipSelector(
-            selectedColorHex: _coverTitleColor,
-            onColorSelected: (c) => setState(() => _coverTitleColor = c),
-          ),
-
-          const SizedBox(height: 14),
-          const Divider(color: Color(0xFFE2E8F0)),
-          const SizedBox(height: 10),
-
-          // Linha 2: Subtítulo da Capa
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Subtítulo Menor:'),
-                    const SizedBox(height: 4),
-                    TextFormField(
-                      controller: _coverSubtitleCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'ENERGIA SOLAR FOTOVOLTAICA',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.restore_rounded, size: 16, color: Color(0xFF64748B)),
-                          tooltip: 'Restaurar ENERGIA SOLAR FOTOVOLTAICA',
-                          onPressed: () => _coverSubtitleCtrl.text = 'ENERGIA SOLAR FOTOVOLTAICA',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Tamanho: ${_coverSubtitleFontSize.toInt()} pt'),
-                    Slider(
-                      value: _coverSubtitleFontSize,
-                      min: 8,
-                      max: 20,
-                      divisions: 12,
-                      activeColor: const Color(0xFF0284C7),
-                      onChanged: (v) => setState(() => _coverSubtitleFontSize = v),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-          _label('Cor do Subtítulo:'),
-          const SizedBox(height: 4),
-          _buildColorChipSelector(
-            selectedColorHex: _coverSubtitleColor,
-            onColorSelected: (c) => setState(() => _coverSubtitleColor = c),
-          ),
-
-          const SizedBox(height: 14),
-          const Divider(color: Color(0xFFE2E8F0)),
-          const SizedBox(height: 10),
-
-          // Linha 3: Retângulo / Badge de Fundo
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _label('Retângulo de Fundo do Título (Card):'),
-              Switch.adaptive(
-                value: _coverShowBadge,
-                activeTrackColor: const Color(0xFF0284C7),
-                onChanged: (v) => setState(() => _coverShowBadge = v),
-              ),
-            ],
-          ),
-
-          if (_coverShowBadge) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _label('Cor de Fundo do Retângulo:'),
-                      const SizedBox(height: 4),
-                      _buildColorChipSelector(
-                        selectedColorHex: _coverBadgeColor,
-                        onColorSelected: (c) => setState(() => _coverBadgeColor = c),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _label('Opacidade: ${(_coverBadgeOpacity * 100).toInt()}%'),
-                      Slider(
-                        value: _coverBadgeOpacity,
-                        min: 0.1,
-                        max: 1.0,
-                        divisions: 18,
-                        activeColor: const Color(0xFF0284C7),
-                        onChanged: (v) => setState(() => _coverBadgeOpacity = v),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
+    // Ambos os estilos (Modern e Vertical Split) são agora 100% padronizados
+    // e personalizados dentro do Estúdio Visual ("PERSONALIZAR CAPA & VISUAL")
+    return const SizedBox.shrink();
   }
+
+
 
   /// Seletor de Cores com Chips Rápidos
   Widget _buildColorChipSelector({

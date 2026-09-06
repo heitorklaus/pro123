@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../../settings/data/services/solar_settings_service.dart';
 import '../../../settings/domain/models/solar_settings_model.dart';
 import '../../domain/models/proposal_item_model.dart';
@@ -28,38 +28,29 @@ class SolarProposalPdfService {
           ? proposal.createdByUserId!
           : 'default_user';
       final cleanPropNumber = proposal.proposalNumber.replaceAll('/', '_').replaceAll('-', '_');
-      final fileName = '${cleanPropNumber}_proposta.pdf';
-      final path = 'propostas_mavis/$companyId/$userId/$fileName';
+      final fileName = 'proposta_${cleanPropNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final storagePath = 'propostas_mavis/$companyId/$userId/$fileName';
 
-      final storage = FirebaseStorage.instanceFor(
-        app: Firebase.app(),
-        bucket: 'solardino-aea02.appspot.com',
-      );
-      final ref = storage.ref().child(path);
+      final ref = FirebaseStorage.instance.ref().child(storagePath);
       final metadata = SettableMetadata(
         contentType: 'application/pdf',
         customMetadata: {
           'proposalId': proposal.id,
           'proposalNumber': proposal.proposalNumber,
           'companyId': companyId,
-          'userId': userId,
           'clientName': proposal.clientName,
           'totalAmount': proposal.totalAmount.toString(),
-          'generatedAt': DateTime.now().toIso8601String(),
         },
       );
 
+      final uploadTask = await ref.putData(pdfBytes, metadata);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
 
-      await ref.putData(pdfBytes, metadata);
-      final downloadUrl = await ref.getDownloadURL();
-
-      if (proposal.id.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('proposals').doc(proposal.id).update({
-          'pdfUrl': downloadUrl,
-          'pdfPath': path,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
+      // Grava a URL gerada no Firestore dentro do documento da proposta
+      await FirebaseFirestore.instance.collection('proposals').doc(proposal.id).update({
+        'pdfUrl': downloadUrl,
+        'pdfGeneratedAt': FieldValue.serverTimestamp(),
+      });
 
       return downloadUrl;
     } catch (e) {
@@ -67,30 +58,80 @@ class SolarProposalPdfService {
     }
   }
 
-  /// Gera a proposta comercial solar completa de 6 páginas com design minimalista programático
+  /// Helper para obter fontes do Google Fonts no PDF
+  static Future<pw.Font?> _getPdfFont(String family, {bool isBlack = false, bool isBold = false}) async {
+    try {
+      switch (family.toLowerCase()) {
+        case 'roboto':
+          return isBlack || isBold ? await PdfGoogleFonts.robotoBold() : await PdfGoogleFonts.robotoRegular();
+        case 'inter':
+          return isBlack || isBold ? await PdfGoogleFonts.interBold() : await PdfGoogleFonts.interRegular();
+        case 'oswald':
+          return isBlack || isBold ? await PdfGoogleFonts.oswaldBold() : await PdfGoogleFonts.oswaldRegular();
+        case 'poppins':
+          return isBlack || isBold ? await PdfGoogleFonts.poppinsBold() : await PdfGoogleFonts.poppinsRegular();
+        case 'montserrat':
+        default:
+          if (isBlack) return await PdfGoogleFonts.montserratBlack();
+          if (isBold) return await PdfGoogleFonts.montserratBold();
+          return await PdfGoogleFonts.montserratRegular();
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Gera o arquivo PDF completo da proposta solar comercial em 6 páginas A4
   static Future<Uint8List> generateSolarProposalPdf(
     ProposalModel proposal, {
     SolarSettingsModel? solarSettings,
-    bool autoUploadToStorage = true,
+    bool autoUploadToStorage = false,
   }) async {
-
     final pdf = pw.Document();
-
-    // Carrega ou usa configurações fornecidas
     final settings = solarSettings ?? await SolarSettingsService.loadSettings(companyId: proposal.companyId);
-
-    // Cor primária dinâmica da proposta
     final primaryColor = PdfColor.fromInt(settings.themeColorValue);
 
-    // Carrega a imagem da capa (Custom Base64 / Firebase Storage)
+    // Carrega fontes Montserrat e fontes customizadas oficiais via PdfGoogleFonts
+    pw.Font? fontMontserratBlack;
+    pw.Font? fontMontserratBold;
+    pw.Font? fontMontserratSemiBold;
+    pw.Font? headlineFontBold;
+    pw.Font? headlineFontBlack;
+    pw.Font? rightBlockFontBold;
+    pw.Font? rightBlockFontBlack;
+    pw.Font? footerFontBold;
+    try {
+      fontMontserratBlack = await PdfGoogleFonts.montserratBlack();
+      fontMontserratBold = await PdfGoogleFonts.montserratBold();
+      fontMontserratSemiBold = await PdfGoogleFonts.montserratSemiBold();
+      headlineFontBold = await _getPdfFont(settings.coverHeadlineFont, isBold: true);
+      headlineFontBlack = await _getPdfFont(settings.coverHeadlineFont, isBlack: true);
+      rightBlockFontBold = await _getPdfFont(settings.coverRightBlockFont, isBold: true);
+      rightBlockFontBlack = await _getPdfFont(settings.coverRightBlockFont, isBlack: true);
+      footerFontBold = await _getPdfFont(settings.coverFooterFont, isBold: true);
+    } catch (_) {}
+
+    // Carrega a imagem da capa (Custom Base64 / Firebase Storage / Web Background)
     Uint8List? coverImageBytes;
-    if (settings.isCustomCoverMode && settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
+    if (settings.proposalStyle == 'verticalSplit') {
+      try {
+        coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(settings.webBackgroundTemplate);
+      } catch (_) {}
+      if (coverImageBytes == null) {
+        final bgs = SolarSettingsService.getDefaultWebBackgroundList();
+        if (bgs.isNotEmpty) {
+          try {
+            coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(bgs.first);
+          } catch (_) {}
+        }
+      }
+    } else if (settings.isCustomCoverMode && settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
       try {
         coverImageBytes = base64Decode(settings.customCoverImageBase64!);
       } catch (_) {}
     }
 
-    if (coverImageBytes == null) {
+    if (coverImageBytes == null && settings.proposalStyle != 'verticalSplit') {
       try {
         coverImageBytes = await SolarSettingsService.fetchCoverBytes(settings.selectedCoverTemplate);
       } catch (_) {}
@@ -166,6 +207,14 @@ class SolarProposalPdfService {
           generationMonthly: generationMonthly,
           kwp: kwp,
           primaryColor: primaryColor,
+          fontMontserratBlack: fontMontserratBlack,
+          fontMontserratBold: fontMontserratBold,
+          fontMontserratSemiBold: fontMontserratSemiBold,
+          headlineFontBold: headlineFontBold,
+          headlineFontBlack: headlineFontBlack,
+          rightBlockFontBold: rightBlockFontBold,
+          rightBlockFontBlack: rightBlockFontBlack,
+          footerFontBold: footerFontBold,
         ),
       ),
     );
@@ -301,6 +350,518 @@ class SolarProposalPdfService {
   // ───────────────────────────────────────────────────────────────────────────
   // CONSTRUÇÃO DA CAPA (PÁGINA 1)
   // ───────────────────────────────────────────────────────────────────────────
+  static pw.Widget _buildVerticalSplitPdfCover({
+    required Uint8List? coverBytes,
+    required ProposalModel proposal,
+    required SolarSettingsModel settings,
+    required double generationMonthly,
+    required double kwp,
+    pw.Font? fontMontserratBlack,
+    pw.Font? fontMontserratBold,
+    pw.Font? fontMontserratSemiBold,
+    pw.Font? headlineFontBold,
+    pw.Font? headlineFontBlack,
+    pw.Font? rightBlockFontBold,
+    pw.Font? rightBlockFontBlack,
+    pw.Font? footerFontBold,
+  }) {
+    final accentHex = settings.verticalSplitAccentColor.replaceAll('#', '').trim();
+    final accentSvgColor = '#$accentHex';
+    final accentPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
+    final divType = settings.verticalSplitDividerType;
+    final badges = settings.verticalSplitFooterBadges;
+
+    // SVG Overlay vetorial: máscara branca cobrindo o lado direito e linha dourada
+    String svgOverlay;
+    if (divType == 1) {
+      // Tipo 1: Raio de Energia (Zig-zag) — SEM watermark de sol
+      svgOverlay = '''
+<svg viewBox="0 0 595.28 841.89" width="595.28" height="841.89" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="405,0 595.28,0 595.28,841.89 208,841.89 321,547 250,547 386,269 285,269" fill="#FFFFFF" />
+  <polyline points="405,0 285,269 386,269 250,547 321,547 208,841.89" fill="none" stroke="$accentSvgColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
+''';
+    } else if (divType == 2) {
+      // Tipo 2: Sol Radiante (Arco) — com raios solares
+      svgOverlay = '''
+<svg viewBox="0 0 595.28 841.89" width="595.28" height="841.89" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 210 0 L 595.28 0 L 595.28 841.89 L 360 841.89 L 260 620 A 210 210 0 0 0 260 210 Z" fill="#FFFFFF" />
+  <path d="M 210 0 L 260 210 A 210 210 0 0 1 260 620 L 360 841.89" fill="none" stroke="$accentSvgColor" stroke-width="4.5" stroke-linecap="round" />
+  <line x1="380" y1="260" x2="430" y2="230" stroke="$accentSvgColor" stroke-width="3" stroke-linecap="round" />
+  <line x1="420" y1="340" x2="480" y2="330" stroke="$accentSvgColor" stroke-width="3" stroke-linecap="round" />
+  <line x1="430" y1="430" x2="490" y2="430" stroke="$accentSvgColor" stroke-width="3" stroke-linecap="round" />
+  <line x1="410" y1="510" x2="470" y2="525" stroke="$accentSvgColor" stroke-width="3" stroke-linecap="round" />
+  <line x1="360" y1="580" x2="410" y2="610" stroke="$accentSvgColor" stroke-width="3" stroke-linecap="round" />
+  <circle cx="580" cy="740" r="230" fill="none" stroke="#F1F5F9" stroke-width="32" />
+</svg>
+''';
+    } else {
+      // Tipo 0: Corte Diagonal Reto — SEM watermark de sol
+      svgOverlay = '''
+<svg viewBox="0 0 595.28 841.89" width="595.28" height="841.89" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="392,0 595.28,0 595.28,841.89 208,841.89" fill="#FFFFFF" />
+  <line x1="392" y1="0" x2="208" y2="841.89" stroke="$accentSvgColor" stroke-width="4.5" stroke-linecap="round" />
+</svg>
+''';
+    }
+
+    const double a4W = 595.28;
+    const double a4H = 841.89;
+
+    final double effectiveRightBlockTop = settings.verticalSplitRightBlockTop * a4H;
+    final double effectiveRightBlockRight = settings.verticalSplitRightBlockRight * a4W;
+    final double effectiveHeadlineLeft = settings.verticalSplitHeadlineLeft * a4W;
+    final double effectiveHeadlineTop = settings.verticalSplitHeadlineTop * a4H;
+    final double effectiveLeftFooterLeft = settings.verticalSplitLeftFooterLeft * a4W;
+    final double effectiveLeftFooterBottom = settings.verticalSplitLeftFooterBottom * a4H;
+    final double effectiveRightFooterRight = settings.verticalSplitRightFooterRight * a4W;
+    final double effectiveRightFooterBottom = settings.verticalSplitRightFooterBottom * a4H;
+
+    Uint8List? logoBytes;
+    if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
+      try {
+        logoBytes = base64Decode(settings.companyLogoBase64!);
+      } catch (_) {}
+    }
+
+    return pw.Stack(
+      fit: pw.StackFit.expand,
+      children: [
+        // 1. Imagem de fundo limpa da Capa
+        if (coverBytes != null)
+          pw.Image(pw.MemoryImage(coverBytes), fit: pw.BoxFit.cover)
+        else
+          pw.Container(color: PdfColor.fromInt(0xFF0F172A)),
+
+        // 2. Sobreposição Vetorial
+        pw.SvgImage(svg: svgOverlay),
+
+        // 3. Textos do Lado Esquerdo (Foto)
+        if (settings.verticalSplitShowHeadline)
+          pw.Positioned(
+            left: effectiveHeadlineLeft,
+            top: effectiveHeadlineTop,
+            child: pw.SizedBox(
+              width: a4W * 0.44,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    settings.verticalSplitHeadline,
+                    style: pw.TextStyle(
+                      font: headlineFontBlack ?? fontMontserratBlack,
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverHeadlineColorValue),
+                      lineSpacing: 2,
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Container(
+                    width: 48,
+                    height: 4,
+                    color: accentPdfColor,
+                  ),
+                  pw.SizedBox(height: 12),
+                  pw.Text(
+                    settings.verticalSplitSubheadline,
+                    style: pw.TextStyle(
+                      font: headlineFontBold ?? fontMontserratBold,
+                      fontSize: 11.0,
+                      color: PdfColor.fromInt(settings.coverHeadlineColorValue),
+                      lineSpacing: 1.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // 4. Rodapé do Lado Esquerdo
+        if (settings.verticalSplitShowLeftFooter)
+          pw.Positioned(
+            left: effectiveLeftFooterLeft,
+            bottom: effectiveLeftFooterBottom,
+            child: pw.SizedBox(
+              width: a4W * settings.verticalSplitLeftFooterWidth.clamp(0.20, 0.95),
+              child: divType == 2
+                  ? pw.Text(
+                      settings.verticalSplitLeftFooter,
+                      style: pw.TextStyle(
+                        font: fontMontserratBold,
+                        fontSize: 9.5,
+                        color: PdfColors.white,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    )
+                  : settings.verticalSplitBadgesLayout == 'vertical'
+                      ? pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          mainAxisSize: pw.MainAxisSize.min,
+                          children: [
+                            for (int i = 0; i < badges.length; i++)
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.only(bottom: 6),
+                                child: pw.Row(
+                                  mainAxisSize: pw.MainAxisSize.min,
+                                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                  children: [
+                                    _buildPdfCoverCustomIcon(badges[i].iconKey, 12, accentPdfColor),
+                                    pw.SizedBox(width: 5),
+                                    pw.Text(
+                                      badges[i].label,
+                                      style: pw.TextStyle(
+                                        font: fontMontserratBold,
+                                        fontSize: 9.0,
+                                        fontWeight: pw.FontWeight.bold,
+                                        color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        )
+                      : settings.verticalSplitBadgesLayout == 'wrap'
+                          ? pw.Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              crossAxisAlignment: pw.WrapCrossAlignment.center,
+                              children: [
+                                for (int i = 0; i < badges.length; i++) ...[
+                                  pw.Row(
+                                    mainAxisSize: pw.MainAxisSize.min,
+                                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                    children: [
+                                      _buildPdfCoverCustomIcon(badges[i].iconKey, 12, accentPdfColor),
+                                      pw.SizedBox(width: 5),
+                                      pw.Text(
+                                        badges[i].label,
+                                        style: pw.TextStyle(
+                                          font: fontMontserratBold,
+                                          fontSize: 9.0,
+                                          fontWeight: pw.FontWeight.bold,
+                                          color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (i < badges.length - 1)
+                                    pw.Container(
+                                      width: 1.5,
+                                      height: 12,
+                                      color: PdfColor.fromInt(0x66FFFFFF),
+                                      margin: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                    ),
+                                ],
+                              ],
+                            )
+                          : pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                for (int i = 0; i < badges.length; i++) ...[
+                                  pw.Row(
+                                    mainAxisSize: pw.MainAxisSize.min,
+                                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                    children: [
+                                      _buildPdfCoverCustomIcon(badges[i].iconKey, 12, accentPdfColor),
+                                      pw.SizedBox(width: 5),
+                                      pw.Text(
+                                        badges[i].label,
+                                        style: pw.TextStyle(
+                                          font: fontMontserratBold,
+                                          fontSize: 9.0,
+                                          fontWeight: pw.FontWeight.bold,
+                                          color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (i < badges.length - 1)
+                                    pw.Container(
+                                      width: 1.5,
+                                      height: 12,
+                                      color: PdfColor.fromInt(0x66FFFFFF),
+                                      margin: const pw.EdgeInsets.symmetric(horizontal: 6),
+                                    ),
+                                ],
+                              ],
+                            ),
+            ),
+          ),
+
+        // 5. Lado Direito (Institucional - Montserrat & alinhamento harmônico)
+        if (settings.verticalSplitShowRightBlock)
+          pw.Positioned(
+            right: effectiveRightBlockRight,
+            top: effectiveRightBlockTop,
+            child: pw.SizedBox(
+              width: a4W * 0.42,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    settings.verticalSplitRightTitle,
+                    style: pw.TextStyle(
+                      font: rightBlockFontBold ?? fontMontserratBold,
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverRightTitleColorValue),
+                      letterSpacing: 5.5,
+                    ),
+                  ),
+                  pw.SizedBox(height: 3),
+                  pw.Text(
+                    settings.verticalSplitRightSubtitle,
+                    style: pw.TextStyle(
+                      font: rightBlockFontBlack ?? fontMontserratBlack,
+                      fontSize: 46,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverRightSubtitleColorValue),
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                  pw.SizedBox(height: 12),
+                  pw.Container(
+                    width: 54,
+                    height: 4.5,
+                    color: accentPdfColor,
+                  ),
+                  pw.SizedBox(height: 14),
+                  pw.Text(
+                    settings.verticalSplitRightTagline,
+                    style: pw.TextStyle(
+                      font: rightBlockFontBold ?? fontMontserratBold,
+                      fontSize: 11.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverRightTaglineColorValue),
+                      lineSpacing: 2,
+                    ),
+                  ),
+                  if (divType == 2 && badges.isNotEmpty) ...[
+                    pw.SizedBox(height: 24),
+                    for (final badge in badges) ...[
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(bottom: 10),
+                        child: pw.Row(
+                          children: [
+                            _buildPdfCoverCustomIcon(badge.iconKey, 14, accentPdfColor),
+                            pw.SizedBox(width: 8),
+                            pw.Text(
+                              badge.label,
+                              style: pw.TextStyle(
+                                font: fontMontserratBold,
+                                fontSize: 10.5,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColor.fromInt(0xFF1E293B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+        // 6. Logomarca da Empresa (se habilitada)
+        if (logoBytes != null && settings.coverShowLogo)
+          pw.Positioned(
+            left: a4W * settings.coverLogoPositionX,
+            top: a4H * settings.coverLogoPositionY,
+            child: pw.Image(
+              pw.MemoryImage(logoBytes),
+              width: settings.coverLogoWidth,
+              fit: pw.BoxFit.contain,
+            ),
+          ),
+
+        // 7. Rodapé do Lado Direito (somente texto)
+        if (settings.verticalSplitShowRightFooter)
+          pw.Positioned(
+            right: effectiveRightFooterRight,
+            bottom: effectiveRightFooterBottom,
+            child: pw.SizedBox(
+              width: a4W * 0.40,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    settings.verticalSplitRightFooter,
+                    style: pw.TextStyle(
+                      font: footerFontBold ?? fontMontserratSemiBold,
+                      fontSize: 10.0,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverFooterColorValue),
+                      lineSpacing: 1.8,
+                    ),
+                  ),
+                  if (proposal.clientName.isNotEmpty) ...[
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      'Cliente: ${proposal.clientName}',
+                      style: pw.TextStyle(
+                        font: fontMontserratBold,
+                        fontSize: 10.0,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColor.fromInt(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    'Proposta: PROP-${proposal.proposalNumber}  |  $kwp kWp',
+                    style: pw.TextStyle(
+                      fontSize: 7.5,
+                      color: PdfColor.fromInt(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // 8. Textos Personalizados Extras Adicionados pelo Usuário
+        for (final textItem in settings.customTextItems)
+          pw.Positioned(
+            left: textItem.x * a4W,
+            top: textItem.y * a4H,
+            child: pw.Text(
+              textItem.text,
+              style: pw.TextStyle(
+                font: textItem.isBold ? fontMontserratBold : fontMontserratSemiBold,
+                fontSize: textItem.fontSize,
+                fontWeight: textItem.isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                color: PdfColor.fromInt(textItem.colorValue),
+              ),
+            ),
+          ),
+
+        // 9. Ícones Personalizados Extras Adicionados pelo Usuário
+        for (final iconItem in settings.customIconItems)
+          pw.Positioned(
+            left: iconItem.x * a4W,
+            top: iconItem.y * a4H,
+            child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size, PdfColor.fromInt(iconItem.colorValue)),
+          ),
+      ],
+    );
+  }
+
+  static pw.Widget _buildPdfCoverCustomIcon(String iconKey, double size, PdfColor color) {
+    final hex = '#${color.toInt().toRadixString(16).padLeft(8, '0').substring(2)}';
+    String svgContent;
+    switch (iconKey.toLowerCase()) {
+      case 'bolt':
+      case 'energia':
+      case 'raio':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="$hex"/></svg>';
+        break;
+      case 'chart':
+      case 'grafico':
+      case 'valorizacao':
+      case 'bar_chart':
+      case 'trending_up':
+      case 'show_chart':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><rect x="3" y="12" width="4.5" height="9" rx="1" fill="$hex"/><rect x="9.75" y="4" width="4.5" height="17" rx="1" fill="$hex"/><rect x="16.5" y="8" width="4.5" height="13" rx="1" fill="$hex"/></svg>';
+        break;
+      case 'coins':
+      case 'moedas':
+      case 'dinheiro':
+      case 'money':
+      case 'attach_money':
+      case 'savings':
+      case 'economia':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5h-2v-1.5c-1.3-.2-2-1.1-2-2.5h1.5c0 .8.5 1.5 1.5 1.5s1.5-.7 1.5-1.5c0-.9-.7-1.3-1.8-1.7-1.5-.5-2.7-1.1-2.7-2.8 0-1.4.9-2.3 2-2.5V4.5h2V6c1.1.2 1.8 1 1.8 2.2h-1.5c0-.7-.4-1.2-1.3-1.2s-1.2.5-1.2 1.2c0 .8.6 1.1 1.6 1.5 1.7.6 2.9 1.2 2.9 3 0 1.5-.9 2.5-2 2.8v1.5z" fill="$hex"/></svg>';
+        break;
+      case 'sun':
+      case 'sol':
+      case 'solar_power':
+      case 'painel':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><circle cx="12" cy="12" r="5" fill="$hex"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="$hex" stroke-width="2.5" stroke-linecap="round"/></svg>';
+        break;
+      case 'star':
+      case 'estrela':
+      case 'favorito':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="$hex"/></svg>';
+        break;
+      case 'shield':
+      case 'seguranca':
+      case 'garantia':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="$hex"/></svg>';
+        break;
+      case 'verified':
+      case 'check':
+      case 'qualidade':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2L9.19 3.63 6 3.17 4.13 5.8 1.5 7.19 1.72 10.42 0 12.81 1.72 15.2 1.5 18.43 4.13 19.82 6 22.45 9.19 21.99 12 23.62 14.81 21.99 18 22.45 19.87 19.82 22.5 18.43 22.28 15.2 24 12.81 22.28 10.42 22.5 7.19 19.87 5.8 18 3.17 14.81 3.63 12 2zm-1.5 14.5l-4-4 1.41-1.41L10.5 13.67l6.59-6.59 1.41 1.41-8 8z" fill="$hex"/></svg>';
+        break;
+      case 'battery':
+      case 'bateria':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM11 20v-5.5H9L13 7v5.5h2L11 20z" fill="$hex"/></svg>';
+        break;
+      case 'percent':
+      case 'desconto':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M7.5 4C5.57 4 4 5.57 4 7.5S5.57 11 7.5 11 11 9.43 11 7.5 9.43 4 7.5 4zm0 4.5c-.83 0-1.5-.67-1.5-1.5S6.67 5.5 7.5 5.5 9 6.17 9 7 8.33 8.5 7.5 8.5zM19.71 4.29a1 1 0 00-1.42 0l-14 14a1 1 0 101.42 1.42l14-14a1 1 0 000-1.42zM16.5 13c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5zm0 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="$hex"/></svg>';
+        break;
+      case 'handshake':
+      case 'parceria':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z" fill="$hex"/></svg>';
+        break;
+      case 'rocket':
+      case 'foguete':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2.5s4 3 4 8.5c0 2-.5 4-1.5 5.5l1.5 3.5-3-1-3 1 1.5-3.5C10.5 15 10 13 10 11c0-5.5 4-8.5 4-8.5z" fill="$hex"/><circle cx="12" cy="9" r="1.5" fill="#FFFFFF"/></svg>';
+        break;
+      case 'diamond':
+      case 'diamante':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M19 3H5L2 9l10 12L22 9l-3-6zM9 5h6l1.5 3h-9L9 5zM4.5 9l2-3.5h1.8L6.8 9H4.5zm7.5 9.5L6.2 10h11.6L12 18.5zm3.7-9.5l-1.5-3.5h1.8l2 3.5h-2.3z" fill="$hex"/></svg>';
+        break;
+      case 'water_drop':
+      case 'agua':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z" fill="$hex"/></svg>';
+        break;
+      case 'phone':
+      case 'whatsapp':
+      case 'telefone':
+      case 'contato':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="$hex"/></svg>';
+        break;
+      case 'location':
+      case 'localizacao':
+      case 'endereco':
+      case 'map':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="$hex"/></svg>';
+        break;
+      case 'mail':
+      case 'email':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="$hex"/></svg>';
+        break;
+      case 'lightbulb':
+      case 'lampada':
+      case 'ideia':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z" fill="$hex"/></svg>';
+        break;
+      case 'home':
+      case 'casa':
+      case 'residencia':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="$hex"/></svg>';
+        break;
+      case 'leaf':
+      case 'eco':
+      case 'nature':
+      case 'sustentabilidade':
+      default:
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.52-12.5 4.5" fill="none" stroke="$hex" stroke-width="2.5" stroke-linecap="round"/></svg>';
+        break;
+    }
+    return pw.SvgImage(svg: svgContent, width: size, height: size);
+  }
+
   static pw.Widget _buildCoverPage({
     required Uint8List? coverBytes,
     required ProposalModel proposal,
@@ -308,21 +869,44 @@ class SolarProposalPdfService {
     required double generationMonthly,
     required double kwp,
     required PdfColor primaryColor,
+    pw.Font? fontMontserratBlack,
+    pw.Font? fontMontserratBold,
+    pw.Font? fontMontserratSemiBold,
+    pw.Font? headlineFontBold,
+    pw.Font? headlineFontBlack,
+    pw.Font? rightBlockFontBold,
+    pw.Font? rightBlockFontBlack,
+    pw.Font? footerFontBold,
   }) {
+    if (settings.proposalStyle == 'verticalSplit') {
+      return _buildVerticalSplitPdfCover(
+        coverBytes: coverBytes,
+        proposal: proposal,
+        settings: settings,
+        generationMonthly: generationMonthly,
+        kwp: kwp,
+        fontMontserratBlack: fontMontserratBlack,
+        fontMontserratBold: fontMontserratBold,
+        fontMontserratSemiBold: fontMontserratSemiBold,
+        headlineFontBold: headlineFontBold,
+        headlineFontBlack: headlineFontBlack,
+        rightBlockFontBold: rightBlockFontBold,
+        rightBlockFontBlack: rightBlockFontBlack,
+        footerFontBold: footerFontBold,
+      );
+    }
+
     // Dimensões A4 em pontos (595.28 x 841.89)
     const a4W = 595.28;
     const a4H = 841.89;
-
-    final badgeLeft = (a4W * settings.coverBadgePositionX).clamp(16.0, 360.0);
-    final badgeTop = (a4H * settings.coverBadgePositionY).clamp(16.0, 480.0);
-
-    final rawColor = PdfColor.fromInt(settings.coverBadgeColorValue);
-    final badgeBgColor = PdfColor(rawColor.red, rawColor.green, rawColor.blue, settings.coverBadgeOpacity);
+    final accentPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
+    final accentHex = settings.verticalSplitAccentColor.replaceAll('#', '').trim();
+    final accentSvgColor = '#$accentHex';
 
     return pw.Stack(
       fit: pw.StackFit.expand,
       children: [
-        // Imagem de Fundo da Capa (com separador e rodapé 100% branco)
+        // 1. Imagem de Fundo da Capa
         if (coverBytes != null)
           pw.Image(pw.MemoryImage(coverBytes), fit: pw.BoxFit.cover)
         else
@@ -330,170 +914,258 @@ class SolarProposalPdfService {
             color: PdfColors.white,
           ),
 
-        // Retângulo e Título Customizável Posicionado pelo Usuário
-        pw.Positioned(
-          left: badgeLeft,
-          top: badgeTop,
-          child: pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: settings.coverShowBadge
-                ? pw.BoxDecoration(
-                    color: badgeBgColor,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
-                    border: pw.Border.all(color: PdfColors.white, width: 1.5),
-                  )
-                : null,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+        // 2. Separador Vetorial se for Capa Customizada (Upload próprio)
+        if (settings.isCustomCoverMode)
+          pw.SvgImage(
+            svg: '''
+<svg viewBox="0 0 595.28 841.89" width="595.28" height="841.89" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 0 589 Q 297.64 565 595.28 589 L 595.28 841.89 L 0 841.89 Z" fill="#FFFFFF" />
+  <path d="M 0 589 Q 297.64 565 595.28 589" fill="none" stroke="$accentSvgColor" stroke-width="4.5" stroke-linecap="round" />
+</svg>
+''',
+          ),
+
+        // 3. Frase de Impacto da Foto (Headline & Subheadline)
+        if (settings.verticalSplitShowHeadline)
+          pw.Positioned(
+            left: (a4W * settings.verticalSplitHeadlineLeft).clamp(0.0, a4W * 0.90),
+            top: (a4H * settings.verticalSplitHeadlineTop).clamp(0.0, a4H * 0.90),
+            child: pw.SizedBox(
+              width: a4W * 0.70,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    settings.verticalSplitHeadline,
+                    style: pw.TextStyle(
+                      font: headlineFontBlack ?? fontMontserratBlack,
+                      fontSize: 22,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverHeadlineColorValue),
+                      lineSpacing: 2,
+                    ),
+                  ),
+                  pw.SizedBox(height: 6),
+                  pw.Container(
+                    width: 44,
+                    height: 3.5,
+                    color: accentPdfColor,
+                  ),
+                  pw.SizedBox(height: 10),
+                  pw.Text(
+                    settings.verticalSplitSubheadline,
+                    style: pw.TextStyle(
+                      font: headlineFontBold ?? fontMontserratBold,
+                      fontSize: 10.5,
+                      color: PdfColor.fromInt(settings.coverHeadlineColorValue),
+                      lineSpacing: 1.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // 4. Badges Informativos na Foto
+        if (settings.verticalSplitShowLeftFooter && settings.verticalSplitFooterBadges.isNotEmpty)
+          pw.Positioned(
+            left: (a4W * settings.verticalSplitLeftFooterLeft).clamp(0.0, a4W * 0.90),
+            top: a4H - (settings.verticalSplitLeftFooterBottom * a4H) - 24,
+            child: pw.Row(
               mainAxisSize: pw.MainAxisSize.min,
               children: [
+                for (final badge in settings.verticalSplitFooterBadges) ...[
+                  pw.Container(
+                    margin: const pw.EdgeInsets.only(right: 8),
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColor(accentPdfColor.red, accentPdfColor.green, accentPdfColor.blue, 0.20),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                      border: pw.Border.all(color: accentPdfColor, width: 1.0),
+                    ),
+                    child: pw.Row(
+                      mainAxisSize: pw.MainAxisSize.min,
+                      children: [
+                        _buildPdfCoverCustomIcon(badge.iconKey, 10, accentPdfColor),
+                        pw.SizedBox(width: 5),
+                        pw.Text(
+                          badge.label,
+                          style: pw.TextStyle(
+                            font: fontMontserratBold,
+                            fontSize: 8.5,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+        // 5. Bloco Institucional na Área Branca Preservada
+        if (settings.verticalSplitShowRightBlock)
+          pw.Positioned(
+            left: a4W - (settings.verticalSplitRightBlockRight * a4W) - (a4W * 0.42),
+            top: settings.verticalSplitRightBlockTop * a4H,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
                 pw.Text(
-                  settings.coverTitle.isNotEmpty ? settings.coverTitle : 'PROPOSTA COMERCIAL',
+                  settings.verticalSplitRightTitle,
                   style: pw.TextStyle(
-                    fontSize: settings.coverTitleFontSize,
+                    font: rightBlockFontBold ?? fontMontserratBold,
+                    fontSize: 14,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(settings.coverTitleColorValue),
+                    color: PdfColor.fromInt(settings.coverRightTitleColorValue),
+                    letterSpacing: 4.5,
                   ),
                 ),
                 pw.SizedBox(height: 3),
                 pw.Text(
-                  settings.coverSubtitle.isNotEmpty ? settings.coverSubtitle : 'ENERGIA SOLAR FOTOVOLTAICA',
+                  settings.verticalSplitRightSubtitle,
                   style: pw.TextStyle(
-                    fontSize: settings.coverSubtitleFontSize,
+                    font: rightBlockFontBlack ?? fontMontserratBlack,
+                    fontSize: 34,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(settings.coverSubtitleColorValue),
+                    color: PdfColor.fromInt(settings.coverRightSubtitleColorValue),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                pw.SizedBox(height: 9),
+                pw.Container(
+                  width: 44,
+                  height: 3.5,
+                  color: accentPdfColor,
+                ),
+                pw.SizedBox(height: 9),
+                pw.Text(
+                  settings.verticalSplitRightTagline,
+                  style: pw.TextStyle(
+                    font: rightBlockFontBold ?? fontMontserratBold,
+                    fontSize: 9.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(settings.coverRightTaglineColorValue),
+                    letterSpacing: 0.6,
                   ),
                 ),
               ],
             ),
           ),
-        ),
 
-        // Logomarca Customizada Posicionada pelo Usuário
+        // 6. Logomarca Customizada Posicionada pelo Usuário
         if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty)
           pw.Positioned(
-            left: a4W * settings.coverLogoPositionX,
-            top: a4H * settings.coverLogoPositionY,
+            left: (a4W * settings.coverLogoPositionX).clamp(0.0, a4W - settings.coverLogoWidth),
+            top: (a4H * settings.coverLogoPositionY).clamp(0.0, a4H - 50.0),
             child: pw.Image(
               pw.MemoryImage(base64Decode(settings.companyLogoBase64!)),
-              width: (settings.coverLogoWidth / 340.0) * a4W,
+              width: settings.coverLogoWidth,
               fit: pw.BoxFit.contain,
             ),
           ),
 
-        // Conteúdo Inferior (Área Branca: Dados do Cliente, Sistema e Empresa)
-        pw.Positioned(
-          bottom: 32,
-          left: 40,
-          right: 40,
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              // Bloco Esquerdo: Cliente & Detalhes da Usina
-              pw.Column(
+        // 7. Rodapé Institucional Posicionado pelo Usuário
+        if (settings.verticalSplitShowRightFooter)
+          pw.Positioned(
+            left: a4W - (settings.verticalSplitRightFooterRight * a4W) - (a4W * 0.45),
+            bottom: (a4H * settings.verticalSplitRightFooterBottom).clamp(10.0, a4H * 0.40),
+            child: pw.SizedBox(
+              width: a4W * 0.45,
+              child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Row(
-                    mainAxisSize: pw.MainAxisSize.min,
-                    children: [
-                      pw.Text(
-                        'PROPOSTA COMERCIAL',
-                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
-                      ),
-                      pw.SizedBox(width: 6),
-                      pw.Container(
-                        width: 3.5,
-                        height: 3.5,
-                        decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, color: primaryColor),
-                      ),
-                      pw.SizedBox(width: 6),
-                      pw.Text(
-                        proposal.proposalNumber,
-                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Row(
-                    children: [
-                      pw.Container(width: 22, height: 3, color: primaryColor),
-                      pw.SizedBox(width: 6),
-                      pw.Text(
-                        'Geração Estimada: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
-                        style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(height: 5),
-                  if (proposal.clientName.isNotEmpty) ...[
-                    pw.Text(
-                      'Cliente: ${proposal.clientName}',
-                      style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1E293B')),
-                    ),
-                    if (proposal.clientDocument?.isNotEmpty == true)
-                      pw.Text(
-                        'CPF/CNPJ: ${proposal.clientDocument!}',
-                        style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#64748B')),
-                      ),
-                  ],
-                  pw.SizedBox(height: 3),
-                  pw.Row(
-                    mainAxisSize: pw.MainAxisSize.min,
-                    children: [
-                      pw.Text(
-                        'Emissão: ${DateFormat('dd/MM/yyyy').format(proposal.createdAt)}',
-                        style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#64748B')),
-                      ),
-                      pw.SizedBox(width: 5),
-                      pw.Container(
-                        width: 2.5,
-                        height: 2.5,
-                        decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, color: PdfColor.fromHex('#94A3B8')),
-                      ),
-                      pw.SizedBox(width: 5),
-                      pw.Text(
-                        'Validade: ${proposal.validityDays} dias',
-                        style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#64748B')),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              // Bloco Direito: Dados do Integrador / Contatos
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                mainAxisSize: pw.MainAxisSize.min,
                 children: [
                   pw.Text(
-                    settings.companyName?.isNotEmpty == true ? settings.companyName! : 'EMPRESA INTEGRADORA',
-                    style: pw.TextStyle(fontSize: 12.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+                    settings.verticalSplitRightFooter,
+                    style: pw.TextStyle(
+                      font: footerFontBold ?? fontMontserratSemiBold,
+                      fontSize: 9.0,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverFooterColorValue),
+                    ),
                   ),
-                  if (settings.companyDocument?.isNotEmpty == true)
-                    pw.Text(
-                      'CNPJ: ${settings.companyDocument!}',
-                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Emissão: ${DateFormat('dd/MM/yyyy').format(proposal.createdAt)}  •  Validade: ${proposal.validityDays} dias  •  Proposta: ${proposal.proposalNumber}',
+                    style: pw.TextStyle(
+                      fontSize: 8.0,
+                      color: PdfColor.fromInt(0xFF94A3B8),
                     ),
-                  if (settings.companyPhone?.isNotEmpty == true)
-                    pw.Text(
-                      'WhatsApp: ${settings.companyPhone!}',
-                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
-                    ),
-                  if (settings.companyWebsite?.isNotEmpty == true)
-                    pw.Text(
-                      settings.companyWebsite!,
-                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
-                    ),
-                  if (settings.companyInstagram?.isNotEmpty == true)
-                    pw.Text(
-                      settings.companyInstagram!,
-                      style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569')),
-                    ),
+                  ),
                 ],
               ),
+            ),
+          ),
+
+        // 8. Informações do Cliente e Usina (Canto inferior direito fixo)
+        pw.Positioned(
+          bottom: 24,
+          right: 40,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              if (proposal.clientName.isNotEmpty)
+                pw.Text(
+                  'Cliente: ${proposal.clientName}',
+                  style: pw.TextStyle(
+                    font: fontMontserratBold,
+                    fontSize: 10.0,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(0xFF0F172A),
+                  ),
+                ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Geração: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
+                style: pw.TextStyle(
+                  font: fontMontserratBold,
+                  fontSize: 9.0,
+                  fontWeight: pw.FontWeight.bold,
+                  color: primaryColor,
+                ),
+              ),
+              if (settings.companyName?.isNotEmpty == true) ...[
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  settings.companyName!,
+                  style: pw.TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(0xFF475569),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
+
+        // 8. Textos Personalizados Extras Adicionados pelo Usuário
+        for (final textItem in settings.customTextItems)
+          pw.Positioned(
+            left: textItem.x * a4W,
+            top: textItem.y * a4H,
+            child: pw.Text(
+              textItem.text,
+              style: pw.TextStyle(
+                font: textItem.isBold ? fontMontserratBold : fontMontserratSemiBold,
+                fontSize: textItem.fontSize,
+                fontWeight: textItem.isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                color: PdfColor.fromInt(textItem.colorValue),
+              ),
+            ),
+          ),
+
+        // 9. Ícones Personalizados Extras Adicionados pelo Usuário
+        for (final iconItem in settings.customIconItems)
+          pw.Positioned(
+            left: iconItem.x * a4W,
+            top: iconItem.y * a4H,
+            child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size, PdfColor.fromInt(iconItem.colorValue)),
+          ),
       ],
     );
   }

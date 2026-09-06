@@ -169,6 +169,173 @@ class EnergyBillYearItem {
   });
 }
 
+/// Emblema/Ícone personalizável do rodapé da capa (Estilo Vertical Split)
+class CoverFooterBadge {
+  final String iconKey; // 'eco', 'bolt', 'chart', 'shield', 'sun', 'star', 'coins', 'home'
+  final String label; // 'ECONOMIA', 'SUSTENTABILIDADE', etc.
+
+  const CoverFooterBadge({
+    required this.iconKey,
+    required this.label,
+  });
+
+  CoverFooterBadge copyWith({
+    String? iconKey,
+    String? label,
+  }) {
+    return CoverFooterBadge(
+      iconKey: iconKey ?? this.iconKey,
+      label: label ?? this.label,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'iconKey': iconKey,
+      'label': label,
+    };
+  }
+
+  factory CoverFooterBadge.fromMap(Map<String, dynamic> map) {
+    return CoverFooterBadge(
+      iconKey: map['iconKey'] as String? ?? 'eco',
+      label: map['label'] as String? ?? '',
+    );
+  }
+
+  static List<CoverFooterBadge> defaultBadges() {
+    return const [
+      CoverFooterBadge(iconKey: 'eco', label: 'ECONOMIA'),
+      CoverFooterBadge(iconKey: 'bolt', label: 'SUSTENTABILIDADE'),
+      CoverFooterBadge(iconKey: 'chart', label: 'VALORIZAÇÃO'),
+    ];
+  }
+}
+
+/// Item de texto customizado adicional na capa da proposta
+class CustomCoverTextItem {
+  final String id;
+  final String text;
+  final double x; // Posição horizontal relativa (0.0 a 1.0)
+  final double y; // Posição vertical relativa (0.0 a 1.0)
+  final double fontSize;
+  final int colorValue;
+  final bool isBold;
+
+  const CustomCoverTextItem({
+    required this.id,
+    required this.text,
+    required this.x,
+    required this.y,
+    this.fontSize = 14.0,
+    this.colorValue = 0xFF0F172A,
+    this.isBold = true,
+  });
+
+  CustomCoverTextItem copyWith({
+    String? id,
+    String? text,
+    double? x,
+    double? y,
+    double? fontSize,
+    int? colorValue,
+    bool? isBold,
+  }) {
+    return CustomCoverTextItem(
+      id: id ?? this.id,
+      text: text ?? this.text,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      fontSize: fontSize ?? this.fontSize,
+      colorValue: colorValue ?? this.colorValue,
+      isBold: isBold ?? this.isBold,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'text': text,
+      'x': x,
+      'y': y,
+      'fontSize': fontSize,
+      'colorValue': colorValue,
+      'isBold': isBold,
+    };
+  }
+
+  factory CustomCoverTextItem.fromMap(Map<String, dynamic> map) {
+    return CustomCoverTextItem(
+      id: map['id'] as String? ?? 'txt_${DateTime.now().millisecondsSinceEpoch}',
+      text: map['text'] as String? ?? 'Texto Personalizado',
+      x: (map['x'] as num?)?.toDouble() ?? 0.5,
+      y: (map['y'] as num?)?.toDouble() ?? 0.5,
+      fontSize: (map['fontSize'] as num?)?.toDouble() ?? 14.0,
+      colorValue: (map['colorValue'] as num?)?.toInt() ?? 0xFF0F172A,
+      isBold: map['isBold'] as bool? ?? true,
+    );
+  }
+}
+
+/// Item de ícone customizado adicional na capa da proposta
+class CustomCoverIconItem {
+  final String id;
+  final String iconKey; // 'solar_power', 'bolt', 'eco', 'shield', 'verified', 'star', 'phone', 'location', 'mail', 'lightbulb', 'handshake', 'award'
+  final double x; // Posição horizontal relativa (0.0 a 1.0)
+  final double y; // Posição vertical relativa (0.0 a 1.0)
+  final double size;
+  final int colorValue;
+
+  const CustomCoverIconItem({
+    required this.id,
+    required this.iconKey,
+    required this.x,
+    required this.y,
+    this.size = 28.0,
+    this.colorValue = 0xFFEAB308,
+  });
+
+  CustomCoverIconItem copyWith({
+    String? id,
+    String? iconKey,
+    double? x,
+    double? y,
+    double? size,
+    int? colorValue,
+  }) {
+    return CustomCoverIconItem(
+      id: id ?? this.id,
+      iconKey: iconKey ?? this.iconKey,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      size: size ?? this.size,
+      colorValue: colorValue ?? this.colorValue,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'iconKey': iconKey,
+      'x': x,
+      'y': y,
+      'size': size,
+      'colorValue': colorValue,
+    };
+  }
+
+  factory CustomCoverIconItem.fromMap(Map<String, dynamic> map) {
+    return CustomCoverIconItem(
+      id: map['id'] as String? ?? 'ico_${DateTime.now().millisecondsSinceEpoch}',
+      iconKey: map['iconKey'] as String? ?? 'solar_power',
+      x: (map['x'] as num?)?.toDouble() ?? 0.5,
+      y: (map['y'] as num?)?.toDouble() ?? 0.5,
+      size: (map['size'] as num?)?.toDouble() ?? 28.0,
+      colorValue: (map['colorValue'] as num?)?.toInt() ?? 0xFFEAB308,
+    );
+  }
+}
+
 /// Modelo Completo de Configurações do Ramo Usina Solar
 class SolarSettingsModel {
   final String utilityCompany; // Concessionária (ex: Amazonas, Energisa, Enel, CPFL, Cemig...)
@@ -212,6 +379,53 @@ class SolarSettingsModel {
   final double coverLogoPositionY; // Posição vertical da logo (0.0 a 1.0)
   final double coverLogoWidth; // Largura da logo em pixels na prévia (ex: 90.0)
 
+  // ── Estilo das Propostas (Estilo Modern vs Estilo Vertical Split) ───────────
+  final String proposalStyle; // 'modern' ou 'verticalSplit'
+  final String selectedVerticalSplitTemplate; // ex: 'vertical_split_1'
+  final int verticalSplitDividerType; // 0 = Diagonal, 1 = Raio de Energia, 2 = Sol Radiante
+  final String verticalSplitHeadline; // ex: 'ENERGIA\nQUE MOVE\nO SEU\nAMANHÃ'
+  final String verticalSplitSubheadline; // ex: 'MAIS ECONOMIA.\nMAIS LIBERDADE.\nUM FUTURO SUSTENTÁVEL.'
+  final String verticalSplitLeftFooter; // ex: 'PESSOAS  •  TECNOLOGIA  •  UM PLANETA MELHOR'
+  final String verticalSplitRightTitle; // ex: 'PROPOSTA'
+  final String verticalSplitRightSubtitle; // ex: 'SOLAR'
+  final String verticalSplitRightTagline; // ex: 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR'
+  final String verticalSplitRightFooter; // ex: 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.'
+  final String verticalSplitAccentColor; // ex: '#EAB308' (Amarelo Dourado)
+  final List<CoverFooterBadge> verticalSplitFooterBadges; // Ícones customizáveis do rodapé
+  final String verticalSplitBadgesLayout; // 'horizontal' | 'vertical' | 'wrap' (default: 'horizontal')
+  final double verticalSplitLeftFooterWidth; // Largura relativa da área do rodapé da foto/badges (default: 0.60)
+
+  // Posições Relativas Customizadas dos Blocos (0.0 a 1.0) para Arrastar e Soltar Livre
+  final double verticalSplitHeadlineTop; // Posição vertical do título esquerdo (default: 0.06)
+  final double verticalSplitHeadlineLeft; // Posição horizontal do título esquerdo (default: 0.06)
+  final double verticalSplitRightBlockTop; // Posição vertical do bloco Proposta Solar (default: 0.20)
+  final double verticalSplitRightBlockRight; // Posição horizontal direita do bloco Proposta Solar (default: 0.08)
+  final double verticalSplitLeftFooterBottom; // Posição vertical inferior do rodapé esquerdo (default: 0.04)
+  final double verticalSplitLeftFooterLeft; // Posição horizontal do rodapé esquerdo (default: 0.05)
+  final double verticalSplitRightFooterBottom; // Posição vertical inferior do rodapé direito (default: 0.04)
+  final double verticalSplitRightFooterRight; // Posição horizontal direita do rodapé direito (default: 0.08)
+
+  // Visibilidade dos Blocos Pré-definidos da Capa
+  final bool verticalSplitShowHeadline; // Exibir Título e Subtítulo da Foto (default: true)
+  final bool verticalSplitShowLeftFooter; // Exibir Rodapé da Foto / Badges (default: true)
+  final bool verticalSplitShowRightBlock; // Exibir Proposta Solar e Tagline (default: true)
+  final bool verticalSplitShowRightFooter; // Exibir Rodapé Institucional Direito (default: true)
+
+  // Tipografia e Cores Customizáveis dos Blocos da Capa (Vertical Split & Modern)
+  final String coverHeadlineFont; // 'Montserrat' | 'Roboto' | 'Inter' | 'Outfit' | 'Oswald' | 'Poppins'
+  final String coverHeadlineColor; // default: '#FFFFFF'
+  final String coverRightBlockFont; // 'Montserrat' | 'Roboto' | 'Inter' | 'Outfit' | 'Oswald' | 'Poppins'
+  final String coverRightTitleColor; // default: '#334155'
+  final String coverRightSubtitleColor; // default: '#0F172A'
+  final String coverRightTaglineColor; // default: '#475569'
+  final String coverBadgesTextColor; // default: '#FFFFFF'
+  final String coverFooterFont; // 'Montserrat' | 'Roboto' | 'Inter' | 'Outfit' | 'Oswald' | 'Poppins'
+  final String coverFooterColor; // default: '#64748B'
+
+  // Itens Adicionais Customizados Livres (Textos e Ícones extras adicionados pelo usuário)
+  final List<CustomCoverTextItem> customTextItems;
+  final List<CustomCoverIconItem> customIconItems;
+
   // Getters para compatibilidade retroativa
   String get selectedSvgHeader => selectedSvgTheme;
   String get selectedSvgFooter => selectedSvgTheme;
@@ -246,6 +460,28 @@ class SolarSettingsModel {
     if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? 0xFF0284C7;
     if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? 0xFF0284C7;
     return 0xFF0284C7;
+  }
+
+  /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor de destaque vertical split
+  int get verticalSplitAccentColorValue {
+    final hex = verticalSplitAccentColor.replaceAll('#', '').trim();
+    if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? 0xFFEAB308;
+    if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? 0xFFEAB308;
+    return 0xFFEAB308;
+  }
+
+  int get coverHeadlineColorValue => _hexToColor(coverHeadlineColor, fallback: 0xFFFFFFFF);
+  int get coverRightTitleColorValue => _hexToColor(coverRightTitleColor, fallback: 0xFF334155);
+  int get coverRightSubtitleColorValue => _hexToColor(coverRightSubtitleColor, fallback: 0xFF0F172A);
+  int get coverRightTaglineColorValue => _hexToColor(coverRightTaglineColor, fallback: 0xFF475569);
+  int get coverBadgesTextColorValue => _hexToColor(coverBadgesTextColor, fallback: 0xFFFFFFFF);
+  int get coverFooterColorValue => _hexToColor(coverFooterColor, fallback: 0xFF64748B);
+
+  static int _hexToColor(String hexStr, {required int fallback}) {
+    final hex = hexStr.replaceAll('#', '').trim();
+    if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? fallback;
+    if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? fallback;
+    return fallback;
   }
 
   /// Lista de todos os 34 papéis de parede em alta resolução para a Proposta Web
@@ -351,6 +587,47 @@ class SolarSettingsModel {
     this.coverLogoPositionX = 0.65,
     this.coverLogoPositionY = 0.05,
     this.coverLogoWidth = 90.0,
+    this.proposalStyle = 'modern',
+    this.selectedVerticalSplitTemplate = 'vertical_split_1',
+    this.verticalSplitDividerType = 0,
+    this.verticalSplitHeadline = 'ENERGIA\nQUE MOVE\nO SEU\nAMANHÃ',
+    this.verticalSplitSubheadline = 'MAIS ECONOMIA.\nMAIS LIBERDADE.\nUM FUTURO SUSTENTÁVEL.',
+    this.verticalSplitLeftFooter = 'PESSOAS  •  TECNOLOGIA  •  UM PLANETA MELHOR',
+    this.verticalSplitRightTitle = 'PROPOSTA',
+    this.verticalSplitRightSubtitle = 'SOLAR',
+    this.verticalSplitRightTagline = 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR',
+    this.verticalSplitRightFooter = 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.',
+    this.verticalSplitAccentColor = '#EAB308',
+    this.verticalSplitFooterBadges = const [
+      CoverFooterBadge(iconKey: 'eco', label: 'ECONOMIA'),
+      CoverFooterBadge(iconKey: 'bolt', label: 'SUSTENTABILIDADE'),
+      CoverFooterBadge(iconKey: 'chart', label: 'VALORIZAÇÃO'),
+    ],
+    this.verticalSplitBadgesLayout = 'horizontal',
+    this.verticalSplitLeftFooterWidth = 0.60,
+    this.verticalSplitHeadlineTop = 0.06,
+    this.verticalSplitHeadlineLeft = 0.06,
+    this.verticalSplitRightBlockTop = 0.20,
+    this.verticalSplitRightBlockRight = 0.08,
+    this.verticalSplitLeftFooterBottom = 0.04,
+    this.verticalSplitLeftFooterLeft = 0.05,
+    this.verticalSplitRightFooterBottom = 0.04,
+    this.verticalSplitRightFooterRight = 0.08,
+    this.verticalSplitShowHeadline = true,
+    this.verticalSplitShowLeftFooter = true,
+    this.verticalSplitShowRightBlock = true,
+    this.verticalSplitShowRightFooter = true,
+    this.coverHeadlineFont = 'Montserrat',
+    this.coverHeadlineColor = '#FFFFFF',
+    this.coverRightBlockFont = 'Montserrat',
+    this.coverRightTitleColor = '#334155',
+    this.coverRightSubtitleColor = '#0F172A',
+    this.coverRightTaglineColor = '#475569',
+    this.coverBadgesTextColor = '#FFFFFF',
+    this.coverFooterFont = 'Montserrat',
+    this.coverFooterColor = '#64748B',
+    this.customTextItems = const [],
+    this.customIconItems = const [],
   });
 
   /// Gera a simulação ano a ano comparando Com Solar vs Sem Solar
@@ -431,6 +708,43 @@ class SolarSettingsModel {
     double? coverLogoPositionX,
     double? coverLogoPositionY,
     double? coverLogoWidth,
+    String? proposalStyle,
+    String? selectedVerticalSplitTemplate,
+    int? verticalSplitDividerType,
+    String? verticalSplitHeadline,
+    String? verticalSplitSubheadline,
+    String? verticalSplitLeftFooter,
+    String? verticalSplitRightTitle,
+    String? verticalSplitRightSubtitle,
+    String? verticalSplitRightTagline,
+    String? verticalSplitRightFooter,
+    String? verticalSplitAccentColor,
+    List<CoverFooterBadge>? verticalSplitFooterBadges,
+    String? verticalSplitBadgesLayout,
+    double? verticalSplitLeftFooterWidth,
+    double? verticalSplitHeadlineTop,
+    double? verticalSplitHeadlineLeft,
+    double? verticalSplitRightBlockTop,
+    double? verticalSplitRightBlockRight,
+    double? verticalSplitLeftFooterBottom,
+    double? verticalSplitLeftFooterLeft,
+    double? verticalSplitRightFooterBottom,
+    double? verticalSplitRightFooterRight,
+    bool? verticalSplitShowHeadline,
+    bool? verticalSplitShowLeftFooter,
+    bool? verticalSplitShowRightBlock,
+    bool? verticalSplitShowRightFooter,
+    String? coverHeadlineFont,
+    String? coverHeadlineColor,
+    String? coverRightBlockFont,
+    String? coverRightTitleColor,
+    String? coverRightSubtitleColor,
+    String? coverRightTaglineColor,
+    String? coverBadgesTextColor,
+    String? coverFooterFont,
+    String? coverFooterColor,
+    List<CustomCoverTextItem>? customTextItems,
+    List<CustomCoverIconItem>? customIconItems,
   }) {
     return SolarSettingsModel(
       utilityCompany: utilityCompany ?? this.utilityCompany,
@@ -471,6 +785,43 @@ class SolarSettingsModel {
       coverLogoPositionX: coverLogoPositionX ?? this.coverLogoPositionX,
       coverLogoPositionY: coverLogoPositionY ?? this.coverLogoPositionY,
       coverLogoWidth: coverLogoWidth ?? this.coverLogoWidth,
+      proposalStyle: proposalStyle ?? this.proposalStyle,
+      selectedVerticalSplitTemplate: selectedVerticalSplitTemplate ?? this.selectedVerticalSplitTemplate,
+      verticalSplitDividerType: verticalSplitDividerType ?? this.verticalSplitDividerType,
+      verticalSplitHeadline: verticalSplitHeadline ?? this.verticalSplitHeadline,
+      verticalSplitSubheadline: verticalSplitSubheadline ?? this.verticalSplitSubheadline,
+      verticalSplitLeftFooter: verticalSplitLeftFooter ?? this.verticalSplitLeftFooter,
+      verticalSplitRightTitle: verticalSplitRightTitle ?? this.verticalSplitRightTitle,
+      verticalSplitRightSubtitle: verticalSplitRightSubtitle ?? this.verticalSplitRightSubtitle,
+      verticalSplitRightTagline: verticalSplitRightTagline ?? this.verticalSplitRightTagline,
+      verticalSplitRightFooter: verticalSplitRightFooter ?? this.verticalSplitRightFooter,
+      verticalSplitAccentColor: verticalSplitAccentColor ?? this.verticalSplitAccentColor,
+      verticalSplitFooterBadges: verticalSplitFooterBadges ?? this.verticalSplitFooterBadges,
+      verticalSplitBadgesLayout: verticalSplitBadgesLayout ?? this.verticalSplitBadgesLayout,
+      verticalSplitLeftFooterWidth: verticalSplitLeftFooterWidth ?? this.verticalSplitLeftFooterWidth,
+      verticalSplitHeadlineTop: verticalSplitHeadlineTop ?? this.verticalSplitHeadlineTop,
+      verticalSplitHeadlineLeft: verticalSplitHeadlineLeft ?? this.verticalSplitHeadlineLeft,
+      verticalSplitRightBlockTop: verticalSplitRightBlockTop ?? this.verticalSplitRightBlockTop,
+      verticalSplitRightBlockRight: verticalSplitRightBlockRight ?? this.verticalSplitRightBlockRight,
+      verticalSplitLeftFooterBottom: verticalSplitLeftFooterBottom ?? this.verticalSplitLeftFooterBottom,
+      verticalSplitLeftFooterLeft: verticalSplitLeftFooterLeft ?? this.verticalSplitLeftFooterLeft,
+      verticalSplitRightFooterBottom: verticalSplitRightFooterBottom ?? this.verticalSplitRightFooterBottom,
+      verticalSplitRightFooterRight: verticalSplitRightFooterRight ?? this.verticalSplitRightFooterRight,
+      verticalSplitShowHeadline: verticalSplitShowHeadline ?? this.verticalSplitShowHeadline,
+      verticalSplitShowLeftFooter: verticalSplitShowLeftFooter ?? this.verticalSplitShowLeftFooter,
+      verticalSplitShowRightBlock: verticalSplitShowRightBlock ?? this.verticalSplitShowRightBlock,
+      verticalSplitShowRightFooter: verticalSplitShowRightFooter ?? this.verticalSplitShowRightFooter,
+      coverHeadlineFont: coverHeadlineFont ?? this.coverHeadlineFont,
+      coverHeadlineColor: coverHeadlineColor ?? this.coverHeadlineColor,
+      coverRightBlockFont: coverRightBlockFont ?? this.coverRightBlockFont,
+      coverRightTitleColor: coverRightTitleColor ?? this.coverRightTitleColor,
+      coverRightSubtitleColor: coverRightSubtitleColor ?? this.coverRightSubtitleColor,
+      coverRightTaglineColor: coverRightTaglineColor ?? this.coverRightTaglineColor,
+      coverBadgesTextColor: coverBadgesTextColor ?? this.coverBadgesTextColor,
+      coverFooterFont: coverFooterFont ?? this.coverFooterFont,
+      coverFooterColor: coverFooterColor ?? this.coverFooterColor,
+      customTextItems: customTextItems ?? this.customTextItems,
+      customIconItems: customIconItems ?? this.customIconItems,
     );
   }
 
@@ -514,6 +865,43 @@ class SolarSettingsModel {
       'coverLogoPositionX': coverLogoPositionX,
       'coverLogoPositionY': coverLogoPositionY,
       'coverLogoWidth': coverLogoWidth,
+      'proposalStyle': proposalStyle,
+      'selectedVerticalSplitTemplate': selectedVerticalSplitTemplate,
+      'verticalSplitDividerType': verticalSplitDividerType,
+      'verticalSplitHeadline': verticalSplitHeadline,
+      'verticalSplitSubheadline': verticalSplitSubheadline,
+      'verticalSplitLeftFooter': verticalSplitLeftFooter,
+      'verticalSplitRightTitle': verticalSplitRightTitle,
+      'verticalSplitRightSubtitle': verticalSplitRightSubtitle,
+      'verticalSplitRightTagline': verticalSplitRightTagline,
+      'verticalSplitRightFooter': verticalSplitRightFooter,
+      'verticalSplitAccentColor': verticalSplitAccentColor,
+      'verticalSplitFooterBadges': verticalSplitFooterBadges.map((b) => b.toMap()).toList(),
+      'verticalSplitBadgesLayout': verticalSplitBadgesLayout,
+      'verticalSplitLeftFooterWidth': verticalSplitLeftFooterWidth,
+      'verticalSplitHeadlineTop': verticalSplitHeadlineTop,
+      'verticalSplitHeadlineLeft': verticalSplitHeadlineLeft,
+      'verticalSplitRightBlockTop': verticalSplitRightBlockTop,
+      'verticalSplitRightBlockRight': verticalSplitRightBlockRight,
+      'verticalSplitLeftFooterBottom': verticalSplitLeftFooterBottom,
+      'verticalSplitLeftFooterLeft': verticalSplitLeftFooterLeft,
+      'verticalSplitRightFooterBottom': verticalSplitRightFooterBottom,
+      'verticalSplitRightFooterRight': verticalSplitRightFooterRight,
+      'verticalSplitShowHeadline': verticalSplitShowHeadline,
+      'verticalSplitShowLeftFooter': verticalSplitShowLeftFooter,
+      'verticalSplitShowRightBlock': verticalSplitShowRightBlock,
+      'verticalSplitShowRightFooter': verticalSplitShowRightFooter,
+      'coverHeadlineFont': coverHeadlineFont,
+      'coverHeadlineColor': coverHeadlineColor,
+      'coverRightBlockFont': coverRightBlockFont,
+      'coverRightTitleColor': coverRightTitleColor,
+      'coverRightSubtitleColor': coverRightSubtitleColor,
+      'coverRightTaglineColor': coverRightTaglineColor,
+      'coverBadgesTextColor': coverBadgesTextColor,
+      'coverFooterFont': coverFooterFont,
+      'coverFooterColor': coverFooterColor,
+      'customTextItems': customTextItems.map((t) => t.toMap()).toList(),
+      'customIconItems': customIconItems.map((i) => i.toMap()).toList(),
     };
   }
 
@@ -567,6 +955,58 @@ class SolarSettingsModel {
       coverLogoPositionX: (map['coverLogoPositionX'] as num?)?.toDouble() ?? 0.65,
       coverLogoPositionY: (map['coverLogoPositionY'] as num?)?.toDouble() ?? 0.05,
       coverLogoWidth: (map['coverLogoWidth'] as num?)?.toDouble() ?? 90.0,
+      proposalStyle: map['proposalStyle'] as String? ?? 'modern',
+      selectedVerticalSplitTemplate: map['selectedVerticalSplitTemplate'] as String? ?? 'vertical_split_1',
+      verticalSplitDividerType: (map['verticalSplitDividerType'] as num?)?.toInt() ?? 0,
+      verticalSplitHeadline: map['verticalSplitHeadline'] as String? ?? 'ENERGIA\nQUE MOVE\nO SEU\nAMANHÃ',
+      verticalSplitSubheadline: map['verticalSplitSubheadline'] as String? ?? 'MAIS ECONOMIA.\nMAIS LIBERDADE.\nUM FUTURO SUSTENTÁVEL.',
+      verticalSplitLeftFooter: map['verticalSplitLeftFooter'] as String? ?? 'PESSOAS  •  TECNOLOGIA  •  UM PLANETA MELHOR',
+      verticalSplitRightTitle: map['verticalSplitRightTitle'] as String? ?? 'PROPOSTA',
+      verticalSplitRightSubtitle: map['verticalSplitRightSubtitle'] as String? ?? 'SOLAR',
+      verticalSplitRightTagline: map['verticalSplitRightTagline'] as String? ?? 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR',
+      verticalSplitRightFooter: map['verticalSplitRightFooter'] as String? ?? 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.',
+      verticalSplitAccentColor: map['verticalSplitAccentColor'] as String? ?? '#EAB308',
+      verticalSplitFooterBadges: map['verticalSplitFooterBadges'] is List
+          ? (map['verticalSplitFooterBadges'] as List)
+              .whereType<Map>()
+              .map((e) => CoverFooterBadge.fromMap(Map<String, dynamic>.from(e)))
+              .toList()
+          : CoverFooterBadge.defaultBadges(),
+      verticalSplitBadgesLayout: map['verticalSplitBadgesLayout'] as String? ?? 'horizontal',
+      verticalSplitLeftFooterWidth: (map['verticalSplitLeftFooterWidth'] as num?)?.toDouble() ?? 0.60,
+      verticalSplitHeadlineTop: (map['verticalSplitHeadlineTop'] as num?)?.toDouble() ?? 0.06,
+      verticalSplitHeadlineLeft: (map['verticalSplitHeadlineLeft'] as num?)?.toDouble() ?? 0.06,
+      verticalSplitRightBlockTop: (map['verticalSplitRightBlockTop'] as num?)?.toDouble() ?? 0.20,
+      verticalSplitRightBlockRight: (map['verticalSplitRightBlockRight'] as num?)?.toDouble() ?? 0.08,
+      verticalSplitLeftFooterBottom: (map['verticalSplitLeftFooterBottom'] as num?)?.toDouble() ?? 0.04,
+      verticalSplitLeftFooterLeft: (map['verticalSplitLeftFooterLeft'] as num?)?.toDouble() ?? 0.05,
+      verticalSplitRightFooterBottom: (map['verticalSplitRightFooterBottom'] as num?)?.toDouble() ?? 0.04,
+      verticalSplitRightFooterRight: (map['verticalSplitRightFooterRight'] as num?)?.toDouble() ?? 0.08,
+      verticalSplitShowHeadline: map['verticalSplitShowHeadline'] as bool? ?? true,
+      verticalSplitShowLeftFooter: map['verticalSplitShowLeftFooter'] as bool? ?? true,
+      verticalSplitShowRightBlock: map['verticalSplitShowRightBlock'] as bool? ?? true,
+      verticalSplitShowRightFooter: map['verticalSplitShowRightFooter'] as bool? ?? true,
+      coverHeadlineFont: map['coverHeadlineFont'] as String? ?? 'Montserrat',
+      coverHeadlineColor: map['coverHeadlineColor'] as String? ?? '#FFFFFF',
+      coverRightBlockFont: map['coverRightBlockFont'] as String? ?? 'Montserrat',
+      coverRightTitleColor: map['coverRightTitleColor'] as String? ?? '#334155',
+      coverRightSubtitleColor: map['coverRightSubtitleColor'] as String? ?? '#0F172A',
+      coverRightTaglineColor: map['coverRightTaglineColor'] as String? ?? '#475569',
+      coverBadgesTextColor: map['coverBadgesTextColor'] as String? ?? '#FFFFFF',
+      coverFooterFont: map['coverFooterFont'] as String? ?? 'Montserrat',
+      coverFooterColor: map['coverFooterColor'] as String? ?? '#64748B',
+      customTextItems: map['customTextItems'] is List
+          ? (map['customTextItems'] as List)
+              .whereType<Map>()
+              .map((e) => CustomCoverTextItem.fromMap(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+      customIconItems: map['customIconItems'] is List
+          ? (map['customIconItems'] as List)
+              .whereType<Map>()
+              .map((e) => CustomCoverIconItem.fromMap(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
     );
   }
 

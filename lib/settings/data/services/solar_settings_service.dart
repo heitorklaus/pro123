@@ -6,6 +6,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../domain/models/solar_settings_model.dart';
 
+/// Modelo de Capa Vertical Split com divisor geométrico e tipografia estilizada
+class VerticalSplitCoverModel {
+  final String id; // 'vertical_split_1' ... 'vertical_split_100'
+  final String name; // 'Corte Diagonal #1', 'Raio de Energia #2', 'Sol Radiante #3'
+  final int dividerType; // 0 = Diagonal, 1 = Raio de Energia, 2 = Sol Radiante
+  final String imageName; // AdobeStock_... ou modelo_proposta_...
+  final String headline;
+  final String subheadline;
+  final String rightTitle;
+  final String rightSubtitle;
+  final String rightTagline;
+  final String rightFooter;
+  final String accentColor; // '#EAB308'
+
+  const VerticalSplitCoverModel({
+    required this.id,
+    required this.name,
+    required this.dividerType,
+    required this.imageName,
+    required this.headline,
+    required this.subheadline,
+    this.rightTitle = 'PROPOSTA',
+    this.rightSubtitle = 'SOLAR',
+    required this.rightTagline,
+    required this.rightFooter,
+    this.accentColor = '#EAB308',
+  });
+}
+
 class SolarSettingsService {
   static const _storageBaseUrl = 'https://firebasestorage.googleapis.com/v0/b/solardino-aea02.appspot.com/o';
   static const _localCacheKey = 'mavis_solar_settings_cache';
@@ -31,6 +60,8 @@ class SolarSettingsService {
     return '$_storageBaseUrl/$encoded?alt=media';
   }
 
+  static final Map<String, Uint8List> _webBgBytesCache = {};
+
   /// Retorna a URL do papel de parede da Proposta Web no Firebase Storage
   static String getWebBackgroundUrl(String fileName) {
     if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
@@ -41,7 +72,7 @@ class SolarSettingsService {
     return '$_storageBaseUrl/$encoded?alt=media';
   }
 
-  /// Baixa e armazena em cache na memória os bytes da capa do Firebase Storage
+  /// Baixa e armazena em cache na memória os bytes da capa do Firebase Storage (Estilo Modern)
   static Future<Uint8List?> fetchCoverBytes(String fileName) async {
     final cleanName = fileName.replaceFirst('assets/modelo_propostas/', '').replaceFirst('capas/energiasolar/', '');
     if (_coverBytesCache.containsKey(cleanName)) {
@@ -61,11 +92,85 @@ class SolarSettingsService {
     return null;
   }
 
-  /// Lista das 100 capas fotovoltaicas padrão em alta resolução
+  /// Baixa e armazena em cache na memória os bytes do wallpaper solar limpo (Estilo Vertical Split / Web)
+  static Future<Uint8List?> fetchWebBackgroundBytes(String fileName) async {
+    final cleanName = fileName
+        .replaceFirst('assets/background_web/', '')
+        .replaceFirst('assets/wallpaper_propostas/', '')
+        .replaceFirst('wallpapers/energiasolar/', '');
+    if (_webBgBytesCache.containsKey(cleanName)) {
+      return _webBgBytesCache[cleanName];
+    }
+    try {
+      final url = getWebBackgroundUrl(cleanName);
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
+      if (response.statusCode == 200) {
+        final bytes = response.bodyBytes;
+        _webBgBytesCache[cleanName] = bytes;
+        return bytes;
+      }
+    } catch (e) {
+      debugPrint('[SolarSettingsService] Erro ao baixar wallpaper $cleanName: $e');
+    }
+    return null;
+  }
+
+  /// Lista das 100 capas fotovoltaicas padrão em alta resolução (Estilo Modern)
   static List<String> getDefaultCoverList() {
     final list = <String>[];
     for (int i = 1; i <= 100; i++) {
       list.add('modelo_proposta_$i.jpg');
+    }
+    return list;
+  }
+
+  /// Lista dos 100 modelos de capas no "Estilo Vertical Split"
+  static List<VerticalSplitCoverModel> getDefaultVerticalSplitList() {
+    final webBgs = getDefaultWebBackgroundList();
+    final headlines = [
+      {'h': 'ENERGIA\nQUE MOVE\nO SEU\nAMANHÃ', 's': 'MAIS ECONOMIA.\nMAIS LIBERDADE.\nUM FUTURO SUSTENTÁVEL.', 't': 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR', 'f': 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.'},
+      {'h': 'O SOL\nTRABALHA\nPOR VOCÊ', 's': 'MAIS ECONOMIA.\nMAIS SUSTENTABILIDADE.\nUM FUTURO MAIS LIMPO.', 't': 'ENERGIA INTELIGENTE\nPARA UM AMANHÃ MELHOR.', 'f': 'SOLUÇÕES EM\nENERGIA SOLAR'},
+      {'h': 'ENERGIA\nPARA UM\nAMANHÃ\nMAIS BRILHANTE', 's': 'ECONOMIA REAL.\nINDEPENDÊNCIA ENERGÉTICA.\nSUSTENTABILIDADE.', 't': 'SUA PRÓPRIA USINA\nSOLAR FOTOVOLTAICA', 'f': 'O FUTURO É SOLAR.\nSUSTENTABILIDADE HOJE.'},
+      {'h': 'SUA ENERGIA,\nSUA\nLIBERDADE', 's': 'REDUZA SUA CONTA.\nVALORIZE SEU IMÓVEL.\nPRESERVE O PLANETA.', 't': 'TECNOLOGIA DE PONTA\nE ALTA EFICIÊNCIA', 'f': 'ENERGIA LIMPA.\nMAIS ECONOMIA PARA VOCÊ.'},
+      {'h': 'LIBERDADE\nENERGÉTICA\nAO SEU\nALCANCE', 's': 'TECNOLOGIA DE PONTA.\nECONOMIA IMEDIATA.\nRETORNO GARANTIDO.', 't': 'GERAÇÃO PRÓPRIA\nCOM ZERO EMISSÃO', 'f': 'VALORIZAÇÃO IMEDIATA\nDO SEU PATRIMÔNIO.'},
+      {'h': 'TRANSFORME\nO SOL EM\nECONOMIA', 's': 'ENERGIA LIMPA E RENOVÁVEL.\nSEGURANÇA FINANCEIRA.\nALTA EFICIÊNCIA.', 't': 'ENERGIA PURA,\nINOVAÇÃO E SEGURANÇA', 'f': 'ECONOMIZE ATÉ 95%\nNA CONTA DE ENERGIA.'},
+      {'h': 'O FUTURO\nÉ SOLAR', 's': 'GERAÇÃO PRÓPRIA.\nAUTONOMIA TOTAL.\nMAIS ECONOMIA.', 't': 'INVESTIMENTO SEGURO\nE SUSTENTABILIDADE', 'f': 'ENERGIA INESGOTÁVEL.\nRECURSO DO AMANHÃ.'},
+      {'h': 'EFICIÊNCIA\nQUE ILUMINA\nO SEU DIA', 's': 'MENOS CUSTO.\nMAIS SUSTENTABILIDADE.\nMAIS FUTURO.', 't': 'EQUIPAMENTOS DE ALTA\nPERFORMANCE SOLAR', 'f': 'TECNOLOGIA E VIDA EM\nHARMONIA COM O PLANETA.'},
+      {'h': 'MAIS POTÊNCIA\nPARA O SEU\nFUTURO', 's': 'ECONOMIA INTELIGENTE.\nENERGIA INESGOTÁVEL.\nVALORIZAÇÃO.', 't': 'SOLUÇÕES COMPLETAS\nDO PROJETO À HOMOLOGAÇÃO', 'f': 'ENERGIA QUE NÃO ACABA.\nRETORNO COMPROVADO.'},
+      {'h': 'A FORÇA\nDA ENERGIA\nLIMPA', 's': 'INOVAÇÃO CONSTANTE.\nIMPACTO POSITIVO.\nECONOMIA REAL.', 't': 'ENERGIA RENOVÁVEL\nPARA O SEU IMÓVEL', 'f': 'TRANSFORME A SUA CASA\nEM UMA FONTE DE ENERGIA.'},
+    ];
+
+    final list = <VerticalSplitCoverModel>[];
+    for (int i = 1; i <= 100; i++) {
+      final divType = (i - 1) % 3; // 0 = Diagonal, 1 = Raio, 2 = Sol Radiante
+      final bgImg = webBgs[(i - 1) % webBgs.length];
+      final textPreset = headlines[(i - 1) % headlines.length];
+
+      String typeName;
+      switch (divType) {
+        case 1:
+          typeName = 'Raio de Energia';
+          break;
+        case 2:
+          typeName = 'Sol Radiante';
+          break;
+        case 0:
+        default:
+          typeName = 'Corte Diagonal';
+          break;
+      }
+
+      list.add(VerticalSplitCoverModel(
+        id: 'vertical_split_$i',
+        name: '$typeName #$i',
+        dividerType: divType,
+        imageName: bgImg,
+        headline: textPreset['h']!,
+        subheadline: textPreset['s']!,
+        rightTagline: textPreset['t']!,
+        rightFooter: textPreset['f']!,
+        accentColor: '#EAB308',
+      ));
     }
     return list;
   }

@@ -190,22 +190,25 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   DroneNorthCompass? _droneSavedNorthCompass;
   final List<DroneRoofArrow> _droneSavedArrows = [];
   String? _selectedDroneArrowId;
-  bool _showOrientationPanel = false;
-  Offset _orientationPanelOffset = const Offset(24, 150);
   bool _snapAlignmentEnabled = true;
   Color _droneArrowsGlobalColor = const Color(0xFF2563EB);
   double _droneArrowsGlobalLength = 1.3;
 
+  // Estados de Expansão/Colapso (Sanfona) do Painel Lateral Direito
+  bool _isOrientationSectionExpanded = true;
+  bool _isPlantParamsExpanded = true;
+  bool _isIrradiationExpanded = true;
+  bool _isPreDimensioningExpanded = true;
+
+  final ScrollController _rightSidebarScrollController = ScrollController();
   final ScrollController _orientationScrollController = ScrollController();
   final Map<String, GlobalKey> _arrowCardKeys = {};
 
   void _scrollToSelectedArrow(String arrowId) {
-    if (!_showOrientationPanel) {
-      setState(() {
-        _showOrientationPanel = true;
-        _toolMode = DesignerToolMode.select;
-      });
-    }
+    setState(() {
+      _isOrientationSectionExpanded = true;
+      _toolMode = DesignerToolMode.select;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final key = _arrowCardKeys[arrowId];
@@ -445,7 +448,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     setState(() {
       _droneArrows.add(newArrow);
       _selectedDroneArrowId = newId;
-      _showOrientationPanel = true;
+      _isOrientationSectionExpanded = true;
     });
 
     _scrollToSelectedArrow(newId);
@@ -511,7 +514,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         showCardinals: true,
         sizeMeters: 3.2,
       );
-      _showOrientationPanel = true;
+      _isOrientationSectionExpanded = true;
     });
   }
 
@@ -4547,14 +4550,6 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           child: _buildFloatingToolbar(),
         ),
 
-        // Painel Flutuante Arrastável de Orientação & Quedas
-        if (_showOrientationPanel)
-          Positioned(
-            left: _orientationPanelOffset.dx,
-            top: _orientationPanelOffset.dy,
-            child: _buildOrientationFloatingPanel(),
-          ),
-
         // Dica contextual na parte inferior do canvas
         Positioned(
           bottom: 16,
@@ -4824,13 +4819,13 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             ),
           ],
 
-          // Botão Orientação & Quedas (Abre janela flutuante arrastável)
+          // Botão Orientação & Quedas (Foca e expande a seção na barra lateral direita)
           const SizedBox(width: 4),
           Container(width: 1, height: 24, color: const Color(0xFF334155)),
           const SizedBox(width: 6),
           Tooltip(
             message: !_hasAnyClosedPolygon
-                ? 'Para definir orientacao, desenhe a queda do telhado primeiro'
+                ? 'Para definir orientação, desenhe a queda do telhado primeiro'
                 : 'Configurar orientações solares e quedas de telhado',
             child: Opacity(
               opacity: !_hasAnyClosedPolygon ? 0.45 : 1.0,
@@ -4838,22 +4833,23 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                 onPressed: !_hasAnyClosedPolygon
                     ? () => _showNoPolygonWarning()
                     : () {
-                        if (!_showOrientationPanel) {
-                          _syncArrowsWithSections();
-                          setState(() {
-                            _showOrientationPanel = true;
-                            _toolMode = DesignerToolMode.select; // Ativa a ferramenta SELECIONAR!
-                          });
-                        } else {
-                          setState(() {
-                            _showOrientationPanel = false;
-                          });
+                        _syncArrowsWithSections();
+                        setState(() {
+                          _isOrientationSectionExpanded = true;
+                          _toolMode = DesignerToolMode.select;
+                        });
+                        if (_rightSidebarScrollController.hasClients) {
+                          _rightSidebarScrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
                         }
                       },
                 icon: Icon(
                   Icons.explore_rounded,
                   size: 16,
-                  color: _showOrientationPanel
+                  color: _isOrientationSectionExpanded
                       ? Colors.white
                       : const Color(0xFF38BDF8),
                 ),
@@ -4865,7 +4861,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _showOrientationPanel
+                  backgroundColor: _isOrientationSectionExpanded
                       ? const Color(0xFF0284C7)
                       : const Color(0xFF1E293B),
                   foregroundColor: Colors.white,
@@ -4874,7 +4870,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                     side: BorderSide(
-                      color: _showOrientationPanel
+                      color: _isOrientationSectionExpanded
                           ? const Color(0xFF38BDF8)
                           : const Color(0xFF334155),
                       width: 1.2,
@@ -4937,112 +4933,129 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     );
   }
 
-  /// Painel Flutuante Arrastável para Configuração de Norte e Setas de Queda
-  Widget _buildOrientationFloatingPanel() {
+  /// Seção Expansível/Colapsável (Accordion) do Painel Lateral
+  Widget _buildAccordionSection({
+    required String title,
+    required IconData icon,
+    required Color accentColor,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required Widget child,
+    Widget? trailingHeaderBadge,
+    String? subtitle,
+  }) {
     return Container(
-      width: 360,
-      constraints: const BoxConstraints(maxHeight: 560),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFF38BDF8).withValues(alpha: 0.6),
-          width: 1.5,
+          color: isExpanded
+              ? accentColor.withValues(alpha: 0.45)
+              : const Color(0xFF334155),
+          width: isExpanded ? 1.2 : 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.6),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
-            blurRadius: 16,
-          ),
-        ],
+        boxShadow: isExpanded
+            ? [
+                BoxShadow(
+                  color: accentColor.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(17),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 1. Cabeçalho Arrastável
-            GestureDetector(
-              onPanUpdate: (details) {
-                setState(() {
-                  _orientationPanelOffset += details.delta;
-                });
-              },
-              child: MouseRegion(
-                cursor: SystemMouseCursors.move,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1E293B),
-                    border: Border(
-                      bottom:
-                          BorderSide(color: Color(0xFF334155), width: 1.2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header clicável da sanfona
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(13),
+              bottom: Radius.circular(isExpanded ? 0 : 13),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isExpanded
+                    ? accentColor.withValues(alpha: 0.12)
+                    : const Color(0xFF1E293B).withValues(alpha: 0.5),
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(13),
+                  bottom: Radius.circular(isExpanded ? 0 : 13),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(7),
                     ),
+                    child: Icon(icon, color: accentColor, size: 16),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.explore_rounded,
-                          color: Color(0xFF38BDF8), size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Orientação & Quedas',
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
                           style: GoogleFonts.outfit(
-                            fontSize: 14,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 0.3,
+                            color: isExpanded
+                                ? Colors.white
+                                : const Color(0xFFCBD5E1),
+                            letterSpacing: 0.4,
                           ),
                         ),
-                      ),
-                      const Tooltip(
-                        message: 'Arraste para mover este painel',
-                        child: Icon(Icons.drag_indicator_rounded,
-                            color: Colors.white38, size: 16),
-                      ),
-                      const SizedBox(width: 6),
-                      InkWell(
-                        onTap: () =>
-                            setState(() => _showOrientationPanel = false),
-                        borderRadius: BorderRadius.circular(6),
-                        child: const Padding(
-                          padding: EdgeInsets.all(2),
-                          child: Icon(Icons.close_rounded,
-                              color: Colors.white70, size: 18),
-                        ),
-                      ),
-                    ],
+                        if (subtitle != null && subtitle.isNotEmpty)
+                          Text(
+                            subtitle,
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-
-            // 2. Conteúdo Rolável
-            Flexible(
-              child: SingleChildScrollView(
-                controller: _orientationScrollController,
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // CARD: NORTE DA IMAGEM
-                    _buildNorthCompassSection(),
-                    const SizedBox(height: 12),
-
-                    // CARD: SETAS DE QUEDAS DO TELHADO
-                    _buildRoofArrowsSection(),
+                  if (trailingHeaderBadge != null) ...[
+                    trailingHeaderBadge,
+                    const SizedBox(width: 8),
                   ],
-                ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: isExpanded ? accentColor : const Color(0xFF64748B),
+                      size: 20,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+
+          // Conteúdo animado da seção
+          AnimatedCrossFade(
+            firstChild: Padding(
+              padding: const EdgeInsets.all(12),
+              child: child,
+            ),
+            secondChild: const SizedBox.shrink(),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            duration: const Duration(milliseconds: 250),
+          ),
+        ],
       ),
     );
   }
@@ -6019,342 +6032,370 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   }) {
     return Container(
       color: const Color(0xFF1E293B),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: SingleChildScrollView(
+              controller: _rightSidebarScrollController,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'PARÂMETROS DA USINA',
-                    style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF94A3B8)),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card de Diagnóstico do Drone via IA Gemini
-                  if (_droneAnalysisResult != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
+                  // ── SEÇÃO 1: ORIENTAÇÃO & QUEDAS (ACCORDION) ───────────
+                  _buildAccordionSection(
+                    title: 'ORIENTAÇÃO & QUEDAS',
+                    subtitle: 'Norte magnético e setas de queda das águas',
+                    icon: Icons.explore_rounded,
+                    accentColor: const Color(0xFF38BDF8),
+                    isExpanded: _isOrientationSectionExpanded,
+                    onToggle: () => setState(() =>
+                        _isOrientationSectionExpanded =
+                            !_isOrientationSectionExpanded),
+                    trailingHeaderBadge: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(12),
+                        color: (_droneNorthCompass != null ||
+                                _droneArrows.isNotEmpty)
+                            ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                            : const Color(0xFF64748B).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                            color:
-                                const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.auto_awesome_rounded,
-                                  color: Color(0xFF38BDF8), size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Diagnóstico IA do Drone',
-                                style: GoogleFonts.outfit(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF38BDF8)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_droneAnalysisResult!.roofType} • ~${_droneAnalysisResult!.estimatedAreaM2.toStringAsFixed(1)} m²',
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
-                          ),
-                          if (_droneAnalysisResult!.obstacles.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 4,
-                              runSpacing: 4,
-                              children:
-                                  _droneAnalysisResult!.obstacles.map((obs) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEF4444)
-                                        .withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                        color: const Color(0xFFEF4444)
-                                            .withValues(alpha: 0.3)),
-                                  ),
-                                  child: Text(obs,
-                                      style: GoogleFonts.inter(
-                                          fontSize: 10.5,
-                                          color: const Color(0xFFFCA5A5))),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                          const SizedBox(height: 6),
-                          Text(
-                            _droneAnalysisResult!.technicalSummary,
-                            style: GoogleFonts.inter(
-                                fontSize: 11, color: const Color(0xFF94A3B8)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-
-                  // Seletor de Modelo de Módulo Solar
-                  Text('Modelo do Módulo:',
-                      style: GoogleFonts.inter(
-                          fontSize: 11.5, color: Colors.white70)),
-                  const SizedBox(height: 6),
-                  Builder(
-                    builder: (context) {
-                      final availableSpecs = <SolarModuleSpec>[
-                        ...SolarModuleSpec.presets
-                      ];
-                      if (!availableSpecs
-                          .any((s) => s.id == _selectedModule.id)) {
-                        availableSpecs.insert(0, _selectedModule);
-                      }
-                      final dropdownValue = availableSpecs.firstWhere(
-                        (s) => s.id == _selectedModule.id,
-                        orElse: () => availableSpecs.first,
-                      );
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF334155)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<SolarModuleSpec>(
-                            value: dropdownValue,
-                            isExpanded: true,
-                            dropdownColor: const Color(0xFF0F172A),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                                color: Colors.white70),
-                            items: availableSpecs.map((spec) {
-                              return DropdownMenuItem(
-                                value: spec,
-                                child: Text(
-                                  spec.modelName,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12, color: Colors.white),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (newSpec) {
-                              if (newSpec != null) {
-                                setState(() => _selectedModule = newSpec);
-                                if (_isRoofClosed) _autoFillModules();
-                              }
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Orientação: Retrato vs Paisagem
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildOrientationChoice(
-                          orientation: ModuleOrientation.portrait,
-                          icon: Icons.crop_portrait_rounded,
-                          label: 'Retrato',
+                          color: (_droneNorthCompass != null ||
+                                  _droneArrows.isNotEmpty)
+                              ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                              : const Color(0xFF64748B).withValues(alpha: 0.3),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildOrientationChoice(
-                          orientation: ModuleOrientation.landscape,
-                          icon: Icons.crop_landscape_rounded,
-                          label: 'Paisagem',
+                      child: Text(
+                        '${_droneNorthCompass != null ? "1 Norte" : "Sem Norte"} • ${_droneArrows.length} ${_droneArrows.length == 1 ? "Queda" : "Quedas"}',
+                        style: GoogleFonts.inter(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: (_droneNorthCompass != null ||
+                                  _droneArrows.isNotEmpty)
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF94A3B8),
                         ),
                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Ajuste fino de Rotação da Grade
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Giro da Grade:',
-                          style: GoogleFonts.inter(
-                              fontSize: 11.5, color: Colors.white70)),
-                      InkWell(
-                        onTap: _showSetAngleDialog,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0F172A),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                                color: Colors.amber.withValues(alpha: 0.4)),
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                '${((_rotationOffsetDegrees % 360 + 360) % 360).toStringAsFixed(0)}°',
-                                style: GoogleFonts.inter(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.amber),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.edit_rounded,
-                                  size: 11, color: Colors.amber),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Slider(
-                    value: ((_rotationOffsetDegrees % 360 + 360) % 360)
-                        .clamp(0.0, 360.0),
-                    min: 0,
-                    max: 360,
-                    divisions: 72,
-                    activeColor: const Color(0xFFF59E0B),
-                    inactiveColor: const Color(0xFF334155),
-                    onChanged: (val) {
-                      setState(() {
-                        _setAbsoluteRotationAngle(val);
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // Recuo de borda (Setback de segurança)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Recuo de Borda:',
-                          style: GoogleFonts.inter(
-                              fontSize: 11.5, color: Colors.white70)),
-                      Text('${(_setbackMeters * 100).toStringAsFixed(0)} cm',
-                          style: GoogleFonts.inter(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber)),
-                    ],
-                  ),
-                  Slider(
-                    value: _setbackMeters,
-                    min: 0.15,
-                    max: 0.80,
-                    divisions: 13,
-                    activeColor: const Color(0xFFF59E0B),
-                    inactiveColor: const Color(0xFF334155),
-                    onChanged: (val) {
-                      setState(() => _setbackMeters = val);
-                      if (_isRoofClosed) _autoFillModules();
-                    },
-                  ),
-
-                  const Divider(color: Color(0xFF334155), height: 24),
-
-                  // ── IRRADIAÇÃO SOLAR & GERAÇÃO (CRESESB / INPE) ──────────────────────────
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF334155)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.25),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF59E0B)
-                                    .withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.wb_sunny_rounded,
-                                color: Color(0xFFF59E0B),
-                                size: 18,
-                              ),
+                        _buildNorthCompassSection(),
+                        const SizedBox(height: 12),
+                        _buildRoofArrowsSection(),
+                      ],
+                    ),
+                  ),
+
+                  // ── SEÇÃO 2: PARÂMETROS DA USINA (ACCORDION) ───────────
+                  _buildAccordionSection(
+                    title: 'PARÂMETROS DA USINA',
+                    subtitle: 'Módulo, giro da grade e recuo de borda',
+                    icon: Icons.tune_rounded,
+                    accentColor: const Color(0xFF6366F1),
+                    isExpanded: _isPlantParamsExpanded,
+                    onToggle: () => setState(() =>
+                        _isPlantParamsExpanded = !_isPlantParamsExpanded),
+                    trailingHeaderBadge: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        '${_selectedModule.watts}W • ${_orientation == ModuleOrientation.portrait ? "Retrato" : "Paisagem"}',
+                        style: GoogleFonts.inter(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF818CF8),
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Card de Diagnóstico do Drone via IA Gemini
+                        if (_droneAnalysisResult != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: const Color(0xFF38BDF8)
+                                      .withValues(alpha: 0.3)),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'IRRADIAÇÃO SOLAR',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 12.5,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.auto_awesome_rounded,
+                                        color: Color(0xFF38BDF8), size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Diagnóstico IA do Drone',
+                                      style: GoogleFonts.outfit(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF38BDF8)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${_droneAnalysisResult!.roofType} • ~${_droneAnalysisResult!.estimatedAreaM2.toStringAsFixed(1)} m²',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  Text(
-                                    'CRESESB / Atlas Solar INPE',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10.5,
-                                      color: const Color(0xFF94A3B8),
-                                    ),
+                                      color: Colors.white),
+                                ),
+                                if (_droneAnalysisResult!.obstacles.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    children:
+                                        _droneAnalysisResult!.obstacles.map((obs) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEF4444)
+                                              .withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: const Color(0xFFEF4444)
+                                                  .withValues(alpha: 0.3)),
+                                        ),
+                                        child: Text(obs,
+                                            style: GoogleFonts.inter(
+                                                fontSize: 10.5,
+                                                color: const Color(0xFFFCA5A5))),
+                                      );
+                                    }).toList(),
                                   ),
                                 ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  _droneAnalysisResult!.technicalSummary,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: const Color(0xFF94A3B8)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // Seletor de Modelo de Módulo Solar
+                        Text('Modelo do Módulo:',
+                            style: GoogleFonts.inter(
+                                fontSize: 11.5, color: Colors.white70)),
+                        const SizedBox(height: 6),
+                        Builder(
+                          builder: (context) {
+                            final availableSpecs = <SolarModuleSpec>[
+                              ...SolarModuleSpec.presets
+                            ];
+                            if (!availableSpecs
+                                .any((s) => s.id == _selectedModule.id)) {
+                              availableSpecs.insert(0, _selectedModule);
+                            }
+                            final dropdownValue = availableSpecs.firstWhere(
+                              (s) => s.id == _selectedModule.id,
+                              orElse: () => availableSpecs.first,
+                            );
+
+                            return Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(10),
+                                border:
+                                    Border.all(color: const Color(0xFF334155)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<SolarModuleSpec>(
+                                  value: dropdownValue,
+                                  isExpanded: true,
+                                  dropdownColor: const Color(0xFF0F172A),
+                                  icon: const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: Colors.white70),
+                                  items: availableSpecs.map((spec) {
+                                    return DropdownMenuItem(
+                                      value: spec,
+                                      child: Text(
+                                        spec.modelName,
+                                        style: GoogleFonts.inter(
+                                            fontSize: 12, color: Colors.white),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newSpec) {
+                                    if (newSpec != null) {
+                                      setState(() => _selectedModule = newSpec);
+                                      if (_isRoofClosed) _autoFillModules();
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        // Orientação: Retrato vs Paisagem
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildOrientationChoice(
+                                orientation: ModuleOrientation.portrait,
+                                icon: Icons.crop_portrait_rounded,
+                                label: 'Retrato',
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981)
-                                    .withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: const Color(0xFF10B981)
-                                        .withValues(alpha: 0.3)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildOrientationChoice(
+                                orientation: ModuleOrientation.landscape,
+                                icon: Icons.crop_landscape_rounded,
+                                label: 'Paisagem',
                               ),
-                              child: Text(
-                                '$_resolvedState • $_resolvedRegion',
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        // Ajuste fino de Rotação da Grade
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Giro da Grade:',
                                 style: GoogleFonts.inter(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF10B981),
+                                    fontSize: 11.5, color: Colors.white70)),
+                            InkWell(
+                              onTap: _showSetAngleDialog,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color:
+                                          Colors.amber.withValues(alpha: 0.4)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      '${((_rotationOffsetDegrees % 360 + 360) % 360).toStringAsFixed(0)}°',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.edit_rounded,
+                                        size: 11, color: Colors.amber),
+                                  ],
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        Slider(
+                          value: ((_rotationOffsetDegrees % 360 + 360) % 360)
+                              .clamp(0.0, 360.0),
+                          min: 0,
+                          max: 360,
+                          divisions: 72,
+                          activeColor: const Color(0xFFF59E0B),
+                          inactiveColor: const Color(0xFF334155),
+                          onChanged: (val) {
+                            setState(() {
+                              _setAbsoluteRotationAngle(val);
+                            });
+                          },
+                        ),
 
+                        const SizedBox(height: 10),
+
+                        // Recuo de borda (Setback de segurança)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Recuo de Borda:',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11.5, color: Colors.white70)),
+                            Text(
+                                '${(_setbackMeters * 100).toStringAsFixed(0)} cm',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber)),
+                          ],
+                        ),
+                        Slider(
+                          value: _setbackMeters,
+                          min: 0.15,
+                          max: 0.80,
+                          divisions: 13,
+                          activeColor: const Color(0xFFF59E0B),
+                          inactiveColor: const Color(0xFF334155),
+                          onChanged: (val) {
+                            setState(() => _setbackMeters = val);
+                            if (_isRoofClosed) _autoFillModules();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── SEÇÃO 3: IRRADIAÇÃO SOLAR & GERAÇÃO (ACCORDION) ─────
+                  _buildAccordionSection(
+                    title: 'IRRADIAÇÃO & GERAÇÃO',
+                    subtitle: 'CRESESB / Atlas Solar INPE',
+                    icon: Icons.wb_sunny_rounded,
+                    accentColor: const Color(0xFFF59E0B),
+                    isExpanded: _isIrradiationExpanded,
+                    onToggle: () => setState(() =>
+                        _isIrradiationExpanded = !_isIrradiationExpanded),
+                    trailingHeaderBadge: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF10B981).withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        '$_resolvedState • $_resolvedRegion',
+                        style: GoogleFonts.inter(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF10B981),
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         // Linha com CEP e Irradiação HSP
                         Row(
                           children: [
@@ -6694,177 +6735,207 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
 
-                  // ── 4 CARDS DE KPIS CONSOLIDADOS ─────────────────────────────────
-                  Text(
-                    'PRÉ-DIMENSIONAMENTO',
-                    style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF94A3B8)),
-                  ),
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
-                      Expanded(
-                          child: _buildKpiCard(
-                              'POTÊNCIA',
-                              '${totalKwp.toStringAsFixed(2)} kWp',
-                              Icons.bolt_rounded,
-                              const Color(0xFF10B981))),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: _buildKpiCard(
-                              'MÓDULOS',
-                              '$activeCount placas',
-                              Icons.grid_view_rounded,
-                              const Color(0xFF6366F1))),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                          child: _buildKpiCard(
-                              'ÁREA TELHADO',
-                              '${areaM2.toStringAsFixed(1)} m²',
-                              Icons.square_foot_rounded,
-                              const Color(0xFFF59E0B))),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: _buildKpiCard(
-                              'GERAÇÃO ESTIMADA',
-                              '~${_calculateTotalEstimatedGenerationKwh().toStringAsFixed(0)} kWh/mês',
-                              Icons.solar_power_rounded,
-                              const Color(0xFF38BDF8))),
-                    ],
-                  ),
-
-                  // ── Resumo de Quedas Mapeadas (Múltiplas Águas) ───────────────────
-                  if (_sections.length > 1 ||
-                      (_sections.isNotEmpty &&
-                          _sections.first.activeModuleCount > 0)) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(10),
+                  // ── SEÇÃO 4: PRÉ-DIMENSIONAMENTO & TELHADOS (ACCORDION) ──
+                  _buildAccordionSection(
+                    title: 'PRÉ-DIMENSIONAMENTO',
+                    subtitle: 'Potência, placas, área e águas',
+                    icon: Icons.analytics_rounded,
+                    accentColor: const Color(0xFF10B981),
+                    isExpanded: _isPreDimensioningExpanded,
+                    onToggle: () => setState(() =>
+                        _isPreDimensioningExpanded =
+                            !_isPreDimensioningExpanded),
+                    trailingHeaderBadge: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF10B981).withValues(alpha: 0.3)),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'TELHADOS (${_sections.length})',
-                                style: GoogleFonts.outfit(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF94A3B8)),
-                              ),
-                              InkWell(
-                                onTap: _addNewSection,
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.add_rounded,
-                                        size: 12, color: Color(0xFF38BDF8)),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      'Novo Telhado',
-                                      style: GoogleFonts.inter(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF38BDF8)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          ..._sections.asMap().entries.map((e) {
-                            final idx = e.key;
-                            final sec = e.value;
-                            final isCur = idx == _activeSectionIndex;
-
-                            return InkWell(
-                              onTap: () => _selectSection(idx),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 4),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: isCur
-                                      ? sec.themeColor.withValues(alpha: 0.15)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: isCur
-                                          ? sec.themeColor
-                                          : Colors.transparent),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                          color: sec.themeColor,
-                                          shape: BoxShape.circle),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        sec.name,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11,
-                                          fontWeight: isCur
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                          color: isCur
-                                              ? Colors.white
-                                              : Colors.white70,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      '${sec.activeModuleCount} pl • ${sec.totalKwp.toStringAsFixed(2)} kWp',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: isCur
-                                            ? sec.themeColor
-                                            : const Color(0xFF94A3B8),
-                                      ),
-                                    ),
-                                    if (isCur) ...[
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.edit_rounded,
-                                          size: 11, color: Colors.amber),
-                                    ],
-                                    if (_sections.length > 1) ...[
-                                      const SizedBox(width: 6),
-                                      InkWell(
-                                        onTap: () => _deleteCurrentSection(idx),
-                                        child: const Icon(Icons.close_rounded,
-                                            size: 13, color: Color(0xFFEF4444)),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
+                      child: Text(
+                        '${totalKwp.toStringAsFixed(2)} kWp • $activeCount pl',
+                        style: GoogleFonts.inter(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF10B981),
+                        ),
                       ),
                     ),
-                  ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                                child: _buildKpiCard(
+                                    'POTÊNCIA',
+                                    '${totalKwp.toStringAsFixed(2)} kWp',
+                                    Icons.bolt_rounded,
+                                    const Color(0xFF10B981))),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: _buildKpiCard(
+                                    'MÓDULOS',
+                                    '$activeCount placas',
+                                    Icons.grid_view_rounded,
+                                    const Color(0xFF6366F1))),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                                child: _buildKpiCard(
+                                    'ÁREA TELHADO',
+                                    '${areaM2.toStringAsFixed(1)} m²',
+                                    Icons.square_foot_rounded,
+                                    const Color(0xFFF59E0B))),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: _buildKpiCard(
+                                    'GERAÇÃO ESTIMADA',
+                                    '~${_calculateTotalEstimatedGenerationKwh().toStringAsFixed(0)} kWh/mês',
+                                    Icons.solar_power_rounded,
+                                    const Color(0xFF38BDF8))),
+                          ],
+                        ),
+
+                        // Resumo de Quedas Mapeadas (Múltiplas Águas)
+                        if (_sections.length > 1 ||
+                            (_sections.isNotEmpty &&
+                                _sections.first.activeModuleCount > 0)) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF334155)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'TELHADOS (${_sections.length})',
+                                      style: GoogleFonts.outfit(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF94A3B8)),
+                                    ),
+                                    InkWell(
+                                      onTap: _addNewSection,
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.add_rounded,
+                                              size: 12,
+                                              color: Color(0xFF38BDF8)),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            'Novo Telhado',
+                                            style: GoogleFonts.inter(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF38BDF8)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ..._sections.asMap().entries.map((e) {
+                                  final idx = e.key;
+                                  final sec = e.value;
+                                  final isCur = idx == _activeSectionIndex;
+
+                                  return InkWell(
+                                    onTap: () => _selectSection(idx),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: isCur
+                                            ? sec.themeColor
+                                                .withValues(alpha: 0.15)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: isCur
+                                                ? sec.themeColor
+                                                : Colors.transparent),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                                color: sec.themeColor,
+                                                shape: BoxShape.circle),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              sec.name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 11,
+                                                fontWeight: isCur
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                                color: isCur
+                                                    ? Colors.white
+                                                    : Colors.white70,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${sec.activeModuleCount} pl • ${sec.totalKwp.toStringAsFixed(2)} kWp',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: isCur
+                                                  ? sec.themeColor
+                                                  : const Color(0xFF94A3B8),
+                                            ),
+                                          ),
+                                          if (isCur) ...[
+                                            const SizedBox(width: 4),
+                                            const Icon(Icons.edit_rounded,
+                                                size: 11, color: Colors.amber),
+                                          ],
+                                          if (_sections.length > 1) ...[
+                                            const SizedBox(width: 6),
+                                            InkWell(
+                                              onTap: () =>
+                                                  _deleteCurrentSection(idx),
+                                              child: const Icon(
+                                                  Icons.close_rounded,
+                                                  size: 13,
+                                                  color: Color(0xFFEF4444)),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
