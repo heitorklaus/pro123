@@ -10,6 +10,7 @@ import '../../data/services/roof_geometry_service.dart';
 import '../../data/services/satellite_map_service.dart';
 import '../../domain/models/solar_designer_models.dart';
 import '../../domain/services/brazil_solar_irradiation_service.dart';
+import '../../domain/services/solar_shading_engine.dart';
 import 'solar_panel_texture_data.dart';
 
 /// Modos de interação do usuário no Canvas
@@ -87,6 +88,8 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final bool isRenderMode;
   final Map<String, SolarOrientationEfficiency> sectionEfficiencies;
   final SolarOrientationEfficiency? activeSectionEfficiency;
+  final double currentSimulationHour;
+  final Map<String, ModuleShadingStatus> moduleShadingStatuses;
 
   const SatelliteRoofCanvas({
     super.key,
@@ -154,6 +157,8 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.isRenderMode = false,
     this.sectionEfficiencies = const {},
     this.activeSectionEfficiency,
+    this.currentSimulationHour = 12.0,
+    this.moduleShadingStatuses = const {},
   });
 
   @override
@@ -1291,6 +1296,8 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                           isRenderMode: widget.isRenderMode,
                           sectionEfficiencies: widget.sectionEfficiencies,
                           activeSectionEfficiency: widget.activeSectionEfficiency,
+                          currentSimulationHour: widget.currentSimulationHour,
+                          moduleShadingStatuses: widget.moduleShadingStatuses,
                         ),
                       ),
 
@@ -3451,6 +3458,8 @@ class _RoofOverlayPainter extends CustomPainter {
   final bool isRenderMode;
   final Map<String, SolarOrientationEfficiency> sectionEfficiencies;
   final SolarOrientationEfficiency? activeSectionEfficiency;
+  final double currentSimulationHour;
+  final Map<String, ModuleShadingStatus> moduleShadingStatuses;
 
   _RoofOverlayPainter({
     required this.vertices,
@@ -3480,6 +3489,8 @@ class _RoofOverlayPainter extends CustomPainter {
     this.isRenderMode = false,
     this.sectionEfficiencies = const {},
     this.activeSectionEfficiency,
+    this.currentSimulationHour = 12.0,
+    this.moduleShadingStatuses = const {},
   });
 
   final String? selectedRowId;
@@ -3489,6 +3500,48 @@ class _RoofOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final centerOffset =
         Offset(size.width / 2.0 + panOffsetX, size.height / 2.0 + panOffsetY);
+
+    // ── 0. DESENHO DAS MANCHAS DE SOMBRA PROJETADAS (SOL & ALTURAS) ──────────
+    final sunPos = SolarShadingEngine.calculateSunPosition(hourOfDay: currentSimulationHour);
+    if (sunPos.isSunUp && sunPos.elevationDegrees > 2.0) {
+      for (int i = 0; i < sections.length; i++) {
+        final caster = sections[i];
+        if (caster.vertices.length < 3) continue;
+
+        for (int j = 0; j < sections.length; j++) {
+          if (i == j) continue;
+          final receiver = sections[j];
+          final deltaH = caster.peakHeightMeters - receiver.baseHeightMeters;
+          if (deltaH <= 0.20) continue;
+
+          final shadowPoly = SolarShadingEngine.projectShadowPolygon(
+            casterVertices: caster.vertices,
+            deltaHeightMeters: deltaH,
+            sun: sunPos,
+          );
+
+          if (shadowPoly.length >= 3) {
+            final sPath = Path();
+            final sVerts = shadowPoly.map((p) {
+              final pxX = RoofGeometryService.metersToPixels(p.x, metersPerPixel);
+              final pxY = RoofGeometryService.metersToPixels(p.y, metersPerPixel);
+              return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
+            }).toList();
+
+            sPath.moveTo(sVerts.first.dx, sVerts.first.dy);
+            for (int k = 1; k < sVerts.length; k++) {
+              sPath.lineTo(sVerts[k].dx, sVerts[k].dy);
+            }
+            sPath.close();
+
+            final shadowFill = Paint()
+              ..color = const Color(0xFF020617).withValues(alpha: 0.40)
+              ..style = PaintingStyle.fill;
+            canvas.drawPath(sPath, shadowFill);
+          }
+        }
+      }
+    }
 
     // ── 1. RENDERIZAÇÃO DAS SEÇÕES INATIVAS ─────────────────────────────────
     for (int s = 0; s < sections.length; s++) {
@@ -3522,6 +3575,19 @@ class _RoofOverlayPainter extends CustomPainter {
           ..strokeWidth = 1.8
           ..style = PaintingStyle.stroke;
         canvas.drawPath(path, borderPaint);
+
+        if (sec.isClosed && screenVerts.isNotEmpty) {
+          double sSumX = 0, sSumY = 0;
+          for (final sv in screenVerts) {
+            sSumX += sv.dx;
+            sSumY += sv.dy;
+          }
+          final sCenter = Offset(sSumX / screenVerts.length, sSumY / screenVerts.length);
+          final hText = sec.roofType == RoofStructureType.flatPlatibanda
+              ? 'Alt: ${sec.baseHeightMeters.toStringAsFixed(1)}m'
+              : 'Base: ${sec.baseHeightMeters.toStringAsFixed(1)}m • Topo: ${sec.peakHeightMeters.toStringAsFixed(1)}m';
+          _drawHeightBadge(canvas, sCenter, hText, sec.themeColor);
+        }
       }
 
       // Módulos da seção inativa (SEMPRE RENDERIZA, mesmo que a água tenha sido criada sem polígono de arestas!)
@@ -3716,6 +3782,15 @@ class _RoofOverlayPainter extends CustomPainter {
         }
 
         _drawMetricLabel(canvas, badgePos, '${distMeters.toStringAsFixed(1)}m');
+      }
+
+      // Badge de Altura do Telhado no centro do polígono
+      if (isClosed && activeSectionIndex < sections.length) {
+        final curSec = sections[activeSectionIndex];
+        final hText = curSec.roofType == RoofStructureType.flatPlatibanda
+            ? 'Alt: ${curSec.baseHeightMeters.toStringAsFixed(1)}m'
+            : 'Base: ${curSec.baseHeightMeters.toStringAsFixed(1)}m • Topo: ${curSec.peakHeightMeters.toStringAsFixed(1)}m';
+        _drawHeightBadge(canvas, polyCenter, hText, const Color(0xFF38BDF8));
       }
 
       // Vértices do telhado ativo (bolinhas interativas de arraste)
@@ -3973,6 +4048,37 @@ class _RoofOverlayPainter extends CustomPainter {
         textPainter.paint(
           canvas,
           centerScreen - Offset(textPainter.width / 2, textPainter.height / 2),
+        );
+      }
+    }
+
+    // ── 3. EFEITO DE SOMBREAMENTO DO SOL EM TEMPO REAL ───────────────────────
+    final shadingStatus = moduleShadingStatuses[mod.id];
+    if (shadingStatus != null && shadingStatus.isShaded && !isDragging) {
+      // Escurece a placa com máscara escura de sombra
+      final shadowAlpha = (shadingStatus.shadedPercentage * 0.65).clamp(0.35, 0.75);
+      final shadowPaint = Paint()
+        ..color = Colors.black.withValues(alpha: shadowAlpha)
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(modPath, shadowPaint);
+
+      // Ícone sutil de nuvem/sombra se houver espaço
+      final minD = math.min(wPx, hPx);
+      if (minD >= 14.0) {
+        final iconSpan = TextSpan(
+          text: '☁',
+          style: TextStyle(
+            fontSize: (minD * 0.45).clamp(10.0, 18.0),
+            color: const Color(0xFF94A3B8),
+          ),
+        );
+        final iconPainter = TextPainter(
+          text: iconSpan,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        iconPainter.paint(
+          canvas,
+          centerScreen - Offset(iconPainter.width / 2, iconPainter.height / 2),
         );
       }
     }
@@ -4387,6 +4493,39 @@ class _RoofOverlayPainter extends CustomPainter {
     final borderPaint = Paint()
       ..color = const Color(0xFFD97706)
       ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawRRect(rrect, bgPaint);
+    canvas.drawRRect(rrect, borderPaint);
+
+    tp.paint(canvas,
+        Offset(position.dx - tp.width / 2, position.dy - tp.height / 2));
+  }
+
+  /// Desenha uma badge moderna de altura / pé-direito centralizada no telhado
+  void _drawHeightBadge(Canvas canvas, Offset position, String text, Color accentColor) {
+    final span = TextSpan(
+      text: '📏 $text',
+      style: GoogleFonts.outfit(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+    );
+    final tp = TextPainter(text: span, textDirection: TextDirection.ltr);
+    tp.layout();
+
+    final bgRect = Rect.fromCenter(
+      center: position,
+      width: tp.width + 16,
+      height: tp.height + 8,
+    );
+
+    final rrect = RRect.fromRectAndRadius(bgRect, const Radius.circular(8));
+    final bgPaint = Paint()..color = const Color(0xFF0F172A).withValues(alpha: 0.88);
+    final borderPaint = Paint()
+      ..color = accentColor
+      ..strokeWidth = 1.4
       ..style = PaintingStyle.stroke;
 
     canvas.drawRRect(rrect, bgPaint);

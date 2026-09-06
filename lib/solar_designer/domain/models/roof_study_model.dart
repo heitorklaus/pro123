@@ -458,6 +458,10 @@ class RoofStudyModel {
       'rotationDegrees': sec.rotationDegrees,
       'setbackMeters': sec.setbackMeters,
       'themeColor': sec.themeColor.toARGB32(),
+      'roofType': sec.roofType.name,
+      'baseHeightMeters': sec.baseHeightMeters,
+      'peakHeightMeters': sec.peakHeightMeters,
+      'tiltDegrees': sec.tiltDegrees,
       'moduleSpec': {
         'id': sec.moduleSpec.id,
         'modelName': sec.moduleSpec.modelName,
@@ -538,6 +542,15 @@ class RoofStudyModel {
         ? ui.Color(colorVal.toInt())
         : const ui.Color(0xFFF59E0B);
 
+    final roofTypeStr = map['roofType'] as String? ?? 'flatPlatibanda';
+    final roofType = RoofStructureType.values.firstWhere(
+      (e) => e.name == roofTypeStr,
+      orElse: () => RoofStructureType.flatPlatibanda,
+    );
+    final baseHeight = (map['baseHeightMeters'] as num?)?.toDouble() ?? 3.50;
+    final peakHeight = (map['peakHeightMeters'] as num?)?.toDouble() ?? baseHeight;
+    final tiltDegrees = (map['tiltDegrees'] as num?)?.toDouble() ?? 12.0;
+
     return RoofSection(
       id: map['id'] as String? ?? '1',
       name: map['name'] as String? ?? 'Telhado 1',
@@ -549,6 +562,10 @@ class RoofStudyModel {
       setbackMeters: (map['setbackMeters'] as num?)?.toDouble() ?? 0.30,
       themeColor: themeColor,
       isClosed: map['isClosed'] as bool? ?? vertices.length >= 3,
+      roofType: roofType,
+      baseHeightMeters: baseHeight,
+      peakHeightMeters: peakHeight,
+      tiltDegrees: tiltDegrees,
     );
   }
 }

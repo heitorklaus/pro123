@@ -487,6 +487,26 @@ class RoofPolygon {
   }
 }
 
+/// Tipo estrutural do telhado / volume da edificação
+enum RoofStructureType {
+  flatPlatibanda, // Casa quadrada, platibanda ou laje plana
+  gabledCeramic, // Telhado cerâmico de várias águas com cumeeira
+  monoPitch, // Telhado de uma água / meia-água inclinada
+}
+
+extension RoofStructureTypeExt on RoofStructureType {
+  String get label {
+    switch (this) {
+      case RoofStructureType.flatPlatibanda:
+        return 'Platibanda / Laje Plana';
+      case RoofStructureType.gabledCeramic:
+        return 'Cerâmico com Cumeeira (Águas)';
+      case RoofStructureType.monoPitch:
+        return 'Meia-água / Inclinado';
+    }
+  }
+}
+
 /// Seção individual de telhado (Água / Queda / Conjunto) com seu próprio polígono e arranjo de placas
 class RoofSection {
   final String id;
@@ -500,6 +520,12 @@ class RoofSection {
   final double setbackMeters;
   final ui.Color themeColor;
 
+  // ── Altura e Características 3D ──────────────────────────────────────────
+  final RoofStructureType roofType;
+  final double baseHeightMeters; // Pé-direito da parede ou altura do beiral (ex: 3.50m)
+  final double peakHeightMeters; // Altura máxima da platibanda ou cumeeira (ex: 4.50m)
+  final double tiltDegrees; // Inclinação da água em graus (ex: 15°)
+
   RoofSection({
     required this.id,
     required this.name,
@@ -511,13 +537,20 @@ class RoofSection {
     this.rotationDegrees = 0.0,
     this.setbackMeters = 0.30,
     this.themeColor = const ui.Color(0xFFF59E0B),
-  });
+    this.roofType = RoofStructureType.flatPlatibanda,
+    this.baseHeightMeters = 3.50,
+    double? peakHeightMeters,
+    this.tiltDegrees = 12.0,
+  }) : peakHeightMeters = peakHeightMeters ?? baseHeightMeters;
 
   RoofPolygon get polygon => RoofPolygon(vertices: vertices);
   double get areaM2 => polygon.areaM2;
   int get activeModuleCount => modules.where((m) => !m.isExcluded).length;
   double get totalKwp => (activeModuleCount * moduleSpec.watts) / 1000.0;
   double get estimatedMonthlyKwh => totalKwp * 130.0;
+
+  /// Altura média da seção (para cálculo rápido de sombreamento)
+  double get averageHeightMeters => (baseHeightMeters + peakHeightMeters) / 2.0;
 
   RoofSection copyWith({
     String? id,
@@ -530,6 +563,10 @@ class RoofSection {
     double? rotationDegrees,
     double? setbackMeters,
     ui.Color? themeColor,
+    RoofStructureType? roofType,
+    double? baseHeightMeters,
+    double? peakHeightMeters,
+    double? tiltDegrees,
   }) {
     return RoofSection(
       id: id ?? this.id,
@@ -542,6 +579,10 @@ class RoofSection {
       rotationDegrees: rotationDegrees ?? this.rotationDegrees,
       setbackMeters: setbackMeters ?? this.setbackMeters,
       themeColor: themeColor ?? this.themeColor,
+      roofType: roofType ?? this.roofType,
+      baseHeightMeters: baseHeightMeters ?? this.baseHeightMeters,
+      peakHeightMeters: peakHeightMeters ?? this.peakHeightMeters,
+      tiltDegrees: tiltDegrees ?? this.tiltDegrees,
     );
   }
 }

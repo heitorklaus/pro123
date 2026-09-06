@@ -14,9 +14,13 @@ import '../data/services/satellite_map_service.dart';
 import '../domain/models/solar_designer_models.dart';
 import '../domain/models/roof_study_model.dart';
 import '../domain/services/brazil_solar_irradiation_service.dart';
+import '../domain/services/solar_shading_engine.dart';
 import '../data/repositories/roof_study_repository.dart';
 import 'widgets/satellite_roof_canvas.dart';
 import 'widgets/roof_study_setup_dialog.dart';
+import 'widgets/roof_height_dialog.dart';
+import 'widgets/solar_shading_slider_bar.dart';
+import 'widgets/solar_3d_view_dialog.dart';
 import '../../clients/domain/models/client_model.dart';
 import '../../proposals/domain/models/proposal_model.dart';
 import '../../auth/domain/models/user_model.dart';
@@ -124,6 +128,10 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   double _rotationOffsetDegrees = 0.0; // Rotação adicional manual
   int _selectedModuleIndex =
       -1; // Índice da placa selecionada para ações individuais
+
+  // ── Simulação Solar & Sombreamento Diurno ────────────────────────────────
+  double _currentSimulationHour = 12.0; // Padrão: 12:00 (Zênite)
+  bool _showSimulationBar = true; // Exibe o slider horário na base do canvas
 
   // Estados de carregamento e feedback
   bool _isSearching = false;
@@ -3488,10 +3496,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           final distPixels = (localPos - firstScreenPos).distance;
 
           if (distPixels <= 24.0) {
-            _isRoofClosed = true;
-            _toolMode = DesignerToolMode.editModules;
-            _syncArrowsWithSections();
-            _autoFillModules();
+            _onRoofPolygonClosedWithHeightDialog();
             return;
           }
         }
@@ -3540,13 +3545,48 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     if (_toolMode == DesignerToolMode.drawRoof &&
         _roofVertices.length >= 3 &&
         !_isRoofClosed) {
+      _onRoofPolygonClosedWithHeightDialog();
+    }
+  }
+
+  /// Acionado quando o operador fecha o polígono:
+  /// Pergunta a altura (pé-direito/platibanda ou cumeeira/águas) e preenche os módulos
+  Future<void> _onRoofPolygonClosedWithHeightDialog() async {
+    setState(() {
+      _isRoofClosed = true;
+      _toolMode = DesignerToolMode.editModules;
+    });
+
+    _syncCurrentSection();
+    _syncArrowsWithSections();
+
+    final curSec = (_activeSectionIndex >= 0 && _activeSectionIndex < _sections.length)
+        ? _sections[_activeSectionIndex]
+        : null;
+
+    final result = await RoofHeightDialog.show(
+      context,
+      sectionName: curSec?.name ?? 'Telhado 1',
+      initialType: curSec?.roofType ?? RoofStructureType.flatPlatibanda,
+      initialBaseHeight: curSec?.baseHeightMeters ?? 3.50,
+      initialPeakHeight: curSec?.peakHeightMeters ?? 3.50,
+      initialTiltDegrees: curSec?.tiltDegrees ?? 12.0,
+    );
+
+    if (result != null && mounted) {
       setState(() {
-        _isRoofClosed = true;
-        _toolMode = DesignerToolMode.editModules;
-        _syncArrowsWithSections();
-        _autoFillModules();
+        if (_activeSectionIndex >= 0 && _activeSectionIndex < _sections.length) {
+          _sections[_activeSectionIndex] = _sections[_activeSectionIndex].copyWith(
+            roofType: result.roofType,
+            baseHeightMeters: result.baseHeightMeters,
+            peakHeightMeters: result.peakHeightMeters,
+            tiltDegrees: result.tiltDegrees,
+          );
+        }
       });
     }
+
+    _autoFillModules();
   }
 
   // ── Preenchimento Automático dos Módulos ──────────────────────────────────
@@ -4540,6 +4580,14 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             isRenderMode: _isRenderMode,
             sectionEfficiencies: _calculateSectionEfficiencies(),
             activeSectionEfficiency: _calculateSectionEfficiencies()[_sections.isNotEmpty && _activeSectionIndex < _sections.length ? _sections[_activeSectionIndex].id : 'active'],
+            currentSimulationHour: _currentSimulationHour,
+            moduleShadingStatuses: SolarShadingEngine.evaluateModulesShading(
+              allSections: _sections,
+              sun: SolarShadingEngine.calculateSunPosition(
+                hourOfDay: _currentSimulationHour,
+                latitude: _latitude,
+              ),
+            ),
           ),
         ),
 
@@ -4550,12 +4598,34 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
           child: _buildFloatingToolbar(),
         ),
 
-        // Dica contextual na parte inferior do canvas
-        Positioned(
-          bottom: 16,
-          left: 140,
-          child: _buildContextualHint(),
-        ),
+        // Barra de Simulação Solar e Slider Diurno Interativo (06:00 às 18:00)
+        if (_showSimulationBar && _sections.isNotEmpty && _sections.any((s) => s.modules.isNotEmpty))
+          Positioned(
+            bottom: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SolarShadingSliderBar(
+                currentHour: _currentSimulationHour,
+                onHourChanged: (newH) => setState(() => _currentSimulationHour = newH),
+                sections: _sections,
+                latitude: _latitude,
+                onOpen3DView: () => Solar3DViewDialog.show(
+                  context,
+                  sections: _sections,
+                  currentHour: _currentSimulationHour,
+                  latitude: _latitude,
+                ),
+              ),
+            ),
+          )
+        else
+          // Dica contextual na parte inferior do canvas
+          Positioned(
+            bottom: 16,
+            left: 140,
+            child: _buildContextualHint(),
+          ),
 
         // Overlay bloqueador com CircularProgressIndicator enquanto a IA analisa a foto do drone ou baixa foto
         if ((_isAnalyzingDrone || _isLoadingDronePhoto) &&
@@ -4924,6 +4994,81 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                         : const Color(0xFF334155),
                     width: 1.2,
                   ),
+                ),
+              ),
+            ),
+          ),
+          // Botão ALTURA DO TELHADO
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Configurar Altura, Pé-direito e Cumeeira do Telhado',
+            child: ElevatedButton.icon(
+              onPressed: () {
+                if (_sections.isNotEmpty && _activeSectionIndex < _sections.length) {
+                  final curSec = _sections[_activeSectionIndex];
+                  RoofHeightDialog.show(
+                    context,
+                    sectionName: curSec.name,
+                    initialType: curSec.roofType,
+                    initialBaseHeight: curSec.baseHeightMeters,
+                    initialPeakHeight: curSec.peakHeightMeters,
+                    initialTiltDegrees: curSec.tiltDegrees,
+                  ).then((res) {
+                    if (res != null && mounted) {
+                      setState(() {
+                        _sections[_activeSectionIndex] = _sections[_activeSectionIndex].copyWith(
+                          roofType: res.roofType,
+                          baseHeightMeters: res.baseHeightMeters,
+                          peakHeightMeters: res.peakHeightMeters,
+                          tiltDegrees: res.tiltDegrees,
+                        );
+                      });
+                    }
+                  });
+                }
+              },
+              icon: const Icon(Icons.height_rounded, size: 16, color: Color(0xFF38BDF8)),
+              label: Text(
+                'Altura',
+                style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E293B),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Color(0xFF334155), width: 1.2),
+                ),
+              ),
+            ),
+          ),
+
+          // Botão MODELO 3D
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Visualizar Edificação e Sombras em 3D',
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Solar3DViewDialog.show(
+                  context,
+                  sections: _sections,
+                  currentHour: _currentSimulationHour,
+                  latitude: _latitude,
+                );
+              },
+              icon: const Icon(Icons.view_in_ar_rounded, size: 16, color: Color(0xFF818CF8)),
+              label: Text(
+                '3D 🏢',
+                style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF312E81).withValues(alpha: 0.8),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Color(0xFF6366F1), width: 1.2),
                 ),
               ),
             ),
