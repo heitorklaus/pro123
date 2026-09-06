@@ -13,6 +13,13 @@ class DroneRoofAnalysisResult {
   final List<String> obstacles;
   final String technicalSummary;
 
+  // ── Atributos Volumétricos e Estéticos 3D (Visão Gemini) ───────────────────
+  final double estimatedWallHeightMeters; // Pé-direito da parede (ex: 3.5m, 6.0m)
+  final double estimatedPeakHeightMeters; // Altura máxima do bloco mais alto (ex: 6.2m)
+  final bool hasPlatibanda; // Se possui moldura de platibanda embutida
+  final String wallColorHex; // Cor da parede identificada (ex: '#FFFFFF', '#E2E8F0')
+  final bool hasPoolOrGarden; // Se tem piscina ou jardim no entorno
+
   const DroneRoofAnalysisResult({
     required this.roofType,
     required this.estimatedAreaM2,
@@ -21,12 +28,19 @@ class DroneRoofAnalysisResult {
     required this.recommendedAzimuth,
     required this.obstacles,
     required this.technicalSummary,
-  });
+    this.estimatedWallHeightMeters = 3.50,
+    double? estimatedPeakHeightMeters,
+    this.hasPlatibanda = true,
+    this.wallColorHex = '#FFFFFF',
+    this.hasPoolOrGarden = true,
+  }) : estimatedPeakHeightMeters = estimatedPeakHeightMeters ?? estimatedWallHeightMeters;
 
   factory DroneRoofAnalysisResult.fromJson(Map<String, dynamic> json) {
     final area = double.tryParse(json['estimatedAreaM2']?.toString() ?? '') ?? 50.0;
     final w = double.tryParse(json['estimatedWidthMeters']?.toString() ?? '') ?? 10.0;
     final h = double.tryParse(json['estimatedHeightMeters']?.toString() ?? '') ?? 5.0;
+    final wallH = double.tryParse(json['estimatedWallHeightMeters']?.toString() ?? '') ?? 3.50;
+    final peakH = double.tryParse(json['estimatedPeakHeightMeters']?.toString() ?? '') ?? wallH;
 
     final obsList = (json['obstacles'] as List<dynamic>?)
             ?.map((e) => e.toString().trim())
@@ -35,14 +49,19 @@ class DroneRoofAnalysisResult {
         [];
 
     return DroneRoofAnalysisResult(
-      roofType: json['roofType']?.toString() ?? 'Cerâmico',
+      roofType: json['roofType']?.toString() ?? 'Fibrocimento',
       estimatedAreaM2: area,
       estimatedWidthMeters: w,
       estimatedHeightMeters: h,
       recommendedAzimuth: json['recommendedAzimuth']?.toString() ?? 'Norte',
       obstacles: obsList,
       technicalSummary: json['technicalSummary']?.toString() ??
-          'Telhado identificado e calibrado por inteligência artificial.',
+          'Telhado e volumetria identificados e calibrados por IA.',
+      estimatedWallHeightMeters: wallH,
+      estimatedPeakHeightMeters: peakH,
+      hasPlatibanda: json['hasPlatibanda'] as bool? ?? true,
+      wallColorHex: json['wallColorHex']?.toString() ?? '#FFFFFF',
+      hasPoolOrGarden: json['hasPoolOrGarden'] as bool? ?? true,
     );
   }
 }
@@ -75,24 +94,34 @@ class DroneRoofVisionService {
 Você é um Engenheiro Fotovoltaico Sênior e Especialista em Fotogrametria com Drones.
 Analise visualmente esta fotografia aérea/drone de um telhado residencial ou comercial.
 
-Seu objetivo é extrair com inteligência espacial:
+Seu objetivo é extrair com inteligência espacial e volumétrica 3D:
 1. "roofType": Tipo de cobertura visível (Cerâmico, Metálico Trapezoidal, Fibrocimento, Laje de Concreto, etc.).
-2. "estimatedWidthMeters": Estimativa da largura da água principal do telhado em metros (use referências arquitetônicas como tamanho padrão de telhas cerâmicas ~22cm, telhas metálicas, largura de portas ~80cm, calçadas ~1.5m, veículos ~4.5m).
-3. "estimatedHeightMeters": Estimativa do comprimento de queda (da cumeeira ao beiral) em metros.
-4. "estimatedAreaM2": Área útil estimada da principal água ou plano do telhado em m² (Largura x Altura).
+2. "estimatedWidthMeters": Estimativa da largura da água principal do telhado em metros.
+3. "estimatedHeightMeters": Estimativa do comprimento de queda em metros.
+4. "estimatedAreaM2": Área útil estimada da principal água em m².
 5. "recommendedAzimuth": Orientação solar recomendada estimada (ex: Norte, Nordeste, Noroeste, etc.).
-6. "obstacles": Lista de obstáculos visíveis no telhado (ex: "Caixa d'água", "Chaminé", "Respiro", "Claraboia", "Sombreamento de árvore").
-7. "technicalSummary": Resumo técnico sucinto (1 a 2 frases) sobre as condições da cobertura para instalação de módulos solares fotovoltaicos.
+6. "obstacles": Lista de obstáculos visíveis no telhado (ex: "3x Coletores Solares Térmicos antigos", "Caixa d'água", "Chaminé").
+7. "estimatedWallHeightMeters": Estimativa do pé-direito da parede/beiral inferior em metros (ex: 3.20 a 3.80 para térrea, 6.00 para sobrado).
+8. "estimatedPeakHeightMeters": Estimativa da altura máxima da cumeeira ou torre central mais alta da edificação em metros.
+9. "hasPlatibanda": true se a casa tiver paredes de platibanda (moldura reta ocultando as telhas) ou false se for telha aparente com beiral.
+10. "wallColorHex": Cor predominante das paredes visíveis (ex: "#FFFFFF" branco, "#E2E8F0" cinza claro, "#FDE68A" bege).
+11. "hasPoolOrGarden": true se houver jardim, gramado ou piscina visível ao redor da casa.
+12. "technicalSummary": Resumo técnico sucinto (1 a 2 frases) sobre as condições da cobertura.
 
 Responda ESTRITAMENTE em formato JSON puro, sem blocos markdown adicionais, no formato:
 {
-  "roofType": "Cerâmico",
-  "estimatedWidthMeters": 11.5,
-  "estimatedHeightMeters": 6.0,
-  "estimatedAreaM2": 69.0,
+  "roofType": "Fibrocimento com Platibanda",
+  "estimatedWidthMeters": 9.5,
+  "estimatedHeightMeters": 6.5,
+  "estimatedAreaM2": 62.0,
   "recommendedAzimuth": "Norte",
-  "obstacles": ["Caixa d'água na extremidade oeste", "Respiro próximo à cumeeira"],
-  "technicalSummary": "Telhado cerâmico com excelente área livre e orientação favorável."
+  "obstacles": ["3x Coletores solares térmicos instalados"],
+  "estimatedWallHeightMeters": 3.5,
+  "estimatedPeakHeightMeters": 5.8,
+  "hasPlatibanda": true,
+  "wallColorHex": "#FFFFFF",
+  "hasPoolOrGarden": true,
+  "technicalSummary": "Casa térrea com platibanda branca e torre central elevada com desnível de ~2.3m projetando sombra matinal."
 }
 ''';
 

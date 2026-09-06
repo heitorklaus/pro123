@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../data/services/drone_roof_vision_service.dart';
 import '../../domain/models/solar_designer_models.dart';
 import '../../domain/services/solar_shading_engine.dart';
 
@@ -9,12 +11,16 @@ class Solar3DViewDialog extends StatefulWidget {
   final List<RoofSection> sections;
   final double currentHour;
   final double latitude;
+  final Uint8List? droneImageBytes;
+  final DroneRoofAnalysisResult? droneAnalysisResult;
 
   const Solar3DViewDialog({
     super.key,
     required this.sections,
     this.currentHour = 12.0,
     this.latitude = -23.55,
+    this.droneImageBytes,
+    this.droneAnalysisResult,
   });
 
   static Future<void> show(
@@ -22,6 +28,8 @@ class Solar3DViewDialog extends StatefulWidget {
     required List<RoofSection> sections,
     double currentHour = 12.0,
     double latitude = -23.55,
+    Uint8List? droneImageBytes,
+    DroneRoofAnalysisResult? droneAnalysisResult,
   }) {
     return showDialog(
       context: context,
@@ -30,6 +38,8 @@ class Solar3DViewDialog extends StatefulWidget {
         sections: sections,
         currentHour: currentHour,
         latitude: latitude,
+        droneImageBytes: droneImageBytes,
+        droneAnalysisResult: droneAnalysisResult,
       ),
     );
   }
@@ -44,6 +54,7 @@ class _Solar3DViewDialogState extends State<Solar3DViewDialog> {
   double _pitchAngle = 0.55; // elevação vertical em radianos
   double _zoomScale = 1.0;
   Offset _panOffset = Offset.zero;
+  bool _showLandscape = true; // Exibe gramado, piscina e paisagismo realista
 
   late double _hour;
 
@@ -122,6 +133,7 @@ class _Solar3DViewDialogState extends State<Solar3DViewDialog> {
                     zoom: _zoomScale,
                     pan: _panOffset,
                     sun: sun,
+                    showLandscape: _showLandscape,
                   ),
                 ),
               ),
@@ -177,6 +189,32 @@ class _Solar3DViewDialogState extends State<Solar3DViewDialog> {
                         ],
                       ),
                       const Spacer(),
+
+                      // Botão Alternar Paisagem Realista (Grama, Piscina, Calçada)
+                      ElevatedButton.icon(
+                        onPressed: () => setState(() => _showLandscape = !_showLandscape),
+                        icon: Icon(
+                          _showLandscape ? Icons.park_rounded : Icons.grid_4x4_rounded,
+                          size: 16,
+                          color: _showLandscape ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                        ),
+                        label: Text(
+                          _showLandscape ? 'Paisagem Realista' : 'Grade Técnica',
+                          style: GoogleFonts.outfit(fontSize: 11.5, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E293B),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(
+                              color: _showLandscape ? const Color(0xFF10B981) : const Color(0xFF334155),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
 
                       // Botão Reset Câmera
                       IconButton(
@@ -318,7 +356,7 @@ class _Solar3DViewDialogState extends State<Solar3DViewDialog> {
   }
 }
 
-/// CustomPainter Tridimensional da Edificação
+/// CustomPainter Tridimensional da Edificação com Paisagismo e Iluminação Realista
 class _Building3DPainter extends CustomPainter {
   final List<RoofSection> sections;
   final double yaw;
@@ -326,6 +364,7 @@ class _Building3DPainter extends CustomPainter {
   final double zoom;
   final Offset pan;
   final SolarSunPosition sun;
+  final bool showLandscape;
 
   _Building3DPainter({
     required this.sections,
@@ -334,27 +373,24 @@ class _Building3DPainter extends CustomPainter {
     required this.zoom,
     required this.pan,
     required this.sun,
+    this.showLandscape = true,
   });
 
   // Projeção Tridimensional Perspectiva Axonométrica
   // X: Leste (+), Y: Sul (+), Z: Altura (+)
   Offset _project3D(double x, double y, double z, Size size, Offset centerOrigin) {
-    // 1. Centraliza em relação ao centro dos telhados
     final cx = x - centerOrigin.dx;
     final cy = y - centerOrigin.dy;
 
-    // 2. Rotação em torno do eixo Z (Yaw)
     final cosYaw = math.cos(yaw);
     final sinYaw = math.sin(yaw);
     final rotX = cx * cosYaw - cy * sinYaw;
     final rotY = cx * sinYaw + cy * cosYaw;
 
-    // 3. Rotação em torno do eixo X (Pitch / Inclinação)
     final cosPitch = math.cos(pitch);
     final sinPitch = math.sin(pitch);
     final projY = rotY * sinPitch - z * cosPitch;
 
-    // 4. Escala e projeção para a tela
     final scale = 24.0 * zoom;
     final screenX = (size.width / 2.0) + pan.dx + (rotX * scale);
     final screenY = (size.height / 2.0) + pan.dy + (projY * scale);
@@ -364,16 +400,33 @@ class _Building3DPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Fundo do Céu / Chão
-    final bgPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF0F172A), Color(0xFF020617)],
+    // ── 1. CÉU ATMOSFÉRICO REALISTA ──────────────────────────────────────────
+    // Cor do céu muda dinamicamente conforme a hora do sol (dourado às 6h/18h, azul celeste às 12h)
+    Color skyTopColor;
+    Color skyBottomColor;
+
+    if (!sun.isSunUp || sun.elevationDegrees <= 2.0) {
+      skyTopColor = const Color(0xFF020617);
+      skyBottomColor = const Color(0xFF0F172A);
+    } else if (sun.elevationDegrees < 20.0) {
+      // Alvorecer ou Poente dourado
+      skyTopColor = const Color(0xFF0C4A6E);
+      skyBottomColor = const Color(0xFFEA580C);
+    } else {
+      // Céu pleno aberto
+      skyTopColor = const Color(0xFF0284C7);
+      skyBottomColor = const Color(0xFFBAE6FD);
+    }
+
+    final skyPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [skyTopColor, skyBottomColor],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), skyPaint);
 
-    // Calcula o centróide global de todos os telhados
+    // Centróide global dos telhados
     double sumX = 0, sumY = 0;
     int pointCount = 0;
     for (final s in sections) {
@@ -387,22 +440,96 @@ class _Building3DPainter extends CustomPainter {
         ? Offset(sumX / pointCount, sumY / pointCount)
         : Offset.zero;
 
-    // 2. Desenha a Grade do Chão (Grid 3D Z=0)
-    final gridPaint = Paint()
-      ..color = const Color(0xFF1E293B).withValues(alpha: 0.5)
-      ..strokeWidth = 1.0;
+    // ── 2. PAISAGISMO DO TERRENO (Gramado e Calçada Realista Z=0) ────────────
+    if (showLandscape) {
+      // Gramado Verde Natural
+      final grassPath = Path();
+      final gp1 = _project3D(-32.0, -32.0, 0, size, centerOrigin);
+      final gp2 = _project3D(32.0, -32.0, 0, size, centerOrigin);
+      final gp3 = _project3D(32.0, 32.0, 0, size, centerOrigin);
+      final gp4 = _project3D(-32.0, 32.0, 0, size, centerOrigin);
 
-    for (double g = -25.0; g <= 25.0; g += 5.0) {
-      final p1 = _project3D(g, -25.0, 0, size, centerOrigin);
-      final p2 = _project3D(g, 25.0, 0, size, centerOrigin);
-      canvas.drawLine(p1, p2, gridPaint);
+      grassPath.moveTo(gp1.dx, gp1.dy);
+      grassPath.lineTo(gp2.dx, gp2.dy);
+      grassPath.lineTo(gp3.dx, gp3.dy);
+      grassPath.lineTo(gp4.dx, gp4.dy);
+      grassPath.close();
 
-      final p3 = _project3D(-25.0, g, 0, size, centerOrigin);
-      final p4 = _project3D(25.0, g, 0, size, centerOrigin);
-      canvas.drawLine(p3, p4, gridPaint);
+      final grassPaint = Paint()
+        ..shader = LinearGradient(
+          colors: [
+            const Color(0xFF15803D), // Verde esmeralda grama
+            const Color(0xFF166534),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(grassPath, grassPaint);
+
+      // Calçada / Piso de Concreto / Deck no entorno imediato da casa
+      final patioPath = Path();
+      final pp1 = _project3D(-16.0, -14.0, 0.01, size, centerOrigin);
+      final pp2 = _project3D(18.0, -14.0, 0.01, size, centerOrigin);
+      final pp3 = _project3D(18.0, 16.0, 0.01, size, centerOrigin);
+      final pp4 = _project3D(-16.0, 16.0, 0.01, size, centerOrigin);
+
+      patioPath.moveTo(pp1.dx, pp1.dy);
+      patioPath.lineTo(pp2.dx, pp2.dy);
+      patioPath.lineTo(pp3.dx, pp3.dy);
+      patioPath.lineTo(pp4.dx, pp4.dy);
+      patioPath.close();
+
+      final patioPaint = Paint()
+        ..color = const Color(0xFFE2E8F0).withValues(alpha: 0.85) // Piso claro moderno
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(patioPath, patioPaint);
+
+      // Piscina Azul com Água Translúcida e Reflexos no Lado Direito/Fundo
+      final poolPath = Path();
+      final poolP1 = _project3D(10.0, -11.0, 0.02, size, centerOrigin);
+      final poolP2 = _project3D(16.0, -11.0, 0.02, size, centerOrigin);
+      final poolP3 = _project3D(16.0, -3.0, 0.02, size, centerOrigin);
+      final poolP4 = _project3D(10.0, -3.0, 0.02, size, centerOrigin);
+
+      poolPath.moveTo(poolP1.dx, poolP1.dy);
+      poolPath.lineTo(poolP2.dx, poolP2.dy);
+      poolPath.lineTo(poolP3.dx, poolP3.dy);
+      poolPath.lineTo(poolP4.dx, poolP4.dy);
+      poolPath.close();
+
+      final poolPaint = Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF06B6D4), Color(0xFF0284C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(poolPath, poolPaint);
+
+      final poolBorder = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke;
+      canvas.drawPath(poolPath, poolBorder);
+    } else {
+      // Grade clássica de arquitetura
+      final gridPaint = Paint()
+        ..color = const Color(0xFF1E293B).withValues(alpha: 0.5)
+        ..strokeWidth = 1.0;
+
+      for (double g = -25.0; g <= 25.0; g += 5.0) {
+        final p1 = _project3D(g, -25.0, 0, size, centerOrigin);
+        final p2 = _project3D(g, 25.0, 0, size, centerOrigin);
+        canvas.drawLine(p1, p2, gridPaint);
+
+        final p3 = _project3D(-25.0, g, 0, size, centerOrigin);
+        final p4 = _project3D(25.0, g, 0, size, centerOrigin);
+        canvas.drawLine(p3, p4, gridPaint);
+      }
     }
 
-    // 3. Desenha a Sombra Projetada no Chão (Z=0)
+    // ── 3. SOMBRA PROJETADA REALISTA NO CHÃO ─────────────────────────────────
     if (sun.isSunUp && sun.elevationDegrees > 2.0) {
       final shadowElevationRad = sun.elevationDegrees * (math.pi / 180.0);
       final sunAzRad = sun.azimuthDegrees * (math.pi / 180.0);
@@ -415,29 +542,29 @@ class _Building3DPainter extends CustomPainter {
         final dy = sLen * math.cos(sunAzRad);
 
         final shadowPath = Path();
-        final firstProj = _project3D(sec.vertices.first.x + dx, sec.vertices.first.y + dy, 0, size, centerOrigin);
+        final firstProj = _project3D(sec.vertices.first.x + dx, sec.vertices.first.y + dy, 0.03, size, centerOrigin);
         shadowPath.moveTo(firstProj.dx, firstProj.dy);
         for (int i = 1; i < sec.vertices.length; i++) {
-          final p = _project3D(sec.vertices[i].x + dx, sec.vertices[i].y + dy, 0, size, centerOrigin);
+          final p = _project3D(sec.vertices[i].x + dx, sec.vertices[i].y + dy, 0.03, size, centerOrigin);
           shadowPath.lineTo(p.dx, p.dy);
         }
         shadowPath.close();
 
         final shadowPaint = Paint()
-          ..color = Colors.black.withValues(alpha: 0.35)
+          ..color = Colors.black.withValues(alpha: 0.45)
           ..style = PaintingStyle.fill;
         canvas.drawPath(shadowPath, shadowPaint);
       }
     }
 
-    // 4. Renderiza as Edificações e Paredes 3D (Ordenadas por profundidade estimada)
+    // ── 4. EDIFICAÇÃO (Paredes Claras com Iluminação Solar Shading) ──────────
     for (final sec in sections) {
       if (sec.vertices.length < 3) continue;
 
       final baseH = sec.baseHeightMeters;
       final peakH = sec.peakHeightMeters;
 
-      // Paredes Verticais (Extrusão do chão até a altura do telhado)
+      // Paredes Verticais da Edificação
       for (int i = 0; i < sec.vertices.length; i++) {
         final p1 = sec.vertices[i];
         final p2 = sec.vertices[(i + 1) % sec.vertices.length];
@@ -454,30 +581,61 @@ class _Building3DPainter extends CustomPainter {
           ..lineTo(t1.dx, t1.dy)
           ..close();
 
-        // Shading da parede conforme a orientação do sol
+        // Shading dinâmico da parede: paredes voltadas para o sol ficam iluminadas (off-white limpo),
+        // paredes opostas ficam sombreadas
+        final edgeAngle = math.atan2(p2.y - p1.y, p2.x - p1.x);
+        final normalAngle = edgeAngle + (math.pi / 2);
+        final sunAngleRad = (sun.azimuthDegrees - 90.0) * (math.pi / 180.0);
+        final dot = math.cos(normalAngle - sunAngleRad);
+
+        // Cor da parede com acabamento arquitetônico premium
+        final wallBrightness = (0.70 + (dot * 0.25)).clamp(0.45, 0.98);
+        final wallColor = Color.fromRGBO(
+          (248 * wallBrightness).toInt(),
+          (250 * wallBrightness).toInt(),
+          (252 * wallBrightness).toInt(),
+          1.0,
+        );
+
         final wallPaint = Paint()
-          ..color = const Color(0xFF334155).withValues(alpha: 0.90)
+          ..color = wallColor
           ..style = PaintingStyle.fill;
         canvas.drawPath(wallPath, wallPaint);
 
         final wallBorder = Paint()
-          ..color = const Color(0xFF475569)
-          ..strokeWidth = 1.2
+          ..color = const Color(0xFFCBD5E1)
+          ..strokeWidth = 1.0
           ..style = PaintingStyle.stroke;
         canvas.drawPath(wallPath, wallBorder);
       }
 
-      // Face do Telhado (Teto)
+      // Moldura da Platibanda Branca Elevada (como na foto)
+      final parapetH = baseH + 0.40;
+      final parapetPath = Path();
+      final parapetPts = sec.vertices.map((v) => _project3D(v.x, v.y, parapetH, size, centerOrigin)).toList();
+      parapetPath.moveTo(parapetPts.first.dx, parapetPts.first.dy);
+      for (int i = 1; i < parapetPts.length; i++) {
+        parapetPath.lineTo(parapetPts[i].dx, parapetPts[i].dy);
+      }
+      parapetPath.close();
+
+      final parapetBorder = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 3.5
+        ..style = PaintingStyle.stroke;
+      canvas.drawPath(parapetPath, parapetBorder);
+
+      // Face do Telhado (Embutido dentro da platibanda)
       final roofPath = Path();
       final roofPts = sec.vertices.asMap().entries.map((entry) {
         final idx = entry.key;
         final v = entry.value;
-        // Se for telhado cerâmico de cumeeira, pontos centrais/segunda metade sobem até o cume (peakH)
         final z = (sec.roofType == RoofStructureType.gabledCeramic && idx % 2 == 1)
             ? peakH
             : baseH;
         return _project3D(v.x, v.y, z, size, centerOrigin);
       }).toList();
+
       roofPath.moveTo(roofPts.first.dx, roofPts.first.dy);
       for (int i = 1; i < roofPts.length; i++) {
         roofPath.lineTo(roofPts[i].dx, roofPts[i].dy);
@@ -486,18 +644,18 @@ class _Building3DPainter extends CustomPainter {
 
       final roofFill = Paint()
         ..color = (sec.roofType == RoofStructureType.gabledCeramic)
-            ? const Color(0xFFB45309).withValues(alpha: 0.85) // Terracota cerâmico
-            : const Color(0xFF1E293B).withValues(alpha: 0.95) // Platibanda / laje
+            ? const Color(0xFFB45309).withValues(alpha: 0.90) // Telha Cerâmica
+            : const Color(0xFFD1D5DB).withValues(alpha: 0.95) // Telha Fibrocimento ondulada clara
         ..style = PaintingStyle.fill;
       canvas.drawPath(roofPath, roofFill);
 
       final roofBorder = Paint()
         ..color = sec.themeColor
-        ..strokeWidth = 2.0
+        ..strokeWidth = 1.8
         ..style = PaintingStyle.stroke;
       canvas.drawPath(roofPath, roofBorder);
 
-      // 5. Renderiza as Placas Fotovoltaicas no Teto em 3D
+      // ── 5. MÓDULOS FOTOVOLTAICOS 3D COM VIDRO E REFLEXO SOLAR ───────────────
       for (final mod in sec.modules) {
         if (mod.isExcluded) continue;
 
@@ -511,15 +669,24 @@ class _Building3DPainter extends CustomPainter {
         }
         modPath.close();
 
-        // Cor da placa (Azul escuro fotovoltaico com reflexo)
+        // Vidro fotovoltaico azul escuro com gradiente de brilho especular
         final modPaint = Paint()
-          ..color = const Color(0xFF1E3A8A)
+          ..shader = const LinearGradient(
+            colors: [
+              Color(0xFF1E3A8A), // Azul safira fotovoltaico
+              Color(0xFF172554),
+              Color(0xFF2563EB), // Brilho de reflexo
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
           ..style = PaintingStyle.fill;
         canvas.drawPath(modPath, modPaint);
 
+        // Moldura prateada de alumínio anodizado
         final modFrame = Paint()
           ..color = const Color(0xFFE2E8F0)
-          ..strokeWidth = 0.9
+          ..strokeWidth = 1.2
           ..style = PaintingStyle.stroke;
         canvas.drawPath(modPath, modFrame);
       }

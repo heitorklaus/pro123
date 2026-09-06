@@ -4615,6 +4615,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   sections: _sections,
                   currentHour: _currentSimulationHour,
                   latitude: _latitude,
+                  droneImageBytes: _droneImageBytes,
+                  droneAnalysisResult: _droneAnalysisResult,
                 ),
               ),
             ),
@@ -5044,6 +5046,30 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             ),
           ),
 
+          // Botão Barra de Sombra Solar
+          const SizedBox(width: 6),
+          Tooltip(
+            message: _showSimulationBar ? 'Ocultar Barra de Sombra' : 'Exibir Barra de Sombra Diurna',
+            child: IconButton(
+              onPressed: () => setState(() => _showSimulationBar = !_showSimulationBar),
+              icon: Icon(
+                _showSimulationBar ? Icons.wb_sunny_rounded : Icons.wb_sunny_outlined,
+                size: 18,
+                color: _showSimulationBar ? const Color(0xFFF59E0B) : const Color(0xFF94A3B8),
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: _showSimulationBar ? const Color(0xFF78350F).withValues(alpha: 0.5) : const Color(0xFF1E293B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: _showSimulationBar ? const Color(0xFFF59E0B) : const Color(0xFF334155),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // Botão MODELO 3D
           const SizedBox(width: 6),
           Tooltip(
@@ -5055,6 +5081,8 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   sections: _sections,
                   currentHour: _currentSimulationHour,
                   latitude: _latitude,
+                  droneImageBytes: _droneImageBytes,
+                  droneAnalysisResult: _droneAnalysisResult,
                 );
               },
               icon: const Icon(Icons.view_in_ar_rounded, size: 16, color: Color(0xFF818CF8)),
