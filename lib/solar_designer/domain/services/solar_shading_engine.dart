@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import '../models/solar_designer_models.dart';
 
 /// Posição astronômica e vetores de incidência solar
@@ -23,6 +24,20 @@ class SolarSunPosition {
     // Canvas: 0 rad = +X (Leste), -pi/2 = -Y (Norte)
     final canvasRad = (shadowAzimuth - 90.0) * (math.pi / 180.0);
     return canvasRad;
+  }
+
+  /// Retorna o ângulo na tela (em radianos) de onde o Sol incide, calibrado pela orientação do Norte
+  /// northRotationRadians: 0 rad = Norte aponta para cima (-Y); pi/2 = Norte aponta para a direita (+X)
+  double getEffectiveSunAngleRadians(double northRotationRadians) {
+    final sunAzRad = azimuthDegrees * (math.pi / 180.0);
+    return northRotationRadians + sunAzRad;
+  }
+
+  /// Retorna o vetor unitário na tela (Offset) para onde a sombra é projetada
+  Offset getShadowProjectionVector(double northRotationRadians) {
+    final effAngle = getEffectiveSunAngleRadians(northRotationRadians);
+    // Sol vem de effAngle a partir de -Y; a sombra é projetada no sentido oposto
+    return Offset(-math.sin(effAngle), math.cos(effAngle));
   }
 }
 
@@ -125,10 +140,14 @@ class SolarShadingEngine {
 
   /// Calcula o polígono da sombra 2D projetado por uma seção de telhado sobre um plano inferior
   /// deltaHeightMeters: Desnível de altura entre o topo do telhado emissor e a base do receptor
+  /// Calcula o polígono da sombra 2D projetado por uma seção de telhado sobre um plano inferior
+  /// deltaHeightMeters: Desnível de altura entre o topo do telhado emissor e a base do receptor
+  /// northRotationRadians: Orientação do Norte no canvas (0 rad = Norte para cima [-Y]; pi/2 = Norte para a direita [+X])
   static List<RoofPoint> projectShadowPolygon({
     required List<RoofPoint> casterVertices,
     required double deltaHeightMeters,
     required SolarSunPosition sun,
+    double northRotationRadians = 0.0,
   }) {
     if (deltaHeightMeters <= 0.05 || !sun.isSunUp || sun.elevationDegrees <= 2.0) {
       return [];
@@ -139,12 +158,10 @@ class SolarShadingEngine {
     // Limita a projeção para no máximo 35 metros para evitar sombras infinitas no nascer/pôr do sol
     final shadowLength = math.min(35.0, deltaHeightMeters / math.tan(elevationRad));
 
-    // Vetor de deslocamento da sombra
-    // Azimute: 0=N (+Y no canvas cartesiano ou -Y em tela), 90=L (+X), 180=S (-X), 270=O (-X)
-    // Sombra vai na direção OPOSTA ao sol
-    final sunAzRad = sun.azimuthDegrees * (math.pi / 180.0);
-    final dxMeters = -shadowLength * math.sin(sunAzRad);
-    final dyMeters = shadowLength * math.cos(sunAzRad); // +Y aponta para o Sul no modelo
+    // Vetor de deslocamento da sombra calibrado pela rotação do Norte
+    final shadowVec = sun.getShadowProjectionVector(northRotationRadians);
+    final dxMeters = shadowLength * shadowVec.dx;
+    final dyMeters = shadowLength * shadowVec.dy;
 
     // Constrói o invólucro convexo/polígono expandido da sombra (base original + vértices projetados)
     final projectedPoints = casterVertices.map((p) => RoofPoint(p.x + dxMeters, p.y + dyMeters)).toList();
@@ -158,6 +175,7 @@ class SolarShadingEngine {
   static Map<String, ModuleShadingStatus> evaluateModulesShading({
     required List<RoofSection> allSections,
     required SolarSunPosition sun,
+    double northRotationRadians = 0.0,
   }) {
     final result = <String, ModuleShadingStatus>{};
 
@@ -200,11 +218,12 @@ class SolarShadingEngine {
         final deltaH = casterH - receiverH;
         if (deltaH <= 0.20) continue; // Caster não é alto o suficiente para sombrear o receptor
 
-        // Calcula a mancha de sombra projetada pelo caster no nível do receptor
+        // Calcula a mancha de sombra projetada pelo caster no nível do receptor (calibrada pelo Norte)
         final shadowPoly = projectShadowPolygon(
           casterVertices: caster.vertices,
           deltaHeightMeters: deltaH,
           sun: sun,
+          northRotationRadians: northRotationRadians,
         );
 
         if (shadowPoly.length < 3) continue;
@@ -249,6 +268,7 @@ class SolarShadingEngine {
     required List<RoofSection> sections,
     double currentHour = 12.0,
     double latitude = -23.55,
+    double northRotationRadians = 0.0,
   }) {
     int totalModules = 0;
     for (final s in sections) {
@@ -291,7 +311,11 @@ class SolarShadingEngine {
       // Peso senoidal da irradiação no céu (sol a pino às 12h tem peso 1.0, às 7h tem ~0.25)
       final sunWeight = math.sin(sun.elevationDegrees * (math.pi / 180.0)).clamp(0.0, 1.0);
 
-      final shading = evaluateModulesShading(allSections: sections, sun: sun);
+      final shading = evaluateModulesShading(
+        allSections: sections,
+        sun: sun,
+        northRotationRadians: northRotationRadians,
+      );
 
       double hourSunRatioSum = 0.0;
       int activeCount = 0;
@@ -337,7 +361,11 @@ class SolarShadingEngine {
 
     // Avalia o momento atual selecionado no slider
     final currentSun = calculateSunPosition(hourOfDay: currentHour, latitude: latitude);
-    final currentShading = evaluateModulesShading(allSections: sections, sun: currentSun);
+    final currentShading = evaluateModulesShading(
+      allSections: sections,
+      sun: currentSun,
+      northRotationRadians: northRotationRadians,
+    );
     int currentShaded = 0;
     for (final s in sections) {
       for (final m in s.modules) {

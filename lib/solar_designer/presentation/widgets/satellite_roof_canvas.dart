@@ -3518,6 +3518,7 @@ class _RoofOverlayPainter extends CustomPainter {
             casterVertices: caster.vertices,
             deltaHeightMeters: deltaH,
             sun: sunPos,
+            northRotationRadians: droneNorthCompass?.rotationRadians ?? 0.0,
           );
 
           if (shadowPoly.length >= 3) {

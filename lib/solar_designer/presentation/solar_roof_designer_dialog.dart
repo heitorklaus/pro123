@@ -202,6 +202,17 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   Color _droneArrowsGlobalColor = const Color(0xFF2563EB);
   double _droneArrowsGlobalLength = 1.3;
 
+  /// Retorna a rotação do Norte ativo (em radianos) para orientar as sombras e trajetória solar
+  double get _activeNorthRotationRadians {
+    if (_backgroundMode == BackgroundLayerMode.dronePhoto && _droneNorthCompass != null) {
+      return _droneNorthCompass!.rotationRadians;
+    }
+    if (_backgroundMode == BackgroundLayerMode.satellite && _mapsNorthCompass != null) {
+      return _mapsNorthCompass!.rotationRadians;
+    }
+    return _droneNorthCompass?.rotationRadians ?? _mapsNorthCompass?.rotationRadians ?? 0.0;
+  }
+
   // Estados de Expansão/Colapso (Sanfona) do Painel Lateral Direito
   bool _isOrientationSectionExpanded = true;
   bool _isPlantParamsExpanded = true;
@@ -4587,6 +4598,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                 hourOfDay: _currentSimulationHour,
                 latitude: _latitude,
               ),
+              northRotationRadians: _activeNorthRotationRadians,
             ),
           ),
         ),
@@ -4610,11 +4622,13 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                 onHourChanged: (newH) => setState(() => _currentSimulationHour = newH),
                 sections: _sections,
                 latitude: _latitude,
+                northRotationRadians: _activeNorthRotationRadians,
                 onOpen3DView: () => Solar3DViewDialog.show(
                   context,
                   sections: _sections,
                   currentHour: _currentSimulationHour,
                   latitude: _latitude,
+                  northRotationRadians: _activeNorthRotationRadians,
                   droneImageBytes: _droneImageBytes,
                   droneAnalysisResult: _droneAnalysisResult,
                 ),
@@ -5081,6 +5095,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   sections: _sections,
                   currentHour: _currentSimulationHour,
                   latitude: _latitude,
+                  northRotationRadians: _activeNorthRotationRadians,
                   droneImageBytes: _droneImageBytes,
                   droneAnalysisResult: _droneAnalysisResult,
                 );

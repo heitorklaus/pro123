@@ -11,6 +11,7 @@ class Solar3DViewDialog extends StatefulWidget {
   final List<RoofSection> sections;
   final double currentHour;
   final double latitude;
+  final double northRotationRadians;
   final Uint8List? droneImageBytes;
   final DroneRoofAnalysisResult? droneAnalysisResult;
 
@@ -19,6 +20,7 @@ class Solar3DViewDialog extends StatefulWidget {
     required this.sections,
     this.currentHour = 12.0,
     this.latitude = -23.55,
+    this.northRotationRadians = 0.0,
     this.droneImageBytes,
     this.droneAnalysisResult,
   });
@@ -28,6 +30,7 @@ class Solar3DViewDialog extends StatefulWidget {
     required List<RoofSection> sections,
     double currentHour = 12.0,
     double latitude = -23.55,
+    double northRotationRadians = 0.0,
     Uint8List? droneImageBytes,
     DroneRoofAnalysisResult? droneAnalysisResult,
   }) {
@@ -38,6 +41,7 @@ class Solar3DViewDialog extends StatefulWidget {
         sections: sections,
         currentHour: currentHour,
         latitude: latitude,
+        northRotationRadians: northRotationRadians,
         droneImageBytes: droneImageBytes,
         droneAnalysisResult: droneAnalysisResult,
       ),
@@ -84,6 +88,7 @@ class _Solar3DViewDialogState extends State<Solar3DViewDialog> {
       sections: widget.sections,
       currentHour: _hour,
       latitude: widget.latitude,
+      northRotationRadians: widget.northRotationRadians,
     );
 
     return Dialog(
@@ -133,6 +138,7 @@ class _Solar3DViewDialogState extends State<Solar3DViewDialog> {
                     zoom: _zoomScale,
                     pan: _panOffset,
                     sun: sun,
+                    northRotationRadians: widget.northRotationRadians,
                     showLandscape: _showLandscape,
                   ),
                 ),
@@ -189,6 +195,35 @@ class _Solar3DViewDialogState extends State<Solar3DViewDialog> {
                         ],
                       ),
                       const Spacer(),
+
+                      // Badge Orientação do Norte
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Transform.rotate(
+                              angle: widget.northRotationRadians,
+                              child: const Icon(Icons.navigation_rounded, color: Color(0xFFEF4444), size: 14),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Norte: ${((widget.northRotationRadians * 180 / math.pi) % 360).round()}°',
+                              style: GoogleFonts.outfit(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFFCA5A5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
 
                       // Botão Alternar Paisagem Realista (Grama, Piscina, Calçada)
                       ElevatedButton.icon(
@@ -364,6 +399,7 @@ class _Building3DPainter extends CustomPainter {
   final double zoom;
   final Offset pan;
   final SolarSunPosition sun;
+  final double northRotationRadians;
   final bool showLandscape;
 
   _Building3DPainter({
@@ -373,6 +409,7 @@ class _Building3DPainter extends CustomPainter {
     required this.zoom,
     required this.pan,
     required this.sun,
+    this.northRotationRadians = 0.0,
     this.showLandscape = true,
   });
 
@@ -532,14 +569,14 @@ class _Building3DPainter extends CustomPainter {
     // ── 3. SOMBRA PROJETADA REALISTA NO CHÃO ─────────────────────────────────
     if (sun.isSunUp && sun.elevationDegrees > 2.0) {
       final shadowElevationRad = sun.elevationDegrees * (math.pi / 180.0);
-      final sunAzRad = sun.azimuthDegrees * (math.pi / 180.0);
+      final shadowVec = sun.getShadowProjectionVector(northRotationRadians);
 
       for (final sec in sections) {
         if (sec.vertices.length < 3) continue;
         final h = sec.peakHeightMeters;
         final sLen = math.min(30.0, h / math.tan(shadowElevationRad));
-        final dx = -sLen * math.sin(sunAzRad);
-        final dy = sLen * math.cos(sunAzRad);
+        final dx = sLen * shadowVec.dx;
+        final dy = sLen * shadowVec.dy;
 
         final shadowPath = Path();
         final firstProj = _project3D(sec.vertices.first.x + dx, sec.vertices.first.y + dy, 0.03, size, centerOrigin);
@@ -582,10 +619,10 @@ class _Building3DPainter extends CustomPainter {
           ..close();
 
         // Shading dinâmico da parede: paredes voltadas para o sol ficam iluminadas (off-white limpo),
-        // paredes opostas ficam sombreadas
+        // paredes opostas ficam sombreadas (calibrado pela orientação do Norte)
         final edgeAngle = math.atan2(p2.y - p1.y, p2.x - p1.x);
         final normalAngle = edgeAngle + (math.pi / 2);
-        final sunAngleRad = (sun.azimuthDegrees - 90.0) * (math.pi / 180.0);
+        final sunAngleRad = sun.getEffectiveSunAngleRadians(northRotationRadians) - (math.pi / 2);
         final dot = math.cos(normalAngle - sunAngleRad);
 
         // Cor da parede com acabamento arquitetônico premium

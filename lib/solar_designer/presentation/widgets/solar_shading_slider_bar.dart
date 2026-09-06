@@ -9,6 +9,7 @@ class SolarShadingSliderBar extends StatefulWidget {
   final ValueChanged<double> onHourChanged;
   final List<RoofSection> sections;
   final double latitude;
+  final double northRotationRadians;
   final VoidCallback onOpen3DView;
 
   const SolarShadingSliderBar({
@@ -17,6 +18,7 @@ class SolarShadingSliderBar extends StatefulWidget {
     required this.onHourChanged,
     required this.sections,
     this.latitude = -23.55,
+    this.northRotationRadians = 0.0,
     required this.onOpen3DView,
   });
 
@@ -84,6 +86,7 @@ class _SolarShadingSliderBarState extends State<SolarShadingSliderBar>
       sections: widget.sections,
       currentHour: widget.currentHour,
       latitude: widget.latitude,
+      northRotationRadians: widget.northRotationRadians,
     );
 
     final totalActive = simulation.totalModulesCount;
