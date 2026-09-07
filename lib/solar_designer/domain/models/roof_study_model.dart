@@ -2,6 +2,41 @@ import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'solar_designer_models.dart';
 
+/// Foto ou captura de simulação solar salva no Estudo de Telhado
+class RoofStudyPhoto {
+  final String id;
+  final String label; // Ex: "Simulação Solar 10:00" ou "Vista Zênite 12:00"
+  final double hourOfDay;
+  final String imageBase64;
+  final DateTime capturedAt;
+
+  const RoofStudyPhoto({
+    required this.id,
+    required this.label,
+    required this.hourOfDay,
+    required this.imageBase64,
+    required this.capturedAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'label': label,
+        'hourOfDay': hourOfDay,
+        'imageBase64': imageBase64,
+        'capturedAt': capturedAt.toIso8601String(),
+      };
+
+  factory RoofStudyPhoto.fromMap(Map<String, dynamic> map) {
+    return RoofStudyPhoto(
+      id: map['id']?.toString() ?? '',
+      label: map['label']?.toString() ?? '',
+      hourOfDay: (map['hourOfDay'] as num?)?.toDouble() ?? 12.0,
+      imageBase64: map['imageBase64']?.toString() ?? '',
+      capturedAt: DateTime.tryParse(map['capturedAt']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
 /// Modelo de dados de um Estudo de Telhado Solar persistido no Cloud Firestore
 class RoofStudyModel {
   final String id;
@@ -67,6 +102,9 @@ class RoofStudyModel {
   final double totalKwp;
   final double estimatedMonthlyKwh;
 
+  // Fotos e Capturas do Estudo
+  final List<RoofStudyPhoto> studyPhotos;
+
   // Status e Auditoria
   final String status; // 'draft' (rascunho), 'completed' (concluído)
   final String? thumbnailBase64;
@@ -120,6 +158,7 @@ class RoofStudyModel {
     required this.totalModulesCount,
     required this.totalKwp,
     required this.estimatedMonthlyKwh,
+    this.studyPhotos = const [],
     this.status = 'completed',
     this.thumbnailBase64,
     this.createdByUserId = '',
@@ -207,6 +246,7 @@ class RoofStudyModel {
     int? totalModulesCount,
     double? totalKwp,
     double? estimatedMonthlyKwh,
+    List<RoofStudyPhoto>? studyPhotos,
     String? status,
     String? thumbnailBase64,
     String? createdByUserId,
@@ -259,6 +299,7 @@ class RoofStudyModel {
       totalModulesCount: totalModulesCount ?? this.totalModulesCount,
       totalKwp: totalKwp ?? this.totalKwp,
       estimatedMonthlyKwh: estimatedMonthlyKwh ?? this.estimatedMonthlyKwh,
+      studyPhotos: studyPhotos ?? this.studyPhotos,
       status: status ?? this.status,
       thumbnailBase64: thumbnailBase64 ?? this.thumbnailBase64,
       createdByUserId: createdByUserId ?? this.createdByUserId,
@@ -313,6 +354,7 @@ class RoofStudyModel {
       'totalModulesCount': totalModulesCount,
       'totalKwp': totalKwp,
       'estimatedMonthlyKwh': estimatedMonthlyKwh,
+      'studyPhotos': studyPhotos.map((p) => p.toMap()).toList(),
       'status': status,
       'thumbnailBase64': (thumbnailBase64 != null && thumbnailBase64!.length < 450000)
           ? thumbnailBase64
@@ -438,6 +480,11 @@ class RoofStudyModel {
       totalModulesCount: (map['totalModulesCount'] as num?)?.toInt() ?? 0,
       totalKwp: (map['totalKwp'] as num?)?.toDouble() ?? 0.0,
       estimatedMonthlyKwh: (map['estimatedMonthlyKwh'] as num?)?.toDouble() ?? 0.0,
+      studyPhotos: (map['studyPhotos'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map((p) => RoofStudyPhoto.fromMap(p))
+              .toList() ??
+          const [],
       status: map['status'] as String? ?? 'completed',
       thumbnailBase64: map['thumbnailBase64'] as String?,
       createdByUserId: map['createdByUserId'] as String? ?? '',

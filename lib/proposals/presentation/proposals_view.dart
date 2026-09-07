@@ -26,6 +26,9 @@ import 'widgets/proposal_pdf_preview_dialog.dart';
 import 'widgets/proposal_product_picker_dialog.dart';
 import 'widgets/proposal_kanban_view.dart';
 import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
+import '../../solar_designer/domain/models/roof_study_model.dart';
+import '../../solar_designer/data/services/solar_study_pdf_service.dart';
+import 'widgets/proposal_roof_study_picker_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: Inserido diretamente no miolo do DashboardPage (SPA Container)
@@ -52,6 +55,7 @@ class _ProposalsViewState extends State<ProposalsView> {
   ProposalItemModel? _activeInitialItem;
   ClientModel? _aiLinkedClient;
   ParsedUnifiedProposal? _aiParsedProposal;
+  RoofStudyModel? _activeRoofStudy;
 
   @override
   void initState() {
@@ -82,6 +86,7 @@ class _ProposalsViewState extends State<ProposalsView> {
       _activeInitialItem = null;
       _aiLinkedClient = null;
       _aiParsedProposal = null;
+      _activeRoofStudy = null;
       _isCreatingOrEditing = true;
     });
   }
@@ -92,6 +97,7 @@ class _ProposalsViewState extends State<ProposalsView> {
       _activeInitialItem = solarItem;
       _aiLinkedClient = linkedClient;
       _aiParsedProposal = parsed;
+      _activeRoofStudy = null;
       _isCreatingOrEditing = true;
     });
   }
@@ -102,6 +108,7 @@ class _ProposalsViewState extends State<ProposalsView> {
       _activeInitialItem = null;
       _aiLinkedClient = null;
       _aiParsedProposal = null;
+      _activeRoofStudy = null;
       _isCreatingOrEditing = true;
     });
   }
@@ -112,6 +119,7 @@ class _ProposalsViewState extends State<ProposalsView> {
       _activeInitialItem = null;
       _aiLinkedClient = null;
       _aiParsedProposal = null;
+      _activeRoofStudy = null;
       _isCreatingOrEditing = false;
     });
     widget.onClearInitialItem?.call();
@@ -131,6 +139,7 @@ class _ProposalsViewState extends State<ProposalsView> {
                   initialItem: _activeInitialItem,
                   initialClient: _aiLinkedClient,
                   initialParsedProposal: _aiParsedProposal,
+                  initialRoofStudy: _activeRoofStudy,
                   onCancel: _closeForm,
                   onSaved: _closeForm,
                 )
@@ -1782,6 +1791,7 @@ class _ProposalFormCard extends StatefulWidget {
   final ProposalItemModel? initialItem;
   final ClientModel? initialClient;
   final ParsedUnifiedProposal? initialParsedProposal;
+  final RoofStudyModel? initialRoofStudy;
   final VoidCallback onCancel;
   final VoidCallback onSaved;
 
@@ -1791,6 +1801,7 @@ class _ProposalFormCard extends StatefulWidget {
     this.initialItem,
     this.initialClient,
     this.initialParsedProposal,
+    this.initialRoofStudy,
     required this.onCancel,
     required this.onSaved,
   });
@@ -1816,6 +1827,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
 
   bool _isClientLinked = true;
   String? _selectedClientId;
+
+  // Estudo Solar de Telhado / 3D Vinculado
+  RoofStudyModel? _linkedRoofStudy;
 
   // Lista de Itens da Proposta
   final List<ProposalItemModel> _items = [];
@@ -2214,6 +2228,195 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _openRoofStudyPicker() async {
+    final study = await ProposalRoofStudyPickerDialog.show(
+      context,
+      currentUser: widget.currentUser ?? _currentUser,
+      companyId: _companyId,
+    );
+    if (study != null && mounted) {
+      setState(() {
+        _linkedRoofStudy = study;
+
+        // Se o cliente não estiver vinculado e o estudo tiver cliente associado
+        if ((_clientNameCtrl.text.isEmpty || _selectedClientId == null) &&
+            study.clientName != null &&
+            study.clientName!.isNotEmpty) {
+          if (study.clientId != null && study.clientId!.isNotEmpty) {
+            _isClientLinked = true;
+            _selectedClientId = study.clientId;
+          }
+          _clientNameCtrl.text = study.clientName!;
+          if (study.formattedAddress.isNotEmpty && _clientAddrCtrl.text.isEmpty) {
+            _clientAddrCtrl.text = study.formattedAddress;
+          }
+        }
+
+        // Monta os componentes com base no estudo
+        final components = <String>[];
+        final calcWatts = study.totalModulesCount > 0
+            ? (study.totalKwp * 1000.0) / study.totalModulesCount
+            : 550.0;
+        final roundedWatts = (calcWatts / 5).round() * 5;
+
+        components.add('${study.totalModulesCount}x Módulos Fotovoltaicos de ${roundedWatts}W');
+        if (study.estimatedMonthlyKwh > 0) {
+          components.add('Geração Média Estimada: ~${study.estimatedMonthlyKwh.toStringAsFixed(0)} kWh/mês');
+        }
+        if (study.studyPhotos.isNotEmpty) {
+          components.add('${study.studyPhotos.length} Fotos do Estudo de Telhado & Sombreamento');
+        }
+
+        // Adiciona a Usina Solar derivada do estudo aos itens da proposta
+        final plantItemName = 'Usina Solar Fotovoltaica ${study.totalKwp.toStringAsFixed(2)} kWp (${study.name})';
+        final price = (study.totalKwp * 2900.0);
+        final plantItem = ProposalItemModel(
+          name: plantItemName,
+          quantity: 1,
+          unit: 'kit',
+          unitPrice: price,
+          totalPrice: price,
+          isSolarPlant: true,
+          solarKilowatts: study.totalKwp,
+          solarRoofType: 'Cerâmico',
+          solarComponents: components,
+          moduleWatts: roundedWatts.toDouble(),
+        );
+
+        _items.add(plantItem);
+        if (_titleCtrl.text.isEmpty || _titleCtrl.text.trim() == 'Proposta Comercial de Fornecimento') {
+          _titleCtrl.text = 'Proposta Comercial - Usina Solar ${study.totalKwp.toStringAsFixed(2)} kWp';
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Estudo Solar "${study.name}" (${study.totalKwp.toStringAsFixed(2)} kWp) vinculado com sucesso!'),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Widget _buildLinkedRoofStudyBanner() {
+    if (_linkedRoofStudy == null) return const SizedBox.shrink();
+
+    final study = _linkedRoofStudy!;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F9FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0284C7).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.roofing_rounded, color: Color(0xFF0284C7), size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        study.name,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'ESTUDO SOLAR 3D VINCULADO',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${study.totalKwp.toStringAsFixed(2)} kWp • ${study.totalModulesCount} Módulos • '
+                  'Geração: ~${study.estimatedMonthlyKwh.toStringAsFixed(0)} kWh/mês'
+                  '${study.studyPhotos.isNotEmpty ? " • 📷 ${study.studyPhotos.length} Fotos Anexadas" : ""}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xFF475569),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Botão de Download PDF do Estudo
+          Tooltip(
+            message: 'Baixar Relatório Executivo do Estudo com Fotos (PDF)',
+            child: OutlinedButton.icon(
+              onPressed: () {
+                SolarStudyPdfService.generateAndDownloadPdf(study: study);
+              },
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFF0284C7)),
+              label: Text(
+                'PDF DO ESTUDO',
+                style: GoogleFonts.inter(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0284C7),
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF0284C7)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF94A3B8)),
+            tooltip: 'Desvincular Estudo',
+            onPressed: () {
+              setState(() {
+                _linkedRoofStudy = null;
+              });
+            },
+          ),
+        ],
       ),
     );
   }
@@ -3107,6 +3310,32 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       ),
                       const SizedBox(height: 8),
                     ],
+                    // Botão Vincular Estudo Solar 3D (Mobile)
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _openRoofStudyPicker,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.roofing_rounded, color: Colors.white, size: 16),
+                              SizedBox(width: 6),
+                              Text('VINCULAR ESTUDO SOLAR (3D)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -3190,6 +3419,50 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           ),
                         ],
 
+                        // Botão Vincular Estudo Solar 3D (Desktop)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _openRoofStudyPicker,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0284C7)
+                                        .withValues(alpha: 0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.roofing_rounded,
+                                      color: Colors.white, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'VINCULAR ESTUDO SOLAR (3D)',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
                         // Botão Adicionar Item / Produto
                         Material(
                           color: Colors.transparent,
@@ -3227,6 +3500,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 ),
               ],
               const SizedBox(height: 14),
+
+              // Banner do Estudo Solar 3D Vinculado (se houver)
+              _buildLinkedRoofStudyBanner(),
 
               // Tabela Dinâmica de Itens
               Container(

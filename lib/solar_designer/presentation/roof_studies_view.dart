@@ -10,6 +10,7 @@ import '../data/repositories/roof_study_repository.dart';
 import '../domain/models/roof_study_model.dart';
 import 'solar_roof_designer_dialog.dart';
 import 'widgets/roof_study_setup_dialog.dart';
+import '../data/services/solar_study_pdf_service.dart';
 
 /// View Principal do Módulo de Estudos de Telhado (SPA Miolo)
 class RoofStudiesView extends StatefulWidget {
@@ -614,7 +615,7 @@ class _RoofStudiesViewState extends State<RoofStudiesView> {
                         color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569))),
               ),
               SizedBox(
-                width: 130,
+                width: 165,
                 child: Text('AÇÕES',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
@@ -909,10 +910,16 @@ class _RoofStudiesViewState extends State<RoofStudiesView> {
 
                       // 7. Ações
                       SizedBox(
-                        width: 130,
+                        width: 165,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            IconButton(
+                              icon: const Icon(Icons.picture_as_pdf_rounded,
+                                  color: Color(0xFFF59E0B), size: 20),
+                              tooltip: 'Baixar Relatório Executivo PDF 📄',
+                              onPressed: () => SolarStudyPdfService.generateAndDownloadPdf(study: study),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.satellite_alt_rounded,
                                   color: Color(0xFF0284C7), size: 20),
@@ -1097,6 +1104,12 @@ class _RoofStudiesViewState extends State<RoofStudiesView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf_rounded,
+                          size: 20, color: Color(0xFFF59E0B)),
+                      tooltip: 'Baixar PDF',
+                      onPressed: () => SolarStudyPdfService.generateAndDownloadPdf(study: study),
+                    ),
                     TextButton.icon(
                       onPressed: () => _openStudy(study),
                       icon: const Icon(Icons.satellite_alt_rounded, size: 16),

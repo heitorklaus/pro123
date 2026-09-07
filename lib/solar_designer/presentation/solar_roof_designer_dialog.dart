@@ -21,6 +21,8 @@ import 'widgets/roof_study_setup_dialog.dart';
 import 'widgets/roof_height_dialog.dart';
 import 'widgets/solar_shading_slider_bar.dart';
 import 'widgets/solar_3d_view_dialog.dart';
+import 'widgets/solar_study_photo_dialog.dart';
+import '../data/services/solar_study_pdf_service.dart';
 import '../../clients/domain/models/client_model.dart';
 import '../../proposals/domain/models/proposal_model.dart';
 import '../../auth/domain/models/user_model.dart';
@@ -132,6 +134,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   // ── Simulação Solar & Sombreamento Diurno ────────────────────────────────
   double _currentSimulationHour = 12.0; // Padrão: 12:00 (Zênite)
   bool _showSimulationBar = true; // Exibe o slider horário na base do canvas
+  final List<RoofStudyPhoto> _capturedStudyPhotos = []; // Fotos capturadas para o relatório técnico em PDF
 
   // Estados de carregamento e feedback
   bool _isSearching = false;
@@ -704,6 +707,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         _toolMode = firstSec.isClosed
             ? DesignerToolMode.editModules
             : DesignerToolMode.drawRoof;
+      }
+
+      // Restaura fotos já capturadas no estudo
+      if (initialStudy.studyPhotos.isNotEmpty) {
+        _capturedStudyPhotos.addAll(initialStudy.studyPhotos);
       }
     } else {
       // Novo estudo
@@ -3820,6 +3828,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
         totalModulesCount: totalModules,
         totalKwp: totalKwp,
         estimatedMonthlyKwh: estimatedMonthlyKwh,
+        studyPhotos: List.from(_capturedStudyPhotos),
         thumbnailBase64: base64Snapshot,
         companyId: widget.currentUser?.effectiveCompanyId ??
             widget.currentUser?.companyId ??
@@ -3894,6 +3903,146 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       if (mounted) {
         setState(() => _isSavingStudy = false);
       }
+    }
+  }
+
+  /// Captura snapshot em alta resolução do canvas (mesmo durante animação solar de vídeo)
+  Future<Uint8List?> _captureCanvasSnapshot({double pixelRatio = 1.6}) async {
+    try {
+      final boundary = _canvasKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary != null && boundary.size.width > 0) {
+        final image = await boundary.toImage(pixelRatio: pixelRatio);
+        final byteData =
+            await image.toByteData(format: ui.ImageByteFormat.png);
+        return byteData?.buffer.asUint8List();
+      }
+    } catch (e) {
+      debugPrint('[SolarRoofDesigner] Erro ao capturar snapshot do canvas: $e');
+    }
+    return null;
+  }
+
+  /// Conclui o estudo, salva no Firestore e dispara o download instantâneo do PDF com as fotos
+  Future<void> _concludeStudyWithPhotos(List<RoofStudyPhoto> photos) async {
+    _capturedStudyPhotos.clear();
+    _capturedStudyPhotos.addAll(photos);
+
+    // 1. Salva o estudo atualizado no Firestore (com as fotos e dados)
+    final savedStudy = await _saveRoofStudy(showFeedback: false);
+
+    // 2. Simula o desempenho diurno astronômico
+    final simulation = SolarShadingEngine.simulateFullDay(
+      sections: _sections,
+      currentHour: _currentSimulationHour,
+      latitude: _latitude,
+      northRotationRadians: _activeNorthRotationRadians,
+    );
+
+    // 3. Monta o modelo completo atualizado
+    final now = DateTime.now();
+    int totalModules = 0;
+    double totalWatts = 0;
+    for (final sec in _sections) {
+      totalModules += sec.activeModuleCount;
+      totalWatts += sec.activeModuleCount * sec.moduleSpec.watts;
+    }
+    final totalKwp = totalWatts / 1000.0;
+    final calculatedMonthlyKwh = _calculateTotalEstimatedGenerationKwh();
+    final estimatedMonthlyKwh =
+        calculatedMonthlyKwh > 0 ? calculatedMonthlyKwh : (totalKwp * 130.0);
+
+    final currentStudy = savedStudy ??
+        RoofStudyModel(
+          id: _studyId ?? '',
+          name: _studyName?.trim().isNotEmpty == true
+              ? _studyName!.trim()
+              : 'Estudo Solar ${_currentAddress.split(',').first}',
+          clientId: _clientId,
+          clientName: _clientName,
+          proposalId: _proposalId,
+          proposalCode: _proposalCode,
+          latitude: _latitude,
+          longitude: _longitude,
+          formattedAddress: _currentAddress,
+          zoom: _zoom,
+          panOffsetX: _panOffsetX,
+          panOffsetY: _panOffsetY,
+          mapsSections: List.from(_mapsSections),
+          mapsPanOffsetX: _mapsPanOffsetX,
+          mapsPanOffsetY: _mapsPanOffsetY,
+          mapsZoom: _mapsZoom,
+          droneSections: List.from(_droneSections),
+          droneImageUrl: _droneImageUrl,
+          droneImageFileName: _droneImageFileName,
+          droneMetersPerPixel: _customDroneMetersPerPixel,
+          dronePanOffsetX: _dronePanOffsetX,
+          dronePanOffsetY: _dronePanOffsetY,
+          droneZoom: _droneZoom,
+          northCompass: _droneNorthCompass,
+          roofArrows: List.from(_droneArrows),
+          mapsNorthCompass: _mapsNorthCompass,
+          mapsArrows: List.from(_mapsArrows),
+          droneNorthCompass: _droneNorthCompass,
+          droneArrows: List.from(_droneArrows),
+          arrowsGlobalColor: _droneArrowsGlobalColor.toARGB32(),
+          arrowsGlobalLength: _droneArrowsGlobalLength,
+          cep: _cepController.text.trim().isNotEmpty
+              ? _cepController.text.trim()
+              : null,
+          stateUf: _resolvedState,
+          region: _resolvedRegion,
+          dailyHsp: _dailyHsp,
+          isRenderMode: _isRenderMode,
+          lastActiveMode: _backgroundMode == BackgroundLayerMode.dronePhoto
+              ? 'dronePhoto'
+              : 'satellite',
+          sections: List.from(_sections),
+          totalModulesCount: totalModules,
+          totalKwp: totalKwp,
+          estimatedMonthlyKwh: estimatedMonthlyKwh,
+          studyPhotos: List.from(_capturedStudyPhotos),
+          status: 'completed',
+          companyId: widget.currentUser?.effectiveCompanyId ??
+              widget.currentUser?.companyId ??
+              '',
+          createdByUserId: widget.currentUser?.uid ?? '',
+          createdByUserName: widget.currentUser?.name ?? '',
+          createdAt: _createdAt ?? now,
+          updatedAt: now,
+        );
+
+    // 4. Dispara a compilação e download instantâneo do PDF
+    await SolarStudyPdfService.generateAndDownloadPdf(
+      study: currentStudy,
+      sections: _sections,
+      simulation: simulation,
+      photos: _capturedStudyPhotos,
+      clientName: _clientName,
+      clientAddress: _currentAddress,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded,
+                  color: Colors.white, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Estudo concluído! PDF gerado e baixado com sucesso.',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -4708,6 +4857,45 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
               ),
             ),
           ),
+
+        // ── BOTÃO FLUTUANTE (FAB) NO LIMITE INFERIOR DIREITO DO CANVAS ────────
+        Positioned(
+          bottom: 20,
+          right: 20,
+          child: Tooltip(
+            message: 'Adicionar fotos da simulação e concluir estudo com PDF',
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                SolarStudyPhotoDialog.show(
+                  context,
+                  initialPhotos: _capturedStudyPhotos,
+                  currentHour: _currentSimulationHour,
+                  onCaptureCanvas: _captureCanvasSnapshot,
+                  onConcludeStudy: _concludeStudyWithPhotos,
+                );
+              },
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+              elevation: 8,
+              icon: Badge(
+                isLabelVisible: _capturedStudyPhotos.isNotEmpty,
+                label: Text('${_capturedStudyPhotos.length}'),
+                backgroundColor: const Color(0xFF10B981),
+                child: const Icon(Icons.add_a_photo_rounded, size: 20),
+              ),
+              label: Text(
+                _capturedStudyPhotos.isEmpty
+                    ? 'FOTO DO ESTUDO'
+                    : 'FOTOS (${_capturedStudyPhotos.length})',
+                style: GoogleFonts.outfit(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -4904,68 +5092,6 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
               }).toList(),
             ),
           ],
-
-          // Botão Orientação & Quedas (Foca e expande a seção na barra lateral direita)
-          const SizedBox(width: 4),
-          Container(width: 1, height: 24, color: const Color(0xFF334155)),
-          const SizedBox(width: 6),
-          Tooltip(
-            message: !_hasAnyClosedPolygon
-                ? 'Para definir orientação, desenhe a queda do telhado primeiro'
-                : 'Configurar orientações solares e quedas de telhado',
-            child: Opacity(
-              opacity: !_hasAnyClosedPolygon ? 0.45 : 1.0,
-              child: ElevatedButton.icon(
-                onPressed: !_hasAnyClosedPolygon
-                    ? () => _showNoPolygonWarning()
-                    : () {
-                        _syncArrowsWithSections();
-                        setState(() {
-                          _isOrientationSectionExpanded = true;
-                          _toolMode = DesignerToolMode.select;
-                        });
-                        if (_rightSidebarScrollController.hasClients) {
-                          _rightSidebarScrollController.animateTo(
-                            0,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      },
-                icon: Icon(
-                  Icons.explore_rounded,
-                  size: 16,
-                  color: _isOrientationSectionExpanded
-                      ? Colors.white
-                      : const Color(0xFF38BDF8),
-                ),
-                label: Text(
-                  'Orientação & Quedas',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isOrientationSectionExpanded
-                      ? const Color(0xFF0284C7)
-                      : const Color(0xFF1E293B),
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(
-                      color: _isOrientationSectionExpanded
-                          ? const Color(0xFF38BDF8)
-                          : const Color(0xFF334155),
-                      width: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
 
           // Botão RENDERIZAR / QUALIFICAÇÃO SOLAR
           const SizedBox(width: 6),
