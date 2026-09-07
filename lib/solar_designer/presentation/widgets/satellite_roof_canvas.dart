@@ -1335,28 +1335,6 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                         ),
                       ),
 
-                      // 3. Mira / Alvo Central de Referência Geográfica
-                      Center(
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.amber, width: 2),
-                          ),
-                          child: Center(
-                            child: Container(
-                              width: 3,
-                              height: 3,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.amber,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
                       // 4. Seletor de Águas / Quedas no Topo (Pills navegáveis sempre visíveis desde o início)
                       if (widget.sections.isNotEmpty) ...[
                         Positioned(
@@ -1561,6 +1539,103 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     );
   }
 
+  /// Encontra e seleciona a linha inteira de placas conectadas lado a lado ou inseridas juntas
+  void _selectEntireLineForModule(int moduleIdx) {
+    if (moduleIdx < 0 || moduleIdx >= widget.modules.length) return;
+    final targetMod = widget.modules[moduleIdx];
+
+    String? rowIdToSelect = targetMod.rowId;
+
+    // Se já possui rowId e há mais de uma placa com esse rowId, usa o rowId existente
+    final sameRowMods = rowIdToSelect != null
+        ? widget.modules
+            .where((m) => m.rowId == rowIdToSelect && !m.isExcluded)
+            .toList()
+        : <PlacedModule>[];
+
+    if (sameRowMods.length <= 1) {
+      // Procura todas as placas conectadas lado a lado (em linha contígua)
+      final connectedIndices = _findSideBySideConnectedModules(moduleIdx);
+      if (connectedIndices.isNotEmpty) {
+        final newRowId =
+            rowIdToSelect ?? 'row_${DateTime.now().millisecondsSinceEpoch}';
+        for (final idx in connectedIndices) {
+          widget.modules[idx].rowId = newRowId;
+        }
+        rowIdToSelect = newRowId;
+      }
+    }
+
+    setState(() {
+      _selectionLevel = CanvasSelectionLevel.row;
+      _selectedRowId = rowIdToSelect;
+      _selectedModuleIndex = -1;
+    });
+    widget.onSelectModule?.call(-1);
+  }
+
+  /// Algoritmo que detecta placas contíguas lado a lado na mesma linha
+  List<int> _findSideBySideConnectedModules(int startIdx) {
+    if (startIdx < 0 || startIdx >= widget.modules.length) return [];
+    final List<int> result = [startIdx];
+    final Set<int> visited = {startIdx};
+    final List<int> queue = [startIdx];
+
+    final baseMod = widget.modules[startIdx];
+    final modWidth = baseMod.widthMeters;
+    final maxGap = modWidth * 1.6;
+
+    while (queue.isNotEmpty) {
+      final currIdx = queue.removeAt(0);
+      final currMod = widget.modules[currIdx];
+
+      for (int i = 0; i < widget.modules.length; i++) {
+        if (visited.contains(i)) continue;
+        final candidate = widget.modules[i];
+        if (candidate.isExcluded) continue;
+
+        // Se já compartilham o mesmo rowId, estão conectadas!
+        if (currMod.rowId != null &&
+            currMod.rowId!.isNotEmpty &&
+            candidate.rowId == currMod.rowId) {
+          visited.add(i);
+          queue.add(i);
+          result.add(i);
+          continue;
+        }
+
+        // Verifica se estão com orientações compatíveis (paralelas)
+        final angleDiff =
+            (currMod.rotationRadians - candidate.rotationRadians).abs() %
+                math.pi;
+        if (angleDiff > 0.20 && (math.pi - angleDiff) > 0.20) continue;
+
+        // Distância entre centros
+        final dx = candidate.center.x - currMod.center.x;
+        final dy = candidate.center.y - currMod.center.y;
+        final dist = math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 0.1 && dist <= maxGap) {
+          // Projeção nos eixos locais da placa
+          final cosA = math.cos(currMod.rotationRadians);
+          final sinA = math.sin(currMod.rotationRadians);
+          final localX = dx * cosA + dy * sinA;
+          final localY = -dx * sinA + dy * cosA;
+
+          // Alinhamento lado a lado (eixo lateral dominante e deslocamento longitudinal pequeno)
+          if (localX.abs() > 0.25 &&
+              localY.abs() <= (currMod.heightMeters * 0.50)) {
+            visited.add(i);
+            queue.add(i);
+            result.add(i);
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
   /// Constrói o mini balão de controle flutuante sobre a placa selecionada individualmente
   Widget _buildSelectedModuleFloatingBar(Size canvasSize, Offset centerOffset) {
     final mod = widget.modules[_selectedModuleIndex];
@@ -1706,42 +1781,43 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
             ),
             const SizedBox(width: 4),
 
-            // Botão Excluir Linha Inteira (se pertencer a uma fileira criada)
-            if (mod.rowId != null) ...[
-              Tooltip(
-                message: 'Excluir fileira inteira (X)',
-                child: InkWell(
-                  onTap: () {
-                    final rId = mod.rowId!;
-                    setState(() => _selectedModuleIndex = -1);
-                    widget.onDeleteRow?.call(rId);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color:
-                              const Color(0xFFEF4444).withValues(alpha: 0.6)),
+            // Botão com tooltip "Selecionar linha inteira!"
+            Tooltip(
+              message: 'Selecionar linha inteira!',
+              child: InkWell(
+                onTap: () => _selectEntireLineForModule(_selectedModuleIndex),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.7),
+                      width: 1.1,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.table_rows_rounded,
-                            size: 12, color: Color(0xFFFCA5A5)),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.close_rounded,
-                            size: 12, color: Color(0xFFEF4444)),
-                      ],
-                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.table_rows_rounded,
+                          size: 13, color: Color(0xFF38BDF8)),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Linha',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-            ],
+            ),
+            const SizedBox(width: 4),
 
             // Botão Excluir Placa Individual (Apenas ícone de lixeira, sem texto!)
             Tooltip(
@@ -2604,47 +2680,41 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
           ),
           const SizedBox(width: 5),
 
-          // Concluir conjunto
-          if (widget.onConcludeCluster != null) ...[
-            btn(
-              tooltip: (widget.isClusterFinalized || widget.activeClusterId == null)
-                  ? 'Conjunto já concluído (clique em uma placa para reativar)'
-                  : 'Concluir este conjunto de placas',
-              onTap: (widget.isClusterFinalized || widget.activeClusterId == null)
-                  ? null
-                  : widget.onConcludeCluster,
-              bgColor: (widget.isClusterFinalized || widget.activeClusterId == null)
-                  ? const Color(0xFF64748B).withValues(alpha: 0.15)
-                  : const Color(0xFF10B981).withValues(alpha: 0.18),
-              borderColor: (widget.isClusterFinalized || widget.activeClusterId == null)
-                  ? const Color(0xFF64748B).withValues(alpha: 0.4)
-                  : const Color(0xFF10B981).withValues(alpha: 0.7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.check_circle_rounded,
-                    size: 13,
-                    color: (widget.isClusterFinalized || widget.activeClusterId == null)
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF10B981),
+          // Selecionar Linha Inteira!
+          btn(
+            tooltip: 'Selecionar linha inteira!',
+            onTap: () {
+              if (_selectedModuleIndex >= 0 &&
+                  _selectedModuleIndex < widget.modules.length) {
+                _selectEntireLineForModule(_selectedModuleIndex);
+              } else if (widget.modules.isNotEmpty) {
+                final firstIdx =
+                    widget.modules.indexWhere((m) => !m.isExcluded);
+                if (firstIdx != -1) {
+                  _selectEntireLineForModule(firstIdx);
+                }
+              }
+            },
+            bgColor: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+            borderColor: const Color(0xFF38BDF8).withValues(alpha: 0.6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.table_rows_rounded,
+                    size: 12, color: Color(0xFF38BDF8)),
+                const SizedBox(width: 4),
+                Text(
+                  'Selecionar Linha',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Concluir conjunto',
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: (widget.isClusterFinalized || widget.activeClusterId == null)
-                          ? const Color(0xFF94A3B8)
-                          : const Color(0xFF10B981),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 5),
-          ],
+          ),
+          const SizedBox(width: 5),
 
           // Duplicar Telhado (Espelhar oposto)
           Tooltip(

@@ -112,7 +112,7 @@ class SolarModuleSpec {
 /// Placa fotovoltaica individual alocada no telhado
 class PlacedModule {
   final String id;
-  final String? rowId; // Identificador da fileira (para permitir exclusão em lote da linha)
+  String? rowId; // Identificador da fileira (para permitir exclusão ou seleção em lote da linha)
   final RoofPoint center;
   final double widthMeters;
   final double heightMeters;
