@@ -802,24 +802,39 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
 
   /// Calcula a caixa delimitadora (bounding box) do conjunto ativo de placas (ou de todas se não houver divisão)
   Rect? _getModulesBoundingBox(Offset centerOffset) {
-    if (widget.modules.isEmpty) return null;
+    Iterable<PlacedModule> targetModules =
+        widget.modules.where((m) => !m.isExcluded);
 
-    // Se o conjunto foi concluído e nenhum conjunto está ativo, não exibe controles de grupo
-    if (widget.isClusterFinalized && widget.activeClusterId == null) {
-      return null;
-    }
-
-    // Se houver um conjunto ativo especificado, foca EXCLUSIVAMENTE nele!
-    Iterable<PlacedModule> targetModules = widget.modules;
+    // Se houver um conjunto ativo especificado, foca nele
     if (widget.activeClusterId != null) {
-      final clusterModules = widget.modules
-          .where((m) => m.rowId == widget.activeClusterId && !m.isExcluded)
+      final clusterModules = targetModules
+          .where((m) => m.rowId == widget.activeClusterId)
           .toList();
       if (clusterModules.isNotEmpty) {
         targetModules = clusterModules;
-      } else {
-        return null;
       }
+    }
+
+    if (targetModules.isEmpty) {
+      // Fallback para os vértices do telhado se houver
+      if (widget.roofVertices.length >= 3) {
+        double minX = double.infinity, maxX = -double.infinity;
+        double minY = double.infinity, maxY = -double.infinity;
+        for (final p in widget.roofVertices) {
+          final px = centerOffset.dx +
+              RoofGeometryService.metersToPixels(p.x, widget.metersPerPixel);
+          final py = centerOffset.dy +
+              RoofGeometryService.metersToPixels(p.y, widget.metersPerPixel);
+          if (px < minX) minX = px;
+          if (px > maxX) maxX = px;
+          if (py < minY) minY = py;
+          if (py > maxY) maxY = py;
+        }
+        if (minX != double.infinity) {
+          return Rect.fromLTRB(minX, minY, maxX, maxY);
+        }
+      }
+      return null;
     }
 
     double minX = double.infinity, maxX = -double.infinity;
@@ -1262,7 +1277,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   if (releasedModuleIndex != -1 && wasDrag) {
                     // O usuário arrastou e soltou a placa: executa o encaixe magnético (Snap) SEMPRE!
                     widget.onModuleDragEnd?.call(releasedModuleIndex);
-                  } else if (_panTotalDistance <= 16.0 && _panStartScreenPos != null) {
+                  } else if (_panTotalDistance <= 28.0 && _panStartScreenPos != null) {
                     _handleCanvasTapDispatch(_panStartScreenPos!, centerOffset,
                         canvasSize, modulesBbox);
                   }
@@ -1367,7 +1382,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       if (_selectionLevel == CanvasSelectionLevel.polygon &&
                           widget.modules.isNotEmpty &&
                           modulesBbox != null) ...[
-                        _buildOuterPolygonControls(canvasSize, modulesBbox),
+                        ..._buildOuterPolygonControls(canvasSize, modulesBbox),
                       ],
 
                       // 5.3 Controles do Nível 2: DENTRO do Polígono (ROTATE e MOVE da Fileira à mão livre)
@@ -2720,16 +2735,19 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
 
 
   /// Barra de controle flutuante do Nível 1: FORA do Polígono (ROTATE e MOVE Globais)
-  Widget _buildOuterPolygonControls(Size canvasSize, Rect modulesBbox) {
+  List<Widget> _buildOuterPolygonControls(Size canvasSize, Rect modulesBbox) {
     const double barH = 34.0;
     final double leftPos = (modulesBbox.center.dx - 120)
         .clamp(12.0, canvasSize.width - 250);
-    final double topPos = (modulesBbox.top - 46)
-        .clamp(8.0, canvasSize.height - 60);
 
-    return Stack(
-      children: [
-        // Haste vertical sutil conectando os controles ao topo do polígono
+    final bool placeAbove = (modulesBbox.top >= 52);
+    final double topPos = placeAbove
+        ? (modulesBbox.top - 46).clamp(8.0, canvasSize.height - 60)
+        : (modulesBbox.bottom + 12).clamp(8.0, canvasSize.height - 60);
+
+    return [
+      // Haste vertical sutil conectando os controles ao polígono
+      if (placeAbove)
         Positioned(
           left: modulesBbox.center.dx - 1,
           top: (modulesBbox.top - 14).clamp(0.0, canvasSize.height),
@@ -2738,179 +2756,188 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
             height: 14,
             color: const Color(0xFF6366F1).withValues(alpha: 0.7),
           ),
-        ),
-
-        // Barra de Controles Externa (Pill flutuante)
+        )
+      else
         Positioned(
-          left: leftPos,
-          top: topPos,
+          left: modulesBbox.center.dx - 1,
+          top: modulesBbox.bottom,
           child: Container(
-            height: barH,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(17),
-              border: Border.all(color: const Color(0xFF6366F1), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Badge do Polígono
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.crop_square_rounded,
-                          size: 13, color: Color(0xFF818CF8)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Polígono (${widget.modules.where((m) => !m.isExcluded).length} pl)',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-
-                // Botão ROTATE Global (Girar todas as placas à mão livre)
-                Tooltip(
-                  message: 'Girar todas as placas à mão livre (clique e arraste em círculo)',
-                  child: GestureDetector(
-                    onPanStart: (details) {
-                      setState(() {
-                        _isRotatingGroup = true;
-                        _rotationPivotScreen = modulesBbox.center;
-                        _lastDragAngle = math.atan2(
-                          details.globalPosition.dy - modulesBbox.center.dy,
-                          details.globalPosition.dx - modulesBbox.center.dx,
-                        );
-                      });
-                    },
-                    onPanUpdate: (details) {
-                      if (_rotationPivotScreen != null) {
-                        final currentAngle = math.atan2(
-                          details.globalPosition.dy - _rotationPivotScreen!.dy,
-                          details.globalPosition.dx - _rotationPivotScreen!.dx,
-                        );
-                        final deltaAngle = currentAngle - _lastDragAngle;
-                        _lastDragAngle = currentAngle;
-                        widget.onRotateModuleGroup?.call(deltaAngle);
-                      }
-                    },
-                    onPanEnd: (_) {
-                      setState(() {
-                        _isRotatingGroup = false;
-                        _rotationPivotScreen = null;
-                      });
-                    },
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.grab,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _isRotatingGroup
-                              ? const Color(0xFF10B981).withValues(alpha: 0.35)
-                              : const Color(0xFF38BDF8).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isRotatingGroup
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFF38BDF8).withValues(alpha: 0.7),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.sync_rounded,
-                              size: 13,
-                              color: _isRotatingGroup
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFF38BDF8),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'GIRAR',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 5),
-
-                // Botão MOVE Global (Mover todas as placas à mão livre)
-                Tooltip(
-                  message: 'Mover todas as placas à mão livre (clique e arraste)',
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      final dxM = RoofGeometryService.pixelsToMeters(
-                          details.delta.dx, widget.metersPerPixel);
-                      final dyM = RoofGeometryService.pixelsToMeters(
-                          details.delta.dy, widget.metersPerPixel);
-                      widget.onModuleGroupMoved?.call(dxM, dyM);
-                    },
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.move,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF10B981).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color:
-                                const Color(0xFF10B981).withValues(alpha: 0.7),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.open_with_rounded,
-                                size: 13, color: Color(0xFF10B981)),
-                            const SizedBox(width: 4),
-                            Text(
-                              'MOVER',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            width: 2,
+            height: 12,
+            color: const Color(0xFF6366F1).withValues(alpha: 0.7),
           ),
         ),
-      ],
-    );
+
+      // Barra de Controles Externa (Pill flutuante)
+      Positioned(
+        left: leftPos,
+        top: topPos,
+        child: Container(
+          height: barH,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(color: const Color(0xFF6366F1), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Badge do Polígono
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.crop_square_rounded,
+                        size: 13, color: Color(0xFF818CF8)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Polígono (${widget.modules.where((m) => !m.isExcluded).length} pl)',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+
+              // Botão ROTATE Global (Girar todas as placas à mão livre)
+              Tooltip(
+                message: 'Girar todas as placas à mão livre (clique e arraste em círculo)',
+                child: GestureDetector(
+                  onPanStart: (details) {
+                    setState(() {
+                      _isRotatingGroup = true;
+                      _rotationPivotScreen = modulesBbox.center;
+                      _lastDragAngle = math.atan2(
+                        details.globalPosition.dy - modulesBbox.center.dy,
+                        details.globalPosition.dx - modulesBbox.center.dx,
+                      );
+                    });
+                  },
+                  onPanUpdate: (details) {
+                    if (_rotationPivotScreen != null) {
+                      final currentAngle = math.atan2(
+                        details.globalPosition.dy - _rotationPivotScreen!.dy,
+                        details.globalPosition.dx - _rotationPivotScreen!.dx,
+                      );
+                      final deltaAngle = currentAngle - _lastDragAngle;
+                      _lastDragAngle = currentAngle;
+                      widget.onRotateModuleGroup?.call(deltaAngle);
+                    }
+                  },
+                  onPanEnd: (_) {
+                    setState(() {
+                      _isRotatingGroup = false;
+                      _rotationPivotScreen = null;
+                    });
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _isRotatingGroup
+                            ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                            : const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _isRotatingGroup
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF38BDF8).withValues(alpha: 0.7),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.sync_rounded,
+                            size: 13,
+                            color: _isRotatingGroup
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF38BDF8),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'GIRAR',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+
+              // Botão MOVE Global (Mover todas as placas à mão livre)
+              Tooltip(
+                message: 'Mover todas as placas à mão livre (clique e arraste)',
+                child: GestureDetector(
+                  onPanUpdate: (details) {
+                    final dxM = RoofGeometryService.pixelsToMeters(
+                        details.delta.dx, widget.metersPerPixel);
+                    final dyM = RoofGeometryService.pixelsToMeters(
+                        details.delta.dy, widget.metersPerPixel);
+                    widget.onModuleGroupMoved?.call(dxM, dyM);
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.move,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color:
+                            const Color(0xFF10B981).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color:
+                              const Color(0xFF10B981).withValues(alpha: 0.7),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.open_with_rounded,
+                              size: 13, color: Color(0xFF10B981)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'MOVER',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   /// Constrói o fundo de acordo com o modo ativo: Satélite ou Foto de Drone
@@ -3233,7 +3260,9 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       }
     }
     final bool isInsideModules = clickedIdx != -1;
-    final bool hitActive = isInsidePolygon || isInsideModules;
+    final bool isInsideBbox =
+        modulesBbox != null && modulesBbox.inflate(6.0).contains(localPos);
+    final bool hitActive = isInsidePolygon || isInsideModules || isInsideBbox;
 
     // 3. Testa se clicou em outra seção inativa
     if (!hitActive && widget.sections.isNotEmpty) {
@@ -3266,7 +3295,10 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       });
       widget.onSelectDroneArrow?.call(null);
       widget.onSelectModule?.call(-1);
-      widget.onCanvasTap?.call(localPos);
+      if (!widget.isRoofClosed &&
+          widget.toolMode == DesignerToolMode.drawRoof) {
+        widget.onCanvasTap?.call(localPos);
+      }
       return;
     }
 

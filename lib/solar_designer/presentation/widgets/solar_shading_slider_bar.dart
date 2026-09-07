@@ -275,24 +275,6 @@ class _SolarShadingSliderBarState extends State<SolarShadingSliderBar>
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-
-              // Botão 3D
-              ElevatedButton.icon(
-                onPressed: widget.onOpen3DView,
-                icon: const Icon(Icons.view_in_ar_rounded, size: 16),
-                label: Text(
-                  'MODELO 3D',
-                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 2,
-                ),
-              ),
             ],
           ),
 

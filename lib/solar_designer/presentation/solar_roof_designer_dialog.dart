@@ -3521,10 +3521,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     );
 
     if (_toolMode == DesignerToolMode.drawRoof) {
-      // Se a água atual já está delimitada com o polígono fechado:
-      // Conclui a água atual e vai para Navegar, aguardando que o operador crie uma nova água quando desejar
       if (_isRoofClosed && _roofVertices.length >= 3) {
-        _finishCurrentSection();
+        setState(() {
+          _isSectionFinalized = false;
+          _toolMode = DesignerToolMode.editModules;
+        });
         return;
       }
 
@@ -4721,6 +4722,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             onFinishCurrentSection: _finishCurrentSection,
             onResumeEditing: () => setState(() {
               _isSectionFinalized = false;
+              _isCurrentClusterFinalized = false;
               _toolMode = DesignerToolMode.editModules;
             }),
             onAddNewSection: _addNewSection,
