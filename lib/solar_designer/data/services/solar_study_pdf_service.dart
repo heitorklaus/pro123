@@ -8,7 +8,8 @@ import '../../domain/models/roof_study_model.dart';
 import '../../domain/models/solar_designer_models.dart';
 import '../../domain/services/solar_shading_engine.dart';
 
-/// Serviço de Geração e Emissão de PDF para Estudo de Telhado & Sombreamento Solar
+/// Serviço de Geração e Emissão de Relatório Técnico em PDF
+/// ESTUDO DE ENGENHARIA SOLAR E PROJEÇÃO DE GERAÇÃO
 class SolarStudyPdfService {
   // ── ÍCONES VETORIAIS SVG NATIVOS PARA O PDF ────────────────────────────────
   static const String _svgSun = '''
@@ -78,7 +79,21 @@ class SolarStudyPdfService {
 </svg>
 ''';
 
-  /// Compila o documento PDF em bytes com design executivo premium e ícones vetoriais
+  // ── PALETA DE CORES CORPORATIVA ───────────────────────────────────────────
+  static const primaryNavy = PdfColor.fromInt(0xFF0F172A);
+  static const accentIndigo = PdfColor.fromInt(0xFF4F46E5);
+  static const accentSky = PdfColor.fromInt(0xFF0284C7);
+  static const successEmerald = PdfColor.fromInt(0xFF059669);
+  static const warningAmber = PdfColor.fromInt(0xFFD97706);
+  static const dangerRose = PdfColor.fromInt(0xFFE11D48);
+  static const textDark = PdfColor.fromInt(0xFF1E293B);
+  static const textMuted = PdfColor.fromInt(0xFF64748B);
+  static const borderSlate = PdfColor.fromInt(0xFFCBD5E1);
+  static const borderLight = PdfColor.fromInt(0xFFE2E8F0);
+  static const bgCard = PdfColor.fromInt(0xFFF8FAFC);
+  static const bgLight = PdfColor.fromInt(0xFFF1F5F9);
+
+  /// Compila o documento PDF em bytes com design executivo premium e fotos individuais grandes
   static Future<Uint8List> generatePdfBytes({
     required RoofStudyModel study,
     List<RoofSection>? sections,
@@ -89,14 +104,16 @@ class SolarStudyPdfService {
     String? clientAddress,
     String? clientPhone,
   }) async {
-    final pdf = pw.Document();
+    final pdf = pw.Document(
+      title: 'Estudo de Engenharia Solar - ${study.name}',
+      author: company?.name ?? 'Mavis CRM Engenharia Solar',
+    );
 
     final fontRegular = await PdfGoogleFonts.interRegular();
     final fontBold = await PdfGoogleFonts.interBold();
 
-    final effectiveSections = (sections != null && sections.isNotEmpty)
-        ? sections
-        : (study.sections.isNotEmpty
+    final effectiveSections = sections ??
+        (study.sections.isNotEmpty
             ? study.sections
             : (study.mapsSections.isNotEmpty
                 ? study.mapsSections
@@ -147,7 +164,7 @@ class SolarStudyPdfService {
     int totalModules = study.totalModulesCount;
     double totalKwp = study.totalKwp;
     double totalAreaM2 = 0;
-    String moduleModel = 'Módulo Fotovoltaico Standard';
+    String moduleModel = 'Módulo Fotovoltaico TopCon Standard';
     double moduleWatts = 550.0;
 
     for (final s in effectiveSections) {
@@ -181,597 +198,1002 @@ class SolarStudyPdfService {
             ? study.clientName!
             : 'Cliente');
 
-    // Paleta de Cores Premium
-    const primaryNavy = PdfColor.fromInt(0xFF0F172A);
-    const accentIndigo = PdfColor.fromInt(0xFF4F46E5);
-    const accentSky = PdfColor.fromInt(0xFF0284C7);
-    const successEmerald = PdfColor.fromInt(0xFF059669);
-    const warningAmber = PdfColor.fromInt(0xFFD97706);
-    const textDark = PdfColor.fromInt(0xFF1E293B);
-    const textMuted = PdfColor.fromInt(0xFF64748B);
-    const borderSlate = PdfColor.fromInt(0xFFE2E8F0);
-    const bgCard = PdfColor.fromInt(0xFFF8FAFC);
+    final totalPages = 1 + capturedImages.length;
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // FOLHA 1: CAPA & VISÃO EXECUTIVA DE ENGENHARIA SOLAR
+    // ══════════════════════════════════════════════════════════════════════════
     pdf.addPage(
-      pw.MultiPage(
+      pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        theme: pw.ThemeData.withFont(
-          base: fontRegular,
-          bold: fontBold,
-        ),
-        header: (pw.Context ctx) {
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 14),
-            padding: const pw.EdgeInsets.only(bottom: 10),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                  bottom: pw.BorderSide(color: borderSlate, width: 1.5)),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                if (companyLogo != null)
-                  pw.Container(
-                    height: 38,
-                    child: pw.Image(companyLogo, fit: pw.BoxFit.contain),
-                  )
-                else
-                  pw.Row(
-                    children: [
-                      pw.Container(
-                        padding: const pw.EdgeInsets.all(5),
-                        decoration: pw.BoxDecoration(
-                          color: const PdfColor.fromInt(0xFFEEF2FF),
-                          borderRadius: pw.BorderRadius.circular(6),
-                        ),
-                        child: pw.SvgImage(svg: _svgSun, width: 16, height: 16),
-                      ),
-                      pw.SizedBox(width: 8),
-                      pw.Text(
-                        company?.name.toUpperCase() ??
-                            'MAVIS CRM • ENERGIA SOLAR',
-                        style: pw.TextStyle(
-                          fontSize: 12,
-                          fontWeight: pw.FontWeight.bold,
-                          color: accentIndigo,
-                        ),
-                      ),
-                    ],
-                  ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: pw.BoxDecoration(
-                        color: const PdfColor.fromInt(0xFF0F172A),
-                        borderRadius: pw.BorderRadius.circular(6),
-                      ),
-                      child: pw.Text(
-                        'ESTUDO TÉCNICO & SOMBREAMENTO',
-                        style: pw.TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 3),
-                    pw.Text(
-                      'Emissão: ${_formatDateTime(DateTime.now())}',
-                      style: const pw.TextStyle(fontSize: 8, color: textMuted),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-        footer: (pw.Context ctx) {
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(top: 14),
-            padding: const pw.EdgeInsets.only(top: 8),
-            decoration: const pw.BoxDecoration(
-              border:
-                  pw.Border(top: pw.BorderSide(color: borderSlate, width: 1.0)),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Row(
-                  children: [
-                    pw.SvgImage(svg: _svgShield, width: 10, height: 10),
-                    pw.SizedBox(width: 4),
-                    pw.Text(
-                      'Mavis Solar Engineering • Simulação Fotogramétrica Tridimensional',
-                      style: const pw.TextStyle(fontSize: 7.5, color: textMuted),
-                    ),
-                  ],
-                ),
-                pw.Text(
-                  'Página ${ctx.pageNumber} de ${ctx.pagesCount}',
-                  style: const pw.TextStyle(fontSize: 8, color: textMuted),
-                ),
-              ],
-            ),
-          );
-        },
+        margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+        theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
         build: (pw.Context ctx) {
-          return [
-            // ── 1. CABEÇALHO DO ESTUDO & CLIENTE ────────────────────────────
-            pw.Container(
-              padding: const pw.EdgeInsets.all(14),
-              decoration: pw.BoxDecoration(
-                color: bgCard,
-                borderRadius: pw.BorderRadius.circular(10),
-                border: pw.Border.all(color: borderSlate, width: 1.2),
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              // 1. Cabeçalho Geral
+              _buildPageHeader(
+                companyLogo: companyLogo,
+                company: company,
+                pageNumber: 1,
+                totalPages: totalPages,
+                badgeTitle: 'ESTUDO TÉCNICO & SOMBREAMENTO',
               ),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Expanded(
-                    flex: 3,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          study.name.isNotEmpty
-                              ? study.name
-                              : 'Estudo de Viabilidade Solar',
-                          style: pw.TextStyle(
-                            fontSize: 14,
-                            fontWeight: pw.FontWeight.bold,
-                            color: primaryNavy,
-                          ),
-                        ),
-                        pw.SizedBox(height: 6),
-                        pw.Row(
-                          children: [
-                            pw.SvgImage(svg: _svgUser, width: 11, height: 11),
-                            pw.SizedBox(width: 5),
-                            pw.Expanded(
-                              child: pw.Text(
-                                clientResolved,
-                                style: pw.TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: textDark,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        pw.SizedBox(height: 3),
-                        pw.Row(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.SvgImage(svg: _svgPin, width: 11, height: 11),
-                            pw.SizedBox(width: 5),
-                            pw.Expanded(
-                              child: pw.Text(
-                                addressResolved,
-                                style: const pw.TextStyle(
-                                    fontSize: 9, color: textMuted),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (study.cep != null && study.cep!.isNotEmpty) ...[
-                          pw.SizedBox(height: 2),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.only(left: 16),
-                            child: pw.Text(
-                              'CEP: ${study.cep} • ${study.stateUf ?? ""} (${study.region ?? "Brasil"})',
-                              style: const pw.TextStyle(
-                                  fontSize: 8.5, color: textMuted),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  pw.Container(
-                    width: 1,
-                    height: 56,
-                    color: borderSlate,
-                    margin: const pw.EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Row(
-                          children: [
-                            pw.SvgImage(svg: _svgCompass, width: 11, height: 11),
-                            pw.SizedBox(width: 5),
-                            pw.Text(
-                              'COORDENADAS & SOLAR',
-                              style: pw.TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Lat: ${study.latitude.toStringAsFixed(4)}° • Long: ${study.longitude.toStringAsFixed(4)}°',
-                          style: const pw.TextStyle(fontSize: 8.5, color: textDark),
-                        ),
-                        pw.SizedBox(height: 2),
-                        pw.Row(
-                          children: [
-                            pw.SvgImage(svg: _svgSun, width: 10, height: 10),
-                            pw.SizedBox(width: 4),
-                            pw.Text(
-                              'HSP: ${study.dailyHsp?.toStringAsFixed(2) ?? "5.10"} kWh/m²/dia',
-                              style: pw.TextStyle(
-                                fontSize: 9,
-                                fontWeight: pw.FontWeight.bold,
-                                color: accentSky,
-                              ),
-                            ),
-                          ],
-                        ),
-                        pw.SizedBox(height: 2),
-                        pw.Text(
-                          'Responsável: ${study.createdByUserName.isNotEmpty ? study.createdByUserName : (company?.name ?? "Engenharia")}',
-                          style: const pw.TextStyle(
-                              fontSize: 8, color: textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              pw.SizedBox(height: 8),
+
+              // 2. Card do Projeto & Cliente
+              _buildProjectInfoCard(
+                study: study,
+                clientResolved: clientResolved,
+                addressResolved: addressResolved,
               ),
-            ),
-            pw.SizedBox(height: 12),
+              pw.SizedBox(height: 8),
 
-            // ── 2. KPIS DE DESEMPENHO E GERAÇÃO COM ÍCONES VETORIAIS ────────
-            pw.Row(
-              children: [
-                _buildKpiCard(
-                  title: 'POTÊNCIA DO SISTEMA',
-                  value: '${totalKwp.toStringAsFixed(2)} kWp',
-                  subtitle: '$totalModules Placas Solares',
-                  accentColor: accentIndigo,
-                  iconSvg: _svgBolt,
-                ),
-                pw.SizedBox(width: 8),
-                _buildKpiCard(
-                  title: 'GERAÇÃO ESTIMADA',
-                  value:
-                      '${study.estimatedMonthlyKwh.toStringAsFixed(0)} kWh/mês',
-                  subtitle:
-                      'Média ~${(study.estimatedMonthlyKwh * 12 / 1000).toStringAsFixed(1)} MWh/ano',
-                  accentColor: successEmerald,
-                  iconSvg: _svgSun,
-                ),
-                pw.SizedBox(width: 8),
-                _buildKpiCard(
-                  title: 'APROVEITAMENTO SOLAR',
-                  value:
-                      '${effectiveSimulation.overallEfficiencyPercentage.toStringAsFixed(1)}%',
-                  subtitle:
-                      'Perda p/ sombra: ${effectiveSimulation.totalLossPercentage.toStringAsFixed(1)}%',
-                  accentColor: effectiveSimulation.totalLossPercentage > 8.0
-                      ? warningAmber
-                      : successEmerald,
-                  iconSvg: _svgChart,
-                ),
-                pw.SizedBox(width: 8),
-                _buildKpiCard(
-                  title: 'ÁREA DO TELHADO',
-                  value:
-                      '${totalAreaM2 > 0 ? totalAreaM2.toStringAsFixed(1) : (totalModules * 2.5).toStringAsFixed(1)} m²',
-                  subtitle: '${effectiveSections.length} Água(s) de Telhado',
-                  accentColor: primaryNavy,
-                  iconSvg: _svgRuler,
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 12),
-
-            // ── 3. FICHA TÉCNICA DO GERADOR SOLAR ───────────────────────────
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: pw.BoxDecoration(
-                color: const PdfColor.fromInt(0xFFF1F5F9),
-                borderRadius: pw.BorderRadius.circular(8),
-                border: pw.Border.all(color: borderSlate),
+              // 3. 4 KPIs Executivos
+              _buildKpiRow(
+                totalKwp: totalKwp,
+                totalModules: totalModules,
+                study: study,
+                simulation: effectiveSimulation,
+                totalAreaM2: totalAreaM2,
+                sectionsCount: effectiveSections.length,
               ),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Row(
-                    children: [
-                      pw.SvgImage(svg: _svgPanel, width: 14, height: 14),
-                      pw.SizedBox(width: 8),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            'EQUIPAMENTO CONFIGURADO:',
-                            style: pw.TextStyle(
-                                fontSize: 7.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: textMuted),
-                          ),
-                          pw.Text(
-                            '$totalModules x $moduleModel (${moduleWatts.toStringAsFixed(0)}W)',
-                            style: pw.TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: textDark),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  pw.Row(
-                    children: [
-                      pw.SvgImage(svg: _svgSun, width: 14, height: 14),
-                      pw.SizedBox(width: 8),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.end,
-                        children: [
-                          pw.Text(
-                            'HORAS DE SOL PLENO ÚTEIS:',
-                            style: pw.TextStyle(
-                                fontSize: 7.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: textMuted),
-                          ),
-                          pw.Text(
-                            '${effectiveSimulation.effectiveSunHours.toStringAsFixed(2)} h/dia efetivas',
-                            style: pw.TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: pw.FontWeight.bold,
-                                color: accentSky),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+              pw.SizedBox(height: 8),
+
+              // 4. Ficha Técnica do Gerador Solar
+              _buildEquipmentSpecsBox(
+                totalModules: totalModules,
+                moduleModel: moduleModel,
+                moduleWatts: moduleWatts,
+                effectiveSunHours: effectiveSimulation.effectiveSunHours,
               ),
-            ),
-            pw.SizedBox(height: 14),
+              pw.SizedBox(height: 8),
 
-            // ── 4. GALERIA DE FOTOS CAPTURADAS DO ESTUDO COM BORDAS ROUNDED ─
-            pw.Row(
-              children: [
-                pw.SvgImage(svg: _svgCamera, width: 14, height: 14),
-                pw.SizedBox(width: 6),
-                pw.Text(
-                  'REGISTRO FOTOGRÁFICO DO ESTUDO & PROJEÇÃO DE SOMBRAS',
-                  style: pw.TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: pw.FontWeight.bold,
-                    color: primaryNavy,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 2),
-            pw.Text(
-              'Imagens capturadas no simulador tridimensional apresentando o comportamento do Sol e manchas de sombreamento.',
-              style: const pw.TextStyle(fontSize: 8.5, color: textMuted),
-            ),
-            pw.SizedBox(height: 10),
+              // 5. Tabela de Detalhamento dos Planos de Telhado (Águas)
+              _buildSectionsTable(
+                effectiveSections,
+                moduleWatts: moduleWatts,
+              ),
+              pw.SizedBox(height: 8),
 
-            if (capturedImages.isEmpty)
-              pw.Container(
-                width: double.infinity,
-                padding: const pw.EdgeInsets.symmetric(vertical: 36),
-                decoration: pw.BoxDecoration(
-                  color: bgCard,
-                  borderRadius: pw.BorderRadius.circular(12),
-                  border: pw.Border.all(
-                      color: borderSlate, style: pw.BorderStyle.dashed),
-                ),
-                child: pw.Center(
-                  child: pw.Column(
-                    mainAxisSize: pw.MainAxisSize.min,
-                    children: [
-                      pw.SvgImage(svg: _svgCamera, width: 28, height: 28),
-                      pw.SizedBox(height: 8),
-                      pw.Text(
-                        'Nenhuma foto capturada durante o estudo.',
-                        style: const pw.TextStyle(
-                            fontSize: 9.5, color: textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              _buildPhotoGrid(capturedImages, latitude: study.latitude),
-          ];
+              // 6. Balanço Geral de Geração & Sombreamento Diurno
+              _buildShadingSummaryBox(effectiveSimulation),
+              pw.SizedBox(height: 8),
+
+              // 7. Sumário dos Registros Fotográficos Anexados
+              _buildPhotoSummaryBox(
+                capturedImages,
+                latitude: study.latitude,
+                sections: effectiveSections,
+                northRad: northRad,
+              ),
+
+              pw.Spacer(),
+
+              // 8. Rodapé da Capa
+              _buildPageFooter(pageNumber: 1, totalPages: totalPages),
+            ],
+          );
         },
       ),
     );
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // FOLHAS SEGUINTES: UMA FOLHA INDIVIDUAL DEDICADA PARA CADA FOTO GRANDE
+    // ══════════════════════════════════════════════════════════════════════════
+    for (int i = 0; i < capturedImages.length; i++) {
+      final photoEntry = capturedImages[i];
+      final pageIndex = i + 2;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+          theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
+          build: (pw.Context ctx) {
+            return _buildIndividualPhotoPage(
+              photo: photoEntry.key,
+              image: photoEntry.value,
+              sections: effectiveSections,
+              totalModules: totalModules,
+              latitude: study.latitude,
+              northRad: northRad,
+              companyLogo: companyLogo,
+              company: company,
+              pageIndex: pageIndex,
+              totalPages: totalPages,
+            );
+          },
+        ),
+      );
+    }
+
     return pdf.save();
   }
 
-  /// Constrói a grade visual de fotos capturadas com bordas arredondadas, ícones e legendas
-  static pw.Widget _buildPhotoGrid(
-    List<MapEntry<RoofStudyPhoto, pw.MemoryImage>> photos, {
-    required double latitude,
+  // ── CABEÇALHO PADRONIZADO COM O TÍTULO OFICIAL ─────────────────────────────
+  static pw.Widget _buildPageHeader({
+    required pw.MemoryImage? companyLogo,
+    required CompanyModel? company,
+    required int pageNumber,
+    required int totalPages,
+    required String badgeTitle,
   }) {
-    if (photos.length == 1) {
-      final item = photos.first;
-      return _buildPhotoCard(item.key, item.value, height: 250, latitude: latitude);
-    }
-
-    final rows = <pw.Widget>[];
-    for (int i = 0; i < photos.length; i += 2) {
-      final first = photos[i];
-      final second = (i + 1 < photos.length) ? photos[i + 1] : null;
-
-      rows.add(
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
-                child: _buildPhotoCard(first.key, first.value,
-                    height: 165, latitude: latitude)),
-            pw.SizedBox(width: 10),
-            if (second != null)
-              pw.Expanded(
-                  child: _buildPhotoCard(second.key, second.value,
-                      height: 165, latitude: latitude))
-            else
-              pw.Expanded(child: pw.Container()),
-          ],
-        ),
-      );
-      rows.add(pw.SizedBox(height: 10));
-    }
-
-    return pw.Column(children: rows);
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(bottom: pw.BorderSide(color: borderSlate, width: 1.2)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Row(
+            children: [
+              if (companyLogo != null) ...[
+                pw.Container(
+                  height: 32,
+                  child: pw.Image(companyLogo, fit: pw.BoxFit.contain),
+                ),
+                pw.SizedBox(width: 8),
+              ] else
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(5),
+                  decoration: pw.BoxDecoration(
+                    color: const PdfColor.fromInt(0xFFEEF2FF),
+                    borderRadius: pw.BorderRadius.circular(6),
+                  ),
+                  child: pw.SvgImage(svg: _svgSun, width: 15, height: 15),
+                ),
+              pw.SizedBox(width: 8),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'ESTUDO DE ENGENHARIA SOLAR E PROJEÇÃO DE GERAÇÃO',
+                    style: pw.TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: accentIndigo,
+                    ),
+                  ),
+                  pw.Text(
+                    'MODELAGEM FOTOGRAMÉTRICA TRIDIMENSIONAL & SOMBREAMENTO COMPUTACIONAL',
+                    style: const pw.TextStyle(
+                      fontSize: 6.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: textMuted,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: pw.BoxDecoration(
+                  color: primaryNavy,
+                  borderRadius: pw.BorderRadius.circular(10),
+                ),
+                child: pw.Text(
+                  badgeTitle,
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Folha $pageNumber de $totalPages • ${_formatDateTime(DateTime.now())}',
+                style: const pw.TextStyle(
+                  fontSize: 6.8,
+                  color: textMuted,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
-  /// Card individual de foto com moldura, cantos arredondados, ícone de relógio e métrica solar
-  static pw.Widget _buildPhotoCard(
-    RoofStudyPhoto photo,
-    pw.MemoryImage image, {
-    required double height,
+  // ── FOLHA INDIVIDUAL DA FOTO GRANDE COM MINI RESUMO E APROVEITAMENTO ───────
+  static pw.Widget _buildIndividualPhotoPage({
+    required RoofStudyPhoto photo,
+    required pw.MemoryImage image,
+    required List<RoofSection> sections,
+    required int totalModules,
     required double latitude,
+    required double northRad,
+    required pw.MemoryImage? companyLogo,
+    required CompanyModel? company,
+    required int pageIndex,
+    required int totalPages,
   }) {
-    const borderSlate = PdfColor.fromInt(0xFFCBD5E1);
-    const bgHeader = PdfColor.fromInt(0xFF0F172A);
-
     final sun = SolarShadingEngine.calculateSunPosition(
       hourOfDay: photo.hourOfDay,
       latitude: latitude,
     );
 
-    final String solarInfo = sun.isSunUp
-        ? 'Alt: ${sun.elevationDegrees.toStringAsFixed(1)}° • Az: ${sun.azimuthDegrees.toStringAsFixed(0)}°'
-        : 'Sol abaixo do horizonte';
+    final sim = SolarShadingEngine.simulateFullDay(
+      sections: sections,
+      currentHour: photo.hourOfDay,
+      latitude: latitude,
+      northRotationRadians: northRad,
+    );
 
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        color: PdfColors.white,
-        borderRadius: pw.BorderRadius.circular(10),
-        border: pw.Border.all(color: borderSlate, width: 1.2),
-      ),
-      child: pw.ClipRRect(
-        horizontalRadius: 10,
-        verticalRadius: 10,
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-          children: [
-            // Topo da Foto com Título e Tag de Horário com Ícone de Relógio
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              color: const PdfColor.fromInt(0xFFF8FAFC),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+    final totalMods = sim.totalModulesCount > 0 ? sim.totalModulesCount : totalModules;
+    final shadedCount = sim.shadedAtCurrentHourCount;
+    final sunCount = (totalMods - shadedCount).clamp(0, totalMods);
+    final sunRatio = totalMods > 0 ? (sunCount / totalMods) : 1.0;
+    final hourFormatted = _formatHour(photo.hourOfDay);
+    final cardinalDirection = _getCardinalDirection(sun.azimuthDegrees);
+
+    final narrative = _generateHourNarrative(
+      hourOfDay: photo.hourOfDay,
+      elevationDegrees: sun.elevationDegrees,
+      azimuthDegrees: sun.azimuthDegrees,
+      totalModules: totalMods,
+      shadedCount: shadedCount,
+      sunRatio: sunRatio,
+    );
+
+    // Cores temáticas do aproveitamento daquela hora
+    PdfColor statusColor;
+    PdfColor statusBg;
+    String statusLabel;
+
+    if (sunRatio >= 0.90) {
+      statusColor = successEmerald;
+      statusBg = const PdfColor.fromInt(0xFFECFDF5);
+      statusLabel = 'APROVEITAMENTO ÓTIMO (${(sunRatio * 100).toStringAsFixed(1)}%)';
+    } else if (sunRatio >= 0.70) {
+      statusColor = warningAmber;
+      statusBg = const PdfColor.fromInt(0xFFFFFBEB);
+      statusLabel = 'SOMBREAMENTO PARCIAL (${(sunRatio * 100).toStringAsFixed(1)}% SOL)';
+    } else {
+      statusColor = dangerRose;
+      statusBg = const PdfColor.fromInt(0xFFFEF2F2);
+      statusLabel = 'SOMBREAMENTO CRÍTICO (${(sunRatio * 100).toStringAsFixed(1)}% SOL)';
+    }
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        // Header padrão
+        _buildPageHeader(
+          companyLogo: companyLogo,
+          company: company,
+          pageNumber: pageIndex,
+          totalPages: totalPages,
+          badgeTitle: 'REGISTRO SOLAR DAS $hourFormatted',
+        ),
+        pw.SizedBox(height: 6),
+
+        // Banner de Destaque da Simulação Horária
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: pw.BoxDecoration(
+            color: bgCard,
+            borderRadius: pw.BorderRadius.circular(8),
+            border: pw.Border.all(color: borderLight),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Row(
                 children: [
-                  pw.Expanded(
-                    child: pw.Row(
-                      children: [
-                        pw.SvgImage(svg: _svgCamera, width: 11, height: 11),
-                        pw.SizedBox(width: 5),
-                        pw.Expanded(
-                          child: pw.Text(
-                            photo.label.isNotEmpty
-                                ? photo.label
-                                : 'Simulação Solar',
-                            style: pw.TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: pw.FontWeight.bold,
-                              color: bgHeader,
-                            ),
-                            maxLines: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                    padding: const pw.EdgeInsets.all(5),
                     decoration: pw.BoxDecoration(
                       color: const PdfColor.fromInt(0xFFE0F2FE),
-                      borderRadius: pw.BorderRadius.circular(4),
-                      border: pw.Border.all(
-                          color: const PdfColor.fromInt(0xFF38BDF8), width: 0.8),
+                      borderRadius: pw.BorderRadius.circular(6),
                     ),
-                    child: pw.Row(
-                      children: [
-                        pw.SvgImage(svg: _svgClock, width: 9, height: 9),
-                        pw.SizedBox(width: 3),
-                        pw.Text(
-                          _formatHour(photo.hourOfDay),
-                          style: pw.TextStyle(
-                            fontSize: 8,
-                            fontWeight: pw.FontWeight.bold,
-                            color: const PdfColor.fromInt(0xFF0369A1),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: pw.SvgImage(svg: _svgClock, width: 14, height: 14),
                   ),
-                ],
-              ),
-            ),
-
-            // Imagem capturada com fundo escuro elegante
-            pw.Container(
-              height: height,
-              color: const PdfColor.fromInt(0xFF020617),
-              child: pw.Image(
-                image,
-                fit: pw.BoxFit.contain,
-              ),
-            ),
-
-            // Barra inferior com dados de posição solar astronômica
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              color: const PdfColor.fromInt(0xFF0F172A),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Row(
+                  pw.SizedBox(width: 8),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.SvgImage(svg: _svgSun, width: 9, height: 9),
-                      pw.SizedBox(width: 4),
                       pw.Text(
-                        solarInfo,
-                        style: const pw.TextStyle(
-                            fontSize: 7.5, color: PdfColor.fromInt(0xFF94A3B8)),
+                        photo.label.isNotEmpty ? photo.label : 'Simulação Solar às $hourFormatted',
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          fontWeight: pw.FontWeight.bold,
+                          color: primaryNavy,
+                        ),
+                      ),
+                      pw.Text(
+                        'Incidência Solar e Projeção Tridimensional de Sombras em Tempo Real',
+                        style: const pw.TextStyle(fontSize: 7.2, color: textMuted),
                       ),
                     ],
                   ),
-                  pw.Text(
-                    'Simulação 3D',
-                    style: pw.TextStyle(
-                        fontSize: 7.5,
+                ],
+              ),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: pw.BoxDecoration(
+                  color: statusBg,
+                  borderRadius: pw.BorderRadius.circular(20),
+                  border: pw.Border.all(color: statusColor, width: 1.2),
+                ),
+                child: pw.Row(
+                  children: [
+                    pw.SvgImage(svg: _svgBolt, width: 11, height: 11),
+                    pw.SizedBox(width: 5),
+                    pw.Text(
+                      statusLabel,
+                      style: pw.TextStyle(
+                        fontSize: 8.5,
                         fontWeight: pw.FontWeight.bold,
-                        color: const PdfColor.fromInt(0xFF38BDF8)),
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 8),
+
+        // ── FOTO GRANDE COM MOLDURA SLATE & CANTOS ARREDONDADOS ──────────────
+        pw.Container(
+          height: 350,
+          width: double.infinity,
+          decoration: pw.BoxDecoration(
+            color: const PdfColor.fromInt(0xFF020617),
+            borderRadius: pw.BorderRadius.circular(10),
+            border: pw.Border.all(color: borderSlate, width: 1.5),
+          ),
+          child: pw.ClipRRect(
+            horizontalRadius: 9,
+            verticalRadius: 9,
+            child: pw.Stack(
+              alignment: pw.Alignment.bottomCenter,
+              children: [
+                pw.Center(
+                  child: pw.Image(
+                    image,
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  color: const PdfColor.fromInt(0xCC0F172A),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Row(
+                        children: [
+                          pw.SvgImage(svg: _svgCamera, width: 10, height: 10),
+                          pw.SizedBox(width: 5),
+                          pw.Text(
+                            'Modelagem Tridimensional às $hourFormatted (Azimute: ${sun.azimuthDegrees.toStringAsFixed(0)}° • Alt: ${sun.elevationDegrees.toStringAsFixed(1)}°)',
+                            style: pw.TextStyle(
+                              fontSize: 7.5,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.Text(
+                        'Insolação: ${(sunRatio * 100).toStringAsFixed(1)}%',
+                        style: pw.TextStyle(
+                          fontSize: 7.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: const PdfColor.fromInt(0xFF38BDF8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        pw.SizedBox(height: 8),
+
+        // ── 4 MINI-CARDS DE INDICADORES TÉCNICOS DAQUELA HORA ───────────────
+        pw.Row(
+          children: [
+            _buildInstantKpiCard(
+              title: 'ALTITUDE SOLAR',
+              value: '${sun.elevationDegrees.toStringAsFixed(1)}°',
+              subtitle: 'Zênite: ${(90.0 - sun.elevationDegrees).clamp(0.0, 90.0).toStringAsFixed(1)}°',
+              accentColor: warningAmber,
+              iconSvg: _svgSun,
+            ),
+            pw.SizedBox(width: 8),
+            _buildInstantKpiCard(
+              title: 'AZIMUTE SOLAR',
+              value: '${sun.azimuthDegrees.toStringAsFixed(0)}°',
+              subtitle: cardinalDirection,
+              accentColor: accentIndigo,
+              iconSvg: _svgCompass,
+            ),
+            pw.SizedBox(width: 8),
+            _buildInstantKpiCard(
+              title: 'APROVEITAMENTO DAS PLACAS',
+              value: '${(sunRatio * 100).toStringAsFixed(1)}%',
+              subtitle: 'Perda inst.: ${((1.0 - sunRatio) * 100).toStringAsFixed(1)}%',
+              accentColor: statusColor,
+              iconSvg: _svgBolt,
+            ),
+            pw.SizedBox(width: 8),
+            _buildInstantKpiCard(
+              title: 'SITUAÇÃO DO ARRANJO',
+              value: '$sunCount / $totalMods Placas',
+              subtitle: shadedCount > 0 ? '$shadedCount placa(s) sombreada(s)' : '100% sob Sol pleno',
+              accentColor: accentSky,
+              iconSvg: _svgPanel,
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 8),
+
+        // ── BOX DE DIAGNÓSTICO DESCRITIVO ("O QUE TÁ ACONTECENDO NAQUELA HORA") ─
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            color: bgLight,
+            borderRadius: pw.BorderRadius.circular(8),
+            border: pw.Border.all(color: borderSlate, width: 1.0),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                children: [
+                  pw.SvgImage(svg: _svgShield, width: 12, height: 12),
+                  pw.SizedBox(width: 6),
+                  pw.Text(
+                    'DIAGNÓSTICO TÉCNICO DE ENGENHARIA & ANÁLISE DE SOMBRA NESTE HORÁRIO ($hourFormatted)',
+                    style: pw.TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: primaryNavy,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                 ],
               ),
+              pw.SizedBox(height: 5),
+              pw.Text(
+                narrative,
+                style: const pw.TextStyle(
+                  fontSize: 7.8,
+                  color: textDark,
+                  lineSpacing: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        pw.Spacer(),
+
+        // Rodapé da Folha Individual
+        _buildPageFooter(pageNumber: pageIndex, totalPages: totalPages),
+      ],
+    );
+  }
+
+  // ── WIDGETS AUXILIARES DA CAPA (FOLHA 1) ───────────────────────────────────
+
+  static pw.Widget _buildProjectInfoCard({
+    required RoofStudyModel study,
+    required String clientResolved,
+    required String addressResolved,
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: pw.BoxDecoration(
+        color: bgCard,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: borderLight, width: 1.2),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Expanded(
+            flex: 3,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  study.name.isNotEmpty ? study.name : 'Estudo de Viabilidade Solar',
+                  style: pw.TextStyle(
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                    color: primaryNavy,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Row(
+                  children: [
+                    pw.SvgImage(svg: _svgUser, width: 10, height: 10),
+                    pw.SizedBox(width: 4),
+                    pw.Expanded(
+                      child: pw.Text(
+                        clientResolved,
+                        style: pw.TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: textDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 3),
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.SvgImage(svg: _svgPin, width: 10, height: 10),
+                    pw.SizedBox(width: 4),
+                    pw.Expanded(
+                      child: pw.Text(
+                        addressResolved,
+                        style: const pw.TextStyle(fontSize: 8, color: textMuted),
+                        maxLines: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
+          pw.Container(
+            width: 1,
+            height: 45,
+            color: borderLight,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 12),
+          ),
+          pw.Expanded(
+            flex: 2,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Row(
+                  children: [
+                    pw.SvgImage(svg: _svgCompass, width: 10, height: 10),
+                    pw.SizedBox(width: 4),
+                    pw.Text(
+                      'COORDENADAS & SOLAR',
+                      style: pw.TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: accentIndigo,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 3),
+                pw.Text(
+                  'Lat: ${study.latitude.toStringAsFixed(4)}° • Long: ${study.longitude.toStringAsFixed(4)}°',
+                  style: const pw.TextStyle(fontSize: 7.5, color: textDark),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Row(
+                  children: [
+                    pw.SvgImage(svg: _svgSun, width: 9, height: 9),
+                    pw.SizedBox(width: 3),
+                    pw.Text(
+                      'HSP Médio: ${(study.dailyHsp ?? 5.00).toStringAsFixed(2)} kWh/m²/dia',
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                        color: warningAmber,
+                      ),
+                    ),
+                  ],
+                ),
+                if (study.createdByUserName.isNotEmpty) ...[
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    'Responsável: ${study.createdByUserName}',
+                    style: const pw.TextStyle(fontSize: 7, color: textMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildKpiRow({
+    required double totalKwp,
+    required int totalModules,
+    required RoofStudyModel study,
+    required DailyShadingSimulationResult simulation,
+    required double totalAreaM2,
+    required int sectionsCount,
+  }) {
+    return pw.Row(
+      children: [
+        _buildKpiCard(
+          title: 'POTÊNCIA DO SISTEMA',
+          value: '${totalKwp.toStringAsFixed(2)} kWp',
+          subtitle: '$totalModules Placas Solares',
+          accentColor: accentIndigo,
+          iconSvg: _svgBolt,
+        ),
+        pw.SizedBox(width: 8),
+        _buildKpiCard(
+          title: 'GERAÇÃO ESTIMADA',
+          value: '${study.estimatedMonthlyKwh.toStringAsFixed(0)} kWh/mês',
+          subtitle: 'Média ~${(study.estimatedMonthlyKwh * 12 / 1000).toStringAsFixed(1)} MWh/ano',
+          accentColor: successEmerald,
+          iconSvg: _svgSun,
+        ),
+        pw.SizedBox(width: 8),
+        _buildKpiCard(
+          title: 'APROVEITAMENTO SOLAR',
+          value: '${simulation.overallEfficiencyPercentage.toStringAsFixed(1)}%',
+          subtitle: 'Perda p/ sombra: ${simulation.totalLossPercentage.toStringAsFixed(1)}%',
+          accentColor: simulation.totalLossPercentage > 8.0 ? warningAmber : successEmerald,
+          iconSvg: _svgChart,
+        ),
+        pw.SizedBox(width: 8),
+        _buildKpiCard(
+          title: 'ÁREA DO TELHADO',
+          value: '${totalAreaM2 > 0 ? totalAreaM2.toStringAsFixed(1) : (totalModules * 2.5).toStringAsFixed(1)} m²',
+          subtitle: '$sectionsCount Água(s) de Telhado',
+          accentColor: primaryNavy,
+          iconSvg: _svgRuler,
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _buildEquipmentSpecsBox({
+    required int totalModules,
+    required String moduleModel,
+    required double moduleWatts,
+    required double effectiveSunHours,
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: pw.BoxDecoration(
+        color: bgLight,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: borderLight),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Row(
+            children: [
+              pw.SvgImage(svg: _svgPanel, width: 13, height: 13),
+              pw.SizedBox(width: 6),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'EQUIPAMENTO CONFIGURADO:',
+                    style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: textMuted),
+                  ),
+                  pw.Text(
+                    '$totalModules x $moduleModel (${moduleWatts.toStringAsFixed(0)}W)',
+                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: textDark),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          pw.Row(
+            children: [
+              pw.SvgImage(svg: _svgSun, width: 13, height: 13),
+              pw.SizedBox(width: 6),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    'HORAS DE SOL PLENO ÚTEIS:',
+                    style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: textMuted),
+                  ),
+                  pw.Text(
+                    '${effectiveSunHours.toStringAsFixed(2)} h/dia efetivas',
+                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: accentSky),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildSectionsTable(
+    List<RoofSection> sections, {
+    required double moduleWatts,
+  }) {
+    if (sections.isEmpty) return pw.Container();
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: bgCard,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: borderLight),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: const pw.BoxDecoration(
+              color: primaryNavy,
+              borderRadius: pw.BorderRadius.only(
+                topLeft: pw.Radius.circular(7),
+                topRight: pw.Radius.circular(7),
+              ),
+            ),
+            child: pw.Row(
+              children: [
+                pw.SvgImage(svg: _svgCompass, width: 10, height: 10),
+                pw.SizedBox(width: 5),
+                pw.Text(
+                  'DETALHAMENTO DOS PLANOS DE TELHADO & ORIENTAÇÃO SOLAR',
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(6),
+            child: pw.Table(
+              columnWidths: {
+                0: const pw.FlexColumnWidth(2.2),
+                1: const pw.FlexColumnWidth(1.2),
+                2: const pw.FlexColumnWidth(1.5),
+                3: const pw.FlexColumnWidth(2.0),
+                4: const pw.FlexColumnWidth(1.2),
+                5: const pw.FlexColumnWidth(1.2),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    border: pw.Border(bottom: pw.BorderSide(color: borderSlate, width: 0.8)),
+                  ),
+                  children: [
+                    _tableHeader('PLANO / SEÇÃO'),
+                    _tableHeader('MÓDULOS'),
+                    _tableHeader('POTÊNCIA'),
+                    _tableHeader('AZIMUTE / ORIENTAÇÃO'),
+                    _tableHeader('INCLINAÇÃO'),
+                    _tableHeader('ÁREA'),
+                  ],
+                ),
+                ...sections.map((s) {
+                  final modsCount = s.activeModuleCount;
+                  final kwp = (modsCount * moduleWatts) / 1000.0;
+                  final azimuth = s.rotationDegrees;
+                  final cardinal = _getCardinalDirection(azimuth);
+                  return pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(bottom: pw.BorderSide(color: borderLight, width: 0.5)),
+                    ),
+                    children: [
+                      _tableCell(s.name, isBold: true),
+                      _tableCell('$modsCount un'),
+                      _tableCell('${kwp.toStringAsFixed(2)} kWp'),
+                      _tableCell('${azimuth.toStringAsFixed(0)}° ($cardinal)'),
+                      _tableCell('${s.tiltDegrees.toStringAsFixed(0)}°'),
+                      _tableCell('${s.areaM2.toStringAsFixed(1)} m²'),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _tableHeader(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 6.5,
+          fontWeight: pw.FontWeight.bold,
+          color: textMuted,
         ),
       ),
     );
   }
 
-  /// Card de KPI individual estilizado com ícone vetorial
+  static pw.Widget _tableCell(String text, {bool isBold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 7.2,
+          fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          color: textDark,
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildShadingSummaryBox(DailyShadingSimulationResult simulation) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: pw.BoxDecoration(
+        color: const PdfColor.fromInt(0xFFEEF2FF),
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: const PdfColor.fromInt(0xFFC7D2FE)),
+      ),
+      child: pw.Row(
+        children: [
+          pw.SvgImage(svg: _svgChart, width: 14, height: 14),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'BALANÇO TÉCNICO DE GERAÇÃO & RENDIMENTO DIURNO',
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: accentIndigo,
+                  ),
+                ),
+                pw.Text(
+                  'A modelagem computacional aponta aproveitamento solar médio ponderado de ${simulation.overallEfficiencyPercentage.toStringAsFixed(1)}% ao longo do dia, com perdas globais por sombreamento limitadas a ${simulation.totalLossPercentage.toStringAsFixed(1)}%. A janela solar das 10:00 às 14:00 concentra o maior rendimento com incidência solar desobstruída.',
+                  style: const pw.TextStyle(fontSize: 7.2, color: textDark),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildPhotoSummaryBox(
+    List<MapEntry<RoofStudyPhoto, pw.MemoryImage>> photos, {
+    required double latitude,
+    required List<RoofSection> sections,
+    required double northRad,
+  }) {
+    if (photos.isEmpty) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.all(12),
+        decoration: pw.BoxDecoration(
+          color: bgCard,
+          borderRadius: pw.BorderRadius.circular(8),
+          border: pw.Border.all(color: borderLight, style: pw.BorderStyle.dashed),
+        ),
+        child: pw.Center(
+          child: pw.Row(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              pw.SvgImage(svg: _svgCamera, width: 14, height: 14),
+              pw.SizedBox(width: 6),
+              pw.Text(
+                'Nenhuma foto individual foi anexada. As folhas seguintes detalharão novas simulações.',
+                style: const pw.TextStyle(fontSize: 8, color: textMuted),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(9),
+      decoration: pw.BoxDecoration(
+        color: bgCard,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: borderSlate, width: 1.0),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Row(
+                children: [
+                  pw.SvgImage(svg: _svgCamera, width: 12, height: 12),
+                  pw.SizedBox(width: 5),
+                  pw.Text(
+                    'REGISTRO FOTOGRÁFICO DO ESTUDO (${photos.length} FOLHAS EM ALTA RESOLUÇÃO ANEXADAS)',
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                      color: primaryNavy,
+                    ),
+                  ),
+                ],
+              ),
+              pw.Text(
+                'Ver folhas individuais a seguir',
+                style: const pw.TextStyle(fontSize: 7, color: accentIndigo),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text(
+            'Cada cenário simulado abaixo foi modelado individualmente em página própria, apresentando a foto ampliada em alta resolução, posição astronômica do Sol e taxa de aproveitamento das placas:',
+            style: const pw.TextStyle(fontSize: 7.2, color: textMuted),
+          ),
+          pw.SizedBox(height: 5),
+          ...photos.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final photo = entry.value.key;
+            final sheetNumber = idx + 2;
+            final sun = SolarShadingEngine.calculateSunPosition(
+              hourOfDay: photo.hourOfDay,
+              latitude: latitude,
+            );
+            final sim = SolarShadingEngine.simulateFullDay(
+              sections: sections,
+              currentHour: photo.hourOfDay,
+              latitude: latitude,
+              northRotationRadians: northRad,
+            );
+            final sunCount = sim.totalModulesCount - sim.shadedAtCurrentHourCount;
+            final ratio = sim.totalModulesCount > 0 ? (sunCount / sim.totalModulesCount) : 1.0;
+
+            return pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 2),
+              child: pw.Row(
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: pw.BoxDecoration(
+                      color: const PdfColor.fromInt(0xFF0F172A),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child: pw.Text(
+                      'FOLHA $sheetNumber',
+                      style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                    ),
+                  ),
+                  pw.SizedBox(width: 6),
+                  pw.Text(
+                    'Simulação Solar às ${_formatHour(photo.hourOfDay)}',
+                    style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                  ),
+                  pw.SizedBox(width: 6),
+                  pw.Text(
+                    '•  Alt: ${sun.elevationDegrees.toStringAsFixed(1)}°  •  Az: ${sun.azimuthDegrees.toStringAsFixed(0)}°  •  Aproveitamento: ${(ratio * 100).toStringAsFixed(1)}% de Sol (${sim.shadedAtCurrentHourCount > 0 ? '${sim.shadedAtCurrentHourCount} placas sob sombra' : '100% sem sombra'})',
+                    style: const pw.TextStyle(fontSize: 7.2, color: textMuted),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   static pw.Widget _buildKpiCard({
     required String title,
     required String value,
@@ -781,11 +1203,11 @@ class SolarStudyPdfService {
   }) {
     return pw.Expanded(
       child: pw.Container(
-        padding: const pw.EdgeInsets.all(8),
+        padding: const pw.EdgeInsets.all(7),
         decoration: pw.BoxDecoration(
-          color: const PdfColor.fromInt(0xFFF8FAFC),
+          color: bgCard,
           borderRadius: pw.BorderRadius.circular(8),
-          border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0)),
+          border: pw.Border.all(color: borderLight),
         ),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -793,35 +1215,28 @@ class SolarStudyPdfService {
             pw.Row(
               children: [
                 pw.Container(
-                  padding: const pw.EdgeInsets.all(3),
+                  padding: const pw.EdgeInsets.all(2.5),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor(
-                      accentColor.red,
-                      accentColor.green,
-                      accentColor.blue,
-                      0.15,
-                    ),
+                    color: PdfColor(accentColor.red, accentColor.green, accentColor.blue, 0.15),
                     borderRadius: pw.BorderRadius.circular(4),
                   ),
-                  child: pw.SvgImage(svg: iconSvg, width: 12, height: 12),
+                  child: pw.SvgImage(svg: iconSvg, width: 11, height: 11),
                 ),
-                pw.SizedBox(width: 5),
+                pw.SizedBox(width: 4),
                 pw.Expanded(
                   child: pw.Text(
                     title,
-                    style: const pw.TextStyle(
-                        fontSize: 6.8,
-                        color: PdfColor.fromInt(0xFF64748B)),
+                    style: const pw.TextStyle(fontSize: 6.5, color: textMuted),
                     maxLines: 1,
                   ),
                 ),
               ],
             ),
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 3),
             pw.Text(
               value,
               style: pw.TextStyle(
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: pw.FontWeight.bold,
                 color: accentColor,
               ),
@@ -829,14 +1244,149 @@ class SolarStudyPdfService {
             pw.SizedBox(height: 1),
             pw.Text(
               subtitle,
-              style: const pw.TextStyle(
-                  fontSize: 6.8, color: PdfColor.fromInt(0xFF64748B)),
+              style: const pw.TextStyle(fontSize: 6.5, color: textMuted),
               maxLines: 1,
             ),
           ],
         ),
       ),
     );
+  }
+
+  static pw.Widget _buildInstantKpiCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required PdfColor accentColor,
+    required String iconSvg,
+  }) {
+    return pw.Expanded(
+      child: pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        decoration: pw.BoxDecoration(
+          color: bgCard,
+          borderRadius: pw.BorderRadius.circular(8),
+          border: pw.Border.all(color: borderLight),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              children: [
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(2.5),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor(accentColor.red, accentColor.green, accentColor.blue, 0.15),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.SvgImage(svg: iconSvg, width: 10, height: 10),
+                ),
+                pw.SizedBox(width: 4),
+                pw.Expanded(
+                  child: pw.Text(
+                    title,
+                    style: const pw.TextStyle(fontSize: 6.5, color: textMuted),
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 3),
+            pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontSize: 10.5,
+                fontWeight: pw.FontWeight.bold,
+                color: accentColor,
+              ),
+            ),
+            pw.SizedBox(height: 1),
+            pw.Text(
+              subtitle,
+              style: const pw.TextStyle(fontSize: 6.5, color: textMuted),
+              maxLines: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildPageFooter({
+    required int pageNumber,
+    required int totalPages,
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(top: 6),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: borderLight, width: 1.0)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Row(
+            children: [
+              pw.SvgImage(svg: _svgShield, width: 9, height: 9),
+              pw.SizedBox(width: 4),
+              pw.Text(
+                'ESTUDO DE ENGENHARIA SOLAR E PROJEÇÃO DE GERAÇÃO • MODELAGEM 3D & SOMBREAMENTO',
+                style: const pw.TextStyle(fontSize: 6.8, color: textMuted),
+              ),
+            ],
+          ),
+          pw.Text(
+            'Folha $pageNumber de $totalPages',
+            style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── HELPERS DE CÁLCULO E TEXTO ─────────────────────────────────────────────
+
+  static String _getCardinalDirection(double azimuth) {
+    final az = (azimuth % 360.0 + 360.0) % 360.0;
+    if (az >= 337.5 || az < 22.5) return 'Norte (N)';
+    if (az < 67.5) return 'Nordeste (NE)';
+    if (az < 112.5) return 'Leste (L)';
+    if (az < 157.5) return 'Sudeste (SE)';
+    if (az < 202.5) return 'Sul (S)';
+    if (az < 247.5) return 'Sudoeste (SO)';
+    if (az < 292.5) return 'Oeste (O)';
+    return 'Noroeste (NO)';
+  }
+
+  static String _generateHourNarrative({
+    required double hourOfDay,
+    required double elevationDegrees,
+    required double azimuthDegrees,
+    required int totalModules,
+    required int shadedCount,
+    required double sunRatio,
+  }) {
+    final hourFormatted = _formatHour(hourOfDay);
+    final sunCount = totalModules - shadedCount;
+    final percentSol = (sunRatio * 100.0).toStringAsFixed(1);
+    final percentSombra = ((1.0 - sunRatio) * 100.0).toStringAsFixed(1);
+    final cardinal = _getCardinalDirection(azimuthDegrees);
+
+    String timePeriod;
+    if (hourOfDay < 10.0) {
+      timePeriod = 'período matutino';
+    } else if (hourOfDay <= 13.5) {
+      timePeriod = 'meio-dia solar (zênite)';
+    } else if (hourOfDay <= 16.0) {
+      timePeriod = 'período vespertino';
+    } else {
+      timePeriod = 'final da tarde';
+    }
+
+    if (shadedCount == 0) {
+      return 'Às $hourFormatted ($timePeriod), o Sol encontra-se com altitude angular de ${elevationDegrees.toStringAsFixed(1)}° e azimute $cardinal (${azimuthDegrees.toStringAsFixed(0)}°). O arranjo fotovoltaico opera com 100% de incidência solar direta sobre todos os $totalModules módulos instalados, com índice de sombreamento nulo (0% de perda momentânea). As placas alcançam seu potencial ótimo de geração instantânea para os níveis de irradiância desta faixa horária.';
+    } else {
+      return 'Às $hourFormatted ($timePeriod), com o Sol posicionado a ${elevationDegrees.toStringAsFixed(1)}° de elevação e azimute $cardinal (${azimuthDegrees.toStringAsFixed(0)}°), observa-se projeção de sombras cobrindo $shadedCount de $totalModules módulos ($percentSombra% de atenuação momentânea). Um total de $sunCount módulos ($percentSol% do gerador) permanece sob radiação direta e plena. Os diodos de bypass dos módulos e os rastreadores de máxima potência (MPPT) isolam as células afetadas, mantendo a produtividade contínua das placas ativas.';
+    }
   }
 
   static String _formatHour(double h) {
@@ -876,7 +1426,7 @@ class SolarStudyPdfService {
         .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
         .trim();
     final fileName =
-        'estudo_solar_${cleanName.isNotEmpty ? cleanName : "mavis"}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        'estudo_solar_${cleanName.isNotEmpty ? cleanName : "engenharia"}_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
     await Printing.sharePdf(bytes: bytes, filename: fileName);
   }
