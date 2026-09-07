@@ -21,11 +21,24 @@ enum DesignerToolMode {
   editModules, // Módulos, Adicionar, Mover Arranjo e Obstáculos
 }
 
+/// Níveis de seleção hierárquica por cliques sucessivos no canvas:
+/// - none: Nada selecionado (clicou fora -> some tudo)
+/// - polygon: 1º clique -> Seleciona polígono (controles de FORA: ROTATE e MOVE globais)
+/// - row: 2º clique -> Seleciona fileira de placas (controles de DENTRO: ROTATE e MOVE da fileira)
+/// - module: 3º clique -> Seleciona placa individual (controles da placa)
+enum CanvasSelectionLevel {
+  none,
+  polygon,
+  row,
+  module,
+}
+
 /// Canvas Interativo de Telhado, Imagem de Satélite e Foto de Drone
 class SatelliteRoofCanvas extends StatefulWidget {
   final double latitude;
   final double longitude;
   final double zoom;
+  final double metersPerPixel;
   final double panOffsetX;
   final double panOffsetY;
   final List<RoofPoint> roofVertices;
@@ -50,6 +63,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final Function(double dxMeters, double dyMeters)?
       onDrawingMoved; // move polígono + módulos juntos
   final Function(String rowId, double dxMeters, double dyMeters)? onRowMoved;
+  final Function(String rowId, double deltaRadians)? onRotateRow;
   final Function(int index, double dxMeters, double dyMeters)? onModuleMoved;
   final ValueChanged<int>? onModuleDragEnd;
   final int? snappedModuleIndex;
@@ -74,7 +88,6 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final String? activeClusterId;
   final bool isClusterFinalized;
   final double groupRotationDegrees;
-  final double metersPerPixel;
   final int selectedModuleIndex;
   final ValueChanged<int>? onSelectModule;
   final DroneNorthCompass? droneNorthCompass;
@@ -96,6 +109,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
     required this.latitude,
     required this.longitude,
     required this.zoom,
+    required this.metersPerPixel,
     required this.panOffsetX,
     required this.panOffsetY,
     required this.roofVertices,
@@ -119,6 +133,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.onModuleGroupMoved,
     this.onDrawingMoved,
     this.onRowMoved,
+    this.onRotateRow,
     this.onModuleMoved,
     this.onModuleDragEnd,
     this.snappedModuleIndex,
@@ -143,7 +158,6 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.activeClusterId,
     this.isClusterFinalized = false,
     this.groupRotationDegrees = 0.0,
-    required this.metersPerPixel,
     this.selectedModuleIndex = -1,
     this.onSelectModule,
     this.droneNorthCompass,
@@ -171,14 +185,13 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
   int _draggingModuleIndex = -1;
   int _selectedModuleIndex = -1;
   String? _selectedRowId;
+  CanvasSelectionLevel _selectionLevel = CanvasSelectionLevel.none;
+  double _lastRowDragAngle = 0.0;
   bool _isDraggingRow = false;
   bool _isDraggingModuleGroup = false;
   String _moveMode =
       'modules'; // 'modules' (apenas placas) ou 'both' (polígono + placas)
   bool _isMoveEnabled = false; // Ativação obrigatória via diálogo
-  bool _showMoveTip = false; // Balão de dica flutuante temporizado
-  String _moveTipText = ''; // Texto contextual da opção selecionada
-  Timer? _tipTimer;
   bool _isRotatingGroup = false;
   Offset? _rotationPivotScreen;
   double _lastDragAngle = 0.0;
@@ -212,6 +225,9 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
   @override
   void initState() {
     super.initState();
+    if (widget.isRoofClosed || widget.modules.isNotEmpty) {
+      _selectionLevel = CanvasSelectionLevel.polygon;
+    }
     _selectedModuleIndex = widget.selectedModuleIndex;
     _selectedDroneArrowId = widget.selectedDroneArrowId;
     _loadSolarPanelTexture();
@@ -250,6 +266,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     // Se alternou entre Satélite e Drone, limpa estados de arraste e seleções residuais
     if (widget.backgroundMode != oldWidget.backgroundMode) {
       setState(() {
+        _selectionLevel = CanvasSelectionLevel.none;
         _selectedModuleIndex = -1;
         _selectedRowId = null;
         _draggingVertexIndex = -1;
@@ -274,12 +291,35 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       });
     }
 
+    if (widget.activeSectionIndex != oldWidget.activeSectionIndex) {
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.polygon;
+        _selectedRowId = null;
+        _selectedModuleIndex = -1;
+      });
+    }
+
+    if (widget.isRoofClosed && !oldWidget.isRoofClosed) {
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.polygon;
+      });
+    }
+
+    if (widget.modules.isNotEmpty && oldWidget.modules.isEmpty) {
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.polygon;
+      });
+    }
+
     // Sincroniza a seleção vinda do pai (ex: nova placa adicionada)
     if (widget.selectedModuleIndex != oldWidget.selectedModuleIndex) {
       setState(() {
         _selectedModuleIndex = widget.selectedModuleIndex;
         if (_selectedModuleIndex != -1) {
           _selectedRowId = null;
+          _selectionLevel = CanvasSelectionLevel.module;
+        } else if (_selectionLevel == CanvasSelectionLevel.module) {
+          _selectionLevel = CanvasSelectionLevel.polygon;
         }
       });
     }
@@ -293,7 +333,6 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
 
   @override
   void dispose() {
-    _tipTimer?.cancel();
     super.dispose();
   }
 
@@ -969,32 +1008,9 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                         localPos.dy - centerOffset.dy, widget.metersPerPixel);
                     final clickPointMeters = RoofPoint(dxM, dyM);
 
-                    // Testa se clicou em um módulo individual
-                    for (int i = widget.modules.length - 1; i >= 0; i--) {
-                      if (widget.modules[i].containsPoint(clickPointMeters)) {
-                        setState(() {
-                          _draggingModuleIndex = i;
-                          _selectedModuleIndex = i;
-                          _isPanning = false;
-                        });
-                        widget.onSelectModule?.call(i);
-                        return;
-                      }
-                    }
-
-                    // Se houver uma linha inteira selecionada e o usuário arrastar sobre uma de suas placas
-                    if (_selectedRowId != null) {
-                      final rowMods = widget.modules
-                          .where((m) => m.rowId == _selectedRowId);
-                      if (rowMods
-                          .any((m) => m.containsPoint(clickPointMeters))) {
-                        setState(() => _isDraggingRow = true);
-                        return;
-                      }
-                    }
-
-                    // Se houver um módulo selecionado e clicar nele para arrastá-lo
-                    if (_selectedModuleIndex != -1 &&
+                    // Arraste de placa individual: SOMENTE se já estiver no nível de módulo individual e clicou nele
+                    if (_selectionLevel == CanvasSelectionLevel.module &&
+                        _selectedModuleIndex != -1 &&
                         _selectedModuleIndex < widget.modules.length) {
                       if (widget.modules[_selectedModuleIndex]
                           .containsPoint(clickPointMeters)) {
@@ -1002,6 +1018,18 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                           _draggingModuleIndex = _selectedModuleIndex;
                           _isPanning = false;
                         });
+                        return;
+                      }
+                    }
+
+                    // Arraste de fileira: SOMENTE se já estiver no nível de fileira e clicou em uma placa da fileira
+                    if (_selectionLevel == CanvasSelectionLevel.row &&
+                        _selectedRowId != null) {
+                      final rowMods = widget.modules
+                          .where((m) => m.rowId == _selectedRowId);
+                      if (rowMods
+                          .any((m) => m.containsPoint(clickPointMeters))) {
+                        setState(() => _isDraggingRow = true);
                         return;
                       }
                     }
@@ -1231,19 +1259,10 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                     _dragStartArrowScreenPos = null;
                   });
 
-                  if (releasedModuleIndex != -1) {
-                    if (wasDrag) {
-                      // O usuário arrastou e soltou a placa: executa o encaixe magnético (Snap) SEMPRE!
-                      widget.onModuleDragEnd?.call(releasedModuleIndex);
-                    } else {
-                      // Clique simples sobre a placa: seleciona a placa imediatamente!
-                      setState(() {
-                        _selectedRowId = null;
-                        _selectedModuleIndex = releasedModuleIndex;
-                      });
-                      widget.onSelectModule?.call(releasedModuleIndex);
-                    }
-                  } else if (_panTotalDistance <= 24.0 && _panStartScreenPos != null) {
+                  if (releasedModuleIndex != -1 && wasDrag) {
+                    // O usuário arrastou e soltou a placa: executa o encaixe magnético (Snap) SEMPRE!
+                    widget.onModuleDragEnd?.call(releasedModuleIndex);
+                  } else if (_panTotalDistance <= 16.0 && _panStartScreenPos != null) {
                     _handleCanvasTapDispatch(_panStartScreenPos!, centerOffset,
                         canvasSize, modulesBbox);
                   }
@@ -1334,59 +1353,36 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
 
                       // 5. Toolbar Horizontal fixa abaixo do menu de pills (ramificada do seletor)
                       if (widget.isEditingActiveSection &&
-                          widget.modules.isNotEmpty) ...[
+                          widget.modules.isNotEmpty &&
+                          _selectionLevel != CanvasSelectionLevel.none) ...[
                         // 5.1 Barra de ação compacta logo abaixo dos pills
                         Positioned(
                           top: 108,
                           left: 20,
                           child: _buildHorizontalModuleToolbar(),
                         ),
-
-                        // 5.2 Alça de Rotação à Mão Livre do Conjunto Todo
-                        if (modulesBbox != null)
-                          Positioned(
-                            left: modulesBbox.center.dx - 15,
-                            top: (modulesBbox.top - 50)
-                                .clamp(10.0, canvasSize.height - 90),
-                            child: _buildRotationHandleWidget(modulesBbox),
-                          ),
-
-                        // 5.3 Alça de Mover / Ativar ancorada no CANTO SUPERIOR ESQUERDO ou à esquerda do polígono/bbox
-                        if (modulesBbox != null)
-                          Positioned(
-                            left: (modulesBbox.left - ((widget.roofVertices.isEmpty || !_isMoveEnabled) ? 85 : 140)) >= 12.0
-                                ? (modulesBbox.left - ((widget.roofVertices.isEmpty || !_isMoveEnabled) ? 85 : 140)) // À esquerda do telhado se houver folga na tela
-                                : modulesBbox.left.clamp(8.0, canvasSize.width - ((widget.roofVertices.isEmpty || !_isMoveEnabled) ? 90 : 145)), // No canto superior esquerdo
-                            top: (modulesBbox.left - ((widget.roofVertices.isEmpty || !_isMoveEnabled) ? 85 : 140)) >= 12.0
-                                ? (modulesBbox.top - 6).clamp(8.0, canvasSize.height - 35)
-                                : (modulesBbox.top - 36).clamp(8.0, canvasSize.height - 35),
-                            child: _buildDrawingDragHandle(),
-                          ),
-
-                        // 5.4 Balão de dica temporizado (4s ou fechamento no X) - apenas quando há polígono desenhado
-                        if (_showMoveTip && modulesBbox != null && widget.roofVertices.isNotEmpty)
-                          Positioned(
-                            left: modulesBbox.left.clamp(8.0, canvasSize.width - 320),
-                            top: (modulesBbox.top > 65
-                                    ? modulesBbox.top - 50
-                                    : modulesBbox.top + 32)
-                                .clamp(8.0, canvasSize.height - 60),
-                            child: _buildMoveTipBalloon(),
-                          ),
                       ],
 
-                      // 6. Mini Barra Flutuante da Placa Selecionada Individualmente
-                      if (widget.isEditingActiveSection &&
+                      // 5.2 Controles do Nível 1: FORA do Polígono (ROTATE e MOVE Global à mão livre)
+                      if (_selectionLevel == CanvasSelectionLevel.polygon &&
+                          widget.modules.isNotEmpty &&
+                          modulesBbox != null) ...[
+                        _buildOuterPolygonControls(canvasSize, modulesBbox),
+                      ],
+
+                      // 5.3 Controles do Nível 2: DENTRO do Polígono (ROTATE e MOVE da Fileira à mão livre)
+                      if (_selectionLevel == CanvasSelectionLevel.row &&
+                          _selectedRowId != null &&
+                          widget.modules.isNotEmpty) ...[
+                        _buildInnerRowControls(canvasSize, centerOffset),
+                      ],
+
+                      // 5.4 Controles do Nível 3: Mini Barra Flutuante da Placa Selecionada Individualmente
+                      if (_selectionLevel == CanvasSelectionLevel.module &&
                           _selectedModuleIndex >= 0 &&
                           _selectedModuleIndex < widget.modules.length) ...[
                         _buildSelectedModuleFloatingBar(
                             canvasSize, centerOffset),
-                      ],
-
-                      // 6.1 Barra Flutuante da Linha/Fileira Selecionada
-                      if (widget.isEditingActiveSection &&
-                          _selectedRowId != null) ...[
-                        _buildSelectedRowFloatingBar(canvasSize, centerOffset),
                       ],
 
                       // 7. Rosa dos Ventos Flutuante (Norte Geográfico - apenas em satélite)
@@ -2037,17 +2033,20 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
               setState(() {
                 _moveMode = mode;
                 _isMoveEnabled = true;
-                _moveTipText = mode == 'both'
-                    ? 'o polígono com as placas'
-                    : 'somente as placas';
-                _showMoveTip = true;
               });
-              _tipTimer?.cancel();
-              _tipTimer = Timer(const Duration(seconds: 4), () {
-                if (mounted) {
-                  setState(() => _showMoveTip = false);
-                }
-              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    mode == 'both'
+                        ? 'Modo de movimento: Polígono + Placas ativado'
+                        : 'Modo de movimento: Somente Placas ativado',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: const Color(0xFF10B981),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
             },
             borderRadius: BorderRadius.circular(12),
             child: Container(
@@ -2187,8 +2186,8 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     );
   }
 
-  /// Barra de controle flutuante quando a fileira inteira (_selectedRowId) está selecionada
-  Widget _buildSelectedRowFloatingBar(Size canvasSize, Offset centerOffset) {
+  /// Barra de controle flutuante do Nível 2: DENTRO do Polígono sobre a Fileira Selecionada
+  Widget _buildInnerRowControls(Size canvasSize, Offset centerOffset) {
     final rowMods =
         widget.modules.where((m) => m.rowId == _selectedRowId).toList();
     if (rowMods.isEmpty) return const SizedBox.shrink();
@@ -2209,17 +2208,18 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     );
 
     return Positioned(
-      left: (screenCenter.dx - 100).clamp(12.0, canvasSize.width - 210),
-      top: (screenCenter.dy - 56).clamp(12.0, canvasSize.height - 50),
+      left: (screenCenter.dx - 120).clamp(12.0, canvasSize.width - 260),
+      top: (screenCenter.dy - 44).clamp(12.0, canvasSize.height - 50),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF38BDF8), width: 1.6),
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: const Color(0xFF38BDF8), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -2233,7 +2233,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
@@ -2241,20 +2241,75 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       size: 12, color: Color(0xFF38BDF8)),
                   const SizedBox(width: 4),
                   Text(
-                    'Linha (${rowMods.length} pl)',
+                    'Fileira (${rowMods.length} pl)',
                     style: GoogleFonts.inter(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF38BDF8)),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF38BDF8),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
 
-            // Botão Mover Linha (ao arrastar este ícone, move a fileira)
+            // Botão ROTATE da Fileira (Girar fileira à mão livre em torno do seu centro)
             Tooltip(
-              message: 'Arrastar fileira inteira pelo mapa',
+              message: 'Girar fileira à mão livre em torno do seu centro',
+              child: GestureDetector(
+                onPanStart: (details) {
+                  setState(() {
+                    _lastRowDragAngle = math.atan2(
+                      details.globalPosition.dy - screenCenter.dy,
+                      details.globalPosition.dx - screenCenter.dx,
+                    );
+                  });
+                },
+                onPanUpdate: (details) {
+                  final currentAngle = math.atan2(
+                    details.globalPosition.dy - screenCenter.dy,
+                    details.globalPosition.dx - screenCenter.dx,
+                  );
+                  final deltaAngle = currentAngle - _lastRowDragAngle;
+                  _lastRowDragAngle = currentAngle;
+                  widget.onRotateRow?.call(_selectedRowId!, deltaAngle);
+                },
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.grab,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.7),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.sync_rounded,
+                            size: 13, color: Color(0xFF38BDF8)),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Girar',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+
+            // Botão MOVE da Fileira (Mover fileira pelo mapa)
+            Tooltip(
+              message: 'Mover fileira pelo mapa (clique e arraste)',
               child: GestureDetector(
                 onPanUpdate: (details) {
                   final dxM = RoofGeometryService.pixelsToMeters(
@@ -2270,10 +2325,10 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                         const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color:
-                              const Color(0xFFF59E0B).withValues(alpha: 0.6)),
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.7),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -2283,9 +2338,10 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                         Text(
                           'Mover',
                           style: GoogleFonts.inter(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFF59E0B)),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFF59E0B),
+                          ),
                         ),
                       ],
                     ),
@@ -2293,7 +2349,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
 
             // Botão Excluir Linha
             Tooltip(
@@ -2301,29 +2357,35 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
               child: InkWell(
                 onTap: () {
                   final rId = _selectedRowId!;
-                  setState(() => _selectedRowId = null);
+                  setState(() {
+                    _selectedRowId = null;
+                    _selectionLevel = CanvasSelectionLevel.polygon;
+                  });
                   widget.onDeleteRow?.call(rId);
                 },
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEF4444).withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.6),
+                    ),
                   ),
                   child: const Icon(Icons.delete_outline_rounded,
-                      size: 14, color: Color(0xFFEF4444)),
+                      size: 13, color: Color(0xFFEF4444)),
                 ),
               ),
             ),
             const SizedBox(width: 4),
 
-            // Fechar Seleção da Linha
+            // Fechar Seleção da Linha (volta para nível do polígono)
             InkWell(
-              onTap: () => setState(() => _selectedRowId = null),
+              onTap: () => setState(() {
+                _selectedRowId = null;
+                _selectionLevel = CanvasSelectionLevel.polygon;
+              }),
               borderRadius: BorderRadius.circular(10),
               child: const Padding(
                 padding: EdgeInsets.all(3),
@@ -2655,163 +2717,66 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     );
   }
 
-  /// Alça de mover ou ativar o movimento no polígono / conjunto de placas.
-  /// Se inativo: ícone de ATIVAR (não move no arraste, força o clique para abrir o diálogo).
-  /// Se ativo: ícone de MOVER (com arraste habilitado) + ícone ✎ para trocar de opção.
-  /// Se sem polígono: diretamente MOVER com ícone de mover e arraste imediato.
-  Widget _buildDrawingDragHandle() {
-    final bool hasNoPolygon = widget.roofVertices.isEmpty;
-    if (hasNoPolygon) {
-      const activeColor = Color(0xFF38BDF8);
-      return Container(
-        height: 28,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: activeColor, width: 1.8),
-          boxShadow: [
-            BoxShadow(
-              color: activeColor.withValues(alpha: 0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+
+
+  /// Barra de controle flutuante do Nível 1: FORA do Polígono (ROTATE e MOVE Globais)
+  Widget _buildOuterPolygonControls(Size canvasSize, Rect modulesBbox) {
+    const double barH = 34.0;
+    final double leftPos = (modulesBbox.center.dx - 120)
+        .clamp(12.0, canvasSize.width - 250);
+    final double topPos = (modulesBbox.top - 46)
+        .clamp(8.0, canvasSize.height - 60);
+
+    return Stack(
+      children: [
+        // Haste vertical sutil conectando os controles ao topo do polígono
+        Positioned(
+          left: modulesBbox.center.dx - 1,
+          top: (modulesBbox.top - 14).clamp(0.0, canvasSize.height),
+          child: Container(
+            width: 2,
+            height: 14,
+            color: const Color(0xFF6366F1).withValues(alpha: 0.7),
+          ),
         ),
-        child: Tooltip(
-          message: 'Arrastar para mover conjunto de placas',
-          child: GestureDetector(
-            onPanUpdate: (details) {
-              final dxM = RoofGeometryService.pixelsToMeters(
-                  details.delta.dx, widget.metersPerPixel);
-              final dyM = RoofGeometryService.pixelsToMeters(
-                  details.delta.dy, widget.metersPerPixel);
-              widget.onModuleGroupMoved?.call(dxM, dyM);
-            },
-            child: MouseRegion(
-              cursor: SystemMouseCursors.move,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                color: Colors.transparent,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.open_with_rounded,
-                        size: 14, color: activeColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      'MOVER',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
+
+        // Barra de Controles Externa (Pill flutuante)
+        Positioned(
+          left: leftPos,
+          top: topPos,
+          child: Container(
+            height: barH,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: const Color(0xFF6366F1), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-              ),
+              ],
             ),
-          ),
-        ),
-      );
-    }
-
-    if (!_isMoveEnabled) {
-      return Tooltip(
-        message: 'Clique para ativar o movimento',
-        child: InkWell(
-          onTap: _showMoveSelectionDialog,
-          borderRadius: BorderRadius.circular(16),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF59E0B), width: 1.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    spreadRadius: 1,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Badge do Polígono
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.touch_app_rounded,
-                      size: 14, color: Color(0xFFF59E0B)),
-                  const SizedBox(width: 4),
-                  Text(
-                    'ATIVAR',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      color: const Color(0xFFF59E0B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final isBoth = _moveMode == 'both';
-    final activeColor =
-        isBoth ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8);
-
-    return Container(
-      height: 28,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: activeColor, width: 1.8),
-        boxShadow: [
-          BoxShadow(
-            color: activeColor.withValues(alpha: 0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Área de Arraste (Mover)
-          Tooltip(
-            message: isBoth
-                ? 'Arrastar para mover polígono + placas'
-                : 'Arrastar para mover somente placas',
-            child: GestureDetector(
-              onPanUpdate: (details) {
-                final dxM = RoofGeometryService.pixelsToMeters(
-                    details.delta.dx, widget.metersPerPixel);
-                final dyM = RoofGeometryService.pixelsToMeters(
-                    details.delta.dy, widget.metersPerPixel);
-                if (_moveMode == 'both') {
-                  widget.onDrawingMoved?.call(dxM, dyM);
-                } else {
-                  widget.onModuleGroupMoved?.call(dxM, dyM);
-                }
-              },
-              child: MouseRegion(
-                cursor: SystemMouseCursors.move,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7),
-                  color: Colors.transparent,
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.open_with_rounded,
-                          size: 14, color: activeColor),
+                      const Icon(Icons.crop_square_rounded,
+                          size: 13, color: Color(0xFF818CF8)),
                       const SizedBox(width: 4),
                       Text(
-                        isBoth ? 'MOVER (+TELHADO)' : 'MOVER',
+                        'Polígono (${widget.modules.where((m) => !m.isExcluded).length} pl)',
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -2821,151 +2786,128 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                     ],
                   ),
                 ),
-              ),
-            ),
-          ),
+                const SizedBox(width: 6),
 
-          // Divisor vertical
-          Container(
-            width: 1,
-            height: 14,
-            color: Colors.white24,
-          ),
-
-          // Ícone de Edição (Lápis) para reabrir diálogo e trocar de opção
-          Tooltip(
-            message: 'Alterar modo de mover (placas ou conjunto)',
-            child: InkWell(
-              onTap: _showMoveSelectionDialog,
-              borderRadius:
-                  const BorderRadius.horizontal(right: Radius.circular(16)),
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                  child: Icon(Icons.edit_rounded, size: 13, color: activeColor),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Balão de dica (tip) temporizado em 4s informando o que pode ser movido
-  Widget _buildMoveTipBalloon() {
-    final isBoth = _moveMode == 'both';
-    final accentColor =
-        isBoth ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8);
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: accentColor.withValues(alpha: 0.25),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isBoth ? Icons.roofing_rounded : Icons.solar_power_rounded,
-                size: 14,
-                color: accentColor,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Agora você pode mover $_moveTipText',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 10),
-            InkWell(
-              onTap: () {
-                setState(() {
-                  _showMoveTip = false;
-                  _tipTimer?.cancel();
-                });
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 15,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Alça circular de rotação livre localizada no topo do conjunto de placas
-
-  Widget _buildRotationHandleWidget(Rect bbox) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Tooltip(
-          message: 'Girar conjunto à mão livre (clique e arraste em círculo)',
-          child: MouseRegion(
-            cursor: SystemMouseCursors.grab,
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _isRotatingGroup
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFF6366F1),
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                // Botão ROTATE Global (Girar todas as placas à mão livre)
+                Tooltip(
+                  message: 'Girar todas as placas à mão livre (clique e arraste em círculo)',
+                  child: GestureDetector(
+                    onPanStart: (details) {
+                      setState(() {
+                        _isRotatingGroup = true;
+                        _rotationPivotScreen = modulesBbox.center;
+                        _lastDragAngle = math.atan2(
+                          details.globalPosition.dy - modulesBbox.center.dy,
+                          details.globalPosition.dx - modulesBbox.center.dx,
+                        );
+                      });
+                    },
+                    onPanUpdate: (details) {
+                      if (_rotationPivotScreen != null) {
+                        final currentAngle = math.atan2(
+                          details.globalPosition.dy - _rotationPivotScreen!.dy,
+                          details.globalPosition.dx - _rotationPivotScreen!.dx,
+                        );
+                        final deltaAngle = currentAngle - _lastDragAngle;
+                        _lastDragAngle = currentAngle;
+                        widget.onRotateModuleGroup?.call(deltaAngle);
+                      }
+                    },
+                    onPanEnd: (_) {
+                      setState(() {
+                        _isRotatingGroup = false;
+                        _rotationPivotScreen = null;
+                      });
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.grab,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _isRotatingGroup
+                              ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                              : const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _isRotatingGroup
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF38BDF8).withValues(alpha: 0.7),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.sync_rounded,
+                              size: 13,
+                              color: _isRotatingGroup
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFF38BDF8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'GIRAR',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: const Center(
-                child: Icon(Icons.sync_rounded, color: Colors.white, size: 17),
-              ),
+                ),
+                const SizedBox(width: 5),
+
+                // Botão MOVE Global (Mover todas as placas à mão livre)
+                Tooltip(
+                  message: 'Mover todas as placas à mão livre (clique e arraste)',
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      final dxM = RoofGeometryService.pixelsToMeters(
+                          details.delta.dx, widget.metersPerPixel);
+                      final dyM = RoofGeometryService.pixelsToMeters(
+                          details.delta.dy, widget.metersPerPixel);
+                      widget.onModuleGroupMoved?.call(dxM, dyM);
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.move,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF10B981).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color:
+                                const Color(0xFF10B981).withValues(alpha: 0.7),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.open_with_rounded,
+                                size: 13, color: Color(0xFF10B981)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'MOVER',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        Container(
-          width: 2,
-          height: 8,
-          color: const Color(0xFF6366F1).withValues(alpha: 0.6),
         ),
       ],
     );
@@ -3214,84 +3156,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       }
     }
 
-    // 1. Se a seção ativa estiver concluída e o usuário clicou nela: retoma edição!
-    if (!widget.isEditingActiveSection) {
-      final effectiveVertices = widget.roofVertices.isNotEmpty
-          ? widget.roofVertices
-          : (widget.activeSectionIndex >= 0 &&
-                  widget.activeSectionIndex < widget.sections.length
-              ? widget.sections[widget.activeSectionIndex].vertices
-              : <RoofPoint>[]);
-      final activePolygon = RoofPolygon(vertices: effectiveVertices);
-      bool hit = (effectiveVertices.length >= 3 &&
-              activePolygon.containsPoint(clickMeters)) ||
-          widget.modules.any((m) => m.containsPoint(clickMeters));
-
-      if (!hit && effectiveVertices.isNotEmpty) {
-        final aPoints = widget.modules.isNotEmpty
-            ? widget.modules
-                .where((m) => !m.isExcluded)
-                .expand((m) => m.getCorners())
-                .map((p) => Offset(
-                      centerOffset.dx +
-                          RoofGeometryService.metersToPixels(
-                              p.x, widget.metersPerPixel),
-                      centerOffset.dy +
-                          RoofGeometryService.metersToPixels(
-                              p.y, widget.metersPerPixel),
-                    ))
-            : effectiveVertices.map((p) => Offset(
-                  centerOffset.dx +
-                      RoofGeometryService.metersToPixels(
-                          p.x, widget.metersPerPixel),
-                  centerOffset.dy +
-                      RoofGeometryService.metersToPixels(
-                          p.y, widget.metersPerPixel),
-                ));
-        double aMinX = double.infinity, aMaxX = -double.infinity;
-        double aMinY = double.infinity, aMaxY = -double.infinity;
-        for (final pt in aPoints) {
-          if (pt.dx < aMinX) aMinX = pt.dx;
-          if (pt.dx > aMaxX) aMaxX = pt.dx;
-          if (pt.dy < aMinY) aMinY = pt.dy;
-          if (pt.dy > aMaxY) aMaxY = pt.dy;
-        }
-        final aBbox = Rect.fromLTRB(aMinX, aMinY, aMaxX, aMaxY);
-        final bool placeRight = (aBbox.right + 45 < canvasSize.width);
-        final badgePos = Offset(
-            placeRight ? aBbox.right + 26 : aBbox.left - 26, aBbox.center.dy);
-        if ((localPos - badgePos).distance <= 35.0) {
-          hit = true;
-        }
-      }
-
-      if (hit) {
-        widget.onResumeEditing?.call();
-        return;
-      }
-    }
-
-    // 2. Se clicou em uma placa da água ativa para selecioná-la
-    if (widget.isEditingActiveSection && widget.modules.isNotEmpty) {
-      int clickedIdx = -1;
-      for (int i = widget.modules.length - 1; i >= 0; i--) {
-        if (widget.modules[i].containsPoint(clickMeters)) {
-          clickedIdx = i;
-          break;
-        }
-      }
-
-      if (clickedIdx != -1) {
-        setState(() {
-          _selectedRowId = null;
-          _selectedModuleIndex = clickedIdx;
-        });
-        widget.onSelectModule?.call(clickedIdx);
-        return;
-      }
-    }
-
-    // 3. Testa se clicou em uma cota métrica de aresta
+    // 1. Testa se clicou em uma cota métrica de aresta
     if (widget.isEditingActiveSection && widget.roofVertices.length >= 2) {
       final edgeCount = widget.isRoofClosed
           ? widget.roofVertices.length
@@ -3345,89 +3210,153 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       }
     }
 
-    // 4. Testa se clicou em outra seção
-    if (widget.sections.isNotEmpty) {
+    // 2. Determina se o clique acertou a água ativa ou os módulos
+    final effectiveVertices = widget.roofVertices.isNotEmpty
+        ? widget.roofVertices
+        : (widget.activeSectionIndex >= 0 &&
+                widget.activeSectionIndex < widget.sections.length
+            ? widget.sections[widget.activeSectionIndex].vertices
+            : <RoofPoint>[]);
+    final activePolygon = RoofPolygon(vertices: effectiveVertices);
+
+    final bool isInsidePolygon = effectiveVertices.length >= 3 &&
+        activePolygon.containsPoint(clickMeters);
+
+    int clickedIdx = -1;
+    if (widget.modules.isNotEmpty) {
+      for (int i = widget.modules.length - 1; i >= 0; i--) {
+        if (!widget.modules[i].isExcluded &&
+            widget.modules[i].containsPoint(clickMeters)) {
+          clickedIdx = i;
+          break;
+        }
+      }
+    }
+    final bool isInsideModules = clickedIdx != -1;
+    final bool hitActive = isInsidePolygon || isInsideModules;
+
+    // 3. Testa se clicou em outra seção inativa
+    if (!hitActive && widget.sections.isNotEmpty) {
       for (int s = 0; s < widget.sections.length; s++) {
         if (s == widget.activeSectionIndex) continue;
         final sec = widget.sections[s];
         bool hit = sec.polygon.containsPoint(clickMeters) ||
-            sec.modules.any((m) => m.containsPoint(clickMeters));
-
-        if (!hit && sec.vertices.isNotEmpty) {
-          final sPoints = sec.modules.isNotEmpty
-              ? sec.modules
-                  .where((m) => !m.isExcluded)
-                  .expand((m) => m.getCorners())
-                  .map((p) => Offset(
-                        centerOffset.dx +
-                            RoofGeometryService.metersToPixels(
-                                p.x, widget.metersPerPixel),
-                        centerOffset.dy +
-                            RoofGeometryService.metersToPixels(
-                                p.y, widget.metersPerPixel),
-                      ))
-              : sec.vertices.map((p) => Offset(
-                    centerOffset.dx +
-                        RoofGeometryService.metersToPixels(
-                            p.x, widget.metersPerPixel),
-                    centerOffset.dy +
-                        RoofGeometryService.metersToPixels(
-                            p.y, widget.metersPerPixel),
-                  ));
-          double sMinX = double.infinity, sMaxX = -double.infinity;
-          double sMinY = double.infinity, sMaxY = -double.infinity;
-          for (final pt in sPoints) {
-            if (pt.dx < sMinX) sMinX = pt.dx;
-            if (pt.dx > sMaxX) sMaxX = pt.dx;
-            if (pt.dy < sMinY) sMinY = pt.dy;
-            if (pt.dy > sMaxY) sMaxY = pt.dy;
-          }
-          final sBbox = Rect.fromLTRB(sMinX, sMinY, sMaxX, sMaxY);
-          final bool placeRight = (sBbox.right + 45 < canvasSize.width);
-          final badgePos = Offset(
-              placeRight ? sBbox.right + 26 : sBbox.left - 26, sBbox.center.dy);
-          if ((localPos - badgePos).distance <= 35.0) {
-            hit = true;
-          }
-        }
+            sec.modules.any((m) => !m.isExcluded && m.containsPoint(clickMeters));
 
         if (hit) {
+          setState(() {
+            _selectionLevel = CanvasSelectionLevel.polygon;
+            _selectedRowId = null;
+            _selectedModuleIndex = -1;
+          });
           widget.onSectionSelected?.call(s);
           return;
         }
       }
     }
 
-    // 5. Se o telhado da água ativa já está fechado/delimitado:
-    // Se o usuário clicar FORA do polígono e fora das placas, conclui a água ativa e vai automaticamente para NAVEGAR!
-    if (widget.isRoofClosed && widget.isEditingActiveSection) {
-      final activePolygon = RoofPolygon(vertices: widget.roofVertices);
-      final bool isInsidePolygon = activePolygon.containsPoint(clickMeters);
-      final bool isInsideModules = widget.modules
-          .any((m) => !m.isExcluded && m.containsPoint(clickMeters));
+    // 4. CLIQUE FORA DO POLÍGONO E FORA DAS PLACAS:
+    // Some tudo! Comportamento normal sem finalizar a seção.
+    if (!hitActive) {
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.none;
+        _selectedDroneArrowId = null;
+        _selectedModuleIndex = -1;
+        _selectedRowId = null;
+      });
+      widget.onSelectDroneArrow?.call(null);
+      widget.onSelectModule?.call(-1);
+      widget.onCanvasTap?.call(localPos);
+      return;
+    }
 
-      if (!isInsidePolygon && !isInsideModules) {
+    // 5. CLIQUE NO POLÍGONO / PLACAS (hitActive == true):
+    // Se a seção estava em modo repouso, reativa a edição imediatamente
+    if (!widget.isEditingActiveSection) {
+      widget.onResumeEditing?.call();
+    }
+
+    // MÁQUINA DE ESTADOS DOS 3 NÍVEIS HIERÁRQUICOS DE SELEÇÃO
+    if (_selectionLevel == CanvasSelectionLevel.none) {
+      // 1º NÍVEL: O polígono não estava selecionado.
+      // 1º clique: Seleciona APENAS o polígono! Exibe os controles de FORA (ROTATE e MOVE globais).
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.polygon;
+        _selectedRowId = null;
+        _selectedModuleIndex = -1;
+      });
+      widget.onSelectModule?.call(-1);
+      return;
+    } else if (_selectionLevel == CanvasSelectionLevel.polygon) {
+      // 2º NÍVEL: O polígono já estava selecionado.
+      // Se clicou sobre uma placa: seleciona todas as placas da fileira correspondente!
+      if (clickedIdx != -1) {
+        final clickedRowId = widget.modules[clickedIdx].rowId;
         setState(() {
-          _selectedDroneArrowId = null;
+          _selectionLevel = CanvasSelectionLevel.row;
+          _selectedRowId = clickedRowId;
           _selectedModuleIndex = -1;
-          _selectedRowId = null;
         });
-        widget.onSelectDroneArrow?.call(null);
         widget.onSelectModule?.call(-1);
-        widget.onFinishCurrentSection?.call();
+        return;
+      }
+      // Se clicou no espaço vazio dentro do polígono, mantém o polígono selecionado.
+      return;
+    } else if (_selectionLevel == CanvasSelectionLevel.row) {
+      // 3º NÍVEL: A fileira já estava selecionada.
+      if (clickedIdx != -1) {
+        final clickedMod = widget.modules[clickedIdx];
+        if (clickedMod.rowId == _selectedRowId) {
+          // Clicou na placa da mesma fileira: Seleciona a placa individual!
+          setState(() {
+            _selectionLevel = CanvasSelectionLevel.module;
+            _selectedModuleIndex = clickedIdx;
+          });
+          widget.onSelectModule?.call(clickedIdx);
+          return;
+        } else {
+          // Clicou em uma placa de OUTRA fileira: Alterna para essa outra fileira!
+          setState(() {
+            _selectionLevel = CanvasSelectionLevel.row;
+            _selectedRowId = clickedMod.rowId;
+            _selectedModuleIndex = -1;
+          });
+          widget.onSelectModule?.call(-1);
+          return;
+        }
+      } else {
+        // Clicou no espaço vazio dentro do polígono: Volta para o nível de polígono
+        setState(() {
+          _selectionLevel = CanvasSelectionLevel.polygon;
+          _selectedRowId = null;
+          _selectedModuleIndex = -1;
+        });
+        widget.onSelectModule?.call(-1);
+        return;
+      }
+    } else if (_selectionLevel == CanvasSelectionLevel.module) {
+      // Nível de módulo individual selecionado:
+      if (clickedIdx != -1) {
+        if (clickedIdx != _selectedModuleIndex) {
+          // Alterna para outra placa
+          setState(() {
+            _selectedModuleIndex = clickedIdx;
+            _selectedRowId = widget.modules[clickedIdx].rowId;
+          });
+          widget.onSelectModule?.call(clickedIdx);
+          return;
+        }
+      } else {
+        // Clicou no espaço vazio: Volta para o nível de polígono
+        setState(() {
+          _selectionLevel = CanvasSelectionLevel.polygon;
+          _selectedRowId = null;
+          _selectedModuleIndex = -1;
+        });
+        widget.onSelectModule?.call(-1);
         return;
       }
     }
-
-    // 6. Clique em espaço vazio do canvas / fora do desenho: deseleciona tudo (setas, placas, conjuntos)!
-    setState(() {
-      _selectedDroneArrowId = null;
-      _selectedModuleIndex = -1;
-      _selectedRowId = null;
-    });
-    widget.onSelectDroneArrow?.call(null);
-    widget.onSelectModule?.call(-1);
-    widget.onCanvasTap?.call(localPos);
   }
 }
 

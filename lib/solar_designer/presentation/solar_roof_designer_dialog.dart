@@ -2301,6 +2301,34 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     });
   }
 
+  /// Rotaciona as placas de uma fileira específica em torno do centro pivô da fileira
+  void _handleRotateRowByDelta(String rowId, double deltaRadians) {
+    if (_modules.isEmpty) return;
+
+    final rowMods = _modules
+        .where((m) => m.rowId == rowId && !m.isExcluded)
+        .toList();
+
+    if (rowMods.isEmpty) return;
+
+    double sumX = 0, sumY = 0;
+    for (final m in rowMods) {
+      sumX += m.center.x;
+      sumY += m.center.y;
+    }
+    final pivot = RoofPoint(sumX / rowMods.length, sumY / rowMods.length);
+
+    setState(() {
+      _modules = _modules.map((m) {
+        if (m.rowId == rowId) {
+          return m.rotateAround(pivot, deltaRadians);
+        }
+        return m;
+      }).toList();
+      _syncCurrentSection();
+    });
+  }
+
   // ── Rotação de Módulos (90° Paisagem e Ângulo Livre à Mão) ────────────────
   void _rotateModules90() {
     if (_modules.isEmpty) {
@@ -4672,6 +4700,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             onModuleGroupMoved: _handleModuleGroupMoved,
             onDrawingMoved: _handleDrawingMoved,
             onRowMoved: _handleRowMoved,
+            onRotateRow: _handleRotateRowByDelta,
             onModuleMoved: _handleModuleMoved,
             onModuleDragEnd: _handleModuleDragEnd,
             snappedModuleIndex: _snappedModuleIndex,
