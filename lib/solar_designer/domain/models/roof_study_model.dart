@@ -5,10 +5,15 @@ import 'solar_designer_models.dart';
 /// Foto ou captura de simulação solar salva no Estudo de Telhado
 class RoofStudyPhoto {
   final String id;
-  final String label; // Ex: "Simulação Solar 10:00" ou "Vista Zênite 12:00"
+  final String label; // Ex: "Simulação Solar às 15:15" ou "Vista Zênite 12:00"
   final double hourOfDay;
   final String imageBase64;
   final DateTime capturedAt;
+  final double? sunElevation;
+  final double? sunAzimuth;
+  final double? sunRatio;
+  final int? totalModules;
+  final int? shadedCount;
 
   const RoofStudyPhoto({
     required this.id,
@@ -16,6 +21,11 @@ class RoofStudyPhoto {
     required this.hourOfDay,
     required this.imageBase64,
     required this.capturedAt,
+    this.sunElevation,
+    this.sunAzimuth,
+    this.sunRatio,
+    this.totalModules,
+    this.shadedCount,
   });
 
   Map<String, dynamic> toMap() => {
@@ -24,6 +34,11 @@ class RoofStudyPhoto {
         'hourOfDay': hourOfDay,
         'imageBase64': imageBase64,
         'capturedAt': capturedAt.toIso8601String(),
+        if (sunElevation != null) 'sunElevation': sunElevation,
+        if (sunAzimuth != null) 'sunAzimuth': sunAzimuth,
+        if (sunRatio != null) 'sunRatio': sunRatio,
+        if (totalModules != null) 'totalModules': totalModules,
+        if (shadedCount != null) 'shadedCount': shadedCount,
       };
 
   factory RoofStudyPhoto.fromMap(Map<String, dynamic> map) {
@@ -33,6 +48,11 @@ class RoofStudyPhoto {
       hourOfDay: (map['hourOfDay'] as num?)?.toDouble() ?? 12.0,
       imageBase64: map['imageBase64']?.toString() ?? '',
       capturedAt: DateTime.tryParse(map['capturedAt']?.toString() ?? '') ?? DateTime.now(),
+      sunElevation: (map['sunElevation'] as num?)?.toDouble(),
+      sunAzimuth: (map['sunAzimuth'] as num?)?.toDouble(),
+      sunRatio: (map['sunRatio'] as num?)?.toDouble(),
+      totalModules: (map['totalModules'] as num?)?.toInt(),
+      shadedCount: (map['shadedCount'] as num?)?.toInt(),
     );
   }
 }
@@ -172,6 +192,9 @@ class RoofStudyModel {
 
   /// Alias de conveniência para snapshot em Base64
   String? get snapshotImageBase64 => thumbnailBase64;
+
+  /// Quantidade total de fotos capturadas e salvas no estudo
+  int get photosCount => studyPhotos.length;
 
   /// Área consolidada de todas as seções/águas do telhado (m²)
   double get totalRoofAreaM2 =>
@@ -355,6 +378,7 @@ class RoofStudyModel {
       'totalKwp': totalKwp,
       'estimatedMonthlyKwh': estimatedMonthlyKwh,
       'studyPhotos': studyPhotos.map((p) => p.toMap()).toList(),
+      'photosCount': studyPhotos.length,
       'status': status,
       'thumbnailBase64': (thumbnailBase64 != null && thumbnailBase64!.length < 450000)
           ? thumbnailBase64
@@ -481,8 +505,13 @@ class RoofStudyModel {
       totalKwp: (map['totalKwp'] as num?)?.toDouble() ?? 0.0,
       estimatedMonthlyKwh: (map['estimatedMonthlyKwh'] as num?)?.toDouble() ?? 0.0,
       studyPhotos: (map['studyPhotos'] as List<dynamic>?)
-              ?.whereType<Map<String, dynamic>>()
-              .map((p) => RoofStudyPhoto.fromMap(p))
+              ?.map((item) {
+                if (item is Map) {
+                  return RoofStudyPhoto.fromMap(Map<String, dynamic>.from(item));
+                }
+                return null;
+              })
+              .whereType<RoofStudyPhoto>()
               .toList() ??
           const [],
       status: map['status'] as String? ?? 'completed',

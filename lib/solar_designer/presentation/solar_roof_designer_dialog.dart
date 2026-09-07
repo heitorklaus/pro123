@@ -3900,7 +3900,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Estudo "${study.name}" salvo com sucesso no banco de dados!',
+                      _capturedStudyPhotos.isNotEmpty
+                          ? 'Estudo "${study.name}" salvo com sucesso! (${study.totalModules} módulos • ${study.totalKwp.toStringAsFixed(2)} kWp • ${_capturedStudyPhotos.length} foto(s) registrada(s))'
+                          : 'Estudo "${study.name}" salvo com sucesso! (${study.totalModules} módulos • ${study.totalKwp.toStringAsFixed(2)} kWp)',
                       style: GoogleFonts.inter(
                           color: Colors.white, fontWeight: FontWeight.w500),
                     ),
@@ -3935,13 +3937,16 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     }
   }
 
-  /// Captura snapshot em alta resolução do canvas (mesmo durante animação solar de vídeo)
+  /// Captura snapshot em alta resolução otimizada do canvas (nítida para PDF sem estourar memória)
   Future<Uint8List?> _captureCanvasSnapshot({double pixelRatio = 1.6}) async {
     try {
       final boundary = _canvasKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary != null && boundary.size.width > 0) {
-        final image = await boundary.toImage(pixelRatio: pixelRatio);
+        // Reduz a escala para gerar imagem nítida em alta definição (~1080px) sem estourar memória do browser nem Firestore
+        final targetWidth = 1080.0;
+        final ratio = (targetWidth / boundary.size.width).clamp(0.6, 1.2);
+        final image = await boundary.toImage(pixelRatio: ratio);
         final byteData =
             await image.toByteData(format: ui.ImageByteFormat.png);
         return byteData?.buffer.asUint8List();
@@ -4902,6 +4907,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   initialPhotos: _capturedStudyPhotos,
                   currentHour: _currentSimulationHour,
                   onCaptureCanvas: _captureCanvasSnapshot,
+                  latitude: _latitude,
+                  sections: _sections,
+                  northRotationRadians: _activeNorthRotationRadians,
                   onPhotosUpdated: (updatedList) {
                     setState(() {
                       _capturedStudyPhotos.clear();

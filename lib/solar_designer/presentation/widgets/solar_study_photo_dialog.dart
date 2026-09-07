@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../domain/models/roof_study_model.dart';
+import '../../domain/models/solar_designer_models.dart';
+import '../../domain/services/solar_shading_engine.dart';
 
 /// Diálogo Modal de Adição de Fotos ao Estudo e Emissão do Relatório em PDF
 class SolarStudyPhotoDialog extends StatefulWidget {
@@ -11,6 +13,9 @@ class SolarStudyPhotoDialog extends StatefulWidget {
   final Future<Uint8List?> Function() onCaptureCanvas;
   final ValueChanged<List<RoofStudyPhoto>>? onPhotosUpdated;
   final Future<void> Function(List<RoofStudyPhoto> photos) onConcludeStudy;
+  final double latitude;
+  final List<RoofSection> sections;
+  final double northRotationRadians;
 
   const SolarStudyPhotoDialog({
     super.key,
@@ -19,6 +24,9 @@ class SolarStudyPhotoDialog extends StatefulWidget {
     required this.onCaptureCanvas,
     this.onPhotosUpdated,
     required this.onConcludeStudy,
+    this.latitude = -15.7942,
+    this.sections = const [],
+    this.northRotationRadians = 0.0,
   });
 
   static Future<void> show(
@@ -28,6 +36,9 @@ class SolarStudyPhotoDialog extends StatefulWidget {
     required Future<Uint8List?> Function() onCaptureCanvas,
     ValueChanged<List<RoofStudyPhoto>>? onPhotosUpdated,
     required Future<void> Function(List<RoofStudyPhoto> photos) onConcludeStudy,
+    double latitude = -15.7942,
+    List<RoofSection> sections = const [],
+    double northRotationRadians = 0.0,
   }) {
     return showDialog(
       context: context,
@@ -38,6 +49,9 @@ class SolarStudyPhotoDialog extends StatefulWidget {
         onCaptureCanvas: onCaptureCanvas,
         onPhotosUpdated: onPhotosUpdated,
         onConcludeStudy: onConcludeStudy,
+        latitude: latitude,
+        sections: sections,
+        northRotationRadians: northRotationRadians,
       ),
     );
   }
@@ -72,12 +86,32 @@ class _SolarStudyPhotoDialogState extends State<SolarStudyPhotoDialog> {
       if (bytes != null && mounted) {
         final b64 = base64Encode(bytes);
         final hourStr = _formatHour(widget.currentHour);
+
+        final sun = SolarShadingEngine.calculateSunPosition(
+          hourOfDay: widget.currentHour,
+          latitude: widget.latitude,
+        );
+        final sim = SolarShadingEngine.simulateFullDay(
+          sections: widget.sections,
+          currentHour: widget.currentHour,
+          latitude: widget.latitude,
+          northRotationRadians: widget.northRotationRadians,
+        );
+        final totalMods = sim.totalModulesCount;
+        final shaded = sim.shadedAtCurrentHourCount;
+        final ratio = totalMods > 0 ? ((totalMods - shaded) / totalMods) : 1.0;
+
         final newPhoto = RoofStudyPhoto(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           label: 'Simulação Solar às $hourStr',
           hourOfDay: widget.currentHour,
           imageBase64: b64,
           capturedAt: DateTime.now(),
+          sunElevation: sun.elevationDegrees,
+          sunAzimuth: sun.azimuthDegrees,
+          sunRatio: ratio,
+          totalModules: totalMods,
+          shadedCount: shaded,
         );
 
         setState(() {
@@ -320,19 +354,52 @@ class _SolarStudyPhotoDialogState extends State<SolarStudyPhotoDialog> {
                                       ),
                                     ),
                                   ),
-                                  // Tag de Horário
-                                  Positioned(
-                                    bottom: 8,
-                                    left: 8,
-                                    child: Text(
-                                      _formatHour(p.hourOfDay),
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF38BDF8),
-                                      ),
-                                    ),
-                                  ),
+                                   // Tag de Horário e Aproveitamento
+                                   Positioned(
+                                     bottom: 6,
+                                     left: 6,
+                                     right: 6,
+                                     child: Row(
+                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                       children: [
+                                         Text(
+                                           _formatHour(p.hourOfDay),
+                                           style: GoogleFonts.outfit(
+                                             fontSize: 11.5,
+                                             fontWeight: FontWeight.bold,
+                                             color: const Color(0xFF38BDF8),
+                                           ),
+                                         ),
+                                         if (p.sunRatio != null)
+                                           Container(
+                                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                             decoration: BoxDecoration(
+                                               color: (p.sunRatio! >= 0.85
+                                                       ? const Color(0xFF10B981)
+                                                       : const Color(0xFFF59E0B))
+                                                   .withValues(alpha: 0.25),
+                                               borderRadius: BorderRadius.circular(4),
+                                               border: Border.all(
+                                                 color: p.sunRatio! >= 0.85
+                                                     ? const Color(0xFF10B981)
+                                                     : const Color(0xFFF59E0B),
+                                                 width: 0.8,
+                                               ),
+                                             ),
+                                             child: Text(
+                                               '${(p.sunRatio! * 100).toStringAsFixed(0)}% Sol',
+                                               style: GoogleFonts.inter(
+                                                 fontSize: 9.5,
+                                                 fontWeight: FontWeight.bold,
+                                                 color: p.sunRatio! >= 0.85
+                                                     ? const Color(0xFF34D399)
+                                                     : const Color(0xFFFBBF24),
+                                               ),
+                                             ),
+                                           ),
+                                       ],
+                                     ),
+                                   ),
                                   // Botão Excluir Foto
                                   Positioned(
                                     top: 4,

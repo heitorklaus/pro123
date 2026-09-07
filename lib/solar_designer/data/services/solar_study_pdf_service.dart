@@ -109,8 +109,22 @@ class SolarStudyPdfService {
       author: company?.name ?? 'Mavis CRM Engenharia Solar',
     );
 
-    final fontRegular = await PdfGoogleFonts.interRegular();
-    final fontBold = await PdfGoogleFonts.interBold();
+    pw.Font fontRegular = pw.Font.helvetica();
+    pw.Font fontBold = pw.Font.helveticaBold();
+    try {
+      fontRegular = await PdfGoogleFonts.interRegular().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => pw.Font.helvetica(),
+      );
+      fontBold = await PdfGoogleFonts.interBold().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => pw.Font.helveticaBold(),
+      );
+    } catch (e) {
+      debugPrint('[SolarStudyPdfService] Usando fontes Helvetica como fallback: $e');
+      fontRegular = pw.Font.helvetica();
+      fontBold = pw.Font.helveticaBold();
+    }
 
     final effectiveSections = sections ??
         (study.sections.isNotEmpty
@@ -204,77 +218,70 @@ class SolarStudyPdfService {
     // FOLHA 1: CAPA & VISÃO EXECUTIVA DE ENGENHARIA SOLAR
     // ══════════════════════════════════════════════════════════════════════════
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
         theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
+        header: (pw.Context ctx) => _buildPageHeader(
+          companyLogo: companyLogo,
+          company: company,
+          pageNumber: ctx.pageNumber,
+          totalPages: totalPages,
+          badgeTitle: 'ESTUDO TÉCNICO & SOMBREAMENTO',
+        ),
+        footer: (pw.Context ctx) => _buildPageFooter(
+          pageNumber: ctx.pageNumber,
+          totalPages: totalPages,
+        ),
         build: (pw.Context ctx) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              // 1. Cabeçalho Geral
-              _buildPageHeader(
-                companyLogo: companyLogo,
-                company: company,
-                pageNumber: 1,
-                totalPages: totalPages,
-                badgeTitle: 'ESTUDO TÉCNICO & SOMBREAMENTO',
-              ),
-              pw.SizedBox(height: 8),
+          return [
+            // 2. Card do Projeto & Cliente
+            _buildProjectInfoCard(
+              study: study,
+              clientResolved: clientResolved,
+              addressResolved: addressResolved,
+            ),
+            pw.SizedBox(height: 8),
 
-              // 2. Card do Projeto & Cliente
-              _buildProjectInfoCard(
-                study: study,
-                clientResolved: clientResolved,
-                addressResolved: addressResolved,
-              ),
-              pw.SizedBox(height: 8),
+            // 3. 4 KPIs Executivos
+            _buildKpiRow(
+              totalKwp: totalKwp,
+              totalModules: totalModules,
+              study: study,
+              simulation: effectiveSimulation,
+              totalAreaM2: totalAreaM2,
+              sectionsCount: effectiveSections.length,
+            ),
+            pw.SizedBox(height: 8),
 
-              // 3. 4 KPIs Executivos
-              _buildKpiRow(
-                totalKwp: totalKwp,
-                totalModules: totalModules,
-                study: study,
-                simulation: effectiveSimulation,
-                totalAreaM2: totalAreaM2,
-                sectionsCount: effectiveSections.length,
-              ),
-              pw.SizedBox(height: 8),
+            // 4. Ficha Técnica do Gerador Solar
+            _buildEquipmentSpecsBox(
+              totalModules: totalModules,
+              moduleModel: moduleModel,
+              moduleWatts: moduleWatts,
+              effectiveSunHours: effectiveSimulation.effectiveSunHours,
+            ),
+            pw.SizedBox(height: 8),
 
-              // 4. Ficha Técnica do Gerador Solar
-              _buildEquipmentSpecsBox(
-                totalModules: totalModules,
-                moduleModel: moduleModel,
-                moduleWatts: moduleWatts,
-                effectiveSunHours: effectiveSimulation.effectiveSunHours,
-              ),
-              pw.SizedBox(height: 8),
+            // 5. Tabela de Detalhamento dos Planos de Telhado (Águas)
+            _buildSectionsTable(
+              effectiveSections,
+              moduleWatts: moduleWatts,
+            ),
+            pw.SizedBox(height: 8),
 
-              // 5. Tabela de Detalhamento dos Planos de Telhado (Águas)
-              _buildSectionsTable(
-                effectiveSections,
-                moduleWatts: moduleWatts,
-              ),
-              pw.SizedBox(height: 8),
+            // 6. Balanço Geral de Geração & Sombreamento Diurno
+            _buildShadingSummaryBox(effectiveSimulation),
+            pw.SizedBox(height: 8),
 
-              // 6. Balanço Geral de Geração & Sombreamento Diurno
-              _buildShadingSummaryBox(effectiveSimulation),
-              pw.SizedBox(height: 8),
-
-              // 7. Sumário dos Registros Fotográficos Anexados
-              _buildPhotoSummaryBox(
-                capturedImages,
-                latitude: study.latitude,
-                sections: effectiveSections,
-                northRad: northRad,
-              ),
-
-              pw.Spacer(),
-
-              // 8. Rodapé da Capa
-              _buildPageFooter(pageNumber: 1, totalPages: totalPages),
-            ],
-          );
+            // 7. Sumário dos Registros Fotográficos Anexados
+            _buildPhotoSummaryBox(
+              capturedImages,
+              latitude: study.latitude,
+              sections: effectiveSections,
+              northRad: northRad,
+            ),
+          ];
         },
       ),
     );
@@ -547,7 +554,7 @@ class SolarStudyPdfService {
 
         // ── FOTO GRANDE COM MOLDURA SLATE & CANTOS ARREDONDADOS ──────────────
         pw.Container(
-          height: 350,
+          height: 330,
           width: double.infinity,
           decoration: pw.BoxDecoration(
             color: const PdfColor.fromInt(0xFF020617),
@@ -681,7 +688,7 @@ class SolarStudyPdfService {
           ),
         ),
 
-        pw.Spacer(),
+        pw.SizedBox(height: 8),
 
         // Rodapé da Folha Individual
         _buildPageFooter(pageNumber: pageIndex, totalPages: totalPages),
