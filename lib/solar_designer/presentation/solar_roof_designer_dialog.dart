@@ -709,9 +709,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             : DesignerToolMode.drawRoof;
       }
 
-      // Restaura fotos já capturadas no estudo
+      // Restaura fotos já capturadas no estudo (em memória e carrega fotos completas da subcoleção em background)
       if (initialStudy.studyPhotos.isNotEmpty) {
         _capturedStudyPhotos.addAll(initialStudy.studyPhotos);
+      }
+      if (initialStudy.id.isNotEmpty) {
+        _loadStudyPhotosFromSubcollection(initialStudy.id);
       }
     } else {
       // Novo estudo
@@ -982,6 +985,21 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     } catch (e) {
       debugPrint(
           '[SolarRoofDesigner] Erro ao carregar foto do cache local: $e');
+    }
+  }
+
+  /// Carrega fotos completas da subcoleção no Firestore para edição e geração de PDF
+  Future<void> _loadStudyPhotosFromSubcollection(String studyId) async {
+    try {
+      final subPhotos = await _roofStudyRepo.getStudyPhotos(studyId);
+      if (subPhotos.isNotEmpty && mounted) {
+        setState(() {
+          _capturedStudyPhotos.clear();
+          _capturedStudyPhotos.addAll(subPhotos);
+        });
+      }
+    } catch (e) {
+      debugPrint('[SolarRoofDesigner] Erro ao carregar fotos da subcoleção: $e');
     }
   }
 
@@ -3943,9 +3961,9 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       final boundary = _canvasKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary != null && boundary.size.width > 0) {
-        // Reduz a escala para gerar imagem nítida em alta definição (~1080px) sem estourar memória do browser nem Firestore
-        final targetWidth = 1080.0;
-        final ratio = (targetWidth / boundary.size.width).clamp(0.6, 1.2);
+        // Reduz a escala para gerar imagem nítida otimizada (~720px) sem estourar memória do browser nem Firestore
+        final targetWidth = 720.0;
+        final ratio = (targetWidth / boundary.size.width).clamp(0.4, 0.9);
         final image = await boundary.toImage(pixelRatio: ratio);
         final byteData =
             await image.toByteData(format: ui.ImageByteFormat.png);

@@ -58,25 +58,91 @@ class RoofStudyRepository {
     });
   }
 
-  /// Busca um estudo específico pelo ID
+  /// Busca um estudo específico pelo ID (com fotos completas da subcoleção se existirem)
   Future<RoofStudyModel?> getStudyById(String studyId) async {
     final doc = await _collection.doc(studyId).get();
     if (!doc.exists || doc.data() == null) return null;
-    return RoofStudyModel.fromMap(doc.data()!, doc.id);
+    final study = RoofStudyModel.fromMap(doc.data()!, doc.id);
+
+    // Se o estudo tem fotos registradas na subcoleção
+    if (study.photosCount > 0 || study.studyPhotos.any((p) => p.imageBase64.isEmpty)) {
+      final subPhotos = await getStudyPhotos(studyId);
+      if (subPhotos.isNotEmpty) {
+        return study.copyWith(studyPhotos: subPhotos);
+      }
+    }
+
+    return study;
   }
 
-  /// Salva ou atualiza um estudo de telhado completo
+  /// Busca as fotos completas de um estudo na subcoleção 'photos'
+  Future<List<RoofStudyPhoto>> getStudyPhotos(String studyId) async {
+    try {
+      final snap = await _collection
+          .doc(studyId)
+          .collection('photos')
+          .orderBy('hourOfDay')
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        return snap.docs
+            .map((d) => RoofStudyPhoto.fromMap(d.data()))
+            .where((p) => p.imageBase64.isNotEmpty || (p.imageUrl != null && p.imageUrl!.isNotEmpty))
+            .toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  /// Salva ou atualiza um estudo de telhado completo com subcoleção de fotos otimizada
   Future<String> saveStudy(RoofStudyModel study) async {
+    final String targetId;
+    final Map<String, dynamic> parentData = study.toMap(includePhotoBase64: false);
+    parentData['updatedAt'] = FieldValue.serverTimestamp();
+
     if (study.id.isNotEmpty && study.id != 'new') {
-      await _collection.doc(study.id).set(
-            study.toMap()..['updatedAt'] = FieldValue.serverTimestamp(),
+      targetId = study.id;
+      await _collection.doc(targetId).set(
+            parentData,
             SetOptions(merge: true),
           );
-      return study.id;
     } else {
-      final docRef = await _collection.add(study.toMap());
-      return docRef.id;
+      final docRef = await _collection.add(parentData);
+      targetId = docRef.id;
     }
+
+    // Persiste as fotos completas na subcoleção 'photos'
+    // Cada foto ganha seu documento independente, mantendo o doc pai extremamente leve (~25KB)
+    if (study.studyPhotos.isNotEmpty) {
+      final photosCol = _collection.doc(targetId).collection('photos');
+      final currentPhotoIds = <String>{};
+
+      for (final photo in study.studyPhotos) {
+        if (photo.id.isEmpty) continue;
+        currentPhotoIds.add(photo.id);
+
+        // Se a foto tiver imagem Base64 ou URL, salva na subcoleção
+        if (photo.imageBase64.isNotEmpty || (photo.imageUrl != null && photo.imageUrl!.isNotEmpty)) {
+          final photoMap = photo.toMap(includeBase64: true);
+          photoMap['updatedAt'] = FieldValue.serverTimestamp();
+          await photosCol.doc(photo.id).set(photoMap, SetOptions(merge: true));
+        }
+      }
+
+      // Sincroniza exclusões: remove fotos que o usuário excluiu da lista
+      try {
+        final existingPhotosSnap = await photosCol.get();
+        for (final doc in existingPhotosSnap.docs) {
+          if (!currentPhotoIds.contains(doc.id)) {
+            await doc.reference.delete();
+          }
+        }
+      } catch (_) {
+        // Falha silenciosa para não travar salvamento caso regras restrinjam delete
+      }
+    }
+
+    return targetId;
   }
 
   /// Atualiza apenas os vínculos de Cliente e Proposta de um estudo existente
@@ -108,8 +174,14 @@ class RoofStudyRepository {
     }
   }
 
-  /// Exclui um estudo de telhado pelo ID
+  /// Exclui um estudo de telhado pelo ID e limpa fotos da subcoleção
   Future<void> deleteStudy(String studyId) async {
+    try {
+      final photosSnap = await _collection.doc(studyId).collection('photos').get();
+      for (final doc in photosSnap.docs) {
+        await doc.reference.delete();
+      }
+    } catch (_) {}
     await _collection.doc(studyId).delete();
   }
 }

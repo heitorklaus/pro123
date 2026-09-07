@@ -164,11 +164,13 @@ class SolarStudyPdfService {
 
     for (final p in photosToProcess) {
       try {
-        final cleanB64 = p.imageBase64.contains(',')
-            ? p.imageBase64.split(',').last
-            : p.imageBase64;
-        final bytes = base64Decode(cleanB64);
-        capturedImages.add(MapEntry(p, pw.MemoryImage(bytes)));
+        if (p.imageBase64.trim().isNotEmpty) {
+          final cleanB64 = p.imageBase64.contains(',')
+              ? p.imageBase64.split(',').last
+              : p.imageBase64;
+          final bytes = base64Decode(cleanB64);
+          capturedImages.add(MapEntry(p, pw.MemoryImage(bytes)));
+        }
       } catch (e) {
         debugPrint('[SolarStudyPdfService] Erro ao decodificar foto ${p.id}: $e');
       }

@@ -8,6 +8,7 @@ class RoofStudyPhoto {
   final String label; // Ex: "Simulação Solar às 15:15" ou "Vista Zênite 12:00"
   final double hourOfDay;
   final String imageBase64;
+  final String? imageUrl;
   final DateTime capturedAt;
   final double? sunElevation;
   final double? sunAzimuth;
@@ -20,6 +21,7 @@ class RoofStudyPhoto {
     required this.label,
     required this.hourOfDay,
     required this.imageBase64,
+    this.imageUrl,
     required this.capturedAt,
     this.sunElevation,
     this.sunAzimuth,
@@ -28,11 +30,40 @@ class RoofStudyPhoto {
     this.shadedCount,
   });
 
-  Map<String, dynamic> toMap() => {
+  RoofStudyPhoto copyWith({
+    String? id,
+    String? label,
+    double? hourOfDay,
+    String? imageBase64,
+    String? imageUrl,
+    DateTime? capturedAt,
+    double? sunElevation,
+    double? sunAzimuth,
+    double? sunRatio,
+    int? totalModules,
+    int? shadedCount,
+  }) {
+    return RoofStudyPhoto(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      hourOfDay: hourOfDay ?? this.hourOfDay,
+      imageBase64: imageBase64 ?? this.imageBase64,
+      imageUrl: imageUrl ?? this.imageUrl,
+      capturedAt: capturedAt ?? this.capturedAt,
+      sunElevation: sunElevation ?? this.sunElevation,
+      sunAzimuth: sunAzimuth ?? this.sunAzimuth,
+      sunRatio: sunRatio ?? this.sunRatio,
+      totalModules: totalModules ?? this.totalModules,
+      shadedCount: shadedCount ?? this.shadedCount,
+    );
+  }
+
+  Map<String, dynamic> toMap({bool includeBase64 = true}) => {
         'id': id,
         'label': label,
         'hourOfDay': hourOfDay,
-        'imageBase64': imageBase64,
+        'imageBase64': includeBase64 ? imageBase64 : '',
+        if (imageUrl != null) 'imageUrl': imageUrl,
         'capturedAt': capturedAt.toIso8601String(),
         if (sunElevation != null) 'sunElevation': sunElevation,
         if (sunAzimuth != null) 'sunAzimuth': sunAzimuth,
@@ -47,6 +78,7 @@ class RoofStudyPhoto {
       label: map['label']?.toString() ?? '',
       hourOfDay: (map['hourOfDay'] as num?)?.toDouble() ?? 12.0,
       imageBase64: map['imageBase64']?.toString() ?? '',
+      imageUrl: map['imageUrl']?.toString(),
       capturedAt: DateTime.tryParse(map['capturedAt']?.toString() ?? '') ?? DateTime.now(),
       sunElevation: (map['sunElevation'] as num?)?.toDouble(),
       sunAzimuth: (map['sunAzimuth'] as num?)?.toDouble(),
@@ -332,7 +364,7 @@ class RoofStudyModel {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap({bool includePhotoBase64 = false}) {
     return {
       'companyId': companyId,
       'name': name,
@@ -377,10 +409,10 @@ class RoofStudyModel {
       'totalModulesCount': totalModulesCount,
       'totalKwp': totalKwp,
       'estimatedMonthlyKwh': estimatedMonthlyKwh,
-      'studyPhotos': studyPhotos.map((p) => p.toMap()).toList(),
+      'studyPhotos': studyPhotos.map((p) => p.toMap(includeBase64: includePhotoBase64)).toList(),
       'photosCount': studyPhotos.length,
       'status': status,
-      'thumbnailBase64': (thumbnailBase64 != null && thumbnailBase64!.length < 450000)
+      'thumbnailBase64': (thumbnailBase64 != null && thumbnailBase64!.length < 250000)
           ? thumbnailBase64
           : null,
       'createdByUserId': createdByUserId,
