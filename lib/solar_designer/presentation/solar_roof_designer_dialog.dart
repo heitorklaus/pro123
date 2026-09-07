@@ -4902,6 +4902,12 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
                   initialPhotos: _capturedStudyPhotos,
                   currentHour: _currentSimulationHour,
                   onCaptureCanvas: _captureCanvasSnapshot,
+                  onPhotosUpdated: (updatedList) {
+                    setState(() {
+                      _capturedStudyPhotos.clear();
+                      _capturedStudyPhotos.addAll(updatedList);
+                    });
+                  },
                   onConcludeStudy: _concludeStudyWithPhotos,
                 );
               },

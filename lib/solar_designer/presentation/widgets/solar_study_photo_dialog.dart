@@ -9,6 +9,7 @@ class SolarStudyPhotoDialog extends StatefulWidget {
   final List<RoofStudyPhoto> initialPhotos;
   final double currentHour;
   final Future<Uint8List?> Function() onCaptureCanvas;
+  final ValueChanged<List<RoofStudyPhoto>>? onPhotosUpdated;
   final Future<void> Function(List<RoofStudyPhoto> photos) onConcludeStudy;
 
   const SolarStudyPhotoDialog({
@@ -16,6 +17,7 @@ class SolarStudyPhotoDialog extends StatefulWidget {
     required this.initialPhotos,
     required this.currentHour,
     required this.onCaptureCanvas,
+    this.onPhotosUpdated,
     required this.onConcludeStudy,
   });
 
@@ -24,6 +26,7 @@ class SolarStudyPhotoDialog extends StatefulWidget {
     required List<RoofStudyPhoto> initialPhotos,
     required double currentHour,
     required Future<Uint8List?> Function() onCaptureCanvas,
+    ValueChanged<List<RoofStudyPhoto>>? onPhotosUpdated,
     required Future<void> Function(List<RoofStudyPhoto> photos) onConcludeStudy,
   }) {
     return showDialog(
@@ -33,6 +36,7 @@ class SolarStudyPhotoDialog extends StatefulWidget {
         initialPhotos: initialPhotos,
         currentHour: currentHour,
         onCaptureCanvas: onCaptureCanvas,
+        onPhotosUpdated: onPhotosUpdated,
         onConcludeStudy: onConcludeStudy,
       ),
     );
@@ -79,6 +83,7 @@ class _SolarStudyPhotoDialogState extends State<SolarStudyPhotoDialog> {
         setState(() {
           _photos.add(newPhoto);
         });
+        widget.onPhotosUpdated?.call(List.from(_photos));
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -333,7 +338,10 @@ class _SolarStudyPhotoDialogState extends State<SolarStudyPhotoDialog> {
                                     top: 4,
                                     right: 4,
                                     child: InkWell(
-                                      onTap: () => setState(() => _photos.removeAt(index)),
+                                      onTap: () {
+                                        setState(() => _photos.removeAt(index));
+                                        widget.onPhotosUpdated?.call(List.from(_photos));
+                                      },
                                       borderRadius: BorderRadius.circular(20),
                                       child: Container(
                                         padding: const EdgeInsets.all(4),
