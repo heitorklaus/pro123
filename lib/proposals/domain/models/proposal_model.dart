@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../../solar_designer/domain/models/roof_study_model.dart';
 import 'proposal_item_model.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,6 +174,10 @@ class ProposalModel {
   // Customização Visual do PDF
   final int themeColorValue;
 
+  // Vínculo opcional com Estudo Solar de Telhado & Sombreamento
+  final String? roofStudyId;
+  final RoofStudyModel? linkedRoofStudy;
+
   // Status e Auditoria
   final ProposalStatus status;
   final String? companyId;
@@ -203,6 +208,8 @@ class ProposalModel {
     this.deliveryTime,
     this.notes,
     this.themeColorValue = 0xFF4F46E5,
+    this.roofStudyId,
+    this.linkedRoofStudy,
     this.status = ProposalStatus.inApproval,
     this.companyId,
     this.createdByUserId,
@@ -239,6 +246,8 @@ class ProposalModel {
     String? deliveryTime,
     String? notes,
     int? themeColorValue,
+    String? roofStudyId,
+    RoofStudyModel? linkedRoofStudy,
     ProposalStatus? status,
     String? companyId,
     String? createdByUserId,
@@ -268,6 +277,8 @@ class ProposalModel {
       deliveryTime: deliveryTime ?? this.deliveryTime,
       notes: notes ?? this.notes,
       themeColorValue: themeColorValue ?? this.themeColorValue,
+      roofStudyId: roofStudyId ?? this.roofStudyId,
+      linkedRoofStudy: linkedRoofStudy ?? this.linkedRoofStudy,
       status: status ?? this.status,
       companyId: companyId ?? this.companyId,
       createdByUserId: createdByUserId ?? this.createdByUserId,
@@ -299,6 +310,7 @@ class ProposalModel {
       'deliveryTime': deliveryTime,
       'notes': notes,
       'themeColorValue': themeColorValue,
+      if (roofStudyId != null) 'roofStudyId': roofStudyId,
       'status': status.name,
       'companyId': companyId,
       'createdByUserId': createdByUserId,
@@ -342,6 +354,7 @@ class ProposalModel {
       deliveryTime: map['deliveryTime'] as String?,
       notes: map['notes'] as String?,
       themeColorValue: (map['themeColorValue'] as num?)?.toInt() ?? 0xFF4F46E5,
+      roofStudyId: map['roofStudyId'] as String?,
       status: ProposalStatus.fromString(map['status'] as String?),
       companyId: map['companyId'] as String?,
       createdByUserId: map['createdByUserId'] as String?,

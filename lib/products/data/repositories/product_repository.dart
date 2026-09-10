@@ -45,6 +45,18 @@ class ProductRepository {
         .toList();
   }
 
+  /// Busca um produto pelo ID
+  Future<ProductModel?> getProductById(String productId) async {
+    if (productId.isEmpty) return null;
+    try {
+      final doc = await _productsRef.doc(productId).get();
+      if (!doc.exists || doc.data() == null) return null;
+      return ProductModel.fromMap(doc.data()!, doc.id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Retorna produtos do setor solar para deduplicação ultrarrápida e econômica (filtra apenas usinas/itens solares)
   Future<List<ProductModel>> getSolarProductsForDeduplication({String? companyId}) async {
     if (companyId == null || companyId.isEmpty) return [];

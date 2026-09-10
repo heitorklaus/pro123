@@ -12,8 +12,10 @@ import '../data/repositories/product_repository.dart';
 import '../domain/models/product_model.dart';
 import '../domain/models/subcategory_model.dart';
 import '../domain/models/category_model.dart';
-import '../../proposals/domain/models/proposal_item_model.dart';
 import '../../settings/data/services/settings_service.dart';
+
+import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
+import '../../solar_designer/presentation/roof_studies_view.dart';
 import 'solar_plant_form_card.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,7 +23,7 @@ import 'solar_plant_form_card.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 class ProductsView extends StatefulWidget {
   final UserModel? currentUser;
-  final ValueChanged<ProposalItemModel>? onProceedToProposal;
+  final ProceedToProposalCallback? onProceedToProposal;
 
   const ProductsView({
     super.key,
@@ -37,6 +39,7 @@ enum _ProductsViewMode {
   table,
   sectorSelection,
   form,
+  roofStudies,
 }
 
 class _ProductsViewState extends State<ProductsView> {
@@ -56,6 +59,12 @@ class _ProductsViewState extends State<ProductsView> {
       _editingProduct = null;
       _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
       _mode = _ProductsViewMode.form;
+    });
+  }
+
+  void _openRoofStudies() {
+    setState(() {
+      _mode = _ProductsViewMode.roofStudies;
     });
   }
 
@@ -102,6 +111,7 @@ class _ProductsViewState extends State<ProductsView> {
                 currentUser: widget.currentUser,
                 onAddNew: _startNewProduct,
                 onAddNewSolarPlant: _startNewSolarPlant,
+                onOpenRoofStudies: _openRoofStudies,
                 onEdit: _onEditProduct,
               ),
             );
@@ -118,11 +128,15 @@ class _ProductsViewState extends State<ProductsView> {
             );
 
           case _ProductsViewMode.form:
-            final isSolarPlant = (_editingProduct != null && _editingProduct!.isSolarPlantKit) ||
-                (_editingProduct == null &&
-                    (_selectedCategory.matchingSector == ProductSector.solarPlant ||
-                        _selectedCategory.id == 'solarPlant' ||
-                        _selectedCategory.title.toLowerCase().contains('solar')));
+            final isSolarPlant =
+                (_editingProduct != null && _editingProduct!.isSolarPlantKit) ||
+                    (_editingProduct == null &&
+                        (_selectedCategory.matchingSector ==
+                                ProductSector.solarPlant ||
+                            _selectedCategory.id == 'solarPlant' ||
+                            _selectedCategory.title
+                                .toLowerCase()
+                                .contains('solar')));
 
             return SizedBox(
               width: constraints.maxWidth,
@@ -158,6 +172,17 @@ class _ProductsViewState extends State<ProductsView> {
                 ),
               ),
             );
+
+          case _ProductsViewMode.roofStudies:
+            return SizedBox(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: RoofStudiesView(
+                currentUser: widget.currentUser,
+                onProceedToProposal: widget.onProceedToProposal,
+                onBack: _backToTable,
+              ),
+            );
         }
       },
     );
@@ -171,12 +196,14 @@ class _ProductTableView extends StatefulWidget {
   final UserModel? currentUser;
   final VoidCallback onAddNew;
   final VoidCallback? onAddNewSolarPlant;
+  final VoidCallback? onOpenRoofStudies;
   final ValueChanged<ProductModel> onEdit;
 
   const _ProductTableView({
     this.currentUser,
     required this.onAddNew,
     this.onAddNewSolarPlant,
+    this.onOpenRoofStudies,
     required this.onEdit,
   });
 
@@ -234,19 +261,23 @@ class _ProductTableViewState extends State<_ProductTableView> {
 
   void _listenSellers() {
     _sellersSub?.cancel();
-    final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
+    final isSuper =
+        widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
     final cid = _companyId ?? widget.currentUser?.effectiveCompanyId;
-    _sellersSub = _authRepo.getUsersStream(
+    _sellersSub = _authRepo
+        .getUsersStream(
       companyId: cid,
       isSuperAdmin: isSuper,
-    ).listen((users) {
+    )
+        .listen((users) {
       if (mounted) {
         setState(() => _sellersList = users);
       }
     });
   }
 
-  static const _showSolarComponentsStorageKey = 'mavis_saved_show_solar_components';
+  static const _showSolarComponentsStorageKey =
+      'mavis_saved_show_solar_components';
 
   Future<void> _loadSavedFilterSector() async {
     try {
@@ -361,7 +392,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
                 Navigator.pop(ctx);
                 setState(() => _isDeletingAll = true);
                 try {
-                  final count = await _repo.deleteAllProducts(companyId: _companyId);
+                  final count =
+                      await _repo.deleteAllProducts(companyId: _companyId);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text(
@@ -446,7 +478,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
                 Navigator.pop(ctx);
                 setState(() => _isSeeding = true);
                 try {
-                  final count = await _repo.seed200TestProducts(companyId: _companyId);
+                  final count =
+                      await _repo.seed200TestProducts(companyId: _companyId);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text(
@@ -492,6 +525,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Padding(
@@ -514,14 +548,17 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       style: GoogleFonts.outfit(
                         fontSize: isMobile ? 20 : 26,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Catálogo inteligente com 20 segmentos',
                       style: GoogleFonts.inter(
-                          fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                          fontSize: isMobile ? 12 : 14,
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -529,180 +566,249 @@ class _ProductTableViewState extends State<_ProductTableView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
+                  if (widget.currentUser?.canCreateProducts ??
+                      _currentUser?.canCreateProducts ??
+                      false) ...[
                     if (!isMobile) ...[
                       // Botão de Gerar 200 Produtos de Teste
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: (_isSeeding || _isDeletingAll)
-                              ? null
-                              : _confirmSeedProducts,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              color:
-                                  const Color(0xFFF59E0B).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color:
-                                    const Color(0xFFF59E0B).withValues(alpha: 0.4),
-                                width: 1,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 11),
-                              child: _isSeeding
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Color(0xFFF59E0B),
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.bolt_rounded,
-                                            size: 18, color: Color(0xFFF59E0B)),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'GERAR 200 PRODUTOS TESTE',
-                                          style: GoogleFonts.inter(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12.5,
-                                            letterSpacing: 0.3,
-                                            color: const Color(0xFFB45309),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      // Material(
+                      //   color: Colors.transparent,
+                      //   child: InkWell(
+                      //     onTap: (_isSeeding || _isDeletingAll)
+                      //         ? null
+                      //         : _confirmSeedProducts,
+                      //     borderRadius: BorderRadius.circular(12),
+                      //     child: Ink(
+                      //       decoration: BoxDecoration(
+                      //         color: const Color(0xFFF59E0B)
+                      //             .withValues(alpha: 0.12),
+                      //         borderRadius: BorderRadius.circular(12),
+                      //         border: Border.all(
+                      //           color: const Color(0xFFF59E0B)
+                      //               .withValues(alpha: 0.4),
+                      //           width: 1,
+                      //         ),
+                      //       ),
+                      //       child: Padding(
+                      //         padding: const EdgeInsets.symmetric(
+                      //             horizontal: 16, vertical: 11),
+                      //         child: _isSeeding
+                      //             ? const SizedBox(
+                      //                 width: 18,
+                      //                 height: 18,
+                      //                 child: CircularProgressIndicator(
+                      //                   strokeWidth: 2,
+                      //                   color: Color(0xFFF59E0B),
+                      //                 ),
+                      //               )
+                      //             : Row(
+                      //                 mainAxisSize: MainAxisSize.min,
+                      //                 children: [
+                      //                   const Icon(Icons.bolt_rounded,
+                      //                       size: 18, color: Color(0xFFF59E0B)),
+                      //                   const SizedBox(width: 8),
+                      //                   Text(
+                      //                     '1GERAR 200 PRODUTOS TESTE',
+                      //                     style: GoogleFonts.inter(
+                      //                       fontWeight: FontWeight.bold,
+                      //                       fontSize: 12.5,
+                      //                       letterSpacing: 0.3,
+                      //                       color: const Color(0xFFB45309),
+                      //                     ),
+                      //                   ),
+                      //                 ],
+                      //               ),
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
                       const SizedBox(width: 12),
 
                       // Botão de Limpar / Excluir Todos os Produtos
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: (_isSeeding || _isDeletingAll)
-                              ? null
-                              : _confirmDeleteAllProducts,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              color:
-                                  const Color(0xFFEF4444).withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color:
-                                    const Color(0xFFEF4444).withValues(alpha: 0.35),
-                                width: 1,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 11),
-                              child: _isDeletingAll
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Color(0xFFEF4444),
+                      // Material(
+                      //   color: Colors.transparent,
+                      //   child: InkWell(
+                      //     onTap: (_isSeeding || _isDeletingAll)
+                      //         ? null
+                      //         : _confirmDeleteAllProducts,
+                      //     borderRadius: BorderRadius.circular(12),
+                      //     child: Ink(
+                      //       decoration: BoxDecoration(
+                      //         color: const Color(0xFFEF4444)
+                      //             .withValues(alpha: 0.10),
+                      //         borderRadius: BorderRadius.circular(12),
+                      //         border: Border.all(
+                      //           color: const Color(0xFFEF4444)
+                      //               .withValues(alpha: 0.35),
+                      //           width: 1,
+                      //         ),
+                      //       ),
+                      //       child: Padding(
+                      //         padding: const EdgeInsets.symmetric(
+                      //             horizontal: 16, vertical: 11),
+                      //         child: _isDeletingAll
+                      //             ? const SizedBox(
+                      //                 width: 18,
+                      //                 height: 18,
+                      //                 child: CircularProgressIndicator(
+                      //                   strokeWidth: 2,
+                      //                   color: Color(0xFFEF4444),
+                      //                 ),
+                      //               )
+                      //             : Row(
+                      //                 mainAxisSize: MainAxisSize.min,
+                      //                 children: [
+                      //                   const Icon(Icons.delete_sweep_rounded,
+                      //                       size: 18, color: Color(0xFFEF4444)),
+                      //                   const SizedBox(width: 8),
+                      //                   Text(
+                      //                     'LIMPAR CATÁLOGO',
+                      //                     style: GoogleFonts.inter(
+                      //                       fontWeight: FontWeight.bold,
+                      //                       fontSize: 12.5,
+                      //                       letterSpacing: 0.3,
+                      //                       color: const Color(0xFFDC2626),
+                      //                     ),
+                      //                   ),
+                      //                 ],
+                      //               ),
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                      const SizedBox(width: 12),
+                    ],
+
+                    // Botão Estudo de Telhado & Novo Produto / Nova Usina
+                    Builder(builder: (context) {
+                      final isSolarFiltered =
+                          _filterSector == ProductSector.solarPlant;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSolarFiltered) ...[
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: widget.onOpenRoofStudies,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF0284C7),
+                                        Color(0xFF0EA5E9),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF0284C7)
+                                            .withValues(alpha: 0.3),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       ),
-                                    )
-                                  : Row(
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: isMobile ? 12 : 18,
+                                        vertical: isMobile ? 9 : 11),
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.delete_sweep_rounded,
-                                            size: 18, color: Color(0xFFEF4444)),
-                                        const SizedBox(width: 8),
+                                        Icon(
+                                          Icons.satellite_alt_rounded,
+                                          size: isMobile ? 16 : 18,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 6),
                                         Text(
-                                          'LIMPAR CATÁLOGO',
+                                          isMobile
+                                              ? 'TELHADO'
+                                              : 'ESTUDO DE TELHADO 🛰️',
                                           style: GoogleFonts.inter(
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 12.5,
-                                            letterSpacing: 0.3,
-                                            color: const Color(0xFFDC2626),
+                                            fontSize: isMobile ? 12 : 13,
+                                            letterSpacing: 0.5,
+                                            color: Colors.white,
                                           ),
                                         ),
                                       ],
                                     ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-
-                    // Botão Novo Produto / Nova Usina
-                    Builder(builder: (context) {
-                      final isSolarFiltered =
-                          _filterSector == ProductSector.solarPlant;
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: isSolarFiltered
-                              ? (widget.onAddNewSolarPlant ?? widget.onAddNew)
-                              : widget.onAddNew,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: isSolarFiltered
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFFF59E0B),
-                                        Color(0xFFEA580C)
-                                      ],
-                                    )
-                                  : AppColors.primaryGradient,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (isSolarFiltered
-                                          ? const Color(0xFFEA580C)
-                                          : AppColors.primary)
-                                      .withValues(alpha: 0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
+                                  ),
                                 ),
-                              ],
+                              ),
                             ),
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: isMobile ? 14 : 20, vertical: isMobile ? 9 : 11),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    isSolarFiltered
-                                        ? Icons.solar_power_rounded
-                                        : Icons.add_shopping_cart_rounded,
-                                    size: isMobile ? 16 : 18,
-                                    color: Colors.white,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    isSolarFiltered
-                                        ? (isMobile ? 'USINA' : 'NOVA USINA')
-                                        : (isMobile ? 'NOVO' : 'NOVO PRODUTO'),
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: isMobile ? 12 : 13,
-                                      letterSpacing: 0.5,
-                                      color: Colors.white,
+                            const SizedBox(width: 10),
+                          ],
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: isSolarFiltered
+                                  ? (widget.onAddNewSolarPlant ??
+                                      widget.onAddNew)
+                                  : widget.onAddNew,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  gradient: isSolarFiltered
+                                      ? const LinearGradient(
+                                          colors: [
+                                            Color(0xFFF59E0B),
+                                            Color(0xFFEA580C)
+                                          ],
+                                        )
+                                      : AppColors.primaryGradient,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isSolarFiltered
+                                              ? const Color(0xFFEA580C)
+                                              : AppColors.primary)
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
                                     ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: isMobile ? 14 : 20,
+                                      vertical: isMobile ? 9 : 11),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isSolarFiltered
+                                            ? Icons.solar_power_rounded
+                                            : Icons.add_shopping_cart_rounded,
+                                        size: isMobile ? 16 : 18,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        isSolarFiltered
+                                            ? (isMobile
+                                                ? 'USINA'
+                                                : 'NOVA USINA')
+                                            : (isMobile
+                                                ? 'NOVO'
+                                                : 'NOVO PRODUTO'),
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: isMobile ? 12 : 13,
+                                          letterSpacing: 0.5,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       );
                     }),
                   ],
@@ -717,6 +823,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
           if (isMobile) ...[
             TextField(
               controller: _searchCtrl,
+              style: GoogleFonts.inter(
+                fontSize: 13.5,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
               onChanged: (v) => setState(() {
                 _query = v.trim().toLowerCase();
                 _currentPage = 1;
@@ -724,25 +834,35 @@ class _ProductTableViewState extends State<_ProductTableView> {
               decoration: InputDecoration(
                 hintText: 'Buscar produto ou SKU...',
                 hintStyle: GoogleFonts.inter(
-                    fontSize: 13, color: const Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: Color(0xFF64748B), size: 20),
+                    fontSize: 13,
+                    color: isDark
+                        ? const Color(0xFF64748B)
+                        : const Color(0xFF94A3B8)),
+                prefixIcon: Icon(Icons.search_rounded,
+                    color: isDark
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF64748B),
+                    size: 20),
                 filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(
+                      color:
+                          isDark ? const Color(0xFF334155) : AppColors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(
+                      color:
+                          isDark ? const Color(0xFF334155) : AppColors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                      color: AppColors.primary, width: 1.5),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.5),
                 ),
               ),
             ),
@@ -753,28 +873,43 @@ class _ProductTableViewState extends State<_ProductTableView> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<ProductSector?>(
                           value: _filterSector,
+                          dropdownColor:
+                              isDark ? const Color(0xFF1E293B) : Colors.white,
                           hint: Text(
                             'Todos Segmentos',
                             style: GoogleFonts.inter(
-                                fontSize: 12, color: const Color(0xFF64748B)),
+                                fontSize: 12,
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B)),
                           ),
                           isExpanded: true,
-                          icon: const Icon(Icons.filter_list_rounded,
-                              size: 16, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.filter_list_rounded,
+                              size: 16,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<ProductSector?>(
                               value: null,
                               child: Text('Todos os Segmentos (20)',
                                   style: GoogleFonts.inter(
-                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A),
+                                      fontWeight: FontWeight.w600)),
                             ),
                             ...ProductSector.values.map(
                               (s) => DropdownMenuItem<ProductSector?>(
@@ -787,7 +922,12 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                       child: Text(
                                         s.title,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.inter(fontSize: 12),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF0F172A),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -819,16 +959,19 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: _showSolarComponents
                             ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
-                            : Colors.white,
+                            : (isDark ? const Color(0xFF1E293B) : Colors.white),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: _showSolarComponents
                               ? const Color(0xFFF59E0B)
-                              : AppColors.border,
+                              : (isDark
+                                  ? const Color(0xFF334155)
+                                  : AppColors.border),
                         ),
                       ),
                       child: Row(
@@ -864,33 +1007,53 @@ class _ProductTableViewState extends State<_ProductTableView> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String?>(
                           value: _selectedSellerId,
+                          dropdownColor:
+                              isDark ? const Color(0xFF1E293B) : Colors.white,
                           hint: Text('Vendedor',
                               style: GoogleFonts.inter(
-                                  fontSize: 12, color: const Color(0xFF64748B))),
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? const Color(0xFF94A3B8)
+                                      : const Color(0xFF64748B))),
                           isExpanded: true,
-                          icon: const Icon(Icons.person_outline_rounded,
-                              size: 16, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.person_outline_rounded,
+                              size: 16,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<String?>(
                               value: null,
                               child: Text('Todos Vendedores',
                                   style: GoogleFonts.inter(
-                                      fontSize: 12, fontWeight: FontWeight.w600)),
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A),
+                                      fontWeight: FontWeight.w600)),
                             ),
-                            ..._sellersList.map((u) => DropdownMenuItem<String?>(
-                                  value: u.uid,
-                                  child: Text(u.name,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(fontSize: 12)),
-                                )),
+                            ..._sellersList
+                                .map((u) => DropdownMenuItem<String?>(
+                                      value: u.uid,
+                                      child: Text(u.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF0F172A))),
+                                    )),
                           ],
                           onChanged: (val) {
                             setState(() {
@@ -913,6 +1076,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
                   flex: 3,
                   child: TextField(
                     controller: _searchCtrl,
+                    style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
                     onChanged: (v) => setState(() {
                       _query = v.trim().toLowerCase();
                       _currentPage = 1;
@@ -921,20 +1088,33 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       hintText:
                           'Buscar por nome, código SKU ou código de barras...',
                       hintStyle: GoogleFonts.inter(
-                          fontSize: 13, color: const Color(0xFF94A3B8)),
-                      prefixIcon: const Icon(Icons.search_rounded,
-                          color: Color(0xFF64748B), size: 20),
+                          fontSize: 13,
+                          color: isDark
+                              ? const Color(0xFF64748B)
+                              : const Color(0xFF94A3B8)),
+                      prefixIcon: Icon(Icons.search_rounded,
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
+                          size: 20),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor:
+                          isDark ? const Color(0xFF1E293B) : Colors.white,
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.border),
+                        borderSide: BorderSide(
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.border),
+                        borderSide: BorderSide(
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -951,28 +1131,43 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     flex: 2,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<ProductSector?>(
                           value: _filterSector,
+                          dropdownColor:
+                              isDark ? const Color(0xFF1E293B) : Colors.white,
                           hint: Text(
                             'Todos os Segmentos (20)',
                             style: GoogleFonts.inter(
-                                fontSize: 13, color: const Color(0xFF64748B)),
+                                fontSize: 13,
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B)),
                           ),
                           isExpanded: true,
-                          icon: const Icon(Icons.filter_list_rounded,
-                              size: 18, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.filter_list_rounded,
+                              size: 18,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<ProductSector?>(
                               value: null,
                               child: Text('Todos os Segmentos (20)',
                                   style: GoogleFonts.inter(
-                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                                      fontSize: 13,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A),
+                                      fontWeight: FontWeight.w600)),
                             ),
                             ...ProductSector.values.map(
                               (s) => DropdownMenuItem<ProductSector?>(
@@ -985,7 +1180,12 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                       child: Text(
                                         s.title,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.inter(fontSize: 13),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF0F172A),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1013,40 +1213,61 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     flex: 2,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String?>(
                           value: _selectedSellerId,
+                          dropdownColor:
+                              isDark ? const Color(0xFF1E293B) : Colors.white,
                           hint: Text(
                             'Todos os Vendedores',
                             style: GoogleFonts.inter(
-                                fontSize: 13, color: const Color(0xFF64748B)),
+                                fontSize: 13,
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B)),
                           ),
                           isExpanded: true,
-                          icon: const Icon(Icons.person_outline_rounded,
-                              size: 18, color: Color(0xFF64748B)),
+                          icon: Icon(Icons.person_outline_rounded,
+                              size: 18,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B)),
                           items: [
                             DropdownMenuItem<String?>(
                               value: null,
                               child: Text('👥 Todos os Vendedores',
                                   style: GoogleFonts.inter(
-                                      fontSize: 13, fontWeight: FontWeight.w600)),
+                                      fontSize: 13,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A),
+                                      fontWeight: FontWeight.w600)),
                             ),
-                            ..._sellersList.map((u) => DropdownMenuItem<String?>(
+                            ..._sellersList.map((u) =>
+                                DropdownMenuItem<String?>(
                                   value: u.uid,
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.person_pin_rounded, size: 16, color: Color(0xFF6366F1)),
+                                      const Icon(Icons.person_pin_rounded,
+                                          size: 16, color: Color(0xFF6366F1)),
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
                                           u.name,
                                           overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.inter(fontSize: 13),
+                                          style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF0F172A)),
                                         ),
                                       ),
                                     ],
@@ -1153,14 +1374,22 @@ class _ProductTableViewState extends State<_ProductTableView> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isMobile ? Colors.transparent : Colors.white,
+                color: isMobile
+                    ? Colors.transparent
+                    : (isDark ? const Color(0xFF1E293B) : Colors.white),
                 borderRadius: BorderRadius.circular(16),
-                border: isMobile ? null : Border.all(color: AppColors.border),
+                border: isMobile
+                    ? null
+                    : Border.all(
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : AppColors.border),
                 boxShadow: isMobile
                     ? null
                     : [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
+                          color: Colors.black
+                              .withValues(alpha: isDark ? 0.2 : 0.03),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -1171,11 +1400,16 @@ class _ProductTableViewState extends State<_ProductTableView> {
                 child: StreamBuilder<List<ProductModel>>(
                   stream: _repo.getProductsStream(
                     companyId: _companyId,
-                    isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
+                    isSuperAdmin: widget.currentUser?.isSuperAdmin ??
+                        _currentUser?.isSuperAdmin ??
+                        false,
                   ),
                   builder: (ctx, snap) {
-                    final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
-                    if ((_companyId == null && !isSuper) || snap.connectionState == ConnectionState.waiting) {
+                    final isSuper = widget.currentUser?.isSuperAdmin ??
+                        _currentUser?.isSuperAdmin ??
+                        false;
+                    if ((_companyId == null && !isSuper) ||
+                        snap.connectionState == ConnectionState.waiting) {
                       return const Center(
                         child:
                             CircularProgressIndicator(color: AppColors.primary),
@@ -1186,8 +1420,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
                         child: Text(
                           'Erro ao carregar catálogo:\n${snap.error}',
                           textAlign: TextAlign.center,
-                          style:
-                              GoogleFonts.inter(color: const Color(0xFF64748B)),
+                          style: GoogleFonts.inter(
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B)),
                         ),
                       );
                     }
@@ -1205,7 +1441,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       final matchesSeller = _selectedSellerId == null ||
                           p.createdByUserId == _selectedSellerId;
 
-                      if (!matchesQuery || !matchesSector || !matchesSeller) return false;
+                      if (!matchesQuery || !matchesSector || !matchesSeller)
+                        return false;
 
                       if (_filterSector == ProductSector.solarPlant) {
                         if (!_showSolarComponents && p.isSolarComponent) {
@@ -1232,7 +1469,11 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       children: [
                         if (!isMobile) ...[
                           _ProductTableHeader(),
-                          const Divider(height: 1, color: AppColors.divider),
+                          Divider(
+                              height: 1,
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : AppColors.divider),
                         ],
                         Expanded(
                           child: filtered.isEmpty
@@ -1247,8 +1488,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                       padding: EdgeInsets.zero,
                                       itemBuilder: (_, i) {
                                         final item = paginatedList[i];
-                                        final isExpanded =
-                                            _expandedProductIds.contains(item.id);
+                                        final isExpanded = _expandedProductIds
+                                            .contains(item.id);
                                         return _ProductMobileCard(
                                           product: item,
                                           isExpanded: isExpanded,
@@ -1264,18 +1505,22 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                                   })
                                               : null,
                                           onEdit: () => widget.onEdit(item),
-                                          onDelete: () => _showDeleteDialog(item),
+                                          onDelete: () =>
+                                              _showDeleteDialog(item),
                                         );
                                       },
                                     )
                                   : ListView.separated(
                                       itemCount: paginatedList.length,
-                                      separatorBuilder: (_, __) => const Divider(
-                                          height: 1, color: AppColors.divider),
+                                      separatorBuilder: (_, __) => Divider(
+                                          height: 1,
+                                          color: isDark
+                                              ? const Color(0xFF334155)
+                                              : AppColors.divider),
                                       itemBuilder: (_, i) {
                                         final item = paginatedList[i];
-                                        final isExpanded =
-                                            _expandedProductIds.contains(item.id);
+                                        final isExpanded = _expandedProductIds
+                                            .contains(item.id);
                                         return _ProductRow(
                                           product: item,
                                           isExpanded: isExpanded,
@@ -1291,40 +1536,55 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                                   })
                                               : null,
                                           onEdit: () => widget.onEdit(item),
-                                          onDelete: () => _showDeleteDialog(item),
+                                          onDelete: () =>
+                                              _showDeleteDialog(item),
                                         );
                                       },
                                     ),
                         ),
                         if (isMobile) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 TextButton.icon(
                                   onPressed: safePage > 1
-                                      ? () => setState(() => _currentPage = safePage - 1)
+                                      ? () => setState(
+                                          () => _currentPage = safePage - 1)
                                       : null,
-                                  icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                                  icon: const Icon(Icons.chevron_left_rounded,
+                                      size: 18),
                                   label: const Text('Anterior'),
                                 ),
                                 Text(
                                   'Pág $safePage de $totalPages',
-                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? const Color(0xFF94A3B8)
+                                          : const Color(0xFF64748B)),
                                 ),
                                 TextButton.icon(
                                   onPressed: safePage < totalPages
-                                      ? () => setState(() => _currentPage = safePage + 1)
+                                      ? () => setState(
+                                          () => _currentPage = safePage + 1)
                                       : null,
                                   label: const Text('Próxima'),
-                                  icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                                  icon: const Icon(Icons.chevron_right_rounded,
+                                      size: 18),
                                 ),
                               ],
                             ),
                           ),
                         ] else ...[
-                          const Divider(height: 1, color: AppColors.divider),
+                          Divider(
+                              height: 1,
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : AppColors.divider),
                           _ProductPaginationBar(
                             currentPage: safePage,
                             totalPages: totalPages,
@@ -1433,23 +1693,24 @@ class _ProductTableViewState extends State<_ProductTableView> {
 class _ProductTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: const Color(0xFFF8FAFC),
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       child: Row(
         children: [
-          _col('PRODUTO / SERVIÇO', flex: 6),
-          _col('SEGMENTO', flex: 2),
-          _col('PREÇO VENDA / CUSTO', flex: 2),
-          _col('ESTOQUE', flex: 1),
-          _col('STATUS', flex: 1),
+          _col('PRODUTO / SERVIÇO', flex: 6, isDark: isDark),
+          _col('SEGMENTO', flex: 2, isDark: isDark),
+          _col('PREÇO VENDA / CUSTO', flex: 2, isDark: isDark),
+          _col('ESTOQUE', flex: 1, isDark: isDark),
+          _col('STATUS', flex: 1, isDark: isDark),
           const SizedBox(width: 88),
         ],
       ),
     );
   }
 
-  Widget _col(String label, {required int flex}) {
+  Widget _col(String label, {required int flex, bool isDark = false}) {
     return Expanded(
       flex: flex,
       child: Text(
@@ -1457,7 +1718,7 @@ class _ProductTableHeader extends StatelessWidget {
         style: GoogleFonts.inter(
           fontWeight: FontWeight.bold,
           fontSize: 11,
-          color: const Color(0xFF64748B),
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
           letterSpacing: 0.5,
         ),
       ),
@@ -1465,9 +1726,6 @@ class _ProductTableHeader extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Linha do Produto na Tabela
-// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // Linha do Produto na Tabela (com Suporte a Agrupamento e Expansão de Usina Solar)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1488,6 +1746,7 @@ class _ProductRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPlant = product.isSolarPlantKit;
     final isComponent = product.isSolarComponent;
     final kitItems = product.solarKitItems;
@@ -1519,7 +1778,8 @@ class _ProductRow extends StatelessWidget {
         productIconColor = const Color(0xFFD97706);
         productIconBg = const Color(0xFFF59E0B).withValues(alpha: 0.15);
         productIconBorder = const Color(0xFFF59E0B).withValues(alpha: 0.4);
-      } else if (lowerName.contains('inversor') || lowerName.contains('microinversor')) {
+      } else if (lowerName.contains('inversor') ||
+          lowerName.contains('microinversor')) {
         productIcon = Icons.offline_bolt_rounded;
         productIconColor = const Color(0xFF0284C7);
         productIconBg = const Color(0xFF0284C7).withValues(alpha: 0.12);
@@ -1572,8 +1832,10 @@ class _ProductRow extends StatelessWidget {
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
                               color: isExpanded
-                                  ? const Color(0xFFEA580C).withValues(alpha: 0.15)
-                                  : const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                  ? const Color(0xFFEA580C)
+                                      .withValues(alpha: 0.15)
+                                  : const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isExpanded
@@ -1583,7 +1845,9 @@ class _ProductRow extends StatelessWidget {
                               ),
                             ),
                             child: Icon(
-                              isExpanded ? Icons.remove_rounded : Icons.add_rounded,
+                              isExpanded
+                                  ? Icons.remove_rounded
+                                  : Icons.add_rounded,
                               size: 16,
                               color: isExpanded
                                   ? const Color(0xFFEA580C)
@@ -1625,7 +1889,8 @@ class _ProductRow extends StatelessWidget {
                               Flexible(
                                 child: Tooltip(
                                   message: product.name,
-                                  waitDuration: const Duration(milliseconds: 150),
+                                  waitDuration:
+                                      const Duration(milliseconds: 150),
                                   child: Text(
                                     product.name.length > 55
                                         ? '${product.name.substring(0, 55)}...'
@@ -1633,7 +1898,9 @@ class _ProductRow extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.inter(
                                         fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF0F172A)),
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF0F172A)),
                                   ),
                                 ),
                               ),
@@ -1664,7 +1931,8 @@ class _ProductRow extends StatelessWidget {
                             spacing: 4,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              if (product.sku != null && product.sku!.isNotEmpty)
+                              if (product.sku != null &&
+                                  product.sku!.isNotEmpty)
                                 Text(
                                   'SKU: ${product.sku!} ',
                                   style: GoogleFonts.inter(
@@ -1715,18 +1983,22 @@ class _ProductRow extends StatelessWidget {
                                       color: const Color(0xFF059669)),
                                 ),
                               ],
-                              if (product.createdByUserName != null && product.createdByUserName!.isNotEmpty)
+                              if (product.createdByUserName != null &&
+                                  product.createdByUserName!.isNotEmpty)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFEFF6FF),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                    border: Border.all(
+                                        color: const Color(0xFFBFDBFE)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.person_pin_rounded, size: 10, color: Color(0xFF2563EB)),
+                                      const Icon(Icons.person_pin_rounded,
+                                          size: 10, color: Color(0xFF2563EB)),
                                       const SizedBox(width: 3),
                                       Text(
                                         product.createdByUserName!,
@@ -1772,7 +2044,7 @@ class _ProductRow extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                        color: const Color.fromARGB(255, 235, 236, 239),
                       ),
                     ),
                     if (isPlant) ...[
@@ -1844,8 +2116,7 @@ class _ProductRow extends StatelessWidget {
         ),
 
         // Bloco Expansível da Usina Solar com Lista dos Subprodutos Agrupados
-        if (isPlant && isExpanded)
-          _SolarPlantKitDetails(product: product),
+        if (isPlant && isExpanded) _SolarPlantKitDetails(product: product),
       ],
     );
   }
@@ -1926,10 +2197,8 @@ class _SolarPlantKitDetails extends StatelessWidget {
                         const Color(0xFFE0F2FE)),
                   if (product.solarRoofType != null &&
                       product.solarRoofType!.isNotEmpty)
-                    _specBadge(
-                        'Telhado: ${product.solarRoofType}',
-                        const Color(0xFF475569),
-                        const Color(0xFFF1F5F9)),
+                    _specBadge('Telhado: ${product.solarRoofType}',
+                        const Color(0xFF475569), const Color(0xFFF1F5F9)),
                   if (product.solarProductsPrice != null &&
                       product.solarProductsPrice! > 0)
                     _specBadge(
@@ -2040,8 +2309,8 @@ class _SolarPlantKitDetails extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(6),
@@ -2159,21 +2428,24 @@ class _ProductMobileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasKit = product.isSolarPlantKit;
     final themeColor = product.sector.themeColor;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: hasKit ? const Color(0xFFF59E0B).withValues(alpha: 0.4) : AppColors.border,
+          color: hasKit
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+              : (isDark ? const Color(0xFF334155) : AppColors.border),
           width: hasKit ? 1.2 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -2203,7 +2475,9 @@ class _ProductMobileCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
-                            hasKit ? Icons.solar_power_rounded : product.sector.icon,
+                            hasKit
+                                ? Icons.solar_power_rounded
+                                : product.sector.icon,
                             color: themeColor,
                             size: 18,
                           ),
@@ -2218,15 +2492,22 @@ class _ProductMobileCard extends StatelessWidget {
                                 style: GoogleFonts.inter(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0F172A),
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              if (product.sku != null && product.sku!.isNotEmpty)
+                              if (product.sku != null &&
+                                  product.sku!.isNotEmpty)
                                 Text(
                                   'SKU: ${product.sku}',
-                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: isDark
+                                          ? const Color(0xFF94A3B8)
+                                          : const Color(0xFF64748B)),
                                 ),
                             ],
                           ),
@@ -2239,13 +2520,16 @@ class _ProductMobileCard extends StatelessWidget {
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF0F172A),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                               ),
                             ),
                             if (hasKit)
                               Container(
                                 margin: const EdgeInsets.only(top: 2),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFEF3C7),
                                   borderRadius: BorderRadius.circular(6),
@@ -2264,19 +2548,27 @@ class _ProductMobileCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Divider(height: 1, color: AppColors.divider),
+                    Divider(
+                        height: 1,
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : AppColors.divider),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: themeColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             product.displaySectorTitle,
-                            style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: themeColor),
+                            style: GoogleFonts.inter(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: themeColor),
                           ),
                         ),
                         if (hasKit && onToggleExpand != null) ...[
@@ -2285,7 +2577,8 @@ class _ProductMobileCard extends StatelessWidget {
                             onTap: onToggleExpand,
                             borderRadius: BorderRadius.circular(6),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(6),
@@ -2294,14 +2587,18 @@ class _ProductMobileCard extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    isExpanded ? Icons.remove_rounded : Icons.add_rounded,
+                                    isExpanded
+                                        ? Icons.remove_rounded
+                                        : Icons.add_rounded,
                                     size: 14,
                                     color: const Color(0xFF475569),
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
                                     '${product.solarKitItems.length} itens',
-                                    style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF475569)),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 10.5,
+                                        color: const Color(0xFF475569)),
                                   ),
                                 ],
                               ),
@@ -2310,18 +2607,22 @@ class _ProductMobileCard extends StatelessWidget {
                         ],
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6366F1)),
+                          icon: const Icon(Icons.edit_outlined,
+                              size: 18, color: Color(0xFF6366F1)),
                           onPressed: onEdit,
                           tooltip: 'Editar',
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              size: 18, color: Color(0xFFEF4444)),
                           onPressed: onDelete,
                           tooltip: 'Excluir',
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
                         ),
                       ],
                     ),
@@ -2335,14 +2636,18 @@ class _ProductMobileCard extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               decoration: const BoxDecoration(
                 color: Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(14)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Itens inclusos no Kit:',
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF475569)),
                   ),
                   const SizedBox(height: 6),
                   ...product.solarKitItems.map((item) {
@@ -2352,12 +2657,14 @@ class _ProductMobileCard extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle_outline_rounded, size: 12, color: Color(0xFF10B981)),
+                          const Icon(Icons.check_circle_outline_rounded,
+                              size: 12, color: Color(0xFF10B981)),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               '${qty}x $name',
-                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF334155)),
+                              style: GoogleFonts.inter(
+                                  fontSize: 11, color: const Color(0xFF334155)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2941,8 +3248,7 @@ class _SectorSelectorViewState extends State<_SectorSelectorView> {
   Widget build(BuildContext context) {
     final isMobile = widget.parentWidth < 768;
     // Cálculo responsivo de largura de cada card usando Wrap
-    final availableWidth = widget.parentWidth -
-        (isMobile ? 28 : 64);
+    final availableWidth = widget.parentWidth - (isMobile ? 28 : 64);
     final int columns = availableWidth > 1200
         ? 4
         : availableWidth > 800
@@ -3962,7 +4268,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
     switch (sector) {
       case ProductSector.solarPlant:
         _dynamicControllers['moduleWatts'] = TextEditingController();
-        _dynamicControllers['efficiencyWarrantyYears'] = TextEditingController();
+        _dynamicControllers['efficiencyWarrantyYears'] =
+            TextEditingController();
         _dynamicControllers['mfgWarrantyYears'] = TextEditingController();
         _dynamicControllers['inverterPowerKwp'] = TextEditingController();
         _dynamicControllers['overloadMaxKwp'] = TextEditingController();
@@ -4187,7 +4494,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
           auth = AuthRepository();
         }
         final user = widget.currentUser ?? await auth.getCurrentUser();
-        final companyId = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
+        final companyId =
+            user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
 
         await _repo.createProduct(
           name: name,
@@ -4246,15 +4554,17 @@ class _ProductFormCardState extends State<_ProductFormCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(36),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+            color: isDark ? const Color(0xFF334155) : AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -4278,15 +4588,20 @@ class _ProductFormCardState extends State<_ProductFormCard> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.arrow_back_rounded,
-                          size: 16, color: Color(0xFF64748B)),
+                      Icon(Icons.arrow_back_rounded,
+                          size: 16,
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B)),
                       const SizedBox(width: 6),
                       Text(
                         'Voltar para o Catálogo',
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: const Color(0xFF64748B),
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -4319,18 +4634,20 @@ class _ProductFormCardState extends State<_ProductFormCard> {
                     Text(
                       _isEditing
                           ? ((widget.product?.isSolarComponent == true ||
-                                  widget.category.matchingSector == ProductSector.solarPlant)
+                                  widget.category.matchingSector ==
+                                      ProductSector.solarPlant)
                               ? 'Editar Item Avulso'
                               : 'Editar Produto')
                           : 'Novo Cadastro',
                       style: GoogleFonts.outfit(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary),
+                          color: isDark ? Colors.white : AppColors.textPrimary),
                     ),
                     Text(
                       (widget.product?.isSolarComponent == true ||
-                              widget.category.matchingSector == ProductSector.solarPlant)
+                              widget.category.matchingSector ==
+                                  ProductSector.solarPlant)
                           ? 'Usina Solar • Item Avulso / Equipamento'
                           : 'Categoria: ${widget.category.title}',
                       style: GoogleFonts.inter(
@@ -4855,8 +5172,12 @@ class _ProductFormCardState extends State<_ProductFormCard> {
       // 0. Componente / Item Avulso de Usina Solar
       case ProductSector.solarPlant:
         final subcat = _subcategoryCtrl.text.toUpperCase();
-        final isModule = subcat.contains('MÓDULO') || subcat.contains('MODULO') || subcat.contains('PAINEL') || subcat.contains('PLACA');
-        final isInverter = subcat.contains('INVERSOR') && !subcat.contains('MICRO');
+        final isModule = subcat.contains('MÓDULO') ||
+            subcat.contains('MODULO') ||
+            subcat.contains('PAINEL') ||
+            subcat.contains('PLACA');
+        final isInverter =
+            subcat.contains('INVERSOR') && !subcat.contains('MICRO');
         final isMicro = subcat.contains('MICRO');
         final isBattery = subcat.contains('BATERIA');
 
@@ -4866,15 +5187,18 @@ class _ProductFormCardState extends State<_ProductFormCard> {
               Row(
                 children: [
                   Expanded(
-                    child: _dynField('moduleWatts', 'Potência do Módulo (Watts)', 'Ex: 550, 580, 670'),
+                    child: _dynField('moduleWatts',
+                        'Potência do Módulo (Watts)', 'Ex: 550, 580, 670'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('efficiencyWarrantyYears', 'Garantia de Eficiência (Anos)', 'Ex: 25 ou 30'),
+                    child: _dynField('efficiencyWarrantyYears',
+                        'Garantia de Eficiência (Anos)', 'Ex: 25 ou 30'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('mfgWarrantyYears', 'Garantia de Fabricação (Anos)', 'Ex: 12 ou 15'),
+                    child: _dynField('mfgWarrantyYears',
+                        'Garantia de Fabricação (Anos)', 'Ex: 12 ou 15'),
                   ),
                 ],
               ),
@@ -4886,15 +5210,18 @@ class _ProductFormCardState extends State<_ProductFormCard> {
               Row(
                 children: [
                   Expanded(
-                    child: _dynField('inverterPowerKwp', 'Potência do Inversor (kWp)', 'Ex: 5.0, 15.0'),
+                    child: _dynField('inverterPowerKwp',
+                        'Potência do Inversor (kWp)', 'Ex: 5.0, 15.0'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('overloadMaxKwp', 'Overload Máx (kWp)', 'Ex: 7.5, 22.5'),
+                    child: _dynField('overloadMaxKwp', 'Overload Máx (kWp)',
+                        'Ex: 7.5, 22.5'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('mfgWarrantyYears', 'Garantia de Fabricação (Anos)', 'Ex: 5 ou 10'),
+                    child: _dynField('mfgWarrantyYears',
+                        'Garantia de Fabricação (Anos)', 'Ex: 5 ou 10'),
                   ),
                 ],
               ),
@@ -4906,15 +5233,18 @@ class _ProductFormCardState extends State<_ProductFormCard> {
               Row(
                 children: [
                   Expanded(
-                    child: _dynField('microPowerKwp', 'Potência do Micro (kWp)', 'Ex: 2.0, 2.25'),
+                    child: _dynField('microPowerKwp', 'Potência do Micro (kWp)',
+                        'Ex: 2.0, 2.25'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('overloadMaxKwp', 'Overload Máx (kWp)', 'Ex: 3.0'),
+                    child: _dynField(
+                        'overloadMaxKwp', 'Overload Máx (kWp)', 'Ex: 3.0'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('mfgWarrantyYears', 'Garantia de Fabricação (Anos)', 'Ex: 12 ou 15'),
+                    child: _dynField('mfgWarrantyYears',
+                        'Garantia de Fabricação (Anos)', 'Ex: 12 ou 15'),
                   ),
                 ],
               ),
@@ -4926,15 +5256,18 @@ class _ProductFormCardState extends State<_ProductFormCard> {
               Row(
                 children: [
                   Expanded(
-                    child: _dynField('batteryCapacityKwh', 'Capacidade (kWh)', 'Ex: 5.12, 10.0'),
+                    child: _dynField('batteryCapacityKwh', 'Capacidade (kWh)',
+                        'Ex: 5.12, 10.0'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('batteryVoltage', 'Tensão Nominal (V/Ah)', 'Ex: 51.2V / 100Ah'),
+                    child: _dynField('batteryVoltage', 'Tensão Nominal (V/Ah)',
+                        'Ex: 51.2V / 100Ah'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _dynField('mfgWarrantyYears', 'Garantia de Fabricação (Anos)', 'Ex: 10'),
+                    child: _dynField('mfgWarrantyYears',
+                        'Garantia de Fabricação (Anos)', 'Ex: 10'),
                   ),
                 ],
               ),
@@ -4947,11 +5280,13 @@ class _ProductFormCardState extends State<_ProductFormCard> {
             Row(
               children: [
                 Expanded(
-                  child: _dynField('brand', 'Fabricante / Marca', 'Ex: Canadian, Growatt, Clamper...'),
+                  child: _dynField('brand', 'Fabricante / Marca',
+                      'Ex: Canadian, Growatt, Clamper...'),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _dynField('mfgWarrantyYears', 'Garantia de Fabricação (Anos)', 'Ex: 5 ou 12 anos'),
+                  child: _dynField('mfgWarrantyYears',
+                      'Garantia de Fabricação (Anos)', 'Ex: 5 ou 12 anos'),
                 ),
               ],
             ),
@@ -5373,14 +5708,17 @@ class _ProductFormCardState extends State<_ProductFormCard> {
     );
   }
 
-  Widget _label(String text) => Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF475569),
-        ),
-      );
+  Widget _label(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Text(
+      text,
+      style: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -5401,17 +5739,21 @@ class _FormSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = customColor ?? AppColors.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: isDark ? const Color(0xFF0F172A) : color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(
+            color: isDark
+                ? const Color(0xFF334155)
+                : color.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 18),
+          Icon(icon, color: isDark ? const Color(0xFF818CF8) : color, size: 18),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -5422,14 +5764,16 @@ class _FormSectionHeader extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: color,
+                  color: isDark ? const Color(0xFF818CF8) : color,
                 ),
               ),
               Text(
                 subtitle,
                 style: GoogleFonts.inter(
                   fontSize: 11,
-                  color: color.withValues(alpha: 0.8),
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : color.withValues(alpha: 0.8),
                 ),
               ),
             ],

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -27,6 +28,7 @@ import 'widgets/proposal_product_picker_dialog.dart';
 import 'widgets/proposal_kanban_view.dart';
 import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
 import '../../solar_designer/domain/models/roof_study_model.dart';
+import '../../solar_designer/data/repositories/roof_study_repository.dart';
 import '../../solar_designer/data/services/solar_study_pdf_service.dart';
 import 'widgets/proposal_roof_study_picker_dialog.dart';
 
@@ -36,12 +38,16 @@ import 'widgets/proposal_roof_study_picker_dialog.dart';
 class ProposalsView extends StatefulWidget {
   final UserModel? currentUser;
   final ProposalItemModel? initialItem;
+  final ClientModel? initialClient;
+  final RoofStudyModel? initialRoofStudy;
   final VoidCallback? onClearInitialItem;
 
   const ProposalsView({
     super.key,
     this.currentUser,
     this.initialItem,
+    this.initialClient,
+    this.initialRoofStudy,
     this.onClearInitialItem,
   });
 
@@ -60,22 +66,28 @@ class _ProposalsViewState extends State<ProposalsView> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialItem != null) {
+    if (widget.initialItem != null || widget.initialRoofStudy != null) {
       _isCreatingOrEditing = true;
       _proposalToEdit = null;
       _activeInitialItem = widget.initialItem;
+      _aiLinkedClient = widget.initialClient;
+      _activeRoofStudy = widget.initialRoofStudy;
     }
   }
 
   @override
   void didUpdateWidget(covariant ProposalsView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialItem != null &&
-        widget.initialItem != oldWidget.initialItem) {
+    if ((widget.initialItem != null &&
+            widget.initialItem != oldWidget.initialItem) ||
+        (widget.initialRoofStudy != null &&
+            widget.initialRoofStudy != oldWidget.initialRoofStudy)) {
       setState(() {
         _isCreatingOrEditing = true;
         _proposalToEdit = null;
         _activeInitialItem = widget.initialItem;
+        _aiLinkedClient = widget.initialClient;
+        _activeRoofStudy = widget.initialRoofStudy;
       });
     }
   }
@@ -460,12 +472,12 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
     }
   }
 
-  Widget _buildViewModeToggle(bool isMobile) {
+  Widget _buildViewModeToggle(bool isMobile, bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
       ),
       padding: const EdgeInsets.all(3),
       child: Row(
@@ -475,6 +487,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
             label: isMobile ? '' : 'Tabela',
             icon: Icons.table_rows_rounded,
             isSelected: !_isKanbanMode,
+            isDark: isDark,
             onTap: () => _setKanbanMode(false),
           ),
           const SizedBox(width: 2),
@@ -482,6 +495,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
             label: isMobile ? '' : 'Kanban',
             icon: Icons.view_kanban_rounded,
             isSelected: _isKanbanMode,
+            isDark: isDark,
             onTap: () => _setKanbanMode(true),
           ),
         ],
@@ -493,6 +507,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
     required String label,
     required IconData icon,
     required bool isSelected,
+    required bool isDark,
     required VoidCallback onTap,
   }) {
     return Material(
@@ -507,12 +522,12 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
             vertical: 7,
           ),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? (isDark ? const Color(0xFF1E293B) : Colors.white) : Colors.transparent,
             borderRadius: BorderRadius.circular(9),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),
@@ -525,7 +540,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
               Icon(
                 icon,
                 size: 16,
-                color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+                color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
               ),
               if (label.isNotEmpty) ...[
                 const SizedBox(width: 6),
@@ -534,7 +549,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                   style: GoogleFonts.inter(
                     fontSize: 12.5,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+                    color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                   ),
                 ),
               ],
@@ -570,13 +585,13 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                       style: GoogleFonts.outfit(
                           fontSize: isMobile ? 20 : 26,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A)),
+                          color: isDark ? Colors.white : const Color(0xFF0F172A)),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Emissão inteligente de orçamentos, PDF e funil Kanban',
                       style: GoogleFonts.inter(
-                          fontSize: isMobile ? 12 : 14, color: const Color(0xFF64748B)),
+                          fontSize: isMobile ? 12 : 14, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -585,7 +600,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Toggle Switcher Modo Tabela / Modo Kanban
-                  _buildViewModeToggle(isMobile),
+                  _buildViewModeToggle(isMobile, isDark),
 
                   // Botão CRIAR COM IA & Botão NOVA PROPOSTA (Apenas se tiver permissão)
                   if (widget.currentUser?.canCreateProposals ?? _currentUser?.canCreateProposals ?? false) ...[
@@ -722,24 +737,28 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
           if (isMobile) ...[
             TextField(
               controller: _searchCtrl,
+              style: GoogleFonts.inter(fontSize: 12.5, color: isDark ? Colors.white : const Color(0xFF0F172A)),
               onChanged: (v) =>
                   setState(() => _query = v.trim().toLowerCase()),
               decoration: InputDecoration(
                 hintText: 'Buscar por proposta, cliente...',
                 hintStyle: GoogleFonts.inter(
-                    fontSize: 12.5, color: const Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: Color(0xFF64748B), size: 18),
+                    fontSize: 12.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF94A3B8)),
+                prefixIcon: Icon(Icons.search_rounded,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), size: 18),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 8),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border)),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : AppColors.border)),
                 enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border)),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : AppColors.border)),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
               ),
             ),
             const SizedBox(height: 8),
@@ -959,7 +978,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                                         child: Text(
                                           u.name,
                                           overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.inter(fontSize: 13),
+                                          style: GoogleFonts.inter(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                                         ),
                                       ),
                                     ],
@@ -999,7 +1018,8 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                   return Center(
                     child: Text(
                         'Erro ao carregar propostas:\n${snap.error}',
-                        textAlign: TextAlign.center),
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                   );
                 }
 
@@ -1039,9 +1059,9 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                 if (filtered.isEmpty) {
                   return Container(
                     decoration: BoxDecoration(
-                      color: isMobile ? Colors.transparent : Colors.white,
+                      color: isMobile ? Colors.transparent : (isDark ? const Color(0xFF1E293B) : Colors.white),
                       borderRadius: BorderRadius.circular(16),
-                      border: isMobile ? null : Border.all(color: AppColors.border),
+                      border: isMobile ? null : Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                     ),
                     child: _ProposalEmptyState(
                       isEmpty: all.isEmpty,
@@ -1053,14 +1073,14 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: isMobile ? Colors.transparent : Colors.white,
+                    color: isMobile ? Colors.transparent : (isDark ? const Color(0xFF1E293B) : Colors.white),
                     borderRadius: BorderRadius.circular(16),
-                    border: isMobile ? null : Border.all(color: AppColors.border),
+                    border: isMobile ? null : Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                     boxShadow: isMobile
                         ? null
                         : [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
+                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -1072,7 +1092,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                       children: [
                         if (!isMobile) ...[
                           _ProposalTableHeader(),
-                          const Divider(height: 1, color: AppColors.divider),
+                          Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                         ],
                         Expanded(
                           child: isMobile
@@ -1095,8 +1115,8 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                                 )
                               : ListView.separated(
                                   itemCount: filtered.length,
-                                  separatorBuilder: (_, __) => const Divider(
-                                      height: 1, color: AppColors.divider),
+                                  separatorBuilder: (_, __) => Divider(
+                                      height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                                   itemBuilder: (_, i) {
                                     final proposal = filtered[i];
                                     return _ProposalRow(
@@ -1152,17 +1172,18 @@ class _ProposalMobileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final themeColor = Color(proposal.themeColorValue);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1202,7 +1223,7 @@ class _ProposalMobileCard extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
+                                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -1210,7 +1231,7 @@ class _ProposalMobileCard extends StatelessWidget {
                                   style: GoogleFonts.inter(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF334155),
+                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155),
                                   ),
                                 ),
                               ),
@@ -1223,7 +1244,7 @@ class _ProposalMobileCard extends StatelessWidget {
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
-                                    color: const Color(0xFF0F172A),
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                                   ),
                                 ),
                               ),
@@ -1234,7 +1255,7 @@ class _ProposalMobileCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   proposal.clientName,
-                                  style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B)),
+                                  style: GoogleFonts.inter(fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1244,9 +1265,9 @@ class _ProposalMobileCard extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF),
+                                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFEFF6FF),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -1290,7 +1311,7 @@ class _ProposalMobileCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Divider(height: 1, color: AppColors.divider),
+                Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -1369,22 +1390,23 @@ class _ProposalMobileCard extends StatelessWidget {
 class _ProposalTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: const Color(0xFFF8FAFC),
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       child: Row(
         children: [
-          _col('PROPOSTA & CLIENTE', flex: 4),
-          _col('VALOR TOTAL', flex: 2),
-          _col('CONDIÇÃO / VALIDADE', flex: 3),
-          _col('STATUS', flex: 2),
+          _col('PROPOSTA & CLIENTE', flex: 4, isDark: isDark),
+          _col('VALOR TOTAL', flex: 2, isDark: isDark),
+          _col('CONDIÇÃO / VALIDADE', flex: 3, isDark: isDark),
+          _col('STATUS', flex: 2, isDark: isDark),
           const SizedBox(width: 240), // Coluna de Ações (Web, Link, WhatsApp, PDF, Editar, Status, Excluir)
         ],
       ),
     );
   }
 
-  Widget _col(String label, {required int flex}) {
+  Widget _col(String label, {required int flex, required bool isDark}) {
     return Expanded(
       flex: flex,
       child: Text(
@@ -1392,7 +1414,7 @@ class _ProposalTableHeader extends StatelessWidget {
         style: GoogleFonts.inter(
           fontWeight: FontWeight.bold,
           fontSize: 11,
-          color: const Color(0xFF64748B),
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
           letterSpacing: 0.5,
         ),
       ),
@@ -1426,6 +1448,7 @@ class _ProposalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final themeColor = Color(proposal.themeColorValue);
     final dateFormat = DateFormat('dd/MM/yyyy');
 
@@ -1464,7 +1487,7 @@ class _ProposalRow extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -1472,7 +1495,7 @@ class _ProposalRow extends StatelessWidget {
                               style: GoogleFonts.inter(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF334155),
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155),
                               ),
                             ),
                           ),
@@ -1484,7 +1507,7 @@ class _ProposalRow extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0F172A),
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                                   fontSize: 13),
                             ),
                           ),
@@ -1498,7 +1521,7 @@ class _ProposalRow extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
-                                  fontSize: 11.5, color: const Color(0xFF64748B)),
+                                  fontSize: 11.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                             ),
                           ),
                           if (proposal.createdByUserName != null && proposal.createdByUserName!.isNotEmpty) ...[
@@ -1506,9 +1529,9 @@ class _ProposalRow extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFEFF6FF),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1574,12 +1597,12 @@ class _ProposalRow extends StatelessWidget {
                   style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF334155)),
+                      color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
                 ),
                 Text(
                   'Validade: ${dateFormat.format(proposal.expirationDate)} (${proposal.validityDays}d)',
                   style: GoogleFonts.inter(
-                      fontSize: 11, color: const Color(0xFF64748B)),
+                      fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                 ),
               ],
             ),
@@ -1972,11 +1995,33 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _notesCtrl.text = p.notes ?? '';
       _themeColorValue = p.themeColorValue;
       _selectedStatus = p.status;
+      if (p.roofStudyId != null && p.roofStudyId!.isNotEmpty) {
+        RoofStudyRepository().getStudyById(p.roofStudyId!).then((study) {
+          if (study != null && mounted) {
+            setState(() => _linkedRoofStudy = study);
+          }
+        });
+      } else {
+        // Se a proposta não tinha roofStudyId salvo, verifica se algum item possui vínculo
+        for (final item in p.items) {
+          if (item.roofStudyId != null && item.roofStudyId!.isNotEmpty) {
+            _autoLinkStudyFromItem(item);
+            break;
+          }
+        }
+      }
     } else {
+      if (widget.initialRoofStudy != null) {
+        _linkedRoofStudy = widget.initialRoofStudy;
+      }
+
       if (widget.initialItem != null) {
         _items.add(widget.initialItem!);
         if (widget.initialItem!.isSolarPlant) {
           _titleCtrl.text = 'Proposta Comercial - ${widget.initialItem!.name}';
+        }
+        if (_linkedRoofStudy == null) {
+          _autoLinkStudyFromItem(widget.initialItem!);
         }
       }
       if (widget.initialClient != null) {
@@ -2185,6 +2230,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           setState(() {
             _items.add(newItem);
           });
+          if (_linkedRoofStudy == null) {
+            _autoLinkStudyFromItem(newItem);
+          }
         },
       ),
     );
@@ -2216,6 +2264,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 setState(() {
                   _items.add(solarItem);
                 });
+                if (_linkedRoofStudy == null) {
+                  _autoLinkStudyFromItem(solarItem);
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -2232,13 +2283,95 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     );
   }
 
+  /// Auto-vincula o Estudo Fotovoltaico à proposta a partir do item ou de seu produto
+  void _autoLinkStudyFromItem(ProposalItemModel item) async {
+    String? studyId = item.roofStudyId;
+
+    // Se o item não possui o studyId direto, busca no produto do catálogo pelo specificAttributes['roofStudyId']
+    if ((studyId == null || studyId.isEmpty) && item.productId != null && item.productId!.isNotEmpty) {
+      try {
+        final prodDoc = await FirebaseFirestore.instance.collection('products').doc(item.productId).get();
+        if (prodDoc.exists && prodDoc.data() != null) {
+          final attrs = prodDoc.data()!['specificAttributes'] as Map<String, dynamic>?;
+          studyId = attrs?['roofStudyId'] as String?;
+        }
+      } catch (e) {
+        debugPrint('[ProposalsView] Erro ao buscar produto para auto-vínculo de estudo: $e');
+      }
+    }
+
+    if (studyId != null && studyId.isNotEmpty && mounted) {
+      try {
+        final study = await RoofStudyRepository().getStudyById(studyId);
+        if (study != null && mounted) {
+          setState(() {
+            _linkedRoofStudy = study;
+
+            // Se os dados do cliente na proposta estiverem vazios, preenche com os dados do cliente do estudo
+            if ((_clientNameCtrl.text.isEmpty || _selectedClientId == null) &&
+                study.clientName != null &&
+                study.clientName!.isNotEmpty) {
+              if (study.clientId != null && study.clientId!.isNotEmpty) {
+                _isClientLinked = true;
+                _selectedClientId = study.clientId;
+              }
+              _clientNameCtrl.text = study.clientName!;
+              if (study.formattedAddress.isNotEmpty && _clientAddrCtrl.text.isEmpty) {
+                _clientAddrCtrl.text = study.formattedAddress;
+              }
+            }
+          });
+          debugPrint('[ProposalsView] Estudo Fotovoltaico "${study.name}" auto-vinculado com sucesso à proposta!');
+        }
+      } catch (e) {
+        debugPrint('[ProposalsView] Erro ao carregar estudo para auto-vínculo: $e');
+      }
+    }
+  }
+
   void _openRoofStudyPicker() async {
-    final study = await ProposalRoofStudyPickerDialog.show(
+    final selectedStudy = await ProposalRoofStudyPickerDialog.show(
       context,
       currentUser: widget.currentUser ?? _currentUser,
       companyId: _companyId,
     );
-    if (study != null && mounted) {
+    if (selectedStudy != null && mounted) {
+      // Carrega o estudo completo com todas as fotos HD da subcoleção se existirem
+      RoofStudyModel study = selectedStudy;
+      try {
+        final fullStudy = await RoofStudyRepository().getStudyById(selectedStudy.id);
+        if (fullStudy != null) {
+          study = fullStudy;
+        }
+      } catch (_) {}
+
+      // 1. Tenta recuperar a Usina Solar cadastrada no catálogo a partir deste estudo
+      ProductModel? linkedPlantProduct;
+      try {
+        if (study.solarPlantProductId != null && study.solarPlantProductId!.isNotEmpty) {
+          final doc = await FirebaseFirestore.instance
+              .collection('products')
+              .doc(study.solarPlantProductId)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            linkedPlantProduct = ProductModel.fromMap(doc.data()!, doc.id);
+          }
+        }
+        if (linkedPlantProduct == null) {
+          // Busca por specificAttributes.roofStudyId
+          final qs = await FirebaseFirestore.instance
+              .collection('products')
+              .where('specificAttributes.roofStudyId', isEqualTo: study.id)
+              .limit(1)
+              .get();
+          if (qs.docs.isNotEmpty) {
+            linkedPlantProduct = ProductModel.fromMap(qs.docs.first.data(), qs.docs.first.id);
+          }
+        }
+      } catch (e) {
+        debugPrint('Erro ao buscar usina solar vinculada ao estudo: $e');
+      }
+
       setState(() {
         _linkedRoofStudy = study;
 
@@ -2256,50 +2389,74 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           }
         }
 
-        // Monta os componentes com base no estudo
-        final components = <String>[];
-        final calcWatts = study.totalModulesCount > 0
-            ? (study.totalKwp * 1000.0) / study.totalModulesCount
-            : 550.0;
-        final roundedWatts = (calcWatts / 5).round() * 5;
+        // Se encontrou a Usina Solar cadastrada no catálogo para este estudo:
+        if (linkedPlantProduct != null) {
+          final plantItem = ProposalItemModel.fromProduct(linkedPlantProduct);
+          _items.add(plantItem);
+        } else {
+          // Fallback: Monta os componentes com base no estudo e usa o preço real
+          final components = <String>[];
+          final calcWatts = study.totalModulesCount > 0
+              ? (study.totalKwp * 1000.0) / study.totalModulesCount
+              : 550.0;
+          final roundedWatts = (calcWatts / 5).round() * 5;
 
-        components.add('${study.totalModulesCount}x Módulos Fotovoltaicos de ${roundedWatts}W');
-        if (study.estimatedMonthlyKwh > 0) {
-          components.add('Geração Média Estimada: ~${study.estimatedMonthlyKwh.toStringAsFixed(0)} kWh/mês');
+          if (study.moduleModel != null && study.moduleModel!.isNotEmpty) {
+            components.add('${study.totalModulesCount}x Módulos Fotovoltaicos ${study.moduleModel}');
+          } else {
+            components.add('${study.totalModulesCount}x Módulos Fotovoltaicos de ${roundedWatts}W');
+          }
+
+          if (study.inverterModel != null && study.inverterModel!.isNotEmpty) {
+            components.add('Inversor: ${study.inverterModel}');
+          }
+
+          if (study.structureType != null && study.structureType!.isNotEmpty) {
+            components.add('Estrutura: ${study.structureType}');
+          }
+
+          if (study.estimatedMonthlyKwh > 0) {
+            components.add('Geração Média Estimada: ~${study.estimatedMonthlyKwh.toStringAsFixed(0)} kWh/mês');
+          }
+          if (study.studyPhotos.isNotEmpty) {
+            components.add('${study.studyPhotos.length} Fotos do Estudo de Telhado & Sombreamento');
+          }
+
+          final plantItemName = study.solarPlantName ?? 'Usina Solar Fotovoltaica ${study.totalKwp.toStringAsFixed(2)} kWp (${study.name})';
+          final price = (study.solarPlantPrice != null && study.solarPlantPrice! > 0)
+              ? study.solarPlantPrice!
+              : (study.totalKwp * 2900.0);
+
+          final plantItem = ProposalItemModel(
+            name: plantItemName,
+            quantity: 1,
+            unit: 'kit',
+            unitPrice: price,
+            totalPrice: price,
+            isSolarPlant: true,
+            solarKilowatts: study.totalKwp,
+            solarRoofType: study.structureType ?? 'Cerâmico',
+            solarComponents: components,
+            moduleWatts: roundedWatts.toDouble(),
+          );
+
+          _items.add(plantItem);
         }
-        if (study.studyPhotos.isNotEmpty) {
-          components.add('${study.studyPhotos.length} Fotos do Estudo de Telhado & Sombreamento');
-        }
 
-        // Adiciona a Usina Solar derivada do estudo aos itens da proposta
-        final plantItemName = 'Usina Solar Fotovoltaica ${study.totalKwp.toStringAsFixed(2)} kWp (${study.name})';
-        final price = (study.totalKwp * 2900.0);
-        final plantItem = ProposalItemModel(
-          name: plantItemName,
-          quantity: 1,
-          unit: 'kit',
-          unitPrice: price,
-          totalPrice: price,
-          isSolarPlant: true,
-          solarKilowatts: study.totalKwp,
-          solarRoofType: 'Cerâmico',
-          solarComponents: components,
-          moduleWatts: roundedWatts.toDouble(),
-        );
-
-        _items.add(plantItem);
         if (_titleCtrl.text.isEmpty || _titleCtrl.text.trim() == 'Proposta Comercial de Fornecimento') {
           _titleCtrl.text = 'Proposta Comercial - Usina Solar ${study.totalKwp.toStringAsFixed(2)} kWp';
         }
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Estudo Solar "${study.name}" (${study.totalKwp.toStringAsFixed(2)} kWp) vinculado com sucesso!'),
-          backgroundColor: const Color(0xFF10B981),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Estudo Solar "${study.name}" (${study.totalKwp.toStringAsFixed(2)} kWp) vinculado com sucesso!'),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -2488,6 +2645,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       deliveryTime: _deliveryTimeCtrl.text.trim(),
       notes: _notesCtrl.text.trim(),
       themeColorValue: _themeColorValue,
+      roofStudyId: _linkedRoofStudy?.id ?? widget.proposal?.roofStudyId,
+      linkedRoofStudy: _linkedRoofStudy ?? widget.proposal?.linkedRoofStudy,
       status: _selectedStatus,
       createdAt: widget.proposal?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
@@ -2506,7 +2665,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     final proposal = _buildCurrentProposalModel();
     showDialog(
       context: context,
-      builder: (ctx) => ProposalPdfPreviewDialog(proposal: proposal),
+      builder: (ctx) => ProposalPdfPreviewDialog(
+        proposal: proposal,
+        roofStudy: _linkedRoofStudy ?? proposal.linkedRoofStudy,
+      ),
     );
   }
 
@@ -2555,6 +2717,19 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
         return item;
       }).toList();
 
+      String? roofStudyIdToSave = _linkedRoofStudy?.id ?? widget.proposal?.roofStudyId;
+      if (roofStudyIdToSave == null || roofStudyIdToSave.isEmpty) {
+        for (final it in itemsToSave) {
+          if (it.roofStudyId != null && it.roofStudyId!.isNotEmpty) {
+            roofStudyIdToSave = it.roofStudyId;
+            break;
+          }
+        }
+      }
+
+      String? savedProposalId;
+      String? savedProposalCode;
+
       if (_isEditing) {
         final updated = widget.proposal!.copyWith(
           title: title,
@@ -2574,11 +2749,15 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           deliveryTime: _deliveryTimeCtrl.text.trim(),
           notes: _notesCtrl.text.trim(),
           themeColorValue: _themeColorValue,
+          roofStudyId: roofStudyIdToSave,
+          linkedRoofStudy: _linkedRoofStudy ?? widget.proposal?.linkedRoofStudy,
           status: _selectedStatus,
         );
         await _proposalRepo.updateProposal(updated);
+        savedProposalId = updated.id;
+        savedProposalCode = updated.proposalNumber;
       } else {
-        await _proposalRepo.createProposal(
+        final created = await _proposalRepo.createProposal(
           title: title,
           clientId: _isClientLinked ? _selectedClientId : null,
           clientName: clientName.isNotEmpty ? clientName : 'Consumidor Final',
@@ -2596,9 +2775,26 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           deliveryTime: _deliveryTimeCtrl.text.trim(),
           notes: _notesCtrl.text.trim(),
           themeColorValue: _themeColorValue,
+          roofStudyId: roofStudyIdToSave,
           status: _selectedStatus,
           companyId: _companyId,
         );
+        savedProposalId = created.id;
+        savedProposalCode = created.proposalNumber;
+      }
+
+      if (roofStudyIdToSave != null && roofStudyIdToSave.isNotEmpty) {
+        try {
+          await RoofStudyRepository().updateStudyLinks(
+            roofStudyIdToSave,
+            proposalId: savedProposalId,
+            proposalCode: '#$savedProposalCode',
+            clientId: _isClientLinked ? _selectedClientId : null,
+            clientName: clientName.isNotEmpty ? clientName : null,
+          );
+        } catch (e) {
+          debugPrint('[ProposalsView] Erro ao sincronizar vinculo no estudo: $e');
+        }
       }
 
       if (mounted) {
@@ -2627,6 +2823,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
     final currencyFormat =
         NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 12 : 32),
@@ -2634,12 +2831,12 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
         child: Container(
           constraints: const BoxConstraints(maxWidth: 1040),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -2677,13 +2874,13 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                 style: GoogleFonts.outfit(
                                   fontSize: isMobile ? 18 : 22,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0F172A),
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ),
                               Text(
                                 isMobile ? 'Preencha os dados e gere o PDF' : 'Preencha os dados do cliente, itens do orçamento e gere o PDF executivo',
                                 style: GoogleFonts.inter(
-                                    fontSize: 12, color: const Color(0xFF64748B)),
+                                    fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -2744,17 +2941,17 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       borderRadius: BorderRadius.circular(10),
                       child: Ink(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                         ),
                         padding: EdgeInsets.symmetric(
                             horizontal: isMobile ? 12 : 16, vertical: 10),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.arrow_back_rounded,
-                                size: 16, color: Color(0xFF64748B)),
+                            Icon(Icons.arrow_back_rounded,
+                                size: 16, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                             if (!isMobile) ...[
                               const SizedBox(width: 8),
                               Text(
@@ -2762,7 +2959,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
-                                  color: const Color(0xFF64748B),
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                                 ),
                               ),
                             ],
@@ -2775,7 +2972,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               ),
 
               const SizedBox(height: 16),
-              const Divider(color: AppColors.divider),
+              Divider(color: isDark ? const Color(0xFF334155) : AppColors.divider),
               const SizedBox(height: 14),
 
               if (_errorMessage != null) ...[
@@ -2883,12 +3080,12 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         decoration: BoxDecoration(
                           color: _isClientLinked
                               ? AppColors.primary.withValues(alpha: 0.08)
-                              : Colors.white,
+                              : (isDark ? const Color(0xFF0F172A) : Colors.white),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _isClientLinked
                                 ? AppColors.primary
-                                : AppColors.border,
+                                : (isDark ? const Color(0xFF334155) : AppColors.border),
                             width: _isClientLinked ? 1.8 : 1,
                           ),
                         ),
@@ -2912,7 +3109,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                   fontSize: 12.5,
                                   color: _isClientLinked
                                       ? AppColors.primary
-                                      : const Color(0xFF0F172A),
+                                      : (isDark ? Colors.white : const Color(0xFF0F172A)),
                                 ),
                               ),
                             ),
@@ -2929,12 +3126,12 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         decoration: BoxDecoration(
                           color: !_isClientLinked
                               ? AppColors.primary.withValues(alpha: 0.08)
-                              : Colors.white,
+                              : (isDark ? const Color(0xFF0F172A) : Colors.white),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: !_isClientLinked
                                 ? AppColors.primary
-                                : AppColors.border,
+                                : (isDark ? const Color(0xFF334155) : AppColors.border),
                             width: !_isClientLinked ? 1.8 : 1,
                           ),
                         ),
@@ -2958,7 +3155,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                   fontSize: 12.5,
                                   color: !_isClientLinked
                                       ? AppColors.primary
-                                      : const Color(0xFF0F172A),
+                                      : (isDark ? Colors.white : const Color(0xFF0F172A)),
                                 ),
                               ),
                             ),
@@ -2981,12 +3178,12 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           decoration: BoxDecoration(
                             color: _isClientLinked
                                 ? AppColors.primary.withValues(alpha: 0.08)
-                                : Colors.white,
+                                : (isDark ? const Color(0xFF0F172A) : Colors.white),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: _isClientLinked
                                   ? AppColors.primary
-                                  : AppColors.border,
+                                  : (isDark ? const Color(0xFF334155) : AppColors.border),
                               width: _isClientLinked ? 1.8 : 1,
                             ),
                           ),
@@ -3013,14 +3210,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                         fontSize: 13,
                                         color: _isClientLinked
                                             ? AppColors.primary
-                                            : const Color(0xFF0F172A),
+                                            : (isDark ? Colors.white : const Color(0xFF0F172A)),
                                       ),
                                     ),
                                     Text(
                                       'Carrega dados cadastrais automaticamente',
                                       style: GoogleFonts.inter(
                                           fontSize: 11,
-                                          color: const Color(0xFF64748B)),
+                                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                                     ),
                                   ],
                                 ),
@@ -3041,12 +3238,12 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           decoration: BoxDecoration(
                             color: !_isClientLinked
                                 ? AppColors.primary.withValues(alpha: 0.08)
-                                : Colors.white,
+                                : (isDark ? const Color(0xFF0F172A) : Colors.white),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: !_isClientLinked
                                   ? AppColors.primary
-                                  : AppColors.border,
+                                  : (isDark ? const Color(0xFF334155) : AppColors.border),
                               width: !_isClientLinked ? 1.8 : 1,
                             ),
                           ),
@@ -3073,14 +3270,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                         fontSize: 13,
                                         color: !_isClientLinked
                                             ? AppColors.primary
-                                            : const Color(0xFF0F172A),
+                                            : (isDark ? Colors.white : const Color(0xFF0F172A)),
                                       ),
                                     ),
                                     Text(
                                       'Emita rapidamente digitando dados avulsos',
                                       style: GoogleFonts.inter(
                                           fontSize: 11,
-                                          color: const Color(0xFF64748B)),
+                                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                                     ),
                                   ],
                                 ),
@@ -3361,140 +3558,161 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   ],
                 ),
               ] else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _sectionHeader(
-                        Icons.inventory_2_outlined,
-                        'Itens & Produtos da Proposta',
-                        'Adicione quantos produtos do catálogo desejar ou crie sob medida'),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Botão Criar Usina Solar (Apenas se tiver permissão)
-                        if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _openSolarPlantDialog,
-                              borderRadius: BorderRadius.circular(10),
-                              child: Ink(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFEA580C)
-                                          .withValues(alpha: 0.25),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 10),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.solar_power_rounded,
-                                        color: Colors.white, size: 16),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'MONTAR USINA SOLAR',
-                                      style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-
-                        // Botão Vincular Estudo Solar 3D (Desktop)
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _openRoofStudyPicker,
-                            borderRadius: BorderRadius.circular(10),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF0284C7)
-                                        .withValues(alpha: 0.25),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.roofing_rounded,
-                                      color: Colors.white, size: 16),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'VINCULAR ESTUDO SOLAR (3D)',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        Expanded(
+                          child: _sectionHeader(
+                            Icons.inventory_2_outlined,
+                            'Itens & Produtos da Proposta',
+                            'Adicione quantos produtos do catálogo desejar ou crie sob medida',
                           ),
                         ),
-
-                        // Botão Adicionar Item / Produto
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _openProductPicker,
-                            borderRadius: BorderRadius.circular(10),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                gradient: AppColors.primaryGradient,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.add_shopping_cart_rounded,
-                                      color: Colors.white, size: 16),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'ADICIONAR USINA EXISTENTE / PRODUTO',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white),
+                        const SizedBox(width: 14),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            // Botão Criar Usina Solar (Apenas se tiver permissão)
+                            if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _openSolarPlantDialog,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Ink(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFEA580C)
+                                              .withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 10),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.solar_power_rounded,
+                                            color: Colors.white, size: 16),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'MONTAR USINA SOLAR',
+                                          style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ],
+                                ),
+                              ),
+                            ],
+
+                            // Botão Vincular Estudo Solar 3D (Desktop)
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _openRoofStudyPicker,
+                                borderRadius: BorderRadius.circular(10),
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF0284C7)
+                                            .withValues(alpha: 0.25),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.roofing_rounded,
+                                          color: Colors.white, size: 16),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'VINCULAR ESTUDO SOLAR (3D)',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Linha de baixo: Botão Adicionar Usina Existente / Produto
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openProductPicker,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(alpha: 0.22),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 9.5),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add_shopping_cart_rounded,
+                                    color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'ADICIONAR USINA EXISTENTE / PRODUTO',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -3507,7 +3725,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
               // Tabela Dinâmica de Itens
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ClipRRect(
@@ -3519,23 +3737,23 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 10),
-                          color: const Color(0xFFF8FAFC),
+                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                           child: Row(
-                            children: const [
+                            children: [
                               SizedBox(
                                   width: 28,
                                   child: Text('#',
                                       style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
-                                          color: Color(0xFF64748B)))),
+                                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)))),
                               Expanded(
                                   flex: 5,
                                   child: Text('ITEM / DESCRIÇÃO',
                                       style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
-                                          color: Color(0xFF64748B)))),
+                                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)))),
                               SizedBox(
                                   width: 70,
                                   child: Center(
@@ -3543,7 +3761,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 11,
-                                              color: Color(0xFF64748B))))),
+                                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
                               SizedBox(
                                   width: 45,
                                   child: Center(
@@ -3551,7 +3769,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 11,
-                                              color: Color(0xFF64748B))))),
+                                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
                               SizedBox(
                                   width: 110,
                                   child: Align(
@@ -3560,7 +3778,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 11,
-                                              color: Color(0xFF64748B))))),
+                                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
                               SizedBox(
                                   width: 80,
                                   child: Center(
@@ -3568,7 +3786,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 11,
-                                              color: Color(0xFF64748B))))),
+                                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
                               SizedBox(
                                   width: 110,
                                   child: Align(
@@ -3577,12 +3795,12 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 11,
-                                              color: Color(0xFF64748B))))),
-                              SizedBox(width: 45), // Botão de Remover
+                                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
+                              const SizedBox(width: 45), // Botão de Remover
                             ],
                           ),
                         ),
-                        const Divider(height: 1, color: AppColors.divider),
+                        Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                       ],
 
                       if (_items.isEmpty)
@@ -3612,8 +3830,11 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _items.length,
-                          separatorBuilder: (_, __) => const Divider(
-                              height: 1, color: AppColors.divider),
+                          separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : AppColors.divider),
                           itemBuilder: (ctx, idx) {
                             final item = _items[idx];
 
@@ -3631,11 +3852,11 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                           width: 22,
                                           height: 22,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFF1F5F9),
+                                            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Center(
-                                            child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11, color: const Color(0xFF475569))),
+                                            child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569))),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -3665,7 +3886,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                   ),
                                                 ),
                                               ],
-                                              Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A))),
+                                              Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? Colors.white : const Color(0xFF0F172A))),
                                             ],
                                           ),
                                         ),
@@ -3728,10 +3949,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                         Column(
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
-                                            Text('Total', style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF64748B))),
+                                            Text('Total', style: GoogleFonts.inter(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                                             Text(
                                               currencyFormat.format(item.totalPrice),
-                                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A)),
+                                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                                             ),
                                           ],
                                         ),
@@ -3752,7 +3973,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                     child: Text('${idx + 1}',
                                         style: GoogleFonts.inter(
                                             fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF64748B),
+                                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                                             fontSize: 12)),
                                   ),
                                   // Descrição
@@ -3813,8 +4034,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                       horizontal: 6,
                                                       vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color:
-                                                        const Color(0xFFF1F5F9),
+                                                    color: isDark
+                                                        ? const Color(0xFF0F172A)
+                                                        : const Color(0xFFF1F5F9),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                             5),
@@ -3825,8 +4047,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                         fontSize: 10.5,
                                                         fontWeight:
                                                             FontWeight.bold,
-                                                        color: const Color(
-                                                            0xFF334155)),
+                                                        color: isDark
+                                                            ? const Color(0xFFCBD5E1)
+                                                            : const Color(0xFF334155)),
                                                   ),
                                                 ),
                                               ],
@@ -3838,8 +4061,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                   '|  Telhado ${item.solarRoofType}',
                                                   style: GoogleFonts.inter(
                                                       fontSize: 11,
-                                                      color: const Color(
-                                                          0xFF64748B),
+                                                      color: isDark
+                                                          ? const Color(0xFF94A3B8)
+                                                          : const Color(0xFF64748B),
                                                       fontWeight:
                                                           FontWeight.w500),
                                                 ),
@@ -3856,7 +4080,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                 : FontWeight.w600,
                                             fontSize:
                                                 item.isSolarPlant ? 13.5 : 13,
-                                            color: const Color(0xFF0F172A),
+                                            color: isDark
+                                                ? Colors.white
+                                                : const Color(0xFF0F172A),
                                           ),
                                         ),
                                         if (item.sku != null &&
@@ -3864,8 +4090,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                           Text('SKU: ${item.sku}',
                                               style: GoogleFonts.inter(
                                                   fontSize: 11,
-                                                  color:
-                                                      const Color(0xFF64748B))),
+                                                  color: isDark
+                                                      ? const Color(0xFF94A3B8)
+                                                      : const Color(0xFF64748B))),
 
                                         // Lista dos equipamentos/produtos inclusos na Usina Solar
                                         if (item.isSolarPlant &&
@@ -4046,7 +4273,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                         style: GoogleFonts.inter(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 13,
-                                            color: const Color(0xFF0F172A)),
+                                            color: isDark
+                                                ? Colors.white
+                                                : const Color(0xFF0F172A)),
                                       ),
                                     ),
                                   ),
@@ -4080,10 +4309,14 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   margin: const EdgeInsets.only(bottom: 20),
                   padding: EdgeInsets.all(isMobile ? 12 : 14),
                   decoration: BoxDecoration(
-                    color: _showOnlyModulesAndInverters ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC),
+                    color: _showOnlyModulesAndInverters
+                        ? (isDark ? const Color(0xFF451A03).withValues(alpha: 0.3) : const Color(0xFFFFFBEB))
+                        : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _showOnlyModulesAndInverters ? const Color(0xFFFDE68A) : AppColors.border,
+                      color: _showOnlyModulesAndInverters
+                          ? const Color(0xFFF59E0B)
+                          : (isDark ? const Color(0xFF334155) : AppColors.border),
                       width: _showOnlyModulesAndInverters ? 1.5 : 1,
                     ),
                   ),
@@ -4092,7 +4325,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: _showOnlyModulesAndInverters ? const Color(0xFFFEF3C7) : const Color(0xFFEEF2FF),
+                          color: _showOnlyModulesAndInverters
+                              ? (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7))
+                              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF)),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -4111,14 +4346,18 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               style: GoogleFonts.inter(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.bold,
-                                color: _showOnlyModulesAndInverters ? const Color(0xFF92400E) : const Color(0xFF0F172A),
+                                color: _showOnlyModulesAndInverters
+                                    ? (isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E))
+                                    : (isDark ? Colors.white : const Color(0xFF0F172A)),
                               ),
                             ),
                             Text(
                               'Oculta itens secundários no PDF.',
                               style: GoogleFonts.inter(
                                 fontSize: 11,
-                                color: _showOnlyModulesAndInverters ? const Color(0xFFB45309) : const Color(0xFF64748B),
+                                color: _showOnlyModulesAndInverters
+                                    ? const Color(0xFFF59E0B)
+                                    : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                               ),
                             ),
                           ],
@@ -4189,16 +4428,19 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
                         'RESUMO FINANCEIRO',
-                        style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                        style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
                       ),
                       const SizedBox(height: 10),
                       _financeRow('Subtotal:', currencyFormat.format(_subtotal)),
@@ -4206,7 +4448,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Desconto (R\$):', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                          Text('Desconto (R\$):',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                           SizedBox(
                             width: 90,
                             child: TextFormField(
@@ -4224,7 +4469,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Frete (R\$):', style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B))),
+                          Text('Frete (R\$):',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                           SizedBox(
                             width: 90,
                             child: TextFormField(
@@ -4238,7 +4486,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           ),
                         ],
                       ),
-                      const Divider(color: AppColors.divider, height: 16),
+                      Divider(color: isDark ? const Color(0xFF334155) : AppColors.divider, height: 16),
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -4350,9 +4598,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       child: Container(
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
+                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4362,7 +4610,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF475569),
+                                  color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
                                   letterSpacing: 0.5),
                             ),
                             const SizedBox(height: 12),
@@ -4377,7 +4625,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                 Text('Desconto Geral (R\$):',
                                     style: GoogleFonts.inter(
                                         fontSize: 13,
-                                        color: const Color(0xFF64748B))),
+                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                                 SizedBox(
                                   width: 100,
                                   child: TextFormField(
@@ -4406,7 +4654,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                 Text('Frete / Entrega (R\$):',
                                     style: GoogleFonts.inter(
                                         fontSize: 13,
-                                        color: const Color(0xFF64748B))),
+                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                                 SizedBox(
                                   width: 100,
                                   child: TextFormField(
@@ -4427,7 +4675,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            const Divider(color: AppColors.divider),
+                            Divider(color: isDark ? const Color(0xFF334155) : AppColors.divider),
                             const SizedBox(height: 8),
 
                             // Card de Total Geral em Destaque
@@ -4472,71 +4720,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 ),
               ],
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // ── SEÇÃO 4: PERSONALIZAÇÃO DE CORES DO PDF ───────────────────
-              _sectionHeader(Icons.palette_outlined, 'Padrão Visual do PDF',
-                  'Escolha a cor do tema para o cabeçalho e destaques do documento'),
-              const SizedBox(height: 12),
-
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: ProposalPdfThemeOption.allThemes.map((t) {
-                  final isSelected = t.primaryColorValue == _themeColorValue;
-                  return InkWell(
-                    onTap: () =>
-                        setState(() => _themeColorValue = t.primaryColorValue),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? t.primaryColor.withValues(alpha: 0.1)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? t.primaryColor : AppColors.border,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: t.primaryColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            t.label,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.w500,
-                              color: isSelected
-                                  ? t.primaryColor
-                                  : const Color(0xFF334155),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 28),
-              const Divider(color: AppColors.divider),
-              const SizedBox(height: 16),
-
-              // ── BOTÕES DE AÇÃO NO RODAPÉ ───────────────────────────────────
+              // ── BOTÕES DE AÇÃO: CANCELAR E SALVAR ──────────────────────────
               if (isMobile) ...[
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4550,6 +4736,13 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           decoration: BoxDecoration(
                             gradient: AppColors.primaryGradient,
                             borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           child: _isLoading
@@ -4582,17 +4775,25 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         borderRadius: BorderRadius.circular(12),
                         child: Ink(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF0F172A), width: 1.2),
+                            border: Border.all(
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFF0F172A),
+                                width: 1.2),
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.picture_as_pdf_outlined, size: 18, color: Color(0xFF0F172A)),
+                              Icon(Icons.picture_as_pdf_outlined,
+                                  size: 18,
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A)),
                               const SizedBox(width: 8),
-                              Text('PRÉ-VISUALIZAR PDF', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A))),
+                              Text('PRÉ-VISUALIZAR PDF',
+                                  style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.5,
+                                      color: isDark ? Colors.white : const Color(0xFF0F172A))),
                             ],
                           ),
                         ),
@@ -4636,25 +4837,27 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         borderRadius: BorderRadius.circular(12),
                         child: Ink(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: const Color(0xFF0F172A), width: 1.2),
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFF0F172A),
+                                width: 1.2),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 13),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.picture_as_pdf_outlined,
-                                  size: 18, color: Color(0xFF0F172A)),
+                              Icon(Icons.picture_as_pdf_outlined,
+                                  size: 18,
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A)),
                               const SizedBox(width: 8),
                               Text(
                                 'PRÉ-VISUALIZAR PDF',
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: const Color(0xFF0F172A),
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ),
                             ],
@@ -4724,6 +4927,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   }
 
   Widget _sectionHeader(IconData icon, String title, String subtitle) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Icon(icon, color: AppColors.primary, size: 20),
@@ -4735,10 +4939,11 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 style: GoogleFonts.outfit(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0F172A))),
+                    color: isDark ? Colors.white : const Color(0xFF0F172A))),
             Text(subtitle,
                 style: GoogleFonts.inter(
-                    fontSize: 12, color: const Color(0xFF64748B))),
+                    fontSize: 12,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
           ],
         ),
       ],
@@ -4746,49 +4951,55 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   }
 
   Widget _label(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Text(
       text,
       style: GoogleFonts.inter(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF334155)),
+          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
     );
   }
 
   Widget _financeRow(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
             style: GoogleFonts.inter(
-                fontSize: 13, color: const Color(0xFF64748B))),
+                fontSize: 13,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
         Text(value,
             style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF0F172A))),
+                color: isDark ? Colors.white : const Color(0xFF0F172A))),
       ],
     );
   }
 
   Widget _buildStatusDropdown() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<ProposalStatus>(
+          dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
           value: _selectedStatus,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
           items: ProposalStatus.values.map((s) {
             return DropdownMenuItem<ProposalStatus>(
               value: s,
               child: Row(
-                children: [
+                 children: [
                   Container(
                     width: 22,
                     height: 22,
@@ -4804,7 +5015,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
                   ),
                 ],

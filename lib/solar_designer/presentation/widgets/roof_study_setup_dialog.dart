@@ -4,7 +4,10 @@ import '../../../auth/domain/models/user_model.dart';
 import '../../../clients/data/repositories/client_repository.dart';
 import '../../../clients/domain/models/client_model.dart';
 import '../../../clients/presentation/widgets/client_form_dialog.dart';
-import '../../../proposals/data/repositories/proposal_repository.dart';
+import '../../../products/data/repositories/product_repository.dart';
+import '../../../products/domain/models/product_model.dart';
+import '../../../products/domain/models/category_model.dart';
+import '../../../products/presentation/solar_plant_form_card.dart';
 import '../../../proposals/domain/models/proposal_model.dart';
 import '../../domain/models/roof_study_model.dart';
 
@@ -13,15 +16,18 @@ class RoofStudySetupResult {
   final String studyName;
   final ClientModel? client;
   final ProposalModel? proposal;
+  final ProductModel? solarPlant;
 
   const RoofStudySetupResult({
     required this.studyName,
     this.client,
     this.proposal,
+    this.solarPlant,
   });
 
   ClientModel? get selectedClient => client;
   ProposalModel? get selectedProposal => proposal;
+  ProductModel? get selectedPlant => solarPlant;
 }
 
 /// Diálogo modal moderno para configurar o Estudo de Telhado antes de abrir o satélite
@@ -63,11 +69,12 @@ class RoofStudySetupDialog extends StatefulWidget {
 class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
   late final TextEditingController _nameController;
   final ClientRepository _clientRepo = ClientRepository();
-  final ProposalRepository _proposalRepo = ProposalRepository();
+  final ProductRepository _productRepo = ProductRepository();
 
   ClientModel? _selectedClient;
   ProposalModel? _selectedProposal;
-  bool _isStandalone = false; // Estudo avulso sem cliente/proposta
+  ProductModel? _selectedSolarPlant;
+  bool _isStandalone = false; // Estudo avulso sem cliente/usina
 
   @override
   void initState() {
@@ -79,6 +86,14 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
     if (widget.existingStudy != null) {
       if (!widget.existingStudy!.hasClient && !widget.existingStudy!.hasProposal) {
         _isStandalone = true;
+      }
+      if (widget.existingStudy!.solarPlantProductId != null &&
+          widget.existingStudy!.solarPlantProductId!.isNotEmpty) {
+        _productRepo.getProductById(widget.existingStudy!.solarPlantProductId!).then((prod) {
+          if (prod != null && mounted) {
+            setState(() => _selectedSolarPlant = prod);
+          }
+        });
       }
     }
   }
@@ -104,6 +119,42 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
             }
           });
         },
+      ),
+    );
+  }
+
+  void _openCreateSolarPlantDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 1080,
+            maxHeight: MediaQuery.of(context).size.height * 0.92,
+          ),
+          child: SingleChildScrollView(
+            child: SolarPlantFormCard(
+              category: CategoryModel.fromSector(ProductSector.solarPlant),
+              currentUser: widget.currentUser,
+              onBack: () => Navigator.pop(dialogCtx),
+              onProductSaved: (createdProduct) {
+                setState(() {
+                  _selectedSolarPlant = createdProduct;
+                  _isStandalone = false;
+                  if (_nameController.text.startsWith('Estudo Solar')) {
+                    _nameController.text = 'Estudo - ${createdProduct.name}';
+                  }
+                });
+              },
+              onSuccess: () {
+                Navigator.pop(dialogCtx);
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -164,7 +215,9 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Vincule um cliente, atribua a uma proposta ou crie um estudo avulso.',
+                          widget.isEditingLinksOnly
+                              ? 'Atualize o cliente ou kit vinculado a este estudo.'
+                              : 'Vincule um cliente, selecione uma usina para simular ou crie um estudo avulso.',
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xFF94A3B8),
@@ -268,7 +321,7 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Estudo Avulso (Sem Cliente / Sem Proposta)',
+                                    'Estudo Avulso (Sem Cliente / Sem Usina)',
                                     style: GoogleFonts.inter(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
@@ -276,7 +329,7 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
                                     ),
                                   ),
                                   Text(
-                                    'Faça a demarcação livremente e atribua a um cliente ou proposta depois.',
+                                    'Faça a demarcação livremente e atribua a um cliente ou usina depois.',
                                     style: GoogleFonts.inter(
                                       color: const Color(0xFF94A3B8),
                                       fontSize: 11.5,
@@ -411,26 +464,50 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
                       ],
                       const SizedBox(height: 20),
 
-                      // 3. Seção de Seleção de Proposta
-                      Text(
-                        'Atribuir à Proposta (Opcional)',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      // 3. Seção de Seleção de Kit / Usina Solar para Simular
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Selecione um Kit/Usina para simular (Opcional)',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _openCreateSolarPlantDialog,
+                            icon: const Icon(Icons.add_rounded, size: 15, color: Color(0xFFF59E0B)),
+                            label: Text(
+                              '+ NOVA USINA',
+                              style: GoogleFonts.inter(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFF59E0B),
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
 
-                      // StreamBuilder de Propostas
-                      StreamBuilder<List<ProposalModel>>(
-                        stream: _proposalRepo.getProposalsStream(
+                      // StreamBuilder de Usinas Solares / Kits do Catálogo
+                      StreamBuilder<List<ProductModel>>(
+                        stream: _productRepo.getProductsStream(
                           companyId: companyId,
-                          currentUserId: widget.currentUser?.uid,
                           isSuperAdmin: widget.currentUser?.isSuperAdmin == true,
                         ),
                         builder: (context, snapshot) {
-                          final proposals = snapshot.data ?? [];
+                          final allProducts = snapshot.data ?? [];
+                          final plants = allProducts
+                              .where((p) => p.isSolarPlantKit || p.sector == ProductSector.solarPlant)
+                              .toList();
 
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -440,41 +517,49 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
                               border: Border.all(color: const Color(0xFF334155)),
                             ),
                             child: DropdownButtonHideUnderline(
-                              child: DropdownButton<ProposalModel?>(
-                                value: _selectedProposal != null &&
-                                        proposals.any((p) => p.id == _selectedProposal!.id)
-                                    ? proposals.firstWhere((p) => p.id == _selectedProposal!.id)
+                              child: DropdownButton<ProductModel?>(
+                                value: _selectedSolarPlant != null &&
+                                        plants.any((p) => p.id == _selectedSolarPlant!.id)
+                                    ? plants.firstWhere((p) => p.id == _selectedSolarPlant!.id)
                                     : null,
                                 isExpanded: true,
                                 dropdownColor: const Color(0xFF0F172A),
                                 hint: Text(
-                                  'Selecione uma proposta comercial (ou deixe vazio)',
+                                  'Selecione uma usina solar cadastrada (ou deixe vazio)',
                                   style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
                                 ),
                                 icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white70),
                                 items: [
-                                  DropdownMenuItem<ProposalModel?>(
+                                  DropdownMenuItem<ProductModel?>(
                                     value: null,
                                     child: Text(
-                                      '-- Nenhuma (Sem proposta vinculada) --',
+                                      '-- Nenhuma (Dimensionar do zero no satélite) --',
                                       style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
                                     ),
                                   ),
-                                  ...proposals.map((p) {
-                                    final clientPart = p.clientName.isNotEmpty ? ' • ${p.clientName}' : '';
-                                    return DropdownMenuItem<ProposalModel?>(
+                                  ...plants.map((p) {
+                                    final kwp = p.solarKilowatts != null && p.solarKilowatts! > 0
+                                        ? ' • ${p.solarKilowatts!.toStringAsFixed(2)} kWp'
+                                        : '';
+                                    final roof = p.solarRoofType != null && p.solarRoofType!.isNotEmpty
+                                        ? ' • ${p.solarRoofType}'
+                                        : '';
+                                    return DropdownMenuItem<ProductModel?>(
                                       value: p,
                                       child: Text(
-                                        '#${p.proposalNumber}$clientPart',
+                                        '⚡ ${p.name}$kwp$roof',
                                         style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     );
                                   }),
                                 ],
-                                onChanged: (proposal) {
+                                onChanged: (plant) {
                                   setState(() {
-                                    _selectedProposal = proposal;
+                                    _selectedSolarPlant = plant;
+                                    if (plant != null && _nameController.text.startsWith('Estudo Solar')) {
+                                      _nameController.text = 'Estudo - ${plant.name}';
+                                    }
                                   });
                                 },
                               ),
@@ -482,6 +567,63 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
                           );
                         },
                       ),
+
+                      // Card de Resumo do Kit Selecionado (Módulo, Inversor, Telhado)
+                      if (_selectedSolarPlant != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.solar_power_rounded, size: 16, color: Color(0xFFF59E0B)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _selectedSolarPlant!.name,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFFFDE68A),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (_selectedSolarPlant!.solarKilowatts != null && _selectedSolarPlant!.solarKilowatts! > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF59E0B),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '${_selectedSolarPlant!.solarKilowatts!.toStringAsFixed(2)} kWp',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Serão importados automaticamente para a simulação: Módulo Solar, Inversor e Tipo de Cobertura.',
+                                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFFCD34D)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -533,6 +675,7 @@ class _RoofStudySetupDialogState extends State<RoofStudySetupDialog> {
                             studyName: name,
                             client: _selectedClient,
                             proposal: _selectedProposal,
+                            solarPlant: _selectedSolarPlant,
                           ),
                         );
                       },

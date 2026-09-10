@@ -13,6 +13,11 @@ import '../../domain/services/brazil_solar_irradiation_service.dart';
 import '../../domain/services/solar_shading_engine.dart';
 import 'solar_panel_texture_data.dart';
 
+// Direção fixa (diagonal superior-direita) da alça de redimensionar o
+// mostrador de trajetória solar — não precisa girar com nada, compartilhada
+// entre o painter (desenho) e o state (hit-test de gestos).
+const Offset _kSolarDialHandleDir = Offset(0.7071, -0.7071);
+
 /// Modos de interação do usuário no Canvas
 enum DesignerToolMode {
   select, // Selecionar Setas, Módulos, Conjuntos e Objetos
@@ -51,6 +56,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final SatelliteSource satelliteSource;
   final BackgroundLayerMode backgroundMode;
   final Uint8List? droneImageBytes;
+  final String? droneImageUrl;
   final bool isAnalyzingDrone;
   final ValueChanged<Offset>? onCanvasTap;
   final ValueChanged<Offset>? onCanvasDoubleTap;
@@ -82,7 +88,11 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final ValueChanged<int>? onDeleteSection;
   final VoidCallback? onFinishCurrentSection;
   final VoidCallback? onResumeEditing;
+  final VoidCallback? onDeselectAll;
   final VoidCallback? onAddNewSection;
+  final VoidCallback? onAddNewBuilding;
+  final void Function(int sectionIndex, double dxMeters, double dyMeters)?
+      onUpdateBuildingExtrudeOffset;
   final Function(String direction)? onDuplicateCurrentSection;
   final VoidCallback? onConcludeCluster;
   final String? activeClusterId;
@@ -102,7 +112,11 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final Map<String, SolarOrientationEfficiency> sectionEfficiencies;
   final SolarOrientationEfficiency? activeSectionEfficiency;
   final double currentSimulationHour;
+  final int dayOfYear;
+  final bool hideSunPath;
   final Map<String, ModuleShadingStatus> moduleShadingStatuses;
+  final SolarPathDial? solarPathDial;
+  final ValueChanged<SolarPathDial>? onUpdateSolarPathDial;
 
   const SatelliteRoofCanvas({
     super.key,
@@ -122,6 +136,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.satelliteSource = SatelliteSource.googleHybrid,
     this.backgroundMode = BackgroundLayerMode.satellite,
     this.droneImageBytes,
+    this.droneImageUrl,
     this.isAnalyzingDrone = false,
     this.onCanvasTap,
     this.onCanvasDoubleTap,
@@ -152,7 +167,10 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.onDeleteSection,
     this.onFinishCurrentSection,
     this.onResumeEditing,
+    this.onDeselectAll,
     this.onAddNewSection,
+    this.onAddNewBuilding,
+    this.onUpdateBuildingExtrudeOffset,
     this.onDuplicateCurrentSection,
     this.onConcludeCluster,
     this.activeClusterId,
@@ -172,7 +190,11 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.sectionEfficiencies = const {},
     this.activeSectionEfficiency,
     this.currentSimulationHour = 12.0,
+    this.dayOfYear = 172,
+    this.hideSunPath = false,
     this.moduleShadingStatuses = const {},
+    this.solarPathDial,
+    this.onUpdateSolarPathDial,
   });
 
   @override
@@ -205,19 +227,31 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
   String? _selectedDroneArrowId;
   String? _draggingDroneArrowId;
   String? _rotatingDroneArrowId;
-  bool _isDraggingNorthCompass = false;
   bool _isRotatingNorthCompass = false;
   Offset? _snapGuideStart;
   Offset? _snapGuideEnd;
+
+  // Estados de Manipulação do Mostrador de Trajetória Solar (arrastar/redimensionar)
+  bool _isDraggingSolarPathDial = false;
+  bool _isResizingSolarPathDial = false;
+  RoofPoint? _dragStartDialCenter;
+  Offset? _dragStartDialScreenPos;
 
   // Hover e arraste de alta precisão 1:1
   bool _isHoveringDroneCompass = false;
   bool _isHoveringDroneArrow = false;
   bool _isHoveringDroneRotationHandle = false;
-  RoofPoint? _dragStartCompassCenter;
-  Offset? _dragStartCompassScreenPos;
+  bool _isHoveringSolarDial = false;
+  bool _isHoveringSolarDialHandle = false;
   RoofPoint? _dragStartArrowCenter;
   Offset? _dragStartArrowScreenPos;
+
+  // Manipulação de Alinhamento da Projeção 3D de Edificações com a Foto
+  int _draggingBuildingSectionIndex = -1;
+  Offset? _dragStartBuildingHandleScreen;
+  double? _dragStartBuildingExtrudeX;
+  double? _dragStartBuildingExtrudeY;
+  bool _isHoveringBuildingExtrudeHandle = false;
 
   // Textura fotorrealista do módulo solar fotovoltaico
   ui.Image? _solarPanelImage;
@@ -280,14 +314,15 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
         _panTotalDistance = 0.0;
         _draggingDroneArrowId = null;
         _rotatingDroneArrowId = null;
-        _isDraggingNorthCompass = false;
         _isRotatingNorthCompass = false;
         _snapGuideStart = null;
         _snapGuideEnd = null;
-        _dragStartCompassCenter = null;
-        _dragStartCompassScreenPos = null;
         _dragStartArrowCenter = null;
         _dragStartArrowScreenPos = null;
+        _isDraggingSolarPathDial = false;
+        _isResizingSolarPathDial = false;
+        _dragStartDialCenter = null;
+        _dragStartDialScreenPos = null;
       });
     }
 
@@ -296,6 +331,19 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
         _selectionLevel = CanvasSelectionLevel.polygon;
         _selectedRowId = null;
         _selectedModuleIndex = -1;
+      });
+    }
+
+    if (!widget.isEditingActiveSection && oldWidget.isEditingActiveSection) {
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.none;
+        _selectedRowId = null;
+        _selectedModuleIndex = -1;
+        _selectedDroneArrowId = null;
+      });
+    } else if (widget.isEditingActiveSection && !oldWidget.isEditingActiveSection) {
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.polygon;
       });
     }
 
@@ -403,41 +451,169 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     return null;
   }
 
-  bool _isHitDroneCompassRotationHandle(Offset localPos, Offset centerOffset) {
+  // Mesma posição/raio fixos em tela usados por `_drawDroneNorthCompass`
+  // (HUD no canto inferior direito — não depende de pan/zoom do mapa).
+  static const double _kCompassHudRadius = 34.0;
+  static const double _kCompassHudMargin = 66.0;
+
+  Offset _compassHudCenterPx(Size canvasSize) {
+    return Offset(
+      canvasSize.width - _kCompassHudMargin,
+      canvasSize.height - _kCompassHudMargin,
+    );
+  }
+
+  bool _isHitDroneCompassRotationHandle(Offset localPos, Size canvasSize) {
     if (widget.droneNorthCompass == null) return false;
     final compass = widget.droneNorthCompass!;
-    final centerPx = Offset(
-      centerOffset.dx +
-          RoofGeometryService.metersToPixels(
-              compass.center.x, widget.metersPerPixel),
-      centerOffset.dy +
-          RoofGeometryService.metersToPixels(
-              compass.center.y, widget.metersPerPixel),
-    );
-    final radius = RoofGeometryService.metersToPixels(
-            compass.sizeMeters / 2, widget.metersPerPixel)
-        .clamp(26.0, 65.0);
+    final centerPx = _compassHudCenterPx(canvasSize);
+    const radius = _kCompassHudRadius;
     final dir = Offset(
         math.sin(compass.rotationRadians), -math.cos(compass.rotationRadians));
     final rotHandle = centerPx + dir * (radius + 16.0);
     return (localPos - rotHandle).distance <= 20.0;
   }
 
-  bool _isHitDroneCompassBody(Offset localPos, Offset centerOffset) {
+  bool _isHitDroneCompassBody(Offset localPos, Size canvasSize) {
     if (widget.droneNorthCompass == null) return false;
-    final compass = widget.droneNorthCompass!;
-    final centerPx = Offset(
-      centerOffset.dx +
-          RoofGeometryService.metersToPixels(
-              compass.center.x, widget.metersPerPixel),
-      centerOffset.dy +
-          RoofGeometryService.metersToPixels(
-              compass.center.y, widget.metersPerPixel),
-    );
-    final radius = RoofGeometryService.metersToPixels(
-            compass.sizeMeters / 2, widget.metersPerPixel)
-        .clamp(26.0, 65.0);
+    final centerPx = _compassHudCenterPx(canvasSize);
+    const radius = _kCompassHudRadius;
     return (localPos - centerPx).distance <= radius;
+  }
+
+  Offset _solarDialCenterPx(SolarPathDial dial, Offset centerOffset) {
+    return Offset(
+      centerOffset.dx +
+          RoofGeometryService.metersToPixels(dial.center.x, widget.metersPerPixel),
+      centerOffset.dy +
+          RoofGeometryService.metersToPixels(dial.center.y, widget.metersPerPixel),
+    );
+  }
+
+  double _solarDialRadiusPx(SolarPathDial dial) {
+    return RoofGeometryService.metersToPixels(
+            dial.radiusMeters, widget.metersPerPixel)
+        .clamp(40.0, 320.0);
+  }
+
+  bool _isHitSolarDialResizeHandle(Offset localPos, Offset centerOffset) {
+    final dial = widget.solarPathDial;
+    if (dial == null) return false;
+    final centerPx = _solarDialCenterPx(dial, centerOffset);
+    final radius = _solarDialRadiusPx(dial);
+    final handlePos = centerPx + _kSolarDialHandleDir * radius;
+    return (localPos - handlePos).distance <= 20.0;
+  }
+
+  bool _isHitSolarDialBody(Offset localPos, Offset centerOffset) {
+    final dial = widget.solarPathDial;
+    if (dial == null) return false;
+    final centerPx = _solarDialCenterPx(dial, centerOffset);
+    final radius = _solarDialRadiusPx(dial);
+    return (localPos - centerPx).distance <= radius;
+  }
+
+  /// Encontra se o cursor está sobre a alça de mover/ajustar a projeção 3D de alguma edificação
+  int _findHitBuildingExtrudeHandle(Offset localPos, Offset centerOffset) {
+    for (int s = widget.sections.length - 1; s >= 0; s--) {
+      final sec = widget.sections[s];
+      if (!sec.isBuildingObstacle || !sec.isClosed) continue;
+      // A alça só fica visível e interativa se a edificação for a seção selecionada
+      if (s != widget.activeSectionIndex ||
+          _selectionLevel == CanvasSelectionLevel.none) {
+        continue;
+      }
+
+      final verts = (s == widget.activeSectionIndex &&
+              widget.roofVertices.length >= 3)
+          ? widget.roofVertices
+          : sec.vertices;
+      if (verts.length < 3) continue;
+
+      final extrudeDxPx = RoofGeometryService.metersToPixels(
+        sec.effectiveExtrudeDxMeters,
+        widget.metersPerPixel,
+      );
+      final extrudeDyPx = RoofGeometryService.metersToPixels(
+        sec.effectiveExtrudeDyMeters,
+        widget.metersPerPixel,
+      );
+      final extrudeOffset = Offset(extrudeDxPx, extrudeDyPx);
+
+      double sumX = 0, sumY = 0;
+      for (final p in verts) {
+        final pxX =
+            RoofGeometryService.metersToPixels(p.x, widget.metersPerPixel);
+        final pxY =
+            RoofGeometryService.metersToPixels(p.y, widget.metersPerPixel);
+        sumX += centerOffset.dx + pxX + extrudeOffset.dx;
+        sumY += centerOffset.dy + pxY + extrudeOffset.dy;
+      }
+      final rCenter = Offset(sumX / verts.length, sumY / verts.length);
+      final handlePos = Offset(rCenter.dx, rCenter.dy - 34);
+
+      final dx = (localPos.dx - handlePos.dx).abs();
+      final dy = (localPos.dy - handlePos.dy).abs();
+      if (dx <= 65.0 && dy <= 22.0) {
+        return s;
+      }
+    }
+    return -1;
+  }
+
+  /// Encontra se o clique acertou qualquer parte de uma edificação (pegada no solo, paredes 3D, laje superior ou badge)
+  int _findHitBuildingSection(
+      Offset localPos, RoofPoint clickMeters, Offset centerOffset) {
+    for (int s = widget.sections.length - 1; s >= 0; s--) {
+      final sec = widget.sections[s];
+      if (!sec.isBuildingObstacle || !sec.isClosed) continue;
+
+      final verts = (s == widget.activeSectionIndex &&
+              widget.roofVertices.length >= 3)
+          ? widget.roofVertices
+          : sec.vertices;
+      if (verts.length < 3) continue;
+
+      // 1. Pegada no solo — usa verts ao vivo (não sec.polygon, que pode estar defasado)
+      if (RoofPolygon(vertices: verts).containsPoint(clickMeters)) return s;
+
+      // 2. Laje superior 3D
+      final roofVerts = verts
+          .map((p) => RoofPoint(
+                p.x + sec.effectiveExtrudeDxMeters,
+                p.y + sec.effectiveExtrudeDyMeters,
+              ))
+          .toList();
+      if (RoofPolygon(vertices: roofVerts).containsPoint(clickMeters)) return s;
+
+      // 3. Envoltório completo (paredes + laje + chão)
+      final fullHull =
+          SolarShadingEngine.computeConvexHull([...verts, ...roofVerts]);
+      if (RoofPolygon(vertices: fullHull).containsPoint(clickMeters)) return s;
+
+      // 4. Distintivo / Badge ou alça de mover
+      final extrudeDxPx = RoofGeometryService.metersToPixels(
+          sec.effectiveExtrudeDxMeters, widget.metersPerPixel);
+      final extrudeDyPx = RoofGeometryService.metersToPixels(
+          sec.effectiveExtrudeDyMeters, widget.metersPerPixel);
+      double sumX = 0, sumY = 0;
+      for (final p in verts) {
+        final pxX =
+            RoofGeometryService.metersToPixels(p.x, widget.metersPerPixel);
+        final pxY =
+            RoofGeometryService.metersToPixels(p.y, widget.metersPerPixel);
+        sumX += centerOffset.dx + pxX + extrudeDxPx;
+        sumY += centerOffset.dy + pxY + extrudeDyPx;
+      }
+      final rCenter = Offset(sumX / verts.length, sumY / verts.length);
+      final handlePos = Offset(rCenter.dx, rCenter.dy - 34);
+
+      if ((localPos - rCenter).distance <= 38.0 ||
+          (localPos - handlePos).distance <= 38.0) {
+        return s;
+      }
+    }
+    return -1;
   }
 
   RoofPolygon? _findPolygonForArrow(DroneRoofArrow arrow) {
@@ -632,6 +808,16 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       return SystemMouseCursors.wait;
     }
 
+    // 0. Se estiver arrastando a perspectiva da edificação 3D
+    if (_draggingBuildingSectionIndex != -1) {
+      return SystemMouseCursors.grabbing;
+    }
+
+    // Se o mouse estiver sobre a alça de mover perspectiva 3D da edificação
+    if (_isHoveringBuildingExtrudeHandle) {
+      return SystemMouseCursors.move;
+    }
+
     // 1. Se estiver arrastando um vértice (bolinha do telhado)
     if (_draggingVertexIndex != -1) {
       return SystemMouseCursors.grabbing;
@@ -642,16 +828,29 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       return SystemMouseCursors.click;
     }
 
-    // 3. Se estiver arrastando Norte ou Seta do drone
-    if (_isDraggingNorthCompass || _draggingDroneArrowId != null) {
+    // 3. Se estiver arrastando Seta do drone (o Norte não se arrasta mais)
+    if (_draggingDroneArrowId != null) {
       return SystemMouseCursors.grabbing;
     }
     if (_isRotatingNorthCompass || _rotatingDroneArrowId != null) {
       return SystemMouseCursors.grabbing;
     }
+    if (_isDraggingSolarPathDial) {
+      return SystemMouseCursors.grabbing;
+    }
+    if (_isResizingSolarPathDial) {
+      return SystemMouseCursors.resizeUpLeftDownRight;
+    }
+    if (_isHoveringSolarDialHandle) {
+      return SystemMouseCursors.resizeUpLeftDownRight;
+    }
+    if (_isHoveringSolarDial) {
+      return SystemMouseCursors.click;
+    }
 
-    // 4. Se o mouse estiver sobre o Norte ou uma Seta de Queda: VIRA A MÃOZINHA!
-    if (_isHoveringDroneCompass || _isHoveringDroneArrow) {
+    // 4. Se o mouse estiver sobre uma Seta de Queda: VIRA A MÃOZINHA!
+    // (o corpo do Norte não é mais arrastável, só a alça de rotação)
+    if (_isHoveringDroneArrow) {
       return SystemMouseCursors.click;
     }
     if (_isHoveringDroneRotationHandle) {
@@ -737,16 +936,21 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     return false;
   }
 
-  void _handleCanvasHover(Offset localPos, Offset centerOffset) {
+  void _handleCanvasHover(
+      Offset localPos, Offset centerOffset, Size canvasSize) {
+    // 0. Testa se o mouse está sobre a alça de mover a perspectiva 3D de alguma edificação
+    final isOverBuildingHandle =
+        _findHitBuildingExtrudeHandle(localPos, centerOffset) != -1;
+
     // 1. Anotações do Drone: Testa se está sobre o Norte ou Setas de Queda
     bool isOverCompass = false;
     bool isOverArrow = false;
     bool isOverRotHandle = false;
 
     if (widget.droneNorthCompass != null) {
-      if (_isHitDroneCompassRotationHandle(localPos, centerOffset)) {
+      if (_isHitDroneCompassRotationHandle(localPos, canvasSize)) {
         isOverRotHandle = true;
-      } else if (_isHitDroneCompassBody(localPos, centerOffset)) {
+      } else if (_isHitDroneCompassBody(localPos, canvasSize)) {
         isOverCompass = true;
       }
     }
@@ -756,6 +960,17 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
         isOverRotHandle = true;
       } else if (_findHitDroneArrowBody(localPos, centerOffset) != null) {
         isOverArrow = true;
+      }
+    }
+
+    // 1b. Mostrador de trajetória solar: alça de redimensionar ou corpo
+    bool isOverSolarDial = false;
+    bool isOverSolarDialHandle = false;
+    if (widget.solarPathDial != null) {
+      if (_isHitSolarDialResizeHandle(localPos, centerOffset)) {
+        isOverSolarDialHandle = true;
+      } else if (_isHitSolarDialBody(localPos, centerOffset)) {
+        isOverSolarDial = true;
       }
     }
 
@@ -781,6 +996,9 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
         !isOverCompass &&
         !isOverArrow &&
         !isOverRotHandle &&
+        !isOverBuildingHandle &&
+        !isOverSolarDial &&
+        !isOverSolarDialHandle &&
         widget.toolMode != DesignerToolMode.pan) {
       isOverModule = _isPointOverAnyModule(localPos, centerOffset);
     }
@@ -789,13 +1007,19 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
         isOverModule != _isHoveringModule ||
         isOverCompass != _isHoveringDroneCompass ||
         isOverArrow != _isHoveringDroneArrow ||
-        isOverRotHandle != _isHoveringDroneRotationHandle) {
+        isOverRotHandle != _isHoveringDroneRotationHandle ||
+        isOverBuildingHandle != _isHoveringBuildingExtrudeHandle ||
+        isOverSolarDial != _isHoveringSolarDial ||
+        isOverSolarDialHandle != _isHoveringSolarDialHandle) {
       setState(() {
         _hoveredVertexIndex = foundHoveredVertex;
+        _isHoveringSolarDial = isOverSolarDial;
+        _isHoveringSolarDialHandle = isOverSolarDialHandle;
         _isHoveringModule = isOverModule;
         _isHoveringDroneCompass = isOverCompass;
         _isHoveringDroneArrow = isOverArrow;
         _isHoveringDroneRotationHandle = isOverRotHandle;
+        _isHoveringBuildingExtrudeHandle = isOverBuildingHandle;
       });
     }
   }
@@ -881,8 +1105,8 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
             },
             child: MouseRegion(
               cursor: _getCanvasCursor(),
-              onHover: (event) =>
-                  _handleCanvasHover(event.localPosition, centerOffset),
+              onHover: (event) => _handleCanvasHover(
+                  event.localPosition, centerOffset, canvasSize),
               onExit: (_) {
                 if (_isHoveringModule || _hoveredVertexIndex != -1) {
                   setState(() {
@@ -904,6 +1128,45 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
 
                   final localPos = details.localPosition;
 
+                  // ── PRIORIDADE ABSOLUTA 0: ALÇA DE PERSPECTIVA 3D DA EDIFICAÇÃO ──
+                  final hitBuildingIdx =
+                      _findHitBuildingExtrudeHandle(localPos, centerOffset);
+                  if (hitBuildingIdx != -1) {
+                    final sec = widget.sections[hitBuildingIdx];
+                    setState(() {
+                      _draggingBuildingSectionIndex = hitBuildingIdx;
+                      _dragStartBuildingHandleScreen = localPos;
+                      _dragStartBuildingExtrudeX = sec.effectiveExtrudeDxMeters;
+                      _dragStartBuildingExtrudeY = sec.effectiveExtrudeDyMeters;
+                      _isPanning = false;
+                      _selectedModuleIndex = -1;
+                      _selectedRowId = null;
+                    });
+                    return;
+                  }
+
+                  // ── MOSTRADOR DE TRAJETÓRIA SOLAR (arrastar / redimensionar) ──
+                  if (widget.solarPathDial != null) {
+                    // 1. Alça de redimensionar (borda do círculo)
+                    if (_isHitSolarDialResizeHandle(localPos, centerOffset)) {
+                      setState(() {
+                        _isResizingSolarPathDial = true;
+                        _isPanning = false;
+                      });
+                      return;
+                    }
+                    // 2. Corpo (arrastar/mover)
+                    if (_isHitSolarDialBody(localPos, centerOffset)) {
+                      setState(() {
+                        _isDraggingSolarPathDial = true;
+                        _dragStartDialCenter = widget.solarPathDial!.center;
+                        _dragStartDialScreenPos = localPos;
+                        _isPanning = false;
+                      });
+                      return;
+                    }
+                  }
+
                   // ── ANOTAÇÕES DE DRONE (Norte e Setas de Queda) ──
                   if (widget.droneArrows.isNotEmpty ||
                       widget.droneNorthCompass != null) {
@@ -922,7 +1185,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
 
                     // 2. Alça de rotação do Norte
                     if (_isHitDroneCompassRotationHandle(
-                        localPos, centerOffset)) {
+                        localPos, canvasSize)) {
                       setState(() {
                         _isRotatingNorthCompass = true;
                         _isPanning = false;
@@ -945,15 +1208,11 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       return;
                     }
 
-                    // 4. Corpo do Norte
-                    if (_isHitDroneCompassBody(localPos, centerOffset)) {
-                      setState(() {
-                        _isDraggingNorthCompass = true;
-                        _dragStartCompassCenter =
-                            widget.droneNorthCompass!.center;
-                        _dragStartCompassScreenPos = localPos;
-                        _isPanning = false;
-                      });
+                    // 4. Corpo do Norte — posição travada: a bússola só gira
+                    // (alça acima), não se move mais. Só absorve o clique
+                    // pra não repassar pan/seleção pro mapa por baixo.
+                    if (_isHitDroneCompassBody(localPos, canvasSize)) {
+                      setState(() => _isPanning = false);
                       return;
                     }
                   }
@@ -961,6 +1220,12 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   // ── PRIORIDADE ABSOLUTA 1: TESTA SE CLICOU NA BOLINHA DE UM VÉRTICE DO TELHADO ──
                   // Funciona em qualquer modo (drone ou satélite, desenhar ou módulos ou navegar)
                   if (widget.roofVertices.isNotEmpty) {
+                    // Guard: seção ativa é edificação — arrastar vértice NÃO reativa módulos
+                    final bool activeIsBuilding = (
+                        widget.activeSectionIndex >= 0 &&
+                        widget.activeSectionIndex < widget.sections.length &&
+                        widget.sections[widget.activeSectionIndex].isBuildingObstacle);
+
                     for (int i = 0; i < widget.roofVertices.length; i++) {
                       final p = widget.roofVertices[i];
                       final pxX = RoofGeometryService.metersToPixels(
@@ -971,8 +1236,8 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                           Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
 
                       if ((localPos - screenPos).distance <= 26.0) {
-                        // Se a seção ativa estiver em repouso/concluída, reativa para edição imediata!
-                        if (!widget.isEditingActiveSection) {
+                        // Só reativa edição se NÃO for uma edificação
+                        if (!widget.isEditingActiveSection && !activeIsBuilding) {
                           widget.onResumeEditing?.call();
                         }
                         setState(() {
@@ -994,6 +1259,17 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   // Se a seção ativa estiver concluída (em modo repouso), não inicia edição por pan (exceto se em modo desenhar)
                   if (!widget.isEditingActiveSection &&
                       widget.toolMode != DesignerToolMode.drawRoof) {
+                    return;
+                  }
+
+                  // Guard: seção ativa é edificação — NÃO ativa lógica de módulos por drag
+                  final bool activeIsBuildingDrag = (
+                      widget.activeSectionIndex >= 0 &&
+                      widget.activeSectionIndex < widget.sections.length &&
+                      widget.sections[widget.activeSectionIndex].isBuildingObstacle);
+                  if (activeIsBuildingDrag) {
+                    // Permite pan mas NUNCA ativa módulos
+                    setState(() => _isPanning = true);
                     return;
                   }
 
@@ -1084,6 +1360,32 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                 onPanUpdate: (details) {
                   _panTotalDistance += details.delta.distance;
 
+                  // 0. Arraste da projeção 3D da edificação (alinhar ângulo com foto aérea/satélite)
+                  if (_draggingBuildingSectionIndex != -1 &&
+                      _draggingBuildingSectionIndex < widget.sections.length &&
+                      _dragStartBuildingHandleScreen != null &&
+                      _dragStartBuildingExtrudeX != null &&
+                      _dragStartBuildingExtrudeY != null) {
+                    final totalDxScreen = details.localPosition.dx -
+                        _dragStartBuildingHandleScreen!.dx;
+                    final totalDyScreen = details.localPosition.dy -
+                        _dragStartBuildingHandleScreen!.dy;
+                    final deltaDxM = RoofGeometryService.pixelsToMeters(
+                        totalDxScreen, widget.metersPerPixel);
+                    final deltaDyM = RoofGeometryService.pixelsToMeters(
+                        totalDyScreen, widget.metersPerPixel);
+
+                    final newExtrudeX = _dragStartBuildingExtrudeX! + deltaDxM;
+                    final newExtrudeY = _dragStartBuildingExtrudeY! + deltaDyM;
+
+                    widget.onUpdateBuildingExtrudeOffset?.call(
+                      _draggingBuildingSectionIndex,
+                      newExtrudeX,
+                      newExtrudeY,
+                    );
+                    return;
+                  }
+
                   // 1. Rotação interativa de seta de queda
                   if (_rotatingDroneArrowId != null) {
                     final arrow = widget.droneArrows.firstWhere(
@@ -1143,18 +1445,11 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                     return;
                   }
 
-                  // 3. Rotação do Norte do Drone
+                  // 3. Rotação do Norte do Drone (HUD fixo — centro na tela)
                   if (_isRotatingNorthCompass &&
                       widget.droneNorthCompass != null) {
                     final compass = widget.droneNorthCompass!;
-                    final centerScreen = Offset(
-                      centerOffset.dx +
-                          RoofGeometryService.metersToPixels(
-                              compass.center.x, widget.metersPerPixel),
-                      centerOffset.dy +
-                          RoofGeometryService.metersToPixels(
-                              compass.center.y, widget.metersPerPixel),
-                    );
+                    final centerScreen = _compassHudCenterPx(canvasSize);
                     final rawAngle = math.atan2(
                           details.localPosition.dy - centerScreen.dy,
                           details.localPosition.dx - centerScreen.dx,
@@ -1167,34 +1462,47 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                     return;
                   }
 
-                  // 4. Arraste do Norte do Drone (1:1 instantâneo sem atraso)
-                  if (_isDraggingNorthCompass &&
-                      widget.droneNorthCompass != null) {
-                    final compass = widget.droneNorthCompass!;
+                  // Mostrador de trajetória solar: arrastar (mover centro)
+                  if (_isDraggingSolarPathDial && widget.solarPathDial != null) {
+                    final dial = widget.solarPathDial!;
                     RoofPoint newCenter;
-                    if (_dragStartCompassCenter != null &&
-                        _dragStartCompassScreenPos != null) {
+                    if (_dragStartDialCenter != null &&
+                        _dragStartDialScreenPos != null) {
                       final totalScreenDx = details.localPosition.dx -
-                          _dragStartCompassScreenPos!.dx;
+                          _dragStartDialScreenPos!.dx;
                       final totalScreenDy = details.localPosition.dy -
-                          _dragStartCompassScreenPos!.dy;
+                          _dragStartDialScreenPos!.dy;
                       final dxM = RoofGeometryService.pixelsToMeters(
                           totalScreenDx, widget.metersPerPixel);
                       final dyM = RoofGeometryService.pixelsToMeters(
                           totalScreenDy, widget.metersPerPixel);
                       newCenter = RoofPoint(
-                        _dragStartCompassCenter!.x + dxM,
-                        _dragStartCompassCenter!.y + dyM,
+                        _dragStartDialCenter!.x + dxM,
+                        _dragStartDialCenter!.y + dyM,
                       );
                     } else {
                       final dxM = RoofGeometryService.pixelsToMeters(
                           details.delta.dx, widget.metersPerPixel);
                       final dyM = RoofGeometryService.pixelsToMeters(
                           details.delta.dy, widget.metersPerPixel);
-                      newCenter = compass.center.translate(dxM, dyM);
+                      newCenter = dial.center.translate(dxM, dyM);
                     }
-                    widget.onUpdateDroneCompass
-                        ?.call(compass.copyWith(center: newCenter));
+                    widget.onUpdateSolarPathDial
+                        ?.call(dial.copyWith(center: newCenter));
+                    return;
+                  }
+
+                  // Mostrador de trajetória solar: redimensionar (arrastar a alça)
+                  if (_isResizingSolarPathDial && widget.solarPathDial != null) {
+                    final dial = widget.solarPathDial!;
+                    final centerPx = _solarDialCenterPx(dial, centerOffset);
+                    final newRadiusPx =
+                        (details.localPosition - centerPx).distance;
+                    final newRadiusM = RoofGeometryService.pixelsToMeters(
+                            newRadiusPx, widget.metersPerPixel)
+                        .clamp(1.5, 60.0);
+                    widget.onUpdateSolarPathDial
+                        ?.call(dial.copyWith(radiusMeters: newRadiusM));
                     return;
                   }
 
@@ -1264,14 +1572,19 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                     _isPanning = false;
                     _draggingDroneArrowId = null;
                     _rotatingDroneArrowId = null;
-                    _isDraggingNorthCompass = false;
                     _isRotatingNorthCompass = false;
                     _snapGuideStart = null;
                     _snapGuideEnd = null;
-                    _dragStartCompassCenter = null;
-                    _dragStartCompassScreenPos = null;
                     _dragStartArrowCenter = null;
                     _dragStartArrowScreenPos = null;
+                    _isDraggingSolarPathDial = false;
+                    _isResizingSolarPathDial = false;
+                    _dragStartDialCenter = null;
+                    _dragStartDialScreenPos = null;
+                    _draggingBuildingSectionIndex = -1;
+                    _dragStartBuildingHandleScreen = null;
+                    _dragStartBuildingExtrudeX = null;
+                    _dragStartBuildingExtrudeY = null;
                   });
 
                   if (releasedModuleIndex != -1 && wasDrag) {
@@ -1331,7 +1644,15 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                           sectionEfficiencies: widget.sectionEfficiencies,
                           activeSectionEfficiency: widget.activeSectionEfficiency,
                           currentSimulationHour: widget.currentSimulationHour,
+                          dayOfYear: widget.dayOfYear,
+                          hideSunPath: widget.hideSunPath,
                           moduleShadingStatuses: widget.moduleShadingStatuses,
+                          solarPathDial: widget.solarPathDial,
+                          isDraggingSolarPathDial: _isDraggingSolarPathDial,
+                          isResizingSolarPathDial: _isResizingSolarPathDial,
+                          draggingBuildingSectionIndex:
+                              _draggingBuildingSectionIndex,
+                          selectionLevel: _selectionLevel,
                         ),
                       ),
 
@@ -1422,12 +1743,21 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
           ...widget.sections.asMap().entries.map((entry) {
             final idx = entry.key;
             final sec = entry.value;
-            final isActive = idx == widget.activeSectionIndex;
+            final isActive = idx == widget.activeSectionIndex &&
+                widget.isEditingActiveSection &&
+                _selectionLevel != CanvasSelectionLevel.none;
 
             return Padding(
               padding: const EdgeInsets.only(right: 4),
               child: InkWell(
-                onTap: () => widget.onSectionSelected?.call(idx),
+                onTap: () {
+                  setState(() {
+                    _selectionLevel = CanvasSelectionLevel.polygon;
+                    _selectedRowId = null;
+                    _selectedModuleIndex = -1;
+                  });
+                  widget.onSectionSelected?.call(idx);
+                },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding:
@@ -1445,14 +1775,18 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.roofing_rounded,
+                        sec.isBuildingObstacle
+                            ? Icons.apartment_rounded
+                            : Icons.roofing_rounded,
                         size: 13,
                         color:
                             isActive ? sec.themeColor : const Color(0xFF94A3B8),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${sec.name} (${sec.activeModuleCount} pl)',
+                        sec.isBuildingObstacle
+                            ? '${sec.name} (${sec.peakHeightMeters.toStringAsFixed(1)}m)'
+                            : '${sec.name} (${sec.activeModuleCount} pl)',
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight:
@@ -1465,7 +1799,9 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       if (!widget.isEditingActiveSection || !isActive) ...[
                         const SizedBox(width: 4),
                         Tooltip(
-                          message: 'Editar este telhado',
+                          message: sec.isBuildingObstacle
+                              ? 'Editar esta edificação'
+                              : 'Editar este telhado',
                           child: InkWell(
                             onTap: () {
                               if (!isActive) {
@@ -1528,6 +1864,36 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Botão + Nova Edificação no topo
+          InkWell(
+            onTap: widget.onAddNewBuilding,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0284C7).withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.50)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.apartment_rounded,
+                      size: 14, color: Color(0xFF38BDF8)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '+ Nova Edificação',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF38BDF8),
                     ),
                   ),
                 ],
@@ -3013,8 +3379,50 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
   /// Constrói o fundo de acordo com o modo ativo: Satélite ou Foto de Drone
   Widget _buildBackgroundLayer(Size canvasSize) {
     if (widget.backgroundMode == BackgroundLayerMode.dronePhoto) {
-      if (widget.droneImageBytes != null) {
+      if (widget.droneImageBytes != null ||
+          (widget.droneImageUrl != null && widget.droneImageUrl!.isNotEmpty)) {
         final double scale = math.pow(2.0, widget.zoom - 18.0).toDouble();
+
+        Widget imgWidget;
+        if (widget.droneImageBytes != null) {
+          imgWidget = Image.memory(
+            widget.droneImageBytes!,
+            fit: BoxFit.contain,
+          );
+        } else {
+          imgWidget = Image.network(
+            widget.droneImageUrl!,
+            fit: BoxFit.contain,
+            loadingBuilder: (ctx, child, progress) {
+              if (progress == null) return child;
+              return const Center(
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF38BDF8),
+                    strokeWidth: 2.5,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (ctx, err, stack) => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.broken_image_rounded,
+                      color: Color(0xFFEF4444), size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Erro ao carregar imagem remota do drone',
+                    style: GoogleFonts.inter(
+                        color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
         return Container(
           color: const Color(0xFF0F172A),
@@ -3023,10 +3431,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
               offset: Offset(widget.panOffsetX, widget.panOffsetY),
               child: Transform.scale(
                 scale: scale,
-                child: Image.memory(
-                  widget.droneImageBytes!,
-                  fit: BoxFit.contain,
-                ),
+                child: imgWidget,
               ),
             ),
           ),
@@ -3253,8 +3658,24 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       }
     }
 
-    // 1. Testa se clicou em uma cota métrica de aresta
-    if (widget.isEditingActiveSection && widget.roofVertices.length >= 2) {
+    // 0.2 TESTA SE CLICOU EM UMA EDIFICAÇÃO / PRÉDIO (chão, 3D, paredes ou badge)
+    final hitBuilding =
+        _findHitBuildingSection(localPos, clickMeters, centerOffset);
+    if (hitBuilding != -1) {
+      setState(() {
+        _selectionLevel = CanvasSelectionLevel.polygon;
+        _selectedRowId = null;
+        _selectedModuleIndex = -1;
+      });
+      widget.onSectionSelected?.call(hitBuilding);
+      widget.onSelectModule?.call(-1);
+      return;
+    }
+
+    // 1. Testa se clicou em uma cota métrica de aresta (apenas se o telhado estiver selecionado)
+    if (widget.isEditingActiveSection &&
+        _selectionLevel != CanvasSelectionLevel.none &&
+        widget.roofVertices.length >= 2) {
       final edgeCount = widget.isRoofClosed
           ? widget.roofVertices.length
           : (widget.roofVertices.length - 1);
@@ -3355,7 +3776,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     }
 
     // 4. CLIQUE FORA DO POLÍGONO E FORA DAS PLACAS:
-    // Some tudo! Comportamento normal sem finalizar a seção.
+    // Some tudo! Deseleciona o objeto ("solta o objeto")
     if (!hitActive) {
       setState(() {
         _selectionLevel = CanvasSelectionLevel.none;
@@ -3365,6 +3786,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
       });
       widget.onSelectDroneArrow?.call(null);
       widget.onSelectModule?.call(-1);
+      widget.onDeselectAll?.call();
       if (!widget.isRoofClosed &&
           widget.toolMode == DesignerToolMode.drawRoof) {
         widget.onCanvasTap?.call(localPos);
@@ -3373,8 +3795,26 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
     }
 
     // 5. CLIQUE NO POLÍGONO / PLACAS (hitActive == true):
-    // Se a seção estava em modo repouso, reativa a edição imediatamente
-    if (!widget.isEditingActiveSection) {
+    // Guard: se a seção ativa for uma edificação, só seleciona — nunca aciona módulos
+    final bool activeIsBuilding = (widget.activeSectionIndex >= 0 &&
+        widget.activeSectionIndex < widget.sections.length &&
+        widget.sections[widget.activeSectionIndex].isBuildingObstacle);
+
+    if (activeIsBuilding) {
+      // Clicou na edificação ativa: só marca como selecionada e sai
+      if (_selectionLevel == CanvasSelectionLevel.none) {
+        setState(() {
+          _selectionLevel = CanvasSelectionLevel.polygon;
+          _selectedRowId = null;
+          _selectedModuleIndex = -1;
+        });
+      }
+      return;
+    }
+
+    // Se a seção estava em modo repouso ou deselecionada, reativa a edição imediatamente
+    if (!widget.isEditingActiveSection ||
+        _selectionLevel == CanvasSelectionLevel.none) {
       widget.onResumeEditing?.call();
     }
 
@@ -3490,7 +3930,14 @@ class _RoofOverlayPainter extends CustomPainter {
   final Map<String, SolarOrientationEfficiency> sectionEfficiencies;
   final SolarOrientationEfficiency? activeSectionEfficiency;
   final double currentSimulationHour;
+  final int dayOfYear;
+  final bool hideSunPath;
   final Map<String, ModuleShadingStatus> moduleShadingStatuses;
+  final int draggingBuildingSectionIndex;
+  final CanvasSelectionLevel selectionLevel;
+  final SolarPathDial? solarPathDial;
+  final bool isDraggingSolarPathDial;
+  final bool isResizingSolarPathDial;
 
   _RoofOverlayPainter({
     required this.vertices,
@@ -3521,7 +3968,14 @@ class _RoofOverlayPainter extends CustomPainter {
     this.sectionEfficiencies = const {},
     this.activeSectionEfficiency,
     this.currentSimulationHour = 12.0,
+    this.dayOfYear = 172,
+    this.hideSunPath = false,
     this.moduleShadingStatuses = const {},
+    this.draggingBuildingSectionIndex = -1,
+    this.selectionLevel = CanvasSelectionLevel.none,
+    this.solarPathDial,
+    this.isDraggingSolarPathDial = false,
+    this.isResizingSolarPathDial = false,
   });
 
   final String? selectedRowId;
@@ -3533,12 +3987,46 @@ class _RoofOverlayPainter extends CustomPainter {
         Offset(size.width / 2.0 + panOffsetX, size.height / 2.0 + panOffsetY);
 
     // ── 0. DESENHO DAS MANCHAS DE SOMBRA PROJETADAS (SOL & ALTURAS) ──────────
-    final sunPos = SolarShadingEngine.calculateSunPosition(hourOfDay: currentSimulationHour);
+    final sunPos = SolarShadingEngine.calculateSunPosition(
+      hourOfDay: currentSimulationHour,
+      dayOfYear: dayOfYear,
+    );
     if (sunPos.isSunUp && sunPos.elevationDegrees > 2.0) {
       for (int i = 0; i < sections.length; i++) {
         final caster = sections[i];
         if (caster.vertices.length < 3) continue;
 
+        // Projeta a sombra no solo do mapa de satélite ou foto do drone
+        if (caster.peakHeightMeters > 0.50) {
+          final groundShadowPoly = SolarShadingEngine.projectShadowPolygon(
+            casterVertices: caster.vertices,
+            deltaHeightMeters: caster.peakHeightMeters,
+            sun: sunPos,
+            northRotationRadians: droneNorthCompass?.rotationRadians ?? 0.0,
+          );
+
+          if (groundShadowPoly.length >= 3) {
+            final gPath = Path();
+            final gVerts = groundShadowPoly.map((p) {
+              final pxX = RoofGeometryService.metersToPixels(p.x, metersPerPixel);
+              final pxY = RoofGeometryService.metersToPixels(p.y, metersPerPixel);
+              return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
+            }).toList();
+
+            gPath.moveTo(gVerts.first.dx, gVerts.first.dy);
+            for (int k = 1; k < gVerts.length; k++) {
+              gPath.lineTo(gVerts[k].dx, gVerts[k].dy);
+            }
+            gPath.close();
+
+            final groundShadowFill = Paint()
+              ..color = const Color(0xFF020617).withValues(alpha: caster.isBuildingObstacle ? 0.45 : 0.30)
+              ..style = PaintingStyle.fill;
+            canvas.drawPath(gPath, groundShadowFill);
+          }
+        }
+
+        // Projeta a sombra sobre os outros telhados (bloqueando módulos fotovoltaicos)
         for (int j = 0; j < sections.length; j++) {
           if (i == j) continue;
           final receiver = sections[j];
@@ -3567,7 +4055,7 @@ class _RoofOverlayPainter extends CustomPainter {
             sPath.close();
 
             final shadowFill = Paint()
-              ..color = const Color(0xFF020617).withValues(alpha: 0.40)
+              ..color = const Color(0xFF020617).withValues(alpha: 0.50)
               ..style = PaintingStyle.fill;
             canvas.drawPath(sPath, shadowFill);
           }
@@ -3579,6 +4067,23 @@ class _RoofOverlayPainter extends CustomPainter {
     for (int s = 0; s < sections.length; s++) {
       if (s == activeSectionIndex) continue;
       final sec = sections[s];
+
+      // Se for uma edificação / obstáculo, renderiza o modelo 3D proporcional translúcido
+      if (sec.isBuildingObstacle && sec.isClosed && sec.vertices.length >= 3) {
+        _drawBuilding3DModel(
+          canvas: canvas,
+          vertices: sec.vertices,
+          heightMeters: sec.peakHeightMeters,
+          centerOffset: centerOffset,
+          title: sec.name,
+          themeColor: sec.themeColor,
+          customExtrudeDxMeters: sec.customExtrudeDxMeters,
+          customExtrudeDyMeters: sec.customExtrudeDyMeters,
+          isActive: false,
+          isDraggingExtrude: s == draggingBuildingSectionIndex,
+        );
+        continue;
+      }
 
       // Polígono da seção inativa (se existir)
       if (sec.vertices.isNotEmpty && isEditingActiveSection) {
@@ -3678,176 +4183,274 @@ class _RoofOverlayPainter extends CustomPainter {
     // ── 2. QUANDO NENHUMA ÁGUA ESTÁ EM EDIÇÃO (MODO REPOUSO / APRESENTAÇÃO) ─
     if (!isEditingActiveSection &&
         (isClosed || vertices.isEmpty) &&
-        toolMode != DesignerToolMode.drawRoof &&
-        modules.isNotEmpty) {
-      // Renderiza exclusivamente as placas solares limpas da seção ativa (sem polígonos)
-      for (final mod in modules) {
-        if (mod.isExcluded) continue;
-
-        final corners = mod.getCorners();
-        final sCorners = corners.map((p) {
-          final pxX = RoofGeometryService.metersToPixels(p.x, metersPerPixel);
-          final pxY = RoofGeometryService.metersToPixels(p.y, metersPerPixel);
-          return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
-        }).toList();
-
-        final mPath = Path();
-        mPath.moveTo(sCorners.first.dx, sCorners.first.dy);
-        for (int i = 1; i < sCorners.length; i++) {
-          mPath.lineTo(sCorners[i].dx, sCorners[i].dy);
-        }
-        mPath.close();
-
-        final activeSecId = activeSectionIndex < sections.length
-            ? sections[activeSectionIndex].id
-            : 'active';
-        final eff = sectionEfficiencies[activeSecId] ?? activeSectionEfficiency;
-        _drawModuleFace(
+        toolMode != DesignerToolMode.drawRoof) {
+      final curActiveSec = (activeSectionIndex >= 0 && activeSectionIndex < sections.length)
+          ? sections[activeSectionIndex]
+          : null;
+      if (curActiveSec != null &&
+          curActiveSec.isBuildingObstacle &&
+          curActiveSec.isClosed &&
+          curActiveSec.vertices.length >= 3) {
+        _drawBuilding3DModel(
           canvas: canvas,
-          mod: mod,
+          vertices: curActiveSec.vertices,
+          heightMeters: curActiveSec.peakHeightMeters,
           centerOffset: centerOffset,
-          modPath: mPath,
-          fallbackFillPaint: Paint()
-            ..color = const Color(0xFF1E3A8A)
-            ..style = PaintingStyle.fill,
-          efficiency: eff,
+          title: curActiveSec.name,
+          themeColor: curActiveSec.themeColor,
+          customExtrudeDxMeters: curActiveSec.customExtrudeDxMeters,
+          customExtrudeDyMeters: curActiveSec.customExtrudeDyMeters,
+          isActive: false,
+          isDraggingExtrude: activeSectionIndex == draggingBuildingSectionIndex,
         );
+      } else if (modules.isNotEmpty) {
+        // Renderiza exclusivamente as placas solares limpas da seção ativa (sem polígonos)
+        for (final mod in modules) {
+          if (mod.isExcluded) continue;
 
-        final fPaint = Paint()
-          ..color = const Color(0xFFE2E8F0)
-          ..strokeWidth = 1.2
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(mPath, fPaint);
+          final corners = mod.getCorners();
+          final sCorners = corners.map((p) {
+            final pxX = RoofGeometryService.metersToPixels(p.x, metersPerPixel);
+            final pxY = RoofGeometryService.metersToPixels(p.y, metersPerPixel);
+            return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
+          }).toList();
 
-        if (panelTextureImage == null && sCorners.length >= 4) {
-          final mid1 = Offset(
-            (sCorners[0].dx + sCorners[1].dx) / 2,
-            (sCorners[0].dy + sCorners[1].dy) / 2,
+          final mPath = Path();
+          mPath.moveTo(sCorners.first.dx, sCorners.first.dy);
+          for (int i = 1; i < sCorners.length; i++) {
+            mPath.lineTo(sCorners[i].dx, sCorners[i].dy);
+          }
+          mPath.close();
+
+          final activeSecId = activeSectionIndex < sections.length
+              ? sections[activeSectionIndex].id
+              : 'active';
+          final eff = sectionEfficiencies[activeSecId] ?? activeSectionEfficiency;
+          _drawModuleFace(
+            canvas: canvas,
+            mod: mod,
+            centerOffset: centerOffset,
+            modPath: mPath,
+            fallbackFillPaint: Paint()
+              ..color = const Color(0xFF1E3A8A)
+              ..style = PaintingStyle.fill,
+            efficiency: eff,
           );
-          final mid2 = Offset(
-            (sCorners[2].dx + sCorners[3].dx) / 2,
-            (sCorners[2].dy + sCorners[3].dy) / 2,
-          );
-          final busbarPaint = Paint()
-            ..color = Colors.white24
-            ..strokeWidth = 0.8;
-          canvas.drawLine(mid1, mid2, busbarPaint);
+
+          final fPaint = Paint()
+            ..color = const Color(0xFFE2E8F0)
+            ..strokeWidth = 1.2
+            ..style = PaintingStyle.stroke;
+          canvas.drawPath(mPath, fPaint);
+
+          if (panelTextureImage == null && sCorners.length >= 4) {
+            final mid1 = Offset(
+              (sCorners[0].dx + sCorners[1].dx) / 2,
+              (sCorners[0].dy + sCorners[1].dy) / 2,
+            );
+            final mid2 = Offset(
+              (sCorners[2].dx + sCorners[3].dx) / 2,
+              (sCorners[2].dy + sCorners[3].dy) / 2,
+            );
+            final busbarPaint = Paint()
+              ..color = Colors.white24
+              ..strokeWidth = 0.8;
+            canvas.drawLine(mid1, mid2, busbarPaint);
+          }
         }
       }
       // Não damos return antecipado aqui: prossegue para desenhar as setas de indicação de quedas (droneArrows) e o norte (compass)!
     } else if (isEditingActiveSection) {
       // ── 3. RENDERIZAÇÃO DA SEÇÃO ATIVA EM EDIÇÃO COMPLETA ───────────────────
+      final curActiveSec = (activeSectionIndex >= 0 && activeSectionIndex < sections.length)
+          ? sections[activeSectionIndex]
+          : null;
+      final isBuildingActive = curActiveSec?.isBuildingObstacle ?? false;
+
       if (vertices.isNotEmpty) {
-      final path = Path();
-      final screenVertices = vertices.map((p) {
-        final pxX = RoofGeometryService.metersToPixels(p.x, metersPerPixel);
-        final pxY = RoofGeometryService.metersToPixels(p.y, metersPerPixel);
-        return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
-      }).toList();
+        final path = Path();
+        final screenVertices = vertices.map((p) {
+          final pxX = RoofGeometryService.metersToPixels(p.x, metersPerPixel);
+          final pxY = RoofGeometryService.metersToPixels(p.y, metersPerPixel);
+          return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
+        }).toList();
 
-      path.moveTo(screenVertices.first.dx, screenVertices.first.dy);
-      for (int i = 1; i < screenVertices.length; i++) {
-        path.lineTo(screenVertices[i].dx, screenVertices[i].dy);
-      }
-
-      if (isClosed) {
-        path.close();
-
-        final fillPaint = Paint()
-          ..color = const Color(0xFFF59E0B).withValues(alpha: 0.20)
-          ..style = PaintingStyle.fill;
-        canvas.drawPath(path, fillPaint);
-      }
-
-      // Linhas de borda da água ativa
-      final borderPaint = Paint()
-        ..color = const Color(0xFFF59E0B)
-        ..strokeWidth = 2.5
-        ..style = PaintingStyle.stroke;
-      canvas.drawPath(path, borderPaint);
-
-      // Cotas métricas posicionadas do lado de FORA do polígono e afastadas das placas solares
-      final edgeCount = isClosed ? vertices.length : vertices.length - 1;
-
-      // Calcula o centro do polígono para garantir que o vetor aponte sempre para FORA
-      double polySumX = 0, polySumY = 0;
-      for (final sv in screenVertices) {
-        polySumX += sv.dx;
-        polySumY += sv.dy;
-      }
-      final polyCenter = Offset(
-          polySumX / screenVertices.length, polySumY / screenVertices.length);
-
-      for (int i = 0; i < edgeCount; i++) {
-        final p1 = vertices[i];
-        final p2 = vertices[(i + 1) % vertices.length];
-        final sp1 = screenVertices[i];
-        final sp2 = screenVertices[(i + 1) % vertices.length];
-
-        final distMeters = p1.distanceTo(p2);
-        final mid = Offset((sp1.dx + sp2.dx) / 2, (sp1.dy + sp2.dy) / 2);
-
-        // Vetor da aresta
-        final edgeVec = sp2 - sp1;
-        final edgeLen = edgeVec.distance;
-        Offset badgePos = mid;
-
-        if (edgeLen > 0) {
-          // Candidato de normal perpendicular
-          Offset norm = Offset(-edgeVec.dy, edgeVec.dx) / edgeLen;
-
-          // Garante que a normal aponte para FORA do polígono (longe do centróide)
-          final dotWithOutward = (mid.dx + norm.dx * 10 - polyCenter.dx) *
-                  (mid.dx - polyCenter.dx) +
-              (mid.dy + norm.dy * 10 - polyCenter.dy) *
-                  (mid.dy - polyCenter.dy);
-          final dotCenter =
-              (mid.dx - polyCenter.dx) * (mid.dx - polyCenter.dx) +
-                  (mid.dy - polyCenter.dy) * (mid.dy - polyCenter.dy);
-
-          if (dotWithOutward < dotCenter) {
-            norm = -norm; // inverte para apontar para fora
-          }
-
-          // Afasta generosamente 38px para fora do polígono, garantindo limpeza visual total
-          badgePos = mid + norm * 38.0;
+        path.moveTo(screenVertices.first.dx, screenVertices.first.dy);
+        for (int i = 1; i < screenVertices.length; i++) {
+          path.lineTo(screenVertices[i].dx, screenVertices[i].dy);
         }
 
-        _drawMetricLabel(canvas, badgePos, '${distMeters.toStringAsFixed(1)}m');
-      }
+        final bool isRoofSelected = (selectionLevel != CanvasSelectionLevel.none ||
+            toolMode == DesignerToolMode.drawRoof);
 
-      // Badge de Altura do Telhado no centro do polígono
-      if (isClosed && activeSectionIndex < sections.length) {
-        final curSec = sections[activeSectionIndex];
-        final hText = curSec.roofType == RoofStructureType.flatPlatibanda
-            ? 'Alt: ${curSec.baseHeightMeters.toStringAsFixed(1)}m'
-            : 'Base: ${curSec.baseHeightMeters.toStringAsFixed(1)}m • Topo: ${curSec.peakHeightMeters.toStringAsFixed(1)}m';
-        _drawHeightBadge(canvas, polyCenter, hText, const Color(0xFF38BDF8));
-      }
+        if (isBuildingActive && isClosed && vertices.length >= 3) {
+          _drawBuilding3DModel(
+            canvas: canvas,
+            vertices: vertices,
+            heightMeters: curActiveSec?.peakHeightMeters ?? 6.0,
+            centerOffset: centerOffset,
+            title: curActiveSec?.name ?? 'Edificação',
+            themeColor: curActiveSec?.themeColor ?? const Color(0xFF38BDF8),
+            customExtrudeDxMeters: curActiveSec?.customExtrudeDxMeters,
+            customExtrudeDyMeters: curActiveSec?.customExtrudeDyMeters,
+            isActive: isRoofSelected,
+            isDraggingExtrude:
+                activeSectionIndex == draggingBuildingSectionIndex,
+          );
 
-      // Vértices do telhado ativo (bolinhas interativas de arraste)
-      for (int i = 0; i < screenVertices.length; i++) {
-        final v = screenVertices[i];
-        final isDragging = i == draggingIndex;
-        final isHovered = i == hoveredVertexIndex;
+          // ── Bolinhas CIANO nas quinas da edificação (sempre visíveis) ───────
+          for (int i = 0; i < screenVertices.length; i++) {
+            final v = screenVertices[i];
+            final isDragging = i == draggingIndex;
+            final isHovered = i == hoveredVertexIndex;
+            final radius = isDragging ? 9.0 : (isHovered ? 8.0 : 5.5);
 
-        final radius = isDragging ? 9.5 : (isHovered ? 8.5 : 6.0);
+            // Cor ciano para edificações (diferente do laranja dos telhados)
+            final vPaint = Paint()
+              ..color = isDragging
+                  ? const Color(0xFF10B981)   // verde ao arrastar
+                  : const Color(0xFF38BDF8)   // ciano padrão
+              ..style = PaintingStyle.fill;
+            final vBorder = Paint()
+              ..color = Colors.white.withValues(alpha: isDragging ? 1.0 : 0.80)
+              ..strokeWidth = (isDragging || isHovered) ? 2.5 : 1.8
+              ..style = PaintingStyle.stroke;
 
-        final vertexPaint = Paint()
-          ..color = isDragging
-              ? const Color(0xFF10B981)
-              : (isHovered ? const Color(0xFF38BDF8) : Colors.white)
-          ..style = PaintingStyle.fill;
+            canvas.drawCircle(v, radius, vPaint);
+            canvas.drawCircle(v, radius, vBorder);
+          }
+        } else {
+          if (isClosed) {
+            path.close();
 
-        final vertexBorder = Paint()
-          ..color = isDragging
-              ? Colors.white
-              : (isHovered ? Colors.white : const Color(0xFFF59E0B))
-          ..strokeWidth = (isDragging || isHovered) ? 3.0 : 2.0
-          ..style = PaintingStyle.stroke;
+            if (isRoofSelected) {
+              final fillPaint = Paint()
+                ..color = (curActiveSec?.themeColor ?? const Color(0xFFF59E0B))
+                    .withValues(alpha: 0.20)
+                ..style = PaintingStyle.fill;
+              canvas.drawPath(path, fillPaint);
+            }
+          }
 
-        canvas.drawCircle(v, radius, vertexPaint);
-        canvas.drawCircle(v, radius, vertexBorder);
+          // Linhas de borda da água ativa
+          final borderPaint = Paint()
+            ..color = isRoofSelected
+                ? (curActiveSec?.themeColor ?? const Color(0xFFF59E0B))
+                : (curActiveSec?.themeColor ?? const Color(0xFFF59E0B))
+                    .withValues(alpha: 0.35)
+            ..strokeWidth = isRoofSelected ? 2.5 : 1.2
+            ..style = PaintingStyle.stroke;
+          canvas.drawPath(path, borderPaint);
+        }
+
+        // Cotas métricas posicionadas do lado de FORA do polígono e afastadas das placas solares
+        if (isRoofSelected && !isBuildingActive) {
+          final edgeCount = isClosed ? vertices.length : vertices.length - 1;
+
+          // Calcula o centro do polígono para garantir que o vetor aponte sempre para FORA
+          double polySumX = 0, polySumY = 0;
+          for (final sv in screenVertices) {
+            polySumX += sv.dx;
+            polySumY += sv.dy;
+          }
+          final polyCenter = Offset(
+              polySumX / screenVertices.length, polySumY / screenVertices.length);
+
+          for (int i = 0; i < edgeCount; i++) {
+            final p1 = vertices[i];
+            final p2 = vertices[(i + 1) % vertices.length];
+            final sp1 = screenVertices[i];
+            final sp2 = screenVertices[(i + 1) % vertices.length];
+
+            final distMeters = p1.distanceTo(p2);
+            final mid = Offset((sp1.dx + sp2.dx) / 2, (sp1.dy + sp2.dy) / 2);
+
+            // Vetor da aresta
+            final edgeVec = sp2 - sp1;
+            final edgeLen = edgeVec.distance;
+            Offset badgePos = mid;
+
+            if (edgeLen > 0) {
+              // Candidato de normal perpendicular
+              Offset norm = Offset(-edgeVec.dy, edgeVec.dx) / edgeLen;
+
+              // Garante que a normal aponte para FORA do polígono (longe do centróide)
+              final dotWithOutward = (mid.dx + norm.dx * 10 - polyCenter.dx) *
+                      (mid.dx - polyCenter.dx) +
+                  (mid.dy + norm.dy * 10 - polyCenter.dy) *
+                      (mid.dy - polyCenter.dy);
+              final dotCenter =
+                  (mid.dx - polyCenter.dx) * (mid.dx - polyCenter.dx) +
+                      (mid.dy - polyCenter.dy) * (mid.dy - polyCenter.dy);
+
+              if (dotWithOutward < dotCenter) {
+                norm = -norm; // inverte para apontar para fora
+              }
+
+              // Afasta generosamente 38px para fora do polígono, garantindo limpeza visual total
+              badgePos = mid + norm * 38.0;
+            }
+
+            _drawMetricLabel(canvas, badgePos, '${distMeters.toStringAsFixed(1)}m');
+          }
+
+          // Badge de Altura do Telhado no centro do polígono
+          if (isClosed && activeSectionIndex < sections.length) {
+            final curSec = sections[activeSectionIndex];
+            final hText = curSec.roofType == RoofStructureType.flatPlatibanda
+                ? 'Alt: ${curSec.baseHeightMeters.toStringAsFixed(1)}m'
+                : 'Base: ${curSec.baseHeightMeters.toStringAsFixed(1)}m • Topo: ${curSec.peakHeightMeters.toStringAsFixed(1)}m';
+            _drawHeightBadge(canvas, polyCenter, hText, const Color(0xFF38BDF8));
+          }
+
+          // Vértices do telhado ativo (bolinhas interativas de arraste)
+          for (int i = 0; i < screenVertices.length; i++) {
+            final v = screenVertices[i];
+            final isDragging = i == draggingIndex;
+            final isHovered = i == hoveredVertexIndex;
+
+            final radius = isDragging ? 9.5 : (isHovered ? 8.5 : 6.0);
+
+            final vertexPaint = Paint()
+              ..color = isDragging
+                  ? const Color(0xFF10B981)
+                  : (isHovered ? const Color(0xFF38BDF8) : Colors.white)
+              ..style = PaintingStyle.fill;
+
+            final vertexBorder = Paint()
+              ..color = isDragging
+                  ? Colors.white
+                  : (isHovered ? Colors.white : const Color(0xFFF59E0B))
+              ..strokeWidth = (isDragging || isHovered) ? 3.0 : 2.0
+              ..style = PaintingStyle.stroke;
+
+            canvas.drawCircle(v, radius, vertexPaint);
+            canvas.drawCircle(v, radius, vertexBorder);
+          }
+        }
+
+        // ── Bolinhas CIANO durante o DESENHO da edificação (antes de fechar) ─────
+        if (isBuildingActive && !isClosed) {
+          for (int i = 0; i < screenVertices.length; i++) {
+            final v = screenVertices[i];
+            final isDragging = i == draggingIndex;
+            final isHovered = i == hoveredVertexIndex;
+            final radius = isDragging ? 9.0 : (isHovered ? 8.0 : 5.5);
+
+            final vPaint = Paint()
+              ..color = isDragging
+                  ? const Color(0xFF10B981)   // verde ao arrastar
+                  : const Color(0xFF38BDF8)   // ciano padrão
+              ..style = PaintingStyle.fill;
+            final vBorder = Paint()
+              ..color = Colors.white.withValues(alpha: isDragging ? 1.0 : 0.80)
+              ..strokeWidth = (isDragging || isHovered) ? 2.5 : 1.8
+              ..style = PaintingStyle.stroke;
+
+            canvas.drawCircle(v, radius, vPaint);
+            canvas.drawCircle(v, radius, vBorder);
+          }
+        }
       }
     }
 
@@ -3953,7 +4556,6 @@ class _RoofOverlayPainter extends CustomPainter {
         }
       }
     }
-  }
 
     // ── 5. LINHA GUIA DE SNAP / AUTO-ALINHAMENTO MAGNÉTICO ──────────────────
     if (snapGuideStart != null && snapGuideEnd != null) {
@@ -3970,13 +4572,397 @@ class _RoofOverlayPainter extends CustomPainter {
       );
     }
 
-    // ── 7. NORTE MÓVEL ROTACIONÁVEL DO DRONE ─────────────────────────────────
+    // ── 7. NORTE FIXO NO CANTO (HUD) — só gira, não se move com o mapa ──────
     if (droneNorthCompass != null) {
       _drawDroneNorthCompass(
         canvas: canvas,
-        centerOffset: centerOffset,
+        canvasSize: size,
         compass: droneNorthCompass!,
       );
+    }
+
+    // ── 8. ☀️ SOL ANIMADO + ARCO DE TRAJETÓRIA SOLAR ───────────────────────
+    if (!hideSunPath) {
+      _drawSolarArcAndSun(
+        canvas: canvas,
+        size: size,
+        canvasWidth: size.width,
+        canvasHeight: size.height,
+        centerOffset: centerOffset,
+        sunPos: sunPos,
+        northRotationRadians: droneNorthCompass?.rotationRadians ?? 0.0,
+      );
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // ☀️  SOL ANIMADO + TRAJETÓRIA SOLAR CIRCULAR (calibrada pela bússola de Norte)
+  // ────────────────────────────────────────────────────────────────────────────
+  /// Desenha o sol como um ícone brilhante orbitando um mostrador circular
+  /// (mini carta solar) conforme o slider de horário é movido.
+  ///
+  /// - A posição é 2D de verdade: usa o MESMO vetor `(sin(efetivo),
+  ///   -cos(efetivo))` da bússola de Norte (`_drawDroneNorthCompass`) e da
+  ///   sombra real (`getShadowProjectionVector`). O sol sempre nasce
+  ///   exatamente do lado onde a bússola mostra "L" e se põe onde mostra
+  ///   "O" — girar o Norte gira o mostrador inteiro, em qualquer direção da
+  ///   tela (não só esquerda/direita).
+  /// - A distância até o centro representa a elevação solar real: no
+  ///   horizonte (nascer/pôr) o sol fica na borda; perto do zênite, perto do
+  ///   centro — como uma carta solar de arquitetura.
+  /// - O sol fica maior e mais brilhante perto do zênite, apagado no
+  ///   nascer/pôr.
+  void _drawSolarArcAndSun({
+    required Canvas canvas,
+    required Size size,
+    required double canvasWidth,
+    required double canvasHeight,
+    required Offset centerOffset,
+    required SolarSunPosition sunPos,
+    required double northRotationRadians,
+  }) {
+    // ── Parâmetros visuais ajustáveis ──────────────────────────────────────
+    const double dialBottomMargin = 48.0;  // distância do mostrador até a base da tela (fallback sem objeto)
+    const double sunRadius = 13.0;         // raio do círculo solar
+    const int    arcSteps  = 48;           // passos para desenhar a trajetória
+
+    final w = canvasWidth;
+    final h = canvasHeight;
+
+    // Usa o mostrador arrastável/redimensionável quando existir; senão cai
+    // no posicionamento padrão (centralizado embaixo da tela).
+    final Offset dialCenter;
+    final double outerRadius;
+    if (solarPathDial != null) {
+      outerRadius = RoofGeometryService.metersToPixels(
+              solarPathDial!.radiusMeters, metersPerPixel)
+          .clamp(40.0, 320.0);
+      dialCenter = centerOffset +
+          Offset(
+            RoofGeometryService.metersToPixels(
+                solarPathDial!.center.x, metersPerPixel),
+            RoofGeometryService.metersToPixels(
+                solarPathDial!.center.y, metersPerPixel),
+          );
+    } else {
+      outerRadius = (math.min(w, h) * 0.16).clamp(64.0, 130.0);
+      dialCenter = Offset(w / 2.0, h - dialBottomMargin - outerRadius);
+    }
+
+    // ── Vetores de referência do Norte (idênticos aos usados na bússola) ──
+    final northDir =
+        Offset(math.sin(northRotationRadians), -math.cos(northRotationRadians));
+    final eastDir = Offset(-northDir.dy, northDir.dx); // = (cos, sin) do ângulo do Norte
+
+    // ── Projeta azimute + elevação reais num ponto 2D do mostrador. Usa a
+    // MESMA convenção do rótulo "L" da bússola e do vetor real de
+    // incidência do sol (`getShadowProjectionVector`): garante que o sol
+    // sempre nasça exatamente do lado onde a bússola mostra "L" e se ponha
+    // onde mostra "O", girando com o Norte em 360°.
+    Offset sunDialPosition(double azimuthDeg, double elevationDeg) {
+      final effAngle = northRotationRadians + azimuthDeg * (math.pi / 180.0);
+      final dirVec = Offset(math.sin(effAngle), -math.cos(effAngle));
+      final elevFrac = (elevationDeg / 90.0).clamp(0.0, 1.0);
+      final radius = outerRadius * (1.0 - elevFrac * 0.62); // horizonte=borda, zênite=perto do centro
+      return dialCenter + dirVec * radius;
+    }
+
+    // ── Posição do sol na hora selecionada ──────────────────────────────────
+    final sunOffset = sunDialPosition(sunPos.azimuthDegrees, sunPos.elevationDegrees);
+    final elevFraction = (sunPos.elevationDegrees / 90.0).clamp(0.0, 1.0);
+    final isSunUp = sunPos.isSunUp && sunPos.elevationDegrees > 1.0;
+
+    // ── Cor do sol por elevação ──────────────────────────────────────────────
+    // Amanhecer/pôr: laranja avermelhado; meio-dia: amarelo brilhante
+    final Color sunCoreColor = Color.lerp(
+      const Color(0xFFFF6B35), // laranja nascer/pôr
+      const Color(0xFFFFFB6B), // amarelo zênite
+      elevFraction,
+    )!;
+    final Color sunGlowColor = Color.lerp(
+      const Color(0xFFEF4444).withValues(alpha: 0.25),
+      const Color(0xFFF59E0B).withValues(alpha: 0.30),
+      elevFraction,
+    )!;
+    final double coreAlpha  = isSunUp ? (0.55 + elevFraction * 0.45).clamp(0.0, 1.0) : 0.0;
+    final double glowAlpha  = isSunUp ? (0.25 + elevFraction * 0.30).clamp(0.0, 1.0) : 0.0;
+
+    // ════════════════════════════════════════════════════════════════════
+    // 1. ANEL DO HORIZONTE (referência de 0° de elevação, tracejado) +
+    //    RÓTULOS CARDEAIS (mesma orientação da bússola de Norte)
+    // ════════════════════════════════════════════════════════════════════
+    final horizonRingPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.14)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    _drawDashedCircle(canvas, dialCenter, outerRadius, horizonRingPaint);
+
+    void drawCardinal(String text, Offset dir, Color color) {
+      final pos = dialCenter + dir * (outerRadius + 10.0);
+      final span = TextSpan(
+        text: text,
+        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+      );
+      final tp = TextPainter(text: span, textDirection: TextDirection.ltr)..layout();
+      tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy - tp.height / 2));
+    }
+    drawCardinal('N', northDir, const Color(0xFFEF4444).withValues(alpha: 0.55));
+    drawCardinal('S', -northDir, Colors.white.withValues(alpha: 0.35));
+    drawCardinal('L', eastDir, Colors.white.withValues(alpha: 0.45));
+    drawCardinal('O', -eastDir, Colors.white.withValues(alpha: 0.45));
+
+    // Alça de redimensionar + realce do anel enquanto arrasta/redimensiona
+    if (solarPathDial != null) {
+      final handleActive = isDraggingSolarPathDial || isResizingSolarPathDial;
+      if (handleActive) {
+        canvas.drawCircle(
+          dialCenter,
+          outerRadius,
+          Paint()
+            ..color = const Color(0xFF38BDF8).withValues(alpha: 0.5)
+            ..strokeWidth = 2.0
+            ..style = PaintingStyle.stroke,
+        );
+      }
+      final handlePos = dialCenter + _kSolarDialHandleDir * outerRadius;
+      final handleBorderColor = isResizingSolarPathDial
+          ? const Color(0xFF38BDF8)
+          : const Color(0xFFF59E0B).withValues(alpha: 0.85);
+      canvas.drawLine(
+        dialCenter + _kSolarDialHandleDir * (outerRadius - 10.0),
+        handlePos,
+        Paint()
+          ..color = handleBorderColor
+          ..strokeWidth = 1.5,
+      );
+      canvas.drawCircle(handlePos, 8.0, Paint()..color = const Color(0xFF0F172A));
+      canvas.drawCircle(
+        handlePos,
+        8.0,
+        Paint()
+          ..color = handleBorderColor
+          ..strokeWidth = 2.0
+          ..style = PaintingStyle.stroke,
+      );
+      canvas.drawCircle(handlePos, 3.0, Paint()..color = const Color(0xFFF59E0B));
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // 2. TRAJETÓRIA DO SOL (tracejada, amostrada 06h–18h, calibrada pelo Norte)
+    // Amostra posições reais do Sol ao longo do dia — a curva inteira gira
+    // junto quando o Norte muda.
+    // ════════════════════════════════════════════════════════════════════
+    final arcPath = Path();
+    Offset firstArcPoint = dialCenter + eastDir * outerRadius;
+    Offset lastArcPoint = dialCenter - eastDir * outerRadius;
+    for (int step = 0; step <= arcSteps; step++) {
+      final t = step / arcSteps.toDouble();
+      final sampleHour = 6.0 + t * 12.0;
+      final sampleSun = SolarShadingEngine.calculateSunPosition(
+        hourOfDay: sampleHour,
+        dayOfYear: dayOfYear,
+      );
+      final p = sunDialPosition(sampleSun.azimuthDegrees, sampleSun.elevationDegrees);
+      if (step == 0) {
+        firstArcPoint = p;
+        arcPath.moveTo(p.dx, p.dy);
+      } else {
+        arcPath.lineTo(p.dx, p.dy);
+      }
+      lastArcPoint = p;
+    }
+
+    final arcPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.28)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final arcMetrics = arcPath.computeMetrics();
+    const dashOn  = 6.0;
+    const dashOff = 5.0;
+    for (final metric in arcMetrics) {
+      double distance = 0.0;
+      bool drawing = true;
+      while (distance < metric.length) {
+        final len = drawing ? dashOn : dashOff;
+        final end = (distance + len).clamp(0.0, metric.length);
+        if (drawing) {
+          final segment = metric.extractPath(distance, end);
+          canvas.drawPath(segment, arcPaint);
+        }
+        distance += len;
+        drawing = !drawing;
+      }
+    }
+
+    // Marca pontos do horizonte (Nascente e Poente) nas pontas reais da trajetória
+    final horizPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(firstArcPoint, 4.0, horizPaint);
+    canvas.drawCircle(lastArcPoint, 4.0, horizPaint);
+
+    // Labels "Nasc." e "Poente", empurrados pra fora radialmente a partir do centro
+    void drawArcLabel(String text, Offset anchor, Offset outwardDir) {
+      final pos = anchor + outwardDir * 14.0;
+      final span = TextSpan(
+        text: text,
+        style: GoogleFonts.inter(
+          fontSize: 9,
+          color: Colors.white.withValues(alpha: 0.5),
+          fontWeight: FontWeight.w500,
+        ),
+      );
+      final tp = TextPainter(text: span, textDirection: TextDirection.ltr)..layout();
+      tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy - tp.height / 2));
+    }
+    drawArcLabel('Nasc.', firstArcPoint, (firstArcPoint - dialCenter) / outerRadius);
+    drawArcLabel('Poente', lastArcPoint, (lastArcPoint - dialCenter) / outerRadius);
+
+    // Pino central (zênite / referência do mostrador)
+    canvas.drawCircle(dialCenter, 3.0, Paint()..color = Colors.white.withValues(alpha: 0.25));
+
+    if (!isSunUp) return; // Sol abaixo do horizonte — não desenha o ícone
+
+    // ════════════════════════════════════════════════════════════════════
+    // 3. HALO / GLOW DO SOL
+    // ════════════════════════════════════════════════════════════════════
+    final glowRadius = sunRadius * (1.6 + elevFraction * 0.8);
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          sunGlowColor.withValues(alpha: glowAlpha),
+          sunGlowColor.withValues(alpha: 0.0),
+        ],
+      ).createShader(Rect.fromCircle(center: sunOffset, radius: glowRadius * 2.5))
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(sunOffset, glowRadius * 2.5, glowPaint);
+
+    // ════════════════════════════════════════════════════════════════════
+    // 4. RAIOS DO SOL (spokes girando conforme a hora)
+    // ════════════════════════════════════════════════════════════════════
+    final rayPaint = Paint()
+      ..color = sunCoreColor.withValues(alpha: coreAlpha * 0.65)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    const int numRays = 8;
+    final double rayAngleOffset = currentSimulationHour * math.pi * 0.08; // rotação lenta
+    for (int r = 0; r < numRays; r++) {
+      final angle = rayAngleOffset + (r / numRays) * 2 * math.pi;
+      final innerR = sunRadius + 3.5;
+      final outerR = sunRadius + 7.0 + elevFraction * 3.0;
+      canvas.drawLine(
+        sunOffset + Offset(math.cos(angle) * innerR, math.sin(angle) * innerR),
+        sunOffset + Offset(math.cos(angle) * outerR, math.sin(angle) * outerR),
+        rayPaint,
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // 5. CÍRCULO CORE DO SOL
+    // ════════════════════════════════════════════════════════════════════
+    final corePaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white.withValues(alpha: coreAlpha),
+          sunCoreColor.withValues(alpha: coreAlpha),
+        ],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromCircle(center: sunOffset, radius: sunRadius))
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(sunOffset, sunRadius, corePaint);
+
+    // ════════════════════════════════════════════════════════════════════
+    // 6. LINHA DE PROJEÇÃO (sol → centro do mostrador)
+    // ════════════════════════════════════════════════════════════════════
+    final projPaint = Paint()
+      ..color = sunCoreColor.withValues(alpha: 0.15)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(sunOffset, dialCenter, projPaint);
+
+    // ════════════════════════════════════════════════════════════════════
+    // 7. BADGE DE HORÁRIO PRÓXIMO AO SOL
+    // ════════════════════════════════════════════════════════════════════
+    final hour   = currentSimulationHour.floor();
+    final minute = ((currentSimulationHour - hour) * 60).round();
+    final hourStr = '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+    final elStr   = '${sunPos.elevationDegrees.toStringAsFixed(0)}°';
+
+    final badgeSpan = TextSpan(
+      children: [
+        TextSpan(
+          text: '$hourStr  ',
+          style: GoogleFonts.outfit(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: Colors.white.withValues(alpha: 0.90),
+          ),
+        ),
+        TextSpan(
+          text: elStr,
+          style: GoogleFonts.inter(
+            fontSize: 9,
+            color: sunCoreColor.withValues(alpha: 0.85),
+          ),
+        ),
+      ],
+    );
+    final badgePainter = TextPainter(
+      text: badgeSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final badgeW = badgePainter.width + 12;
+    final badgeH = badgePainter.height + 6;
+    final badgeX = (sunOffset.dx - badgeW / 2).clamp(4.0, w - badgeW - 4);
+    final badgeY = (sunOffset.dy + sunRadius + 10).clamp(4.0, h - badgeH - 4);
+    final badgeRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(badgeX, badgeY, badgeW, badgeH),
+      const Radius.circular(5),
+    );
+
+    canvas.drawRRect(
+      badgeRect,
+      Paint()
+        ..color = const Color(0xFF0F172A).withValues(alpha: 0.75)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawRRect(
+      badgeRect,
+      Paint()
+        ..color = sunCoreColor.withValues(alpha: 0.40)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke,
+    );
+    badgePainter.paint(
+      canvas,
+      Offset(badgeX + 6, badgeY + 3),
+    );
+  }
+
+  /// Desenha um círculo tracejado — usado como anel de referência do horizonte
+  /// no mostrador de trajetória solar.
+  void _drawDashedCircle(Canvas canvas, Offset center, double radius, Paint paint) {
+    final path = Path()..addOval(Rect.fromCircle(center: center, radius: radius));
+    const dashOn = 5.0;
+    const dashOff = 4.0;
+    for (final metric in path.computeMetrics()) {
+      double distance = 0.0;
+      bool drawing = true;
+      while (distance < metric.length) {
+        final len = drawing ? dashOn : dashOff;
+        final end = (distance + len).clamp(0.0, metric.length);
+        if (drawing) {
+          canvas.drawPath(metric.extractPath(distance, end), paint);
+        }
+        distance += len;
+        drawing = !drawing;
+      }
     }
   }
 
@@ -4360,23 +5346,20 @@ class _RoofOverlayPainter extends CustomPainter {
     }
   }
 
-  /// Desenha a rosa dos ventos / bússola do norte para fotos de drone
+  /// Desenha a rosa dos ventos / bússola do norte como um HUD fixo no canto
+  /// inferior direito da tela — NÃO se move com pan/zoom do mapa, só gira.
   void _drawDroneNorthCompass({
     required Canvas canvas,
-    required Offset centerOffset,
+    required Size canvasSize,
     required DroneNorthCompass compass,
   }) {
+    const double hudRadius = 34.0;
+    const double hudMargin = 66.0;
     final centerPx = Offset(
-      centerOffset.dx +
-          RoofGeometryService.metersToPixels(
-              compass.center.x, metersPerPixel),
-      centerOffset.dy +
-          RoofGeometryService.metersToPixels(
-              compass.center.y, metersPerPixel),
+      canvasSize.width - hudMargin,
+      canvasSize.height - hudMargin,
     );
-    final radius = RoofGeometryService.metersToPixels(
-            compass.sizeMeters / 2, metersPerPixel)
-        .clamp(28.0, 70.0);
+    final radius = hudRadius;
 
     // Disco de base escuro translúcido
     final diskPaint = Paint()
@@ -4565,6 +5548,299 @@ class _RoofOverlayPainter extends CustomPainter {
 
     tp.paint(canvas,
         Offset(position.dx - tp.width / 2, position.dy - tp.height / 2));
+  }
+
+  /// Renderiza uma edificação / obstáculo 3D proporcional translúcido por cima do mapa 2D ou drone
+  void _drawBuilding3DModel({
+    required Canvas canvas,
+    required List<RoofPoint> vertices,
+    required double heightMeters,
+    required Offset centerOffset,
+    required String title,
+    required Color themeColor,
+    double? customExtrudeDxMeters,
+    double? customExtrudeDyMeters,
+    bool isActive = false,
+    bool isDraggingExtrude = false,
+  }) {
+    if (vertices.length < 3) return;
+
+    // Vetor de extrusão 3D proporcional à altura em metros (em vista aérea ajustável para casar com foto oblíqua)
+    final extrudeDxMeters = customExtrudeDxMeters ?? (-heightMeters * 0.25);
+    final extrudeDyMeters = customExtrudeDyMeters ?? (-heightMeters * 0.45);
+    final extrudeDxPx =
+        RoofGeometryService.metersToPixels(extrudeDxMeters, metersPerPixel);
+    final extrudeDyPx =
+        RoofGeometryService.metersToPixels(extrudeDyMeters, metersPerPixel);
+    final extrudeOffset = Offset(extrudeDxPx, extrudeDyPx);
+
+    // Vértices da base no chão (nível do solo)
+    final groundPts = vertices.map((p) {
+      final pxX = RoofGeometryService.metersToPixels(p.x, metersPerPixel);
+      final pxY = RoofGeometryService.metersToPixels(p.y, metersPerPixel);
+      return Offset(centerOffset.dx + pxX, centerOffset.dy + pxY);
+    }).toList();
+
+    // Vértices do topo (laje / cobertura superior da edificação)
+    final roofPts = groundPts.map((p) => p + extrudeOffset).toList();
+
+    // 1. Pegada no Solo (Footprint translúcido da base)
+    final groundPath = Path()..moveTo(groundPts.first.dx, groundPts.first.dy);
+    for (int i = 1; i < groundPts.length; i++) {
+      groundPath.lineTo(groundPts[i].dx, groundPts[i].dy);
+    }
+    groundPath.close();
+
+    final groundFill = Paint()
+      ..color = const Color(0xFF0F172A).withValues(alpha: 0.30)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(groundPath, groundFill);
+
+    final groundBorder = Paint()
+      ..color = themeColor.withValues(alpha: 0.45)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(groundPath, groundBorder);
+
+    // Linhas guias conectando a base ao topo (visíveis ao arrastar para alinhamento perfeito)
+    final rayPaint = Paint()
+      ..color = isDraggingExtrude
+          ? const Color(0xFFF59E0B).withValues(alpha: 0.55)
+          : themeColor.withValues(alpha: 0.22)
+      ..strokeWidth = isDraggingExtrude ? 1.4 : 0.8
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < groundPts.length; i++) {
+      canvas.drawLine(groundPts[i], roofPts[i], rayPaint);
+    }
+
+    // 2. Paredes Verticais 3D Translúcidas (com divisão de pavimentos)
+    final numFloors = (heightMeters / 3.0).clamp(1.0, 30.0).round();
+    final n = groundPts.length;
+
+    for (int i = 0; i < n; i++) {
+      final nextIdx = (i + 1) % n;
+      final g1 = groundPts[i];
+      final g2 = groundPts[nextIdx];
+      final r2 = roofPts[nextIdx];
+      final r1 = roofPts[i];
+
+      final wallPath = Path()
+        ..moveTo(g1.dx, g1.dy)
+        ..lineTo(g2.dx, g2.dy)
+        ..lineTo(r2.dx, r2.dy)
+        ..lineTo(r1.dx, r1.dy)
+        ..close();
+
+      // Gradiente translúcido de vidro/concreto arquitetônico
+      final wallGradient = LinearGradient(
+        colors: [
+          (isDraggingExtrude ? const Color(0xFFF59E0B) : themeColor)
+              .withValues(alpha: isDraggingExtrude ? 0.48 : 0.38),
+          const Color(0xFF0284C7).withValues(alpha: 0.22),
+          const Color(0xFF0F172A).withValues(alpha: 0.42),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      );
+
+      final wallBounds = wallPath.getBounds();
+      final wallPaint = Paint()
+        ..shader = wallGradient.createShader(wallBounds)
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(wallPath, wallPaint);
+
+      // Linhas horizontais de pavimentos / lajes intermediárias
+      if (numFloors > 1) {
+        final floorPaint = Paint()
+          ..color = const Color(0xFFE0F2FE).withValues(alpha: 0.35)
+          ..strokeWidth = 1.0;
+        for (int f = 1; f < numFloors; f++) {
+          final frac = f / numFloors;
+          final fLeft = Offset.lerp(g1, r1, frac)!;
+          final fRight = Offset.lerp(g2, r2, frac)!;
+          canvas.drawLine(fLeft, fRight, floorPaint);
+        }
+      }
+
+      // Linha de contorno da aresta da parede
+      final wallBorder = Paint()
+        ..color = (isDraggingExtrude ? const Color(0xFFF59E0B) : themeColor)
+            .withValues(alpha: 0.65)
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+      canvas.drawPath(wallPath, wallBorder);
+
+      // Pilares / Arestas verticais nos cantos
+      final pillarPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.60)
+        ..strokeWidth = 1.5;
+      canvas.drawLine(g1, r1, pillarPaint);
+    }
+
+    // 3. Laje Superior / Cobertura Translúcida
+    final roofPath = Path()..moveTo(roofPts.first.dx, roofPts.first.dy);
+    for (int i = 1; i < roofPts.length; i++) {
+      roofPath.lineTo(roofPts[i].dx, roofPts[i].dy);
+    }
+    roofPath.close();
+
+    final roofFill = Paint()
+      ..color = const Color(0xFF0B132B).withValues(alpha: 0.68)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(roofPath, roofFill);
+
+    final roofBorder = Paint()
+      ..color = isDraggingExtrude
+          ? const Color(0xFFF59E0B)
+          : (isActive ? const Color(0xFF38BDF8) : themeColor)
+      ..strokeWidth = (isDraggingExtrude || isActive) ? 2.5 : 2.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(roofPath, roofBorder);
+
+    // 4. Distintivo / Badge 3D com Altura da Edificação
+    final roofBounds = roofPath.getBounds();
+    final rCenter = roofBounds.center;
+    final badgeText = '$title • ${heightMeters.toStringAsFixed(1)}m';
+    _drawBuildingBadge(canvas, rCenter, badgeText, themeColor);
+
+    // 5. Ícone/Alça de Mover e Ajustar Perspectiva um pouco acima da badge (apenas se selecionada)
+    final bool showMoveHandle =
+        (isActive && selectionLevel != CanvasSelectionLevel.none) ||
+            isDraggingExtrude;
+    if (showMoveHandle) {
+      final handlePos = Offset(rCenter.dx, rCenter.dy - 34);
+      _drawBuildingPerspectiveHandle(
+        canvas,
+        handlePos,
+        themeColor,
+        isDragging: isDraggingExtrude,
+      );
+    }
+  }
+
+  /// Desenha a alça interativa para mover/ajustar a projeção 3D da edificação e alinhar à foto
+  void _drawBuildingPerspectiveHandle(
+    Canvas canvas,
+    Offset position,
+    Color accentColor, {
+    bool isDragging = false,
+  }) {
+    final handleColor =
+        isDragging ? const Color(0xFFF59E0B) : const Color(0xFF38BDF8);
+
+    // Linha de ancoragem conectando a alça à badge
+    final linkPaint = Paint()
+      ..color = handleColor.withValues(alpha: 0.55)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(position + const Offset(0, 13),
+        position + const Offset(0, 21), linkPaint);
+
+    final textSpan = TextSpan(
+      children: [
+        TextSpan(
+          text: '✥  ',
+          style: TextStyle(
+            color: handleColor,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        TextSpan(
+          text: isDragging ? 'Alinhando Foto...' : 'Mover Projeção 3D',
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final bgRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: position,
+        width: textPainter.width + 18,
+        height: 25.0,
+      ),
+      const Radius.circular(12.5),
+    );
+
+    // Sombra suave
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.50)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawRRect(bgRect.shift(const Offset(0, 1.5)), shadowPaint);
+
+    final bgPaint = Paint()
+      ..color = const Color(0xFF0F172A).withValues(alpha: 0.94)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(bgRect, bgPaint);
+
+    final borderPaint = Paint()
+      ..color = handleColor.withValues(alpha: isDragging ? 1.0 : 0.75)
+      ..strokeWidth = isDragging ? 2.0 : 1.3
+      ..style = PaintingStyle.stroke;
+    canvas.drawRRect(bgRect, borderPaint);
+
+    textPainter.paint(
+      canvas,
+      position - Offset(textPainter.width / 2, textPainter.height / 2),
+    );
+  }
+
+  /// Desenha a badge de identificação da edificação no topo da laje 3D
+  void _drawBuildingBadge(Canvas canvas, Offset position, String text, Color accentColor) {
+    final textSpan = TextSpan(
+      children: [
+        const TextSpan(text: '🏢  ', style: TextStyle(fontSize: 11)),
+        TextSpan(
+          text: text,
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final bgRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: position,
+        width: textPainter.width + 16,
+        height: textPainter.height + 8,
+      ),
+      const Radius.circular(8),
+    );
+
+    final bgPaint = Paint()
+      ..color = const Color(0xFF0F172A).withValues(alpha: 0.88)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(bgRect, bgPaint);
+
+    final borderPaint = Paint()
+      ..color = accentColor.withValues(alpha: 0.70)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    canvas.drawRRect(bgRect, borderPaint);
+
+    textPainter.paint(
+      canvas,
+      position - Offset(textPainter.width / 2, textPainter.height / 2),
+    );
   }
 
   @override

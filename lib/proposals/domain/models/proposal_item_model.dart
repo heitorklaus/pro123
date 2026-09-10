@@ -17,6 +17,7 @@ class ProposalItemModel {
   final double? solarKilowatts;
   final List<String>? solarComponents;
   final double? moduleWatts; // Potência em Watts se for módulo solar (ex: 550W)
+  final String? roofStudyId; // Vínculo com o Estudo Fotovoltaico de origem
 
   const ProposalItemModel({
     this.productId,
@@ -32,6 +33,7 @@ class ProposalItemModel {
     this.solarKilowatts,
     this.solarComponents,
     this.moduleWatts,
+    this.roofStudyId,
   });
 
   /// Alias de conveniência para a potência da usina em kWp
@@ -109,6 +111,7 @@ class ProposalItemModel {
     double? solarKilowatts,
     List<String>? solarComponents,
     double? moduleWatts,
+    String? roofStudyId,
   }) {
     final newQty = quantity ?? this.quantity;
     final newPrice = unitPrice ?? this.unitPrice;
@@ -127,6 +130,7 @@ class ProposalItemModel {
       solarKilowatts: solarKilowatts ?? this.solarKilowatts,
       solarComponents: solarComponents ?? this.solarComponents,
       moduleWatts: moduleWatts ?? this.moduleWatts,
+      roofStudyId: roofStudyId ?? this.roofStudyId,
     );
   }
 
@@ -145,6 +149,7 @@ class ProposalItemModel {
       'solarKilowatts': solarKilowatts,
       'solarComponents': solarComponents,
       'moduleWatts': moduleWatts,
+      if (roofStudyId != null) 'roofStudyId': roofStudyId,
     };
   }
 
@@ -156,10 +161,14 @@ class ProposalItemModel {
     String? roofType;
     double? kilowatts;
     double? modWatts;
+    String? studyId;
 
     final attrs = p.specificAttributes;
     if (attrs['moduleWatts'] != null) {
       modWatts = (attrs['moduleWatts'] as num).toDouble();
+    }
+    if (attrs['roofStudyId'] != null) {
+      studyId = attrs['roofStudyId'] as String?;
     }
 
     if (isSolar) {
@@ -205,6 +214,7 @@ class ProposalItemModel {
       solarKilowatts: kilowatts,
       solarComponents: components.isNotEmpty ? components : null,
       moduleWatts: modWatts,
+      roofStudyId: studyId,
     );
   }
 
@@ -233,6 +243,7 @@ class ProposalItemModel {
       solarKilowatts: (map['solarKilowatts'] as num?)?.toDouble(),
       solarComponents: components,
       moduleWatts: (map['moduleWatts'] as num?)?.toDouble(),
+      roofStudyId: map['roofStudyId'] as String?,
     );
   }
 }

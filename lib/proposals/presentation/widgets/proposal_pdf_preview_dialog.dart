@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../solar_designer/domain/models/roof_study_model.dart';
 import '../../data/services/solar_proposal_pdf_service.dart';
 import '../../data/services/proposal_pdf_service.dart';
 import '../../domain/models/proposal_model.dart';
@@ -10,10 +11,12 @@ import '../web_proposal_page.dart';
 /// Diálogo modal interativo de pré-visualização do PDF da proposta em alta resolução
 class ProposalPdfPreviewDialog extends StatelessWidget {
   final ProposalModel proposal;
+  final RoofStudyModel? roofStudy;
 
   const ProposalPdfPreviewDialog({
     super.key,
     required this.proposal,
+    this.roofStudy,
   });
 
   @override
@@ -143,7 +146,10 @@ class ProposalPdfPreviewDialog extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: PdfPreview(
                   build: (format) => isSolar
-                      ? SolarProposalPdfService.generateSolarProposalPdf(proposal)
+                      ? SolarProposalPdfService.generateSolarProposalPdf(
+                          proposal,
+                          roofStudy: roofStudy ?? proposal.linkedRoofStudy,
+                        )
                       : ProposalPdfService.generateProposalPdf(proposal),
                   canChangeOrientation: false,
                   canChangePageFormat: false,

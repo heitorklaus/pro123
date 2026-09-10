@@ -109,6 +109,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
     double totalAmount,
     bool isMobile,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final closedCount = grouped[ProposalStatus.closed]?.length ?? 0;
     final totalCount = widget.proposals.length;
     final winRate = totalCount > 0 ? (closedCount / totalCount) * 100 : 0.0;
@@ -119,12 +120,12 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
         vertical: isMobile ? 10 : 12,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -140,6 +141,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                     color: const Color(0xFF6366F1),
                     label: 'Pipeline Total',
                     value: _currencyFormat.format(totalAmount),
+                    isDark: isDark,
                   ),
                   const SizedBox(width: 12),
                   _summaryPill(
@@ -147,6 +149,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                     color: const Color(0xFF0284C7),
                     label: 'Propostas',
                     value: '$totalCount',
+                    isDark: isDark,
                   ),
                   const SizedBox(width: 12),
                   _summaryPill(
@@ -154,6 +157,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                     color: const Color(0xFF059669),
                     label: 'Conversão',
                     value: '${winRate.toStringAsFixed(1)}%',
+                    isDark: isDark,
                   ),
                 ],
               ),
@@ -165,6 +169,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                   color: const Color(0xFF6366F1),
                   label: 'Pipeline Total',
                   value: _currencyFormat.format(totalAmount),
+                  isDark: isDark,
                 ),
                 const SizedBox(width: 16),
                 _summaryPill(
@@ -172,6 +177,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                   color: const Color(0xFF0284C7),
                   label: 'Total de Propostas',
                   value: '$totalCount ${totalCount == 1 ? 'proposta' : 'propostas'}',
+                  isDark: isDark,
                 ),
                 const SizedBox(width: 16),
                 _summaryPill(
@@ -179,13 +185,14 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                   color: const Color(0xFF059669),
                   label: 'Taxa de Conversão',
                   value: '${winRate.toStringAsFixed(1)}% fechadas',
+                  isDark: isDark,
                 ),
                 const Spacer(),
                 Text(
                   '💡 Arraste os cards entre as colunas para atualizar a etapa',
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xFF94A3B8),
+                    color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -199,6 +206,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
     required Color color,
     required String label,
     required String value,
+    required bool isDark,
   }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -207,7 +215,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
+            color: color.withValues(alpha: isDark ? 0.2 : 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, size: 17, color: color),
@@ -221,7 +229,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               label,
               style: GoogleFonts.inter(
                 fontSize: 11,
-                color: const Color(0xFF64748B),
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -230,7 +238,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               style: GoogleFonts.outfit(
                 fontSize: 13.5,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF0F172A),
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
               ),
             ),
           ],
@@ -241,6 +249,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
 
   // ── COLUNA INDIVIDUAL DO KANBAN COM DRAG TARGET ───────────────────────────
   Widget _buildKanbanColumn(ProposalStatus status, List<ProposalModel> items) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isHovered = _hoveredColumn == status;
     final columnTotal = items.fold<double>(0.0, (acc, p) => acc + p.totalAmount);
 
@@ -264,11 +273,13 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
             color: isHovered
-                ? status.bgColor.withValues(alpha: 0.6)
-                : const Color(0xFFF8FAFC),
+                ? status.bgColor.withValues(alpha: isDark ? 0.25 : 0.6)
+                : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isHovered ? status.textColor : const Color(0xFFE2E8F0),
+              color: isHovered
+                  ? status.textColor
+                  : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
               width: isHovered ? 2 : 1,
             ),
             boxShadow: isHovered
@@ -281,7 +292,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                   ]
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.01),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.01),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),
@@ -293,13 +304,13 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                   border: Border(
                     bottom: BorderSide(
                       color: isHovered
                           ? status.textColor.withValues(alpha: 0.3)
-                          : const Color(0xFFE2E8F0),
+                          : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                     ),
                   ),
                 ),
@@ -325,7 +336,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                               letterSpacing: 0.5,
-                              color: const Color(0xFF0F172A),
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
                             ),
                           ),
                         ),
@@ -354,7 +365,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
                           'Soma da etapa:',
                           style: GoogleFonts.inter(
                             fontSize: 11,
-                            color: const Color(0xFF94A3B8),
+                            color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
                           ),
                         ),
                         Text(
@@ -408,7 +419,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               // Lista de Cards com Scroll Independente
               Expanded(
                 child: items.isEmpty
-                    ? _buildEmptyColumnState(status)
+                    ? _buildEmptyColumnState(status, isDark)
                     : ListView.builder(
                         padding: const EdgeInsets.all(10),
                         itemCount: items.length,
@@ -430,7 +441,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
   }
 
   // ── ESTADO VAZIO DA COLUNA ───────────────────────────────────────────────
-  Widget _buildEmptyColumnState(ProposalStatus status) {
+  Widget _buildEmptyColumnState(ProposalStatus status, bool isDark) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -441,11 +452,13 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
               ),
-              child: Icon(status.icon, size: 22, color: const Color(0xFF94A3B8)),
+              child: Icon(status.icon,
+                  size: 22, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
             ),
             const SizedBox(height: 10),
             Text(
@@ -453,7 +466,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               style: GoogleFonts.inter(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF64748B),
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
               ),
             ),
             const SizedBox(height: 4),
@@ -462,7 +475,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 11,
-                color: const Color(0xFF94A3B8),
+                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
               ),
             ),
           ],
@@ -473,6 +486,7 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
 
   // ── CARD DRAGGABLE DO KANBAN ─────────────────────────────────────────────
   Widget _buildDraggableCard(ProposalModel proposal) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardWidget = _KanbanCard(
       proposal: proposal,
       currencyFormat: _currencyFormat,
@@ -517,10 +531,10 @@ class _ProposalKanbanViewState extends State<ProposalKanbanView> {
         opacity: 0.3,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: const Color(0xFF94A3B8),
+              color: isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8),
               style: BorderStyle.solid,
             ),
           ),
@@ -569,6 +583,7 @@ class _KanbanCardState extends State<_KanbanCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final p = widget.proposal;
     final themeColor = Color(p.themeColorValue);
     final hasSolar = p.items.any((i) => i.isSolarPlant);
@@ -588,17 +603,17 @@ class _KanbanCardState extends State<_KanbanCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: _isHovered ? themeColor : AppColors.border,
+            color: _isHovered ? themeColor : (isDark ? const Color(0xFF334155) : AppColors.border),
             width: _isHovered ? 1.5 : 1,
           ),
           boxShadow: [
             BoxShadow(
               color: _isHovered
                   ? themeColor.withValues(alpha: 0.12)
-                  : Colors.black.withValues(alpha: 0.03),
+                  : Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
               blurRadius: _isHovered ? 12 : 6,
               offset: Offset(0, _isHovered ? 4 : 2),
             ),
@@ -620,21 +635,24 @@ class _KanbanCardState extends State<_KanbanCard> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.tag_rounded, size: 11, color: const Color(0xFF64748B)),
+                            Icon(Icons.tag_rounded,
+                                size: 11,
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                             const SizedBox(width: 2),
                             Text(
                               p.proposalNumber,
                               style: GoogleFonts.inter(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF334155),
+                                color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
                               ),
                             ),
                           ],
@@ -645,7 +663,9 @@ class _KanbanCardState extends State<_KanbanCard> {
                       Icon(
                         Icons.drag_indicator_rounded,
                         size: 16,
-                        color: _isHovered ? const Color(0xFF64748B) : const Color(0xFFCBD5E1),
+                        color: _isHovered
+                            ? (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF64748B))
+                            : (isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1)),
                       ),
                     ],
                   ),
@@ -660,7 +680,7 @@ class _KanbanCardState extends State<_KanbanCard> {
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: const Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                       height: 1.25,
                     ),
                   ),
@@ -670,8 +690,9 @@ class _KanbanCardState extends State<_KanbanCard> {
                   // Nome do Cliente com Ícone
                   Row(
                     children: [
-                      const Icon(Icons.person_outline_rounded,
-                          size: 14, color: Color(0xFF64748B)),
+                      Icon(Icons.person_outline_rounded,
+                          size: 14,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -680,7 +701,7 @@ class _KanbanCardState extends State<_KanbanCard> {
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
                             fontSize: 12,
-                            color: const Color(0xFF64748B),
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -725,15 +746,16 @@ class _KanbanCardState extends State<_KanbanCard> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
+                          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                         ),
                         child: Text(
                           '${p.items.length} ${p.items.length == 1 ? 'item' : 'itens'}',
                           style: GoogleFonts.inter(
                             fontSize: 10,
-                            color: const Color(0xFF64748B),
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -742,22 +764,28 @@ class _KanbanCardState extends State<_KanbanCard> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: isDark
+                                ? const Color(0xFF1E3A8A).withValues(alpha: 0.3)
+                                : const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                            border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFF2563EB).withValues(alpha: 0.5)
+                                    : const Color(0xFFBFDBFE)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.person_pin_rounded,
-                                  size: 11, color: Color(0xFF2563EB)),
+                              Icon(Icons.person_pin_rounded,
+                                  size: 11,
+                                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB)),
                               const SizedBox(width: 3),
                               Text(
                                 p.createdByUserName!,
                                 style: GoogleFonts.inter(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF1D4ED8),
+                                  color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
                                 ),
                               ),
                             ],
@@ -786,14 +814,16 @@ class _KanbanCardState extends State<_KanbanCard> {
                         style: GoogleFonts.outfit(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF059669),
+                          color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
                         ),
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 8),
-                  const Divider(height: 1, color: AppColors.divider),
+                  Divider(
+                      height: 1,
+                      color: isDark ? const Color(0xFF334155) : AppColors.divider),
                   const SizedBox(height: 6),
 
                   // Barra de Ações Rápidas do Card
@@ -841,8 +871,10 @@ class _KanbanCardState extends State<_KanbanCard> {
                       // Menu de Status Rápido
                       PopupMenuButton<ProposalStatus>(
                         tooltip: 'Mudar Etapa / Status',
-                        icon: const Icon(Icons.swap_horiz_rounded,
-                            size: 17, color: Color(0xFF64748B)),
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        icon: Icon(Icons.swap_horiz_rounded,
+                            size: 17,
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                         onSelected: widget.onStatusChange,
@@ -870,7 +902,7 @@ class _KanbanCardState extends State<_KanbanCard> {
                                         : FontWeight.normal,
                                     color: isCurrent
                                         ? s.textColor
-                                        : const Color(0xFF0F172A),
+                                        : (isDark ? Colors.white : const Color(0xFF0F172A)),
                                   ),
                                 ),
                                 if (isCurrent) ...[

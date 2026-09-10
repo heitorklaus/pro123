@@ -84,6 +84,7 @@ class SolarPlantFormCard extends StatefulWidget {
   final VoidCallback onBack;
   final VoidCallback? onChangeSector;
   final VoidCallback onSuccess;
+  final void Function(ProductModel product)? onProductSaved;
   final ValueChanged<ProposalItemModel>? onProceedToProposal;
   final String? customProceedDescription;
   final String? customProceedActionLabel;
@@ -96,6 +97,7 @@ class SolarPlantFormCard extends StatefulWidget {
     required this.onBack,
     this.onChangeSector,
     required this.onSuccess,
+    this.onProductSaved,
     this.onProceedToProposal,
     this.customProceedDescription,
     this.customProceedActionLabel,
@@ -149,8 +151,9 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
 
   bool _isLoading = false;
   String? _errorMessage;
+  String? _roofStudyId;
 
-  bool get _isEditing => widget.product != null;
+  bool get _isEditing => widget.product != null && widget.product!.id.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -161,7 +164,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
       _repo = ProductRepository();
     }
 
-    if (_isEditing) {
+    if (widget.product != null) {
       final p = widget.product!;
       _nameCtrl.text = p.name;
       _skuCtrl.text = p.sku ?? '';
@@ -169,6 +172,9 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
       _notesCtrl.text = p.description ?? '';
 
       final attrs = p.specificAttributes;
+      if (attrs['roofStudyId'] != null) {
+        _roofStudyId = attrs['roofStudyId'].toString();
+      }
       if (attrs['roofType'] != null && _roofTypes.contains(attrs['roofType'])) {
         _selectedRoofType = attrs['roofType'] as String;
       }
@@ -454,6 +460,9 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           'price': CurrencyPtBrInputFormatter.parse(s.priceCtrl.text),
         }).toList(),
       };
+      if (_roofStudyId != null && _roofStudyId!.isNotEmpty) {
+        specificAttributes['roofStudyId'] = _roofStudyId;
+      }
 
       ProductModel savedProduct;
       if (_isEditing) {
@@ -506,7 +515,10 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           behavior: SnackBarBehavior.floating,
         ));
 
-        final proposalItem = ProposalItemModel.fromProduct(savedProduct);
+        final proposalItem = ProposalItemModel.fromProduct(savedProduct).copyWith(
+          roofStudyId: _roofStudyId ?? (savedProduct.specificAttributes['roofStudyId'] as String?),
+        );
+        widget.onProductSaved?.call(savedProduct);
 
         if (widget.onProceedToProposal != null) {
           _showProceedToProposalDialog(proposalItem);
@@ -685,18 +697,22 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const solarColor = Color(0xFFF59E0B);
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 1040),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: solarColor.withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : solarColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: solarColor.withValues(alpha: 0.06),
+            color: isDark ? Colors.black.withValues(alpha: 0.3) : solarColor.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -729,7 +745,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                         style: GoogleFonts.outfit(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                       Container(
@@ -830,16 +846,16 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                     borderRadius: BorderRadius.circular(10),
                     child: Ink(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF0F172A) : Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       child: Row(
                         children: [
-                          const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF64748B)),
+                          Icon(Icons.arrow_back_rounded, size: 16, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                           const SizedBox(width: 4),
-                          Text('Voltar', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12, color: const Color(0xFF64748B))),
+                          Text('Voltar', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                         ],
                       ),
                     ),
@@ -877,7 +893,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                                     style: GoogleFonts.outfit(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF0F172A),
+                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -903,7 +919,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                             ),
                             Text(
                               'Monte o kit com inversor, módulos fotovoltaicos, estruturas, cabeamento e serviços',
-                              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                              style: GoogleFonts.inter(fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -963,22 +979,22 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                         borderRadius: BorderRadius.circular(10),
                         child: Ink(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? const Color(0xFF0F172A) : Colors.white,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.arrow_back_rounded, size: 18, color: Color(0xFF64748B)),
+                              Icon(Icons.arrow_back_rounded, size: 18, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                               const SizedBox(width: 8),
                               Text(
                                 'Voltar ao Catálogo',
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
-                                  color: const Color(0xFF64748B),
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                                 ),
                               ),
                             ],
@@ -993,20 +1009,28 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           ],
 
           const SizedBox(height: 16),
-          const Divider(color: AppColors.divider),
+          Divider(color: isDark ? const Color(0xFF334155) : AppColors.divider),
           const SizedBox(height: 14),
 
           // ── Banner de Importação Automática de Proposta / PDF ───────────────
           Container(
             padding: EdgeInsets.all(isMobile ? 12 : 16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
+              gradient: isDark
+                  ? const LinearGradient(
+                      colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    )
+                  : const LinearGradient(
+                      colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFDE68A)),
+              border: Border.all(
+                color: isDark ? const Color(0xFFF59E0B).withValues(alpha: 0.3) : const Color(0xFFFDE68A),
+              ),
             ),
             child: isMobile
                 ? Column(
@@ -1026,7 +1050,11 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                           Expanded(
                             child: Text(
                               'Importe sua cotação em PDF / Foto',
-                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF92400E)),
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                              ),
                             ),
                           ),
                         ],
@@ -1034,7 +1062,10 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                       const SizedBox(height: 6),
                       Text(
                         'A IA analisa os dados, explode o kit com todos os equipamentos e cadastra tudo.',
-                        style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFB45309)),
+                        style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFFB45309),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Material(
@@ -1081,11 +1112,18 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                           children: [
                             Text(
                               'Importe sua cotação em PDF ou Imagem (BelEnergy, Edeltec, Fortlev, WEG, etc.)',
-                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF92400E)),
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                              ),
                             ),
                             Text(
                               'O sistema analisa os dados, explode o kit com todos os equipamentos e cadastra tudo no catálogo automaticamente.',
-                              style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFB45309)),
+                              style: GoogleFonts.inter(
+                                fontSize: 11.5,
+                                color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFFB45309),
+                              ),
                             ),
                           ],
                         ),
@@ -1423,7 +1461,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           // Tabela / Cards de Produtos do Kit
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
               borderRadius: BorderRadius.circular(12),
             ),
             child: ClipRRect(
@@ -1433,20 +1471,20 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                   if (!isMobile) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      color: const Color(0xFFF8FAFC),
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                       child: Row(
-                        children: const [
-                          SizedBox(width: 28, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
-                          Expanded(flex: 5, child: Text('PRODUTO / EQUIPAMENTO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B)))),
-                          SizedBox(width: 80, child: Center(child: Text('QTD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                          SizedBox(width: 50, child: Center(child: Text('UNID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                          SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('UNITÁRIO (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                          SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('TOTAL (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF64748B))))),
-                          SizedBox(width: 45), // Lixeira
+                        children: [
+                          SizedBox(width: 28, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)))),
+                          Expanded(flex: 5, child: Text('PRODUTO / EQUIPAMENTO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)))),
+                          SizedBox(width: 80, child: Center(child: Text('QTD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
+                          SizedBox(width: 50, child: Center(child: Text('UNID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
+                          SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('UNITÁRIO (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
+                          SizedBox(width: 120, child: Align(alignment: Alignment.centerRight, child: Text('TOTAL (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))))),
+                          const SizedBox(width: 45), // Lixeira
                         ],
                       ),
                     ),
-                    const Divider(height: 1, color: AppColors.divider),
+                    Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                   ],
 
                   if (_items.isEmpty)
@@ -1456,9 +1494,9 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                         children: [
                           const Icon(Icons.solar_power_outlined, size: 36, color: Color(0xFF94A3B8)),
                           const SizedBox(height: 8),
-                          Text('Nenhum equipamento adicionado ainda', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B), fontSize: 13)),
+                          Text('Nenhum equipamento adicionado ainda', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), fontSize: 13)),
                           const SizedBox(height: 4),
-                          Text('Clique no botão para adicionar módulos, inversores ou estruturas.', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8))),
+                          Text('Clique no botão para adicionar módulos, inversores ou estruturas.', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8))),
                         ],
                       ),
                     )
@@ -1467,7 +1505,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _items.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
+                      separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                       itemBuilder: (ctx, idx) {
                         final item = _items[idx];
                         final qtyStr = item.quantity % 1 == 0 ? item.quantity.toInt().toString() : item.quantity.toString();
@@ -1486,11 +1524,11 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                                       width: 24,
                                       height: 24,
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF1F5F9),
+                                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Center(
-                                        child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF475569), fontSize: 11)),
+                                        child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569), fontSize: 11)),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -1498,9 +1536,9 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A))),
+                                          Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? Colors.white : const Color(0xFF0F172A))),
                                           if (item.sku != null && item.sku!.isNotEmpty)
-                                            Text('SKU: ${item.sku}', style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B))),
+                                            Text('SKU: ${item.sku}', style: GoogleFonts.inter(fontSize: 10.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                                         ],
                                       ),
                                     ),
@@ -1556,10 +1594,10 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
-                                        Text('Total', style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF64748B))),
+                                        Text('Total', style: GoogleFonts.inter(fontSize: 10, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                                         Text(
                                           currencyFormat.format(item.totalPrice),
-                                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A)),
+                                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                                         ),
                                       ],
                                     ),
@@ -1577,7 +1615,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                             children: [
                               SizedBox(
                                 width: 28,
-                                child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF64748B), fontSize: 12)),
+                                child: Text('${idx + 1}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), fontSize: 12)),
                               ),
                               // Descrição
                               Expanded(
@@ -1585,9 +1623,9 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: const Color(0xFF0F172A))),
+                                    Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? Colors.white : const Color(0xFF0F172A))),
                                     if (item.sku != null && item.sku!.isNotEmpty)
-                                      Text('SKU: ${item.sku}', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B))),
+                                      Text('SKU: ${item.sku}', style: GoogleFonts.inter(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                                   ],
                                 ),
                               ),
@@ -1611,7 +1649,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                               SizedBox(
                                 width: 50,
                                 child: Center(
-                                  child: Text(item.unit, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFF64748B))),
+                                  child: Text(item.unit, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
                                 ),
                               ),
                               // Preço Unitário
@@ -1637,7 +1675,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                                   alignment: Alignment.centerRight,
                                   child: Text(
                                     currencyFormat.format(item.totalPrice),
-                                    style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF0F172A)),
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                                   ),
                                 ),
                               ),
@@ -2202,6 +2240,7 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
   }
 
   Widget _sectionHeader(IconData icon, String title, String subtitle) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Icon(icon, color: const Color(0xFFD97706), size: 20),
@@ -2209,8 +2248,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
-            Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+            Text(title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A))),
+            Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
           ],
         ),
       ],
@@ -2218,18 +2257,24 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
   }
 
   Widget _label(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Text(
       text,
-      style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+      style: GoogleFonts.inter(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+      ),
     );
   }
 
   Widget _summaryRow(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF78350F))),
-        Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+        Text(label, style: GoogleFonts.inter(fontSize: 13, color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF78350F))),
+        Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A))),
       ],
     );
   }

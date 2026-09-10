@@ -627,12 +627,22 @@ class _Building3DPainter extends CustomPainter {
 
         // Cor da parede com acabamento arquitetônico premium
         final wallBrightness = (0.70 + (dot * 0.25)).clamp(0.45, 0.98);
-        final wallColor = Color.fromRGBO(
-          (248 * wallBrightness).toInt(),
-          (250 * wallBrightness).toInt(),
-          (252 * wallBrightness).toInt(),
-          1.0,
-        );
+        final Color wallColor;
+        if (sec.isBuildingObstacle) {
+          wallColor = Color.fromRGBO(
+            (180 * wallBrightness).toInt(),
+            (215 * wallBrightness).toInt(),
+            (245 * wallBrightness).toInt(),
+            0.85,
+          );
+        } else {
+          wallColor = Color.fromRGBO(
+            (248 * wallBrightness).toInt(),
+            (250 * wallBrightness).toInt(),
+            (252 * wallBrightness).toInt(),
+            1.0,
+          );
+        }
 
         final wallPaint = Paint()
           ..color = wallColor
@@ -640,10 +650,28 @@ class _Building3DPainter extends CustomPainter {
         canvas.drawPath(wallPath, wallPaint);
 
         final wallBorder = Paint()
-          ..color = const Color(0xFFCBD5E1)
+          ..color = sec.isBuildingObstacle
+              ? const Color(0xFF38BDF8).withValues(alpha: 0.6)
+              : const Color(0xFFCBD5E1)
           ..strokeWidth = 1.0
           ..style = PaintingStyle.stroke;
         canvas.drawPath(wallPath, wallBorder);
+
+        // Divisão de pavimentos em 3D para edificações
+        if (sec.isBuildingObstacle && baseH >= 3.0) {
+          final numFloors = (baseH / 3.0).clamp(1.0, 30.0).round();
+          if (numFloors > 1) {
+            final floorPaint = Paint()
+              ..color = const Color(0xFFBAE6FD).withValues(alpha: 0.40)
+              ..strokeWidth = 1.0;
+            for (int f = 1; f < numFloors; f++) {
+              final frac = f / numFloors;
+              final fLeft = Offset.lerp(b1, t1, frac)!;
+              final fRight = Offset.lerp(b2, t2, frac)!;
+              canvas.drawLine(fLeft, fRight, floorPaint);
+            }
+          }
+        }
       }
 
       // Moldura da Platibanda Branca Elevada (como na foto)

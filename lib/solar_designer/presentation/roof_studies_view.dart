@@ -15,10 +15,14 @@ import '../data/services/solar_study_pdf_service.dart';
 /// View Principal do Módulo de Estudos de Telhado (SPA Miolo)
 class RoofStudiesView extends StatefulWidget {
   final UserModel? currentUser;
+  final ProceedToProposalCallback? onProceedToProposal;
+  final VoidCallback? onBack;
 
   const RoofStudiesView({
     super.key,
     this.currentUser,
+    this.onProceedToProposal,
+    this.onBack,
   });
 
   @override
@@ -71,7 +75,9 @@ class _RoofStudiesViewState extends State<RoofStudiesView> {
       initialStudyName: setupResult.studyName,
       initialClient: setupResult.selectedClient,
       initialProposal: setupResult.selectedProposal,
+      initialPlantProduct: setupResult.selectedPlant,
       currentUser: _currentUser,
+      onProceedToProposal: widget.onProceedToProposal,
     );
   }
 
@@ -80,6 +86,7 @@ class _RoofStudiesViewState extends State<RoofStudiesView> {
       context,
       initialStudy: study,
       currentUser: _currentUser,
+      onProceedToProposal: widget.onProceedToProposal,
     );
   }
 
@@ -100,6 +107,11 @@ class _RoofStudiesViewState extends State<RoofStudiesView> {
         proposalCode: result.selectedProposal != null
             ? '#${result.selectedProposal!.proposalNumber}'
             : null,
+        solarPlantProductId: result.selectedPlant != null
+            ? (result.selectedPlant!.id.isNotEmpty ? result.selectedPlant!.id : null)
+            : study.solarPlantProductId,
+        solarPlantPrice: result.selectedPlant?.salePrice ?? study.solarPlantPrice,
+        solarPlantName: result.selectedPlant?.name ?? study.solarPlantName,
       );
 
       try {
@@ -246,24 +258,61 @@ class _RoofStudiesViewState extends State<RoofStudiesView> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                          child: Row(
                             children: [
-                              Text(
-                                'Estudos de Telhado 🛰️',
-                                style: GoogleFonts.outfit(
-                                  fontSize: isMobile ? 20 : 26,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              if (widget.onBack != null) ...[
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: widget.onBack,
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? const Color(0xFF1E293B)
+                                            : const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isDark
+                                              ? const Color(0xFF334155)
+                                              : const Color(0xFFCBD5E1),
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.arrow_back_rounded,
+                                        size: 20,
+                                        color: isDark
+                                            ? const Color(0xFF94A3B8)
+                                            : const Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Mapeamento de telhados, alocação de placas e dimensionamento solar via satélite',
-                                style: GoogleFonts.inter(
-                                  fontSize: isMobile ? 12 : 14,
-                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                const SizedBox(width: 14),
+                              ],
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Estudos de Telhado 🛰️',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: isMobile ? 20 : 26,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Mapeamento de telhados, alocação de placas e dimensionamento solar via satélite',
+                                      style: GoogleFonts.inter(
+                                        fontSize: isMobile ? 12 : 14,
+                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

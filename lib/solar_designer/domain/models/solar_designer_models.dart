@@ -281,6 +281,44 @@ class DroneNorthCompass {
   }
 }
 
+/// Mostrador circular arrastável/redimensionável da trajetória solar do dia
+/// (o "arco" que o sol percorre na simulação, ancorado num ponto do mapa)
+class SolarPathDial {
+  final RoofPoint center;
+  final double radiusMeters;
+
+  const SolarPathDial({
+    required this.center,
+    this.radiusMeters = 5.0,
+  });
+
+  SolarPathDial copyWith({
+    RoofPoint? center,
+    double? radiusMeters,
+  }) {
+    return SolarPathDial(
+      center: center ?? this.center,
+      radiusMeters: radiusMeters ?? this.radiusMeters,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'centerX': center.x,
+        'centerY': center.y,
+        'radiusMeters': radiusMeters,
+      };
+
+  factory SolarPathDial.fromMap(Map<String, dynamic> map) {
+    return SolarPathDial(
+      center: RoofPoint(
+        (map['centerX'] as num?)?.toDouble() ?? 0.0,
+        (map['centerY'] as num?)?.toDouble() ?? 0.0,
+      ),
+      radiusMeters: (map['radiusMeters'] as num?)?.toDouble() ?? 5.0,
+    );
+  }
+}
+
 /// Seta de indicação da orientação de queda d'água do telhado
 class DroneRoofArrow {
   final String id;
@@ -525,6 +563,9 @@ class RoofSection {
   final double baseHeightMeters; // Pé-direito da parede ou altura do beiral (ex: 3.50m)
   final double peakHeightMeters; // Altura máxima da platibanda ou cumeeira (ex: 4.50m)
   final double tiltDegrees; // Inclinação da água em graus (ex: 15°)
+  final bool isBuildingObstacle; // Se é uma edificação/prédio/obstáculo (sem placas, apenas simulação de sombra)
+  final double? customExtrudeDxMeters; // Deslocamento X da perspectiva 3D customizada
+  final double? customExtrudeDyMeters; // Deslocamento Y da perspectiva 3D customizada
 
   RoofSection({
     required this.id,
@@ -541,16 +582,27 @@ class RoofSection {
     this.baseHeightMeters = 3.50,
     double? peakHeightMeters,
     this.tiltDegrees = 12.0,
+    this.isBuildingObstacle = false,
+    this.customExtrudeDxMeters,
+    this.customExtrudeDyMeters,
   }) : peakHeightMeters = peakHeightMeters ?? baseHeightMeters;
 
   RoofPolygon get polygon => RoofPolygon(vertices: vertices);
   double get areaM2 => polygon.areaM2;
-  int get activeModuleCount => modules.where((m) => !m.isExcluded).length;
-  double get totalKwp => (activeModuleCount * moduleSpec.watts) / 1000.0;
-  double get estimatedMonthlyKwh => totalKwp * 130.0;
+  int get activeModuleCount => isBuildingObstacle ? 0 : modules.where((m) => !m.isExcluded).length;
+  double get totalKwp => isBuildingObstacle ? 0.0 : (activeModuleCount * moduleSpec.watts) / 1000.0;
+  double get estimatedMonthlyKwh => isBuildingObstacle ? 0.0 : totalKwp * 130.0;
 
   /// Altura média da seção (para cálculo rápido de sombreamento)
   double get averageHeightMeters => (baseHeightMeters + peakHeightMeters) / 2.0;
+
+  /// Deslocamento X efetivo da extrusão 3D (ajustável pelo usuário)
+  double get effectiveExtrudeDxMeters =>
+      customExtrudeDxMeters ?? (-peakHeightMeters * 0.25);
+
+  /// Deslocamento Y efetivo da extrusão 3D (ajustável pelo usuário)
+  double get effectiveExtrudeDyMeters =>
+      customExtrudeDyMeters ?? (-peakHeightMeters * 0.45);
 
   RoofSection copyWith({
     String? id,
@@ -567,6 +619,9 @@ class RoofSection {
     double? baseHeightMeters,
     double? peakHeightMeters,
     double? tiltDegrees,
+    bool? isBuildingObstacle,
+    double? customExtrudeDxMeters,
+    double? customExtrudeDyMeters,
   }) {
     return RoofSection(
       id: id ?? this.id,
@@ -583,6 +638,9 @@ class RoofSection {
       baseHeightMeters: baseHeightMeters ?? this.baseHeightMeters,
       peakHeightMeters: peakHeightMeters ?? this.peakHeightMeters,
       tiltDegrees: tiltDegrees ?? this.tiltDegrees,
+      isBuildingObstacle: isBuildingObstacle ?? this.isBuildingObstacle,
+      customExtrudeDxMeters: customExtrudeDxMeters ?? this.customExtrudeDxMeters,
+      customExtrudeDyMeters: customExtrudeDyMeters ?? this.customExtrudeDyMeters,
     );
   }
 }

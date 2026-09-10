@@ -149,10 +149,9 @@ class _SolarStudyPhotoDialogState extends State<SolarStudyPhotoDialog> {
     setState(() => _isGeneratingPdf = true);
 
     try {
-      await widget.onConcludeStudy(_photos);
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      final photosList = List<RoofStudyPhoto>.from(_photos);
+      Navigator.of(context).pop();
+      await widget.onConcludeStudy(photosList);
     } catch (e) {
       debugPrint('[SolarStudyPhotoDialog] Erro ao concluir estudo: $e');
       if (mounted) {

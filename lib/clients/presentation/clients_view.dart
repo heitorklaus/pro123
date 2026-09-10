@@ -145,6 +145,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return SizedBox.expand(
@@ -168,7 +169,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                         style: GoogleFonts.outfit(
                           fontSize: isMobile ? 20 : 26,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -176,7 +177,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                         'Cadastro e controle de clientes e prospectos',
                         style: GoogleFonts.inter(
                             fontSize: isMobile ? 12 : 14,
-                            color: const Color(0xFF64748B)),
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -199,27 +200,26 @@ class _ClientTableViewState extends State<_ClientTableView> {
                             ),
                           ],
                         ),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: isMobile ? 14 : 20,
-                              vertical: isMobile ? 9 : 11),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.person_add_rounded,
-                                  size: 18, color: Colors.white),
-                              const SizedBox(width: 6),
-                              Text(
-                                isMobile ? 'NOVO' : 'NOVO CLIENTE',
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                  fontSize: isMobile ? 12 : 13.5,
-                                  color: Colors.white,
-                                ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 14 : 20,
+                          vertical: isMobile ? 10 : 13,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.person_add_rounded,
+                                color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'NOVO CLIENTE',
+                              style: GoogleFonts.inter(
+                                fontSize: isMobile ? 12 : 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -227,35 +227,37 @@ class _ClientTableViewState extends State<_ClientTableView> {
                 ],
               ],
             ),
+            SizedBox(height: isMobile ? 14 : 24),
 
-            SizedBox(height: isMobile ? 12 : 20),
-
-            // ── Busca ─────────────────────────────────────────────────────
+            // ── Barra de busca ─────────────────────────────────────────────
             SizedBox(
-              width: isMobile ? double.infinity : 380,
+              height: 42,
               child: TextField(
                 controller: _searchCtrl,
-                onChanged: (v) =>
-                    setState(() => _query = v.trim().toLowerCase()),
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+                onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
                 decoration: InputDecoration(
                   hintText: isMobile
                       ? 'Buscar cliente...'
                       : 'Buscar por nome, e-mail ou empresa...',
                   hintStyle: GoogleFonts.inter(
-                      fontSize: 13, color: const Color(0xFF94A3B8)),
-                  prefixIcon: const Icon(Icons.search_rounded,
-                      color: Color(0xFF64748B), size: 20),
+                      fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF94A3B8)),
+                  prefixIcon: Icon(Icons.search_rounded,
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), size: 20),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : AppColors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : AppColors.border),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -271,14 +273,14 @@ class _ClientTableViewState extends State<_ClientTableView> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: isMobile ? Colors.transparent : Colors.white,
+                  color: isMobile ? Colors.transparent : (isDark ? const Color(0xFF1E293B) : Colors.white),
                   borderRadius: BorderRadius.circular(16),
-                  border: isMobile ? null : Border.all(color: AppColors.border),
+                  border: isMobile ? null : Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                   boxShadow: isMobile
                       ? null
                       : [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
+                            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -290,7 +292,7 @@ class _ClientTableViewState extends State<_ClientTableView> {
                     children: [
                       if (!isMobile) ...[
                         _ClientTableHeader(),
-                        const Divider(height: 1, color: AppColors.divider),
+                        Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                       ],
                       Expanded(
                         child: StreamBuilder<List<ClientModel>>(
@@ -298,36 +300,42 @@ class _ClientTableViewState extends State<_ClientTableView> {
                             companyId: _companyId,
                             isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
                           ),
-                          builder: (ctx, snap) {
-                            final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
-                            if ((_companyId == null && !isSuper) ||
-                                snap.connectionState ==
-                                    ConnectionState.waiting) {
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
                               return const Center(
-                                child: CircularProgressIndicator(
-                                    color: AppColors.primary),
+                                child: CircularProgressIndicator(),
                               );
                             }
-                            if (snap.hasError) {
+                            if (snapshot.hasError) {
                               return Center(
-                                child: Text(
-                                  'Erro ao carregar clientes:\n${snap.error}',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.inter(
-                                      color: const Color(0xFF64748B)),
-                                ),
+                                child: Text('Erro: ${snapshot.error}'),
                               );
                             }
 
-                            final all = snap.data ?? [];
+                            final all = snapshot.data ?? [];
                             final filtered = _query.isEmpty
                                 ? all
                                 : all
                                     .where((c) =>
-                                        c.name.toLowerCase().contains(_query) ||
+                                        c.name
+                                            .toLowerCase()
+                                            .contains(_query) ||
                                         c.email
                                             .toLowerCase()
                                             .contains(_query) ||
+                                        (c.phone
+                                                ?.toLowerCase()
+                                                .contains(_query) ??
+                                            false) ||
+                                        (c.document
+                                                ?.toLowerCase()
+                                                .contains(_query) ??
+                                            false) ||
+                                        (c.city
+                                                ?.toLowerCase()
+                                                .contains(_query) ??
+                                            false) ||
                                         (c.company
                                                 ?.toLowerCase()
                                                 .contains(_query) ??
@@ -357,8 +365,8 @@ class _ClientTableViewState extends State<_ClientTableView> {
 
                             return ListView.separated(
                               itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const Divider(
-                                  height: 1, color: AppColors.divider),
+                              separatorBuilder: (_, __) => Divider(
+                                  height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                               itemBuilder: (_, i) => _ClientRow(
                                 client: filtered[i],
                                 onEdit: () => widget.onEdit(filtered[i]),
@@ -447,23 +455,24 @@ class _ClientTableViewState extends State<_ClientTableView> {
 class _ClientTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: const Color(0xFFF8FAFC),
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       child: Row(
         children: [
-          _col('CLIENTE', flex: 3),
-          _col('E-MAIL / TELEFONE', flex: 3),
-          _col('TIPO', flex: 2),
-          _col('STATUS', flex: 2),
-          _col('CADASTRO', flex: 2),
+          _col('CLIENTE', flex: 3, isDark: isDark),
+          _col('E-MAIL / TELEFONE', flex: 3, isDark: isDark),
+          _col('TIPO', flex: 2, isDark: isDark),
+          _col('STATUS', flex: 2, isDark: isDark),
+          _col('CADASTRO', flex: 2, isDark: isDark),
           const SizedBox(width: 88),
         ],
       ),
     );
   }
 
-  Widget _col(String label, {required int flex}) {
+  Widget _col(String label, {required int flex, bool isDark = false}) {
     return Expanded(
       flex: flex,
       child: Text(
@@ -471,7 +480,7 @@ class _ClientTableHeader extends StatelessWidget {
         style: GoogleFonts.inter(
           fontWeight: FontWeight.bold,
           fontSize: 11,
-          color: const Color(0xFF64748B),
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
           letterSpacing: 0.5,
         ),
       ),
@@ -495,6 +504,7 @@ class _ClientRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       child: Row(
@@ -540,21 +550,21 @@ class _ClientRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF0F172A)),
+                            color: isDark ? Colors.white : const Color(0xFF0F172A)),
                       ),
                       if (client.city != null && client.city!.isNotEmpty)
                         Text(
                           '${client.city}${client.state != null ? ' - ${client.state}' : ''}',
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              fontSize: 11, color: const Color(0xFF94A3B8)),
+                              fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF94A3B8)),
                         )
                       else if (client.company != null)
                         Text(
                           client.company!,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              fontSize: 11, color: const Color(0xFF94A3B8)),
+                              fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF94A3B8)),
                         ),
                     ],
                   ),
@@ -573,14 +583,14 @@ class _ClientRow extends StatelessWidget {
                   client.email,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
-                      fontSize: 13, color: const Color(0xFF334155)),
+                      fontSize: 12, color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155)),
                 ),
                 if (client.phone != null)
                   Text(
                     client.phone!,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                        fontSize: 11, color: const Color(0xFF94A3B8)),
+                        fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF94A3B8)),
                   ),
               ],
             ),
@@ -610,7 +620,7 @@ class _ClientRow extends StatelessWidget {
               '${client.createdAt.year}',
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
-                  fontSize: 12, color: const Color(0xFF64748B)),
+                  fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
             ),
           ),
           // Ações
@@ -656,6 +666,7 @@ class _ClientMobileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final initials = client.name.isNotEmpty
         ? client.name
             .trim()
@@ -668,12 +679,12 @@ class _ClientMobileCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -715,7 +726,7 @@ class _ClientMobileCard extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 13.5,
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0F172A),
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -726,7 +737,7 @@ class _ClientMobileCard extends StatelessWidget {
                               client.document!,
                               style: GoogleFonts.inter(
                                 fontSize: 11,
-                                color: const Color(0xFF64748B),
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                               ),
                             ),
                         ],
@@ -1388,17 +1399,18 @@ class _ClientFormCardState extends State<_ClientFormCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 36),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -1413,7 +1425,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF64748B),
+                foregroundColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               ),
               onPressed: widget.onBack,
@@ -1458,14 +1470,14 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                       style: GoogleFonts.outfit(
                           fontSize: isMobile ? 18 : 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary),
+                          color: isDark ? Colors.white : AppColors.textPrimary),
                     ),
                     Text(
                       _isEditing
                           ? 'Atualize os dados do cliente'
                           : 'Preencha os dados do novo cliente',
                       style: GoogleFonts.inter(
-                          fontSize: 12, color: AppColors.textSecondary),
+                          fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -1742,11 +1754,12 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                       decoration: BoxDecoration(
                         color: selected
                             ? AppColors.primary.withValues(alpha: 0.08)
-                            : const Color(0xFFF8FAFC),
+                            : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color:
-                              selected ? AppColors.primary : AppColors.border,
+                          color: selected
+                              ? AppColors.primary
+                              : (isDark ? const Color(0xFF334155) : AppColors.border),
                           width: selected ? 1.5 : 1,
                         ),
                       ),
@@ -1760,7 +1773,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                             size: 16,
                             color: selected
                                 ? AppColors.primary
-                                : const Color(0xFF64748B),
+                                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -1771,7 +1784,7 @@ class _ClientFormCardState extends State<_ClientFormCard> {
                                   selected ? FontWeight.bold : FontWeight.w500,
                               color: selected
                                   ? AppColors.primary
-                                  : const Color(0xFF64748B),
+                                  : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                             ),
                           ),
                         ],
@@ -2379,14 +2392,17 @@ class _ClientFormCardState extends State<_ClientFormCard> {
     );
   }
 
-  Widget _label(String text) => Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF475569),
-        ),
-      );
+  Widget _label(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Text(
+      text,
+      style: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2405,16 +2421,17 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF2FF),
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFEEF2FF),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFC7D2FE)),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFC7D2FE)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primary, size: 18),
+          Icon(icon, color: isDark ? const Color(0xFF818CF8) : AppColors.primary, size: 18),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2425,14 +2442,14 @@ class _SectionHeader extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+                  color: isDark ? const Color(0xFF818CF8) : AppColors.primary,
                 ),
               ),
               Text(
                 subtitle,
                 style: GoogleFonts.inter(
                   fontSize: 11,
-                  color: const Color(0xFF4F46E5),
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF4F46E5),
                 ),
               ),
             ],

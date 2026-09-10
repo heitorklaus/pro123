@@ -138,8 +138,59 @@ class SolarShadingEngine {
     );
   }
 
-  /// Calcula o polígono da sombra 2D projetado por uma seção de telhado sobre um plano inferior
-  /// deltaHeightMeters: Desnível de altura entre o topo do telhado emissor e a base do receptor
+  /// Calcula o Envoltório Convexo (Convex Hull - Monotone Chain) de um conjunto de pontos
+  /// Retorna o polígono externo contínuo e sem auto-interseções em ordem anti-horária
+  static List<RoofPoint> computeConvexHull(List<RoofPoint> points) {
+    if (points.length <= 3) return List.from(points);
+
+    // Remove duplicatas muito próximas
+    final unique = <RoofPoint>[];
+    for (final p in points) {
+      if (!unique.any((u) =>
+          (u.x - p.x).abs() < 1e-4 && (u.y - p.y).abs() < 1e-4)) {
+        unique.add(p);
+      }
+    }
+    if (unique.length <= 3) return unique;
+
+    // Ordena os pontos primeiro por X crescente, depois por Y crescente
+    unique.sort((a, b) {
+      final cmpX = a.x.compareTo(b.x);
+      if (cmpX != 0) return cmpX;
+      return a.y.compareTo(b.y);
+    });
+
+    double crossProduct(RoofPoint o, RoofPoint a, RoofPoint b) {
+      return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    }
+
+    // Casca inferior (lower hull)
+    final lower = <RoofPoint>[];
+    for (final p in unique) {
+      while (lower.length >= 2 &&
+          crossProduct(lower[lower.length - 2], lower.last, p) <= 0) {
+        lower.removeLast();
+      }
+      lower.add(p);
+    }
+
+    // Casca superior (upper hull)
+    final upper = <RoofPoint>[];
+    for (final p in unique.reversed) {
+      while (upper.length >= 2 &&
+          crossProduct(upper[upper.length - 2], upper.last, p) <= 0) {
+        upper.removeLast();
+      }
+      upper.add(p);
+    }
+
+    // Remove o último ponto de cada casca pois está duplicado no início da outra
+    lower.removeLast();
+    upper.removeLast();
+
+    return [...lower, ...upper];
+  }
+
   /// Calcula o polígono da sombra 2D projetado por uma seção de telhado sobre um plano inferior
   /// deltaHeightMeters: Desnível de altura entre o topo do telhado emissor e a base do receptor
   /// northRotationRadians: Orientação do Norte no canvas (0 rad = Norte para cima [-Y]; pi/2 = Norte para a direita [+X])
@@ -149,26 +200,33 @@ class SolarShadingEngine {
     required SolarSunPosition sun,
     double northRotationRadians = 0.0,
   }) {
-    if (deltaHeightMeters <= 0.05 || !sun.isSunUp || sun.elevationDegrees <= 2.0) {
+    if (casterVertices.length < 3 ||
+        deltaHeightMeters <= 0.05 ||
+        !sun.isSunUp ||
+        sun.elevationDegrees <= 2.0) {
       return [];
     }
 
     // Comprimento da sombra: L = H / tan(elevação)
     final elevationRad = sun.elevationDegrees * (math.pi / 180.0);
-    // Limita a projeção para no máximo 35 metros para evitar sombras infinitas no nascer/pôr do sol
-    final shadowLength = math.min(35.0, deltaHeightMeters / math.tan(elevationRad));
+    // Limita a projeção para evitar sombras infinitas no nascer/pôr do sol
+    final maxShadow = math.max(60.0, deltaHeightMeters * 4.0);
+    final shadowLength =
+        math.min(maxShadow, deltaHeightMeters / math.tan(elevationRad));
 
     // Vetor de deslocamento da sombra calibrado pela rotação do Norte
     final shadowVec = sun.getShadowProjectionVector(northRotationRadians);
     final dxMeters = shadowLength * shadowVec.dx;
     final dyMeters = shadowLength * shadowVec.dy;
 
-    // Constrói o invólucro convexo/polígono expandido da sombra (base original + vértices projetados)
-    final projectedPoints = casterVertices.map((p) => RoofPoint(p.x + dxMeters, p.y + dyMeters)).toList();
+    // Vértices do topo projetados no chão
+    final projectedPoints = casterVertices
+        .map((p) => RoofPoint(p.x + dxMeters, p.y + dyMeters))
+        .toList();
 
-    // Combina os vértices para criar a silhueta da sombra
-    final combined = <RoofPoint>[...casterVertices, ...projectedPoints.reversed];
-    return combined;
+    // Constrói a silhueta sólida e sem auto-interseção da sombra via Convex Hull
+    // (Garante preenchimento contínuo sem fendas, cortes ou formato de garfo)
+    return computeConvexHull([...casterVertices, ...projectedPoints]);
   }
 
   /// Avalia a incidência de sombra em tempo real para todos os módulos de todas as seções
@@ -269,6 +327,7 @@ class SolarShadingEngine {
     double currentHour = 12.0,
     double latitude = -23.55,
     double northRotationRadians = 0.0,
+    int dayOfYear = 172, // Padrão: Inverno (cenário mais conservador)
   }) {
     int totalModules = 0;
     for (final s in sections) {
@@ -305,7 +364,7 @@ class SolarShadingEngine {
 
     // Amostra a cada 30 minutos das 06:00 às 18:00 (25 amostras diárias)
     for (double h = 6.0; h <= 18.0; h += 0.5) {
-      final sun = calculateSunPosition(hourOfDay: h, latitude: latitude);
+      final sun = calculateSunPosition(hourOfDay: h, latitude: latitude, dayOfYear: dayOfYear);
       if (!sun.isSunUp) continue;
 
       // Peso senoidal da irradiação no céu (sol a pino às 12h tem peso 1.0, às 7h tem ~0.25)
@@ -360,7 +419,7 @@ class SolarShadingEngine {
     }
 
     // Avalia o momento atual selecionado no slider
-    final currentSun = calculateSunPosition(hourOfDay: currentHour, latitude: latitude);
+    final currentSun = calculateSunPosition(hourOfDay: currentHour, latitude: latitude, dayOfYear: dayOfYear);
     final currentShading = evaluateModulesShading(
       allSections: sections,
       sun: currentSun,

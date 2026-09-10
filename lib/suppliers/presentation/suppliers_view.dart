@@ -237,13 +237,13 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                       style: GoogleFonts.outfit(
                         fontSize: isMobile ? 20 : 24,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Cadastro de distribuidores e parceiros comerciais',
-                      style: GoogleFonts.inter(fontSize: isMobile ? 12 : 13, color: const Color(0xFF64748B)),
+                      style: GoogleFonts.inter(fontSize: isMobile ? 12 : 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -305,21 +305,22 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                 width: isMobile ? double.infinity : 360,
                 child: TextField(
                   controller: _searchCtrl,
+                  style: GoogleFonts.inter(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                   onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
                   decoration: InputDecoration(
                     hintText: isMobile ? 'Buscar fornecedor...' : 'Buscar por nome, razão social, CNPJ ou e-mail...',
-                    hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                    hintStyle: GoogleFonts.inter(fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF94A3B8)),
+                    prefixIcon: Icon(Icons.search_rounded, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B), size: 20),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : AppColors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : AppColors.border),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -333,19 +334,19 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : Colors.white,
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                  border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<SupplierStatus?>(
-                    dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
+                    dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                     value: _filterStatus,
                     hint: Text(
                       'Status: Todos',
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                       ),
                     ),
                     items: [
@@ -385,14 +386,14 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isMobile ? Colors.transparent : Colors.white,
+                color: isMobile ? Colors.transparent : (isDark ? const Color(0xFF1E293B) : Colors.white),
                 borderRadius: BorderRadius.circular(16),
-                border: isMobile ? null : Border.all(color: AppColors.border),
+                border: isMobile ? null : Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
                 boxShadow: isMobile
                     ? null
                     : [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
+                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -404,7 +405,7 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                   children: [
                     if (!isMobile) ...[
                       const _SupplierTableHeader(),
-                      const Divider(height: 1, color: AppColors.divider),
+                      Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                     ],
                     Expanded(
                       child: StreamBuilder<List<SupplierModel>>(
@@ -418,7 +419,7 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                               child: Text(
                                 'Erro ao carregar fornecedores:\n${snap.error}',
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(color: const Color(0xFF64748B)),
+                                style: GoogleFonts.inter(color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                               ),
                             );
                           }
@@ -457,7 +458,7 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
 
                           return ListView.separated(
                             itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
+                            separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                             itemBuilder: (_, i) => _SupplierRow(
                               supplier: filtered[i],
                               onEdit: () => widget.onEdit(filtered[i]),
@@ -486,23 +487,24 @@ class _SupplierTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          _cell('FORNECEDOR / RAZÃO SOCIAL', flex: 4),
-          _cell('CONTATO / REPRESENTANTE', flex: 3),
-          _cell('RAMO / CATEGORIA', flex: 2),
-          _cell('LOCALIZAÇÃO', flex: 2),
-          _cell('STATUS', flex: 2),
-          const SizedBox(width: 88, child: Text('AÇÕES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)))),
+          _cell('FORNECEDOR / RAZÃO SOCIAL', flex: 4, isDark: isDark),
+          _cell('CONTATO / REPRESENTANTE', flex: 3, isDark: isDark),
+          _cell('RAMO / CATEGORIA', flex: 2, isDark: isDark),
+          _cell('LOCALIZAÇÃO', flex: 2, isDark: isDark),
+          _cell('STATUS', flex: 2, isDark: isDark),
+          SizedBox(width: 88, child: Text('AÇÕES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)))),
         ],
       ),
     );
   }
 
-  Widget _cell(String title, {required int flex}) {
+  Widget _cell(String title, {required int flex, required bool isDark}) {
     return Expanded(
       flex: flex,
       child: Text(
@@ -510,7 +512,7 @@ class _SupplierTableHeader extends StatelessWidget {
         style: GoogleFonts.inter(
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: const Color(0xFF64748B),
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
           letterSpacing: 0.5,
         ),
       ),
@@ -531,6 +533,7 @@ class _SupplierRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
@@ -557,14 +560,14 @@ class _SupplierRow extends StatelessWidget {
                       Text(
                         supplier.displayName,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                       ),
                       Text(
                         supplier.corporateName.isNotEmpty && supplier.corporateName != supplier.displayName
                             ? supplier.corporateName
                             : (supplier.cnpj != null && supplier.cnpj!.isNotEmpty ? 'CNPJ: ${supplier.cnpj!}' : 'Fornecedor Cadastrado'),
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                        style: GoogleFonts.inter(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -579,13 +582,13 @@ class _SupplierRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(supplier.email, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF0F172A))),
+                Text(supplier.email, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12, color: isDark ? Colors.white : const Color(0xFF0F172A))),
                 Text(
                   supplier.contactPerson?.isNotEmpty == true
                       ? '${supplier.phone} (${supplier.contactPerson!})'
                       : supplier.phone,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                  style: GoogleFonts.inter(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                 ),
               ],
             ),
@@ -617,7 +620,7 @@ class _SupplierRow extends StatelessWidget {
             child: Text(
               supplier.city?.isNotEmpty == true ? '${supplier.city!} - ${supplier.state ?? ''}' : 'Não informado',
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF475569)),
+              style: GoogleFonts.inter(fontSize: 12, color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
             ),
           ),
 
@@ -671,15 +674,16 @@ class _SupplierMobileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -717,7 +721,7 @@ class _SupplierMobileCard extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 13.5,
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0F172A),
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -725,7 +729,7 @@ class _SupplierMobileCard extends StatelessWidget {
                           if (supplier.cnpj != null && supplier.cnpj!.isNotEmpty)
                             Text(
                               supplier.cnpj!,
-                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                              style: GoogleFonts.inter(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                             ),
                         ],
                       ),
@@ -734,26 +738,26 @@ class _SupplierMobileCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Divider(height: 1, color: AppColors.divider),
+                Divider(height: 1, color: isDark ? const Color(0xFF334155) : AppColors.divider),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     if (supplier.phone.isNotEmpty) ...[
-                      const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF64748B)),
+                      Icon(Icons.phone_outlined, size: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       const SizedBox(width: 4),
                       Text(
                         supplier.phone,
-                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                        style: GoogleFonts.inter(fontSize: 11, color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
                       ),
                       const SizedBox(width: 10),
                     ],
                     if (supplier.city != null && supplier.city!.isNotEmpty) ...[
-                      const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                      Icon(Icons.location_on_outlined, size: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           '${supplier.city}${supplier.state != null ? "/${supplier.state}" : ""}',
-                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF475569)),
+                          style: GoogleFonts.inter(fontSize: 11, color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1134,16 +1138,17 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 36),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -1166,11 +1171,11 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF64748B)),
+                      Icon(Icons.arrow_back_rounded, size: 16, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       const SizedBox(width: 6),
                       Text(
                         'Voltar para a Lista',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: const Color(0xFF64748B)),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -1198,11 +1203,11 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
                   children: [
                     Text(
                       _isEditing ? 'Editar Fornecedor' : 'Novo Fornecedor',
-                      style: GoogleFonts.outfit(fontSize: isMobile ? 18 : 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                      style: GoogleFonts.outfit(fontSize: isMobile ? 18 : 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A)),
                     ),
                     Text(
                       'Preencha os dados cadastrais e endereço',
-                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                      style: GoogleFonts.inter(fontSize: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -1211,7 +1216,7 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
           ),
 
           const SizedBox(height: 16),
-          const Divider(color: AppColors.divider),
+          Divider(color: isDark ? const Color(0xFF334155) : AppColors.divider),
           const SizedBox(height: 16),
 
           if (_errorMessage != null) ...[
@@ -1811,6 +1816,7 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
   }
 
   Widget _sectionHeader(IconData icon, String title, String subtitle) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Container(
@@ -1825,8 +1831,8 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF0F172A))),
-            Text(subtitle, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B))),
+            Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? Colors.white : const Color(0xFF0F172A))),
+            Text(subtitle, style: GoogleFonts.inter(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
           ],
         ),
       ],
@@ -1834,12 +1840,13 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
   }
 
   Widget _label(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Text(
       text,
       style: GoogleFonts.inter(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: const Color(0xFF334155),
+        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
       ),
     );
   }

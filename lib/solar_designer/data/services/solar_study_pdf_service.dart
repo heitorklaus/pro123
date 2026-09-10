@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -7,6 +8,7 @@ import '../../../settings/domain/models/company_model.dart';
 import '../../domain/models/roof_study_model.dart';
 import '../../domain/models/solar_designer_models.dart';
 import '../../domain/services/solar_shading_engine.dart';
+import '../repositories/roof_study_repository.dart';
 
 /// Serviço de Geração e Emissão de Relatório Técnico em PDF
 /// ESTUDO DE ENGENHARIA SOLAR E PROJEÇÃO DE GERAÇÃO
@@ -160,7 +162,21 @@ class SolarStudyPdfService {
 
     // Processa imagens capturadas do canvas
     final capturedImages = <MapEntry<RoofStudyPhoto, pw.MemoryImage>>[];
-    final photosToProcess = photos.isNotEmpty ? photos : study.studyPhotos;
+    List<RoofStudyPhoto> photosToProcess = List.from(photos);
+
+    final bool hasValidImages =
+        photosToProcess.any((p) => p.imageBase64.trim().isNotEmpty);
+    if (!hasValidImages && study.id.isNotEmpty) {
+      try {
+        final subPhotos = await RoofStudyRepository().getStudyPhotos(study.id);
+        if (subPhotos.isNotEmpty) {
+          photosToProcess = subPhotos;
+        }
+      } catch (_) {}
+    }
+    if (photosToProcess.isEmpty) {
+      photosToProcess = study.studyPhotos;
+    }
 
     for (final p in photosToProcess) {
       try {
@@ -168,11 +184,57 @@ class SolarStudyPdfService {
           final cleanB64 = p.imageBase64.contains(',')
               ? p.imageBase64.split(',').last
               : p.imageBase64;
-          final bytes = base64Decode(cleanB64);
+          var bytes = base64Decode(cleanB64);
+
+          // Se a imagem for pesada (>250KB), comprime e redimensiona para JPEG leve garantindo PDF < 1 MB
+          if (bytes.length > 250000) {
+            try {
+              final decoded = img.decodeImage(bytes);
+              if (decoded != null) {
+                final resized = (decoded.width > 1000)
+                    ? img.copyResize(decoded, width: 1000)
+                    : decoded;
+                final compressedJpg = img.encodeJpg(resized, quality: 78);
+                bytes = Uint8List.fromList(compressedJpg);
+              }
+            } catch (_) {}
+          }
+
           capturedImages.add(MapEntry(p, pw.MemoryImage(bytes)));
         }
       } catch (e) {
         debugPrint('[SolarStudyPdfService] Erro ao decodificar foto ${p.id}: $e');
+      }
+    }
+
+    // Se ainda assim não houver nenhuma foto capturada mas tiver snapshot HD do estudo, cria uma entrada
+    if (capturedImages.isEmpty) {
+      final snapB64 = study.hdSnapshotBase64 ?? study.snapshotImageBase64;
+      if (snapB64 != null && snapB64.isNotEmpty) {
+        try {
+          final clean = snapB64.contains(',') ? snapB64.split(',').last : snapB64;
+          var bytes = base64Decode(clean);
+          if (bytes.length > 250000) {
+            try {
+              final decoded = img.decodeImage(bytes);
+              if (decoded != null) {
+                final resized = (decoded.width > 1000)
+                    ? img.copyResize(decoded, width: 1000)
+                    : decoded;
+                final compressedJpg = img.encodeJpg(resized, quality: 78);
+                bytes = Uint8List.fromList(compressedJpg);
+              }
+            } catch (_) {}
+          }
+          final p = RoofStudyPhoto(
+            id: 'main_roof_layout',
+            label: 'Layout Geral do Telhado 3D & Painéis',
+            hourOfDay: 12.0,
+            imageBase64: snapB64,
+            capturedAt: DateTime.now(),
+          );
+          capturedImages.add(MapEntry(p, pw.MemoryImage(bytes)));
+        } catch (_) {}
       }
     }
 
@@ -1419,11 +1481,23 @@ class SolarStudyPdfService {
     String? clientAddress,
     String? clientPhone,
   }) async {
+    List<RoofStudyPhoto> effectivePhotos = List.from(photos);
+    final bool hasValidImages =
+        effectivePhotos.any((p) => p.imageBase64.trim().isNotEmpty);
+    if (!hasValidImages && study.id.isNotEmpty) {
+      try {
+        final subPhotos = await RoofStudyRepository().getStudyPhotos(study.id);
+        if (subPhotos.isNotEmpty) {
+          effectivePhotos = subPhotos;
+        }
+      } catch (_) {}
+    }
+
     final bytes = await generatePdfBytes(
       study: study,
       sections: sections,
       simulation: simulation,
-      photos: photos,
+      photos: effectivePhotos,
       company: company,
       clientName: clientName,
       clientAddress: clientAddress,

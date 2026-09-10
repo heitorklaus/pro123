@@ -158,14 +158,7 @@ class AppSidebar extends StatelessWidget {
                     onTap: () => onItemSelected(AppSidebarItem.proposals),
                   ),
                 ],
-                const SizedBox(height: 6),
-                _SidebarMenuItem(
-                  icon: Icons.satellite_alt_rounded,
-                  title: 'Estudos de Telhado',
-                  isCollapsed: isCollapsed,
-                  isSelected: activeItem == AppSidebarItem.roofStudies,
-                  onTap: () => onItemSelected(AppSidebarItem.roofStudies),
-                ),
+
                 if (canViewContracts) ...[
                   const SizedBox(height: 6),
                   _SidebarMenuItem(

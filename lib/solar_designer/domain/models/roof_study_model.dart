@@ -135,6 +135,7 @@ class RoofStudyModel {
   final List<DroneRoofArrow> droneArrows;
   final int? arrowsGlobalColor;
   final double? arrowsGlobalLength;
+  final SolarPathDial? solarPathDial;
 
   // Parâmetros Solares e Irradiação CRESESB
   final String? cep;
@@ -157,9 +158,20 @@ class RoofStudyModel {
   // Fotos e Capturas do Estudo
   final List<RoofStudyPhoto> studyPhotos;
 
+  // Equipamentos e Componentes do Estudo
+  final String? moduleModel;
+  final String? inverterModel;
+  final String? structureType;
+
+  // Vínculo com Kit Usina gerada a partir do estudo
+  final String? solarPlantProductId;
+  final double? solarPlantPrice;
+  final String? solarPlantName;
+
   // Status e Auditoria
   final String status; // 'draft' (rascunho), 'completed' (concluído)
   final String? thumbnailBase64;
+  final String? hdSnapshotBase64;
   final String createdByUserId;
   final String createdByUserName;
   final DateTime createdAt;
@@ -200,6 +212,7 @@ class RoofStudyModel {
     this.droneArrows = const [],
     this.arrowsGlobalColor,
     this.arrowsGlobalLength,
+    this.solarPathDial,
     this.cep,
     this.stateUf,
     this.region,
@@ -211,8 +224,15 @@ class RoofStudyModel {
     required this.totalKwp,
     required this.estimatedMonthlyKwh,
     this.studyPhotos = const [],
+    this.moduleModel,
+    this.inverterModel,
+    this.structureType,
+    this.solarPlantProductId,
+    this.solarPlantPrice,
+    this.solarPlantName,
     this.status = 'completed',
     this.thumbnailBase64,
+    this.hdSnapshotBase64,
     this.createdByUserId = '',
     this.createdByUserName = '',
     required this.createdAt,
@@ -222,8 +242,10 @@ class RoofStudyModel {
   /// Alias de conveniência para quantidade total de módulos
   int get totalModules => totalModulesCount;
 
-  /// Alias de conveniência para snapshot em Base64
-  String? get snapshotImageBase64 => thumbnailBase64;
+  /// Alias de conveniência para snapshot em Alta Resolução (HD) com fallback para thumbnail
+  String? get snapshotImageBase64 => (hdSnapshotBase64 != null && hdSnapshotBase64!.isNotEmpty)
+      ? hdSnapshotBase64
+      : thumbnailBase64;
 
   /// Quantidade total de fotos capturadas e salvas no estudo
   int get photosCount => studyPhotos.length;
@@ -291,6 +313,7 @@ class RoofStudyModel {
     List<DroneRoofArrow>? droneArrows,
     int? arrowsGlobalColor,
     double? arrowsGlobalLength,
+    SolarPathDial? solarPathDial,
     String? cep,
     String? stateUf,
     String? region,
@@ -302,8 +325,15 @@ class RoofStudyModel {
     double? totalKwp,
     double? estimatedMonthlyKwh,
     List<RoofStudyPhoto>? studyPhotos,
+    String? moduleModel,
+    String? inverterModel,
+    String? structureType,
+    String? solarPlantProductId,
+    double? solarPlantPrice,
+    String? solarPlantName,
     String? status,
     String? thumbnailBase64,
+    String? hdSnapshotBase64,
     String? createdByUserId,
     String? createdByUserName,
     DateTime? createdAt,
@@ -344,6 +374,7 @@ class RoofStudyModel {
       droneArrows: droneArrows ?? this.droneArrows,
       arrowsGlobalColor: arrowsGlobalColor ?? this.arrowsGlobalColor,
       arrowsGlobalLength: arrowsGlobalLength ?? this.arrowsGlobalLength,
+      solarPathDial: solarPathDial ?? this.solarPathDial,
       cep: cep ?? this.cep,
       stateUf: stateUf ?? this.stateUf,
       region: region ?? this.region,
@@ -355,8 +386,15 @@ class RoofStudyModel {
       totalKwp: totalKwp ?? this.totalKwp,
       estimatedMonthlyKwh: estimatedMonthlyKwh ?? this.estimatedMonthlyKwh,
       studyPhotos: studyPhotos ?? this.studyPhotos,
+      moduleModel: moduleModel ?? this.moduleModel,
+      inverterModel: inverterModel ?? this.inverterModel,
+      structureType: structureType ?? this.structureType,
+      solarPlantProductId: solarPlantProductId ?? this.solarPlantProductId,
+      solarPlantPrice: solarPlantPrice ?? this.solarPlantPrice,
+      solarPlantName: solarPlantName ?? this.solarPlantName,
       status: status ?? this.status,
       thumbnailBase64: thumbnailBase64 ?? this.thumbnailBase64,
+      hdSnapshotBase64: hdSnapshotBase64 ?? this.hdSnapshotBase64,
       createdByUserId: createdByUserId ?? this.createdByUserId,
       createdByUserName: createdByUserName ?? this.createdByUserName,
       createdAt: createdAt ?? this.createdAt,
@@ -399,6 +437,7 @@ class RoofStudyModel {
       'droneArrows': droneArrows.map((a) => a.toMap()).toList(),
       'arrowsGlobalColor': arrowsGlobalColor,
       'arrowsGlobalLength': arrowsGlobalLength,
+      'solarPathDial': solarPathDial?.toMap(),
       'cep': cep,
       'stateUf': stateUf,
       'region': region,
@@ -411,9 +450,18 @@ class RoofStudyModel {
       'estimatedMonthlyKwh': estimatedMonthlyKwh,
       'studyPhotos': studyPhotos.map((p) => p.toMap(includeBase64: includePhotoBase64)).toList(),
       'photosCount': studyPhotos.length,
+      if (moduleModel != null) 'moduleModel': moduleModel,
+      if (inverterModel != null) 'inverterModel': inverterModel,
+      if (structureType != null) 'structureType': structureType,
+      if (solarPlantProductId != null) 'solarPlantProductId': solarPlantProductId,
+      if (solarPlantPrice != null) 'solarPlantPrice': solarPlantPrice,
+      if (solarPlantName != null) 'solarPlantName': solarPlantName,
       'status': status,
-      'thumbnailBase64': (thumbnailBase64 != null && thumbnailBase64!.length < 250000)
+      'thumbnailBase64': (thumbnailBase64 != null && thumbnailBase64!.length < 950000)
           ? thumbnailBase64
+          : null,
+      'hdSnapshotBase64': (hdSnapshotBase64 != null && hdSnapshotBase64!.length < 950000)
+          ? hdSnapshotBase64
           : null,
       'createdByUserId': createdByUserId,
       'createdByUserName': createdByUserName,
@@ -460,6 +508,10 @@ class RoofStudyModel {
     final parsedDroneNorthCompass = rawDroneNorthCompass != null
         ? DroneNorthCompass.fromMap(rawDroneNorthCompass)
         : parsedNorthCompass;
+
+    final rawSolarPathDial = map['solarPathDial'] as Map<String, dynamic>?;
+    final parsedSolarPathDial =
+        rawSolarPathDial != null ? SolarPathDial.fromMap(rawSolarPathDial) : null;
 
     final rawRoofArrows = map['roofArrows'] as List<dynamic>? ?? [];
     final parsedRoofArrows = rawRoofArrows
@@ -526,6 +578,7 @@ class RoofStudyModel {
       droneArrows: parsedDroneArrows,
       arrowsGlobalColor: (map['arrowsGlobalColor'] as num?)?.toInt(),
       arrowsGlobalLength: (map['arrowsGlobalLength'] as num?)?.toDouble(),
+      solarPathDial: parsedSolarPathDial,
       cep: map['cep'] as String?,
       stateUf: map['stateUf'] as String?,
       region: map['region'] as String?,
@@ -546,8 +599,15 @@ class RoofStudyModel {
               .whereType<RoofStudyPhoto>()
               .toList() ??
           const [],
+      moduleModel: map['moduleModel'] as String?,
+      inverterModel: map['inverterModel'] as String?,
+      structureType: map['structureType'] as String?,
+      solarPlantProductId: map['solarPlantProductId'] as String?,
+      solarPlantPrice: (map['solarPlantPrice'] as num?)?.toDouble(),
+      solarPlantName: map['solarPlantName'] as String?,
       status: map['status'] as String? ?? 'completed',
       thumbnailBase64: map['thumbnailBase64'] as String?,
+      hdSnapshotBase64: map['hdSnapshotBase64'] as String?,
       createdByUserId: map['createdByUserId'] as String? ?? '',
       createdByUserName: map['createdByUserName'] as String? ?? '',
       createdAt: parseDate(map['createdAt']),
@@ -570,6 +630,9 @@ class RoofStudyModel {
       'baseHeightMeters': sec.baseHeightMeters,
       'peakHeightMeters': sec.peakHeightMeters,
       'tiltDegrees': sec.tiltDegrees,
+      'isBuildingObstacle': sec.isBuildingObstacle,
+      if (sec.customExtrudeDxMeters != null) 'customExtrudeDxMeters': sec.customExtrudeDxMeters,
+      if (sec.customExtrudeDyMeters != null) 'customExtrudeDyMeters': sec.customExtrudeDyMeters,
       'moduleSpec': {
         'id': sec.moduleSpec.id,
         'modelName': sec.moduleSpec.modelName,
@@ -674,6 +737,9 @@ class RoofStudyModel {
       baseHeightMeters: baseHeight,
       peakHeightMeters: peakHeight,
       tiltDegrees: tiltDegrees,
+      isBuildingObstacle: map['isBuildingObstacle'] as bool? ?? false,
+      customExtrudeDxMeters: (map['customExtrudeDxMeters'] as num?)?.toDouble(),
+      customExtrudeDyMeters: (map['customExtrudeDyMeters'] as num?)?.toDouble(),
     );
   }
 }

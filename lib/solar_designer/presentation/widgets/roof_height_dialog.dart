@@ -10,6 +10,8 @@ class RoofHeightDialog extends StatefulWidget {
   final double initialBaseHeight;
   final double initialPeakHeight;
   final double initialTiltDegrees;
+  final bool initialAutoFillModules;
+  final bool isBuildingObstacle;
 
   const RoofHeightDialog({
     super.key,
@@ -18,6 +20,8 @@ class RoofHeightDialog extends StatefulWidget {
     this.initialBaseHeight = 3.50,
     double? initialPeakHeight,
     this.initialTiltDegrees = 12.0,
+    this.initialAutoFillModules = true,
+    this.isBuildingObstacle = false,
   }) : initialPeakHeight = initialPeakHeight ?? initialBaseHeight;
 
   static Future<RoofHeightResult?> show(
@@ -27,6 +31,8 @@ class RoofHeightDialog extends StatefulWidget {
     double initialBaseHeight = 3.50,
     double? initialPeakHeight,
     double initialTiltDegrees = 12.0,
+    bool initialAutoFillModules = true,
+    bool isBuildingObstacle = false,
   }) {
     return showDialog<RoofHeightResult>(
       context: context,
@@ -37,6 +43,8 @@ class RoofHeightDialog extends StatefulWidget {
         initialBaseHeight: initialBaseHeight,
         initialPeakHeight: initialPeakHeight,
         initialTiltDegrees: initialTiltDegrees,
+        initialAutoFillModules: initialAutoFillModules,
+        isBuildingObstacle: isBuildingObstacle,
       ),
     );
   }
@@ -50,12 +58,14 @@ class RoofHeightResult {
   final double baseHeightMeters;
   final double peakHeightMeters;
   final double tiltDegrees;
+  final bool autoFillModules;
 
   const RoofHeightResult({
     required this.roofType,
     required this.baseHeightMeters,
     required this.peakHeightMeters,
     required this.tiltDegrees,
+    this.autoFillModules = true,
   });
 }
 
@@ -64,11 +74,13 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
   late final TextEditingController _baseHeightCtrl;
   late final TextEditingController _peakHeightCtrl;
   late final TextEditingController _tiltCtrl;
+  late bool _autoFillModules;
 
   @override
   void initState() {
     super.initState();
     _selectedType = widget.initialType;
+    _autoFillModules = widget.isBuildingObstacle ? false : widget.initialAutoFillModules;
     _baseHeightCtrl = TextEditingController(
       text: widget.initialBaseHeight.toStringAsFixed(2),
     );
@@ -106,6 +118,7 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
         baseHeightMeters: baseH,
         peakHeightMeters: peakH,
         tiltDegrees: tilt,
+        autoFillModules: _autoFillModules,
       ),
     );
   }
@@ -162,7 +175,11 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
                     ),
-                    child: const Icon(Icons.height_rounded, color: Color(0xFF38BDF8), size: 24),
+                    child: Icon(
+                      widget.isBuildingObstacle ? Icons.apartment_rounded : Icons.height_rounded,
+                      color: const Color(0xFF38BDF8),
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -170,7 +187,9 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Altura & Perfil do Telhado',
+                          widget.isBuildingObstacle
+                              ? 'Altura da Edificação / Obstáculo'
+                              : 'Altura & Perfil do Telhado',
                           style: GoogleFonts.outfit(
                             fontSize: 19,
                             fontWeight: FontWeight.bold,
@@ -179,7 +198,9 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Polígono delimitado • ${widget.sectionName}',
+                          widget.isBuildingObstacle
+                              ? 'Volume 3D delimitado • ${widget.sectionName} (Simulação de Sombras)'
+                              : 'Polígono delimitado • ${widget.sectionName}',
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: const Color(0xFF94A3B8),
@@ -331,6 +352,126 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
                       ],
                     ),
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // ── OPÇÃO DE AUTOPREENCHIMENTO COM MÓDULOS ────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _autoFillModules
+                          ? const Color(0xFF10B981).withValues(alpha: 0.10)
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _autoFillModules
+                            ? const Color(0xFF10B981).withValues(alpha: 0.45)
+                            : const Color(0xFFF59E0B).withValues(alpha: 0.45),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => setState(() => _autoFillModules = !_autoFillModules),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Checkbox(
+                                      value: _autoFillModules,
+                                      onChanged: (val) => setState(() => _autoFillModules = val ?? true),
+                                      activeColor: const Color(0xFF10B981),
+                                      checkColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                      side: BorderSide(
+                                        color: _autoFillModules
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFFF59E0B),
+                                        width: 1.8,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'AUTOPREENCHER COM MÓDULOS DISPONÍVEIS...',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: _autoFillModules ? Colors.white : const Color(0xFFF8FAFC),
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: _autoFillModules
+                                          ? const Color(0xFF10B981).withValues(alpha: 0.20)
+                                          : const Color(0xFFF59E0B).withValues(alpha: 0.20),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _autoFillModules ? 'COM PLACAS' : 'SEM PLACAS',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: _autoFillModules
+                                            ? const Color(0xFF34D399)
+                                            : const Color(0xFFFBBF24),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (!_autoFillModules) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A).withValues(alpha: 0.70),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: const Color(0xFFF59E0B).withValues(alpha: 0.30),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.wb_twilight_rounded,
+                                        size: 16,
+                                        color: Color(0xFFF59E0B),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '* Não marque esta opção se você quer simular sombras influenciando na sua simulação.',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFFFDE68A),
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -360,9 +501,12 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: _confirm,
-                    icon: const Icon(Icons.check_rounded, size: 18),
+                    icon: Icon(
+                      _autoFillModules ? Icons.solar_power_rounded : Icons.check_rounded,
+                      size: 18,
+                    ),
                     label: Text(
-                      'APLICAR & PREENCHER PLACAS',
+                      _autoFillModules ? 'APLICAR & PREENCHER PLACAS' : 'APLICAR ALTURA (SEM PLACAS)',
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -370,7 +514,9 @@ class _RoofHeightDialogState extends State<RoofHeightDialog> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
+                      backgroundColor: _autoFillModules
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFFD97706),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                       elevation: 4,

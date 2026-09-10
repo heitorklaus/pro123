@@ -8,6 +8,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../settings/data/services/solar_settings_service.dart';
 import '../../../settings/domain/models/solar_settings_model.dart';
+import '../../../solar_designer/data/repositories/roof_study_repository.dart';
+import '../../../solar_designer/domain/models/roof_study_model.dart';
 import '../../domain/models/proposal_item_model.dart';
 import '../../domain/models/proposal_model.dart';
 
@@ -81,15 +83,52 @@ class SolarProposalPdfService {
     }
   }
 
-  /// Gera o arquivo PDF completo da proposta solar comercial em 6 páginas A4
+  /// Gera o arquivo PDF completo da proposta solar comercial com suporte dinâmico a estudo de telhado vinculado
   static Future<Uint8List> generateSolarProposalPdf(
     ProposalModel proposal, {
     SolarSettingsModel? solarSettings,
+    RoofStudyModel? roofStudy,
     bool autoUploadToStorage = false,
   }) async {
     final pdf = pw.Document();
     final settings = solarSettings ?? await SolarSettingsService.loadSettings(companyId: proposal.companyId);
     final primaryColor = PdfColor.fromInt(settings.themeColorValue);
+
+    // Resolve Estudo de Telhado & Sombreamento vinculado (se existir)
+    RoofStudyModel? effectiveStudy = roofStudy ?? proposal.linkedRoofStudy;
+    String? studyIdToLoad = proposal.roofStudyId;
+    if ((studyIdToLoad == null || studyIdToLoad.isEmpty) && effectiveStudy == null) {
+      for (final item in proposal.items) {
+        if (item.roofStudyId != null && item.roofStudyId!.isNotEmpty) {
+          studyIdToLoad = item.roofStudyId;
+          break;
+        }
+      }
+    }
+    if (effectiveStudy == null && studyIdToLoad != null && studyIdToLoad.isNotEmpty) {
+      try {
+        effectiveStudy = await RoofStudyRepository().getStudyById(studyIdToLoad);
+      } catch (_) {}
+    }
+
+    // Carrega fotos completas do estudo caso necessário
+    List<RoofStudyPhoto> effectivePhotos = [];
+    if (effectiveStudy != null) {
+      if (effectiveStudy.id.isNotEmpty) {
+        try {
+          final subPhotos = await RoofStudyRepository().getStudyPhotos(effectiveStudy.id);
+          if (subPhotos.isNotEmpty) {
+            effectivePhotos = subPhotos;
+          }
+        } catch (_) {}
+      }
+      if (effectivePhotos.isEmpty) {
+        effectivePhotos = effectiveStudy.studyPhotos.where((p) => p.imageBase64.isNotEmpty).toList();
+      }
+    }
+
+    final int studyPagesCount = effectiveStudy != null ? (1 + effectivePhotos.length) : 0;
+    final int totalPages = 6 + studyPagesCount;
 
     // Carrega fontes Montserrat e fontes customizadas oficiais via PdfGoogleFonts
     pw.Font? fontMontserratBlack;
@@ -229,7 +268,7 @@ class SolarProposalPdfService {
         build: (context) => _buildProgrammaticPageLayout(
           pageTitle: 'PROPOSTA COMERCIAL',
           pageNumber: 2,
-          totalPages: 6,
+          totalPages: totalPages,
           primaryColor: primaryColor,
           settings: settings,
           proposal: proposal,
@@ -248,7 +287,7 @@ class SolarProposalPdfService {
         build: (context) => _buildProgrammaticPageLayout(
           pageTitle: 'SUA USINA SOLAR',
           pageNumber: 3,
-          totalPages: 6,
+          totalPages: totalPages,
           primaryColor: primaryColor,
           settings: settings,
           proposal: proposal,
@@ -268,7 +307,62 @@ class SolarProposalPdfService {
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA 4: ITENS DA USINA & FORMA DE PAGAMENTO
+    // ESTUDO SOLAR DE TELHADO & SOMBREAMENTO (SE VINCULADO)
+    // INSERIDO EXATAMENTE ANTES DA PÁGINA "ITENS DA USINA & PAGAMENTO"
+    // COM CABEÇALHO E RODAPÉ PADRONIZADOS DA PROPOSTA
+    // ─────────────────────────────────────────────────────────────────────────
+    if (effectiveStudy != null) {
+      // 1. Folha do Estudo Técnico de Telhado & Sombreamento
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => _buildProgrammaticPageLayout(
+            pageTitle: 'ESTUDO DE TELHADO & SOMBREAMENTO',
+            pageNumber: 4,
+            totalPages: totalPages,
+            primaryColor: primaryColor,
+            settings: settings,
+            proposal: proposal,
+            content: _buildStudySummaryPageContent(
+              study: effectiveStudy!,
+              primaryColor: primaryColor,
+              settings: settings,
+              photos: effectivePhotos,
+            ),
+          ),
+        ),
+      );
+
+      // 2. Folhas Individuais Dedicadas para Cada Foto da Simulação Solar
+      for (int i = 0; i < effectivePhotos.length; i++) {
+        final photo = effectivePhotos[i];
+        final pageNum = 5 + i;
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: pw.EdgeInsets.zero,
+            build: (context) => _buildProgrammaticPageLayout(
+              pageTitle: 'SIMULAÇÃO SOLAR • ${_formatHour(photo.hourOfDay)}',
+              pageNumber: pageNum,
+              totalPages: totalPages,
+              primaryColor: primaryColor,
+              settings: settings,
+              proposal: proposal,
+              content: _buildStudyPhotoPageContent(
+                photo: photo,
+                study: effectiveStudy!,
+                primaryColor: primaryColor,
+                settings: settings,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PÁGINA: ITENS DA USINA & FORMA DE PAGAMENTO
     // ─────────────────────────────────────────────────────────────────────────
     pdf.addPage(
       pw.Page(
@@ -276,8 +370,8 @@ class SolarProposalPdfService {
         margin: pw.EdgeInsets.zero,
         build: (context) => _buildProgrammaticPageLayout(
           pageTitle: 'ITENS DA USINA & PAGAMENTO',
-          pageNumber: 4,
-          totalPages: 6,
+          pageNumber: 4 + studyPagesCount,
+          totalPages: totalPages,
           primaryColor: primaryColor,
           settings: settings,
           proposal: proposal,
@@ -291,7 +385,7 @@ class SolarProposalPdfService {
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA 5: ANÁLISE DE INVESTIMENTO & TABELA DE 20 ANOS
+    // PÁGINA: ANÁLISE DE INVESTIMENTO & TABELA DE 20 ANOS
     // ─────────────────────────────────────────────────────────────────────────
     pdf.addPage(
       pw.Page(
@@ -299,8 +393,8 @@ class SolarProposalPdfService {
         margin: pw.EdgeInsets.zero,
         build: (context) => _buildProgrammaticPageLayout(
           pageTitle: 'ANÁLISE DE INVESTIMENTO',
-          pageNumber: 5,
-          totalPages: 6,
+          pageNumber: 5 + studyPagesCount,
+          totalPages: totalPages,
           primaryColor: primaryColor,
           settings: settings,
           proposal: proposal,
@@ -317,7 +411,7 @@ class SolarProposalPdfService {
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA 6: FINANCIAMENTO BANCÁRIO & CARTÃO DE CRÉDITO
+    // PÁGINA: FINANCIAMENTO BANCÁRIO & CARTÃO DE CRÉDITO
     // ─────────────────────────────────────────────────────────────────────────
     pdf.addPage(
       pw.Page(
@@ -325,8 +419,8 @@ class SolarProposalPdfService {
         margin: pw.EdgeInsets.zero,
         build: (context) => _buildProgrammaticPageLayout(
           pageTitle: 'FINANCIAMENTO & CONDIÇÕES',
-          pageNumber: 6,
-          totalPages: 6,
+          pageNumber: 6 + studyPagesCount,
+          totalPages: totalPages,
           primaryColor: primaryColor,
           settings: settings,
           proposal: proposal,
@@ -1349,6 +1443,515 @@ class SolarProposalPdfService {
           ),
         ],
       ),
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // COMPONENTES DO ESTUDO SOLAR DE TELHADO & SOMBREAMENTO NA PROPOSTA
+  // ───────────────────────────────────────────────────────────────────────────
+  static String _formatHour(double h) {
+    final hour = h.floor();
+    final minute = ((h - hour) * 60).round();
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  }
+
+  static pw.Widget _buildStudyKpiCard({
+    required String title,
+    required String value,
+    required String sub,
+    required PdfColor primaryColor,
+  }) {
+    final textMuted = PdfColor.fromHex('#64748B');
+    final cardBg = PdfColor.fromHex('#F8FAFC');
+    final borderCol = PdfColor.fromHex('#E2E8F0');
+
+    return pw.Expanded(
+      child: pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: pw.BoxDecoration(
+          color: cardBg,
+          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+          border: pw.Border.all(color: borderCol, width: 0.8),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              title,
+              style: pw.TextStyle(fontSize: 6.8, fontWeight: pw.FontWeight.bold, color: textMuted),
+            ),
+            pw.SizedBox(height: 3),
+            pw.Text(
+              value,
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
+            ),
+            pw.SizedBox(height: 2),
+            pw.Text(
+              sub,
+              style: pw.TextStyle(fontSize: 6.5, color: textMuted),
+              maxLines: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildTableHeaderCell(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontSize: 7.0, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#475569')),
+      ),
+    );
+  }
+
+  static pw.Widget _buildTableCell(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('#0F172A')),
+      ),
+    );
+  }
+
+  /// Constrói o miolo da página de Resumo Técnico do Estudo de Telhado
+  static pw.Widget _buildStudySummaryPageContent({
+    required RoofStudyModel study,
+    required PdfColor primaryColor,
+    required SolarSettingsModel settings,
+    List<RoofStudyPhoto>? photos,
+  }) {
+    final textDark = PdfColor.fromHex('#0F172A');
+    final textMuted = PdfColor.fromHex('#64748B');
+    final cardBg = PdfColor.fromHex('#F8FAFC');
+    final borderCol = PdfColor.fromHex('#E2E8F0');
+
+    pw.MemoryImage? snapshotImage;
+
+    // 1. Tenta recuperar preferencialmente a imagem HD do estudo (hdSnapshotBase64)
+    final hdSnap = study.hdSnapshotBase64;
+    if (hdSnap != null && hdSnap.isNotEmpty) {
+      try {
+        final clean = hdSnap.contains(',') ? hdSnap.split(',').last : hdSnap;
+        snapshotImage = pw.MemoryImage(base64Decode(clean));
+      } catch (_) {}
+    }
+
+    // 2. Tenta recuperar imagem em alta resolução da lista de fotos (photos ou studyPhotos)
+    if (snapshotImage == null) {
+      final allPhotos = (photos != null && photos.isNotEmpty) ? photos : study.studyPhotos;
+      for (final photo in allPhotos) {
+        if (photo.imageBase64.isNotEmpty) {
+          try {
+            final clean = photo.imageBase64.contains(',')
+                ? photo.imageBase64.split(',').last
+                : photo.imageBase64;
+            snapshotImage = pw.MemoryImage(base64Decode(clean));
+            break;
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 3. Fallback para droneImageUrl caso seja data base64
+    if (snapshotImage == null && study.droneImageUrl != null && study.droneImageUrl!.isNotEmpty) {
+      try {
+        final url = study.droneImageUrl!;
+        if (url.startsWith('data:image') || url.length > 500) {
+          final clean = url.contains(',') ? url.split(',').last : url;
+          snapshotImage = pw.MemoryImage(base64Decode(clean));
+        }
+      } catch (_) {}
+    }
+
+    // 4. Fallback final para thumbnailBase64 caso nada mais esteja disponível
+    if (snapshotImage == null && study.thumbnailBase64 != null && study.thumbnailBase64!.isNotEmpty) {
+      try {
+        final clean = study.thumbnailBase64!.contains(',')
+            ? study.thumbnailBase64!.split(',').last
+            : study.thumbnailBase64!;
+        snapshotImage = pw.MemoryImage(base64Decode(clean));
+      } catch (_) {}
+    }
+
+    final totalModules = study.totalModulesCount;
+    final totalKwp = study.totalKwp;
+    final estimatedGen = study.estimatedMonthlyKwh;
+    final hsp = study.dailyHsp ?? 5.0;
+
+    final sections = study.sections.isNotEmpty
+        ? study.sections
+        : (study.mapsSections.isNotEmpty ? study.mapsSections : study.droneSections);
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        // 1. Linha com 4 KPIs Executivos do Estudo
+        pw.Row(
+          children: [
+            _buildStudyKpiCard(
+              title: 'POTÊNCIA DO ARRANJO',
+              value: '${totalKwp.toStringAsFixed(2)} kWp',
+              sub: 'Capacidade Total Instalada',
+              primaryColor: primaryColor,
+            ),
+            pw.SizedBox(width: 8),
+            _buildStudyKpiCard(
+              title: 'MÓDULOS FOTOVOLTAICOS',
+              value: '$totalModules un',
+              sub: 'Placas dimensionadas',
+              primaryColor: primaryColor,
+            ),
+            pw.SizedBox(width: 8),
+            _buildStudyKpiCard(
+              title: 'GERAÇÃO MÉDIA MENSAL',
+              value: '~${estimatedGen.toStringAsFixed(0)} kWh',
+              sub: 'Estimativa mensal prevista',
+              primaryColor: primaryColor,
+            ),
+            pw.SizedBox(width: 8),
+            _buildStudyKpiCard(
+              title: 'IRRADIAÇÃO SOLAR LOCAL',
+              value: '${hsp.toStringAsFixed(2)} HSP',
+              sub: study.stateUf != null ? 'Atlas Solar / CRESESB (${study.stateUf})' : 'Horas de Sol Pico',
+              primaryColor: primaryColor,
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 12),
+
+        // 2. Imagem da Usina no Telhado / Implantação Solar
+        pw.Expanded(
+          flex: 5,
+          child: pw.Container(
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              color: cardBg,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+              border: pw.Border.all(color: borderCol, width: 1),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'LAYOUT DO TELHADO & ARRANJO FOTOVOLTAICO 3D',
+                      style: pw.TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: primaryColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    pw.Text(
+                      study.formattedAddress.isNotEmpty ? study.formattedAddress : 'Local de Instalação Mapeado',
+                      style: pw.TextStyle(fontSize: 7.5, color: textMuted),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 6),
+                pw.Expanded(
+                  child: snapshotImage != null
+                      ? pw.Center(
+                          child: pw.ClipRRect(
+                            horizontalRadius: 6,
+                            verticalRadius: 6,
+                            child: pw.Image(snapshotImage, fit: pw.BoxFit.contain),
+                          ),
+                        )
+                      : pw.Center(
+                          child: pw.Column(
+                            mainAxisAlignment: pw.MainAxisAlignment.center,
+                            children: [
+                              pw.Text(
+                                '📐 Estudo Geométrico Computadorizado',
+                                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: textDark),
+                              ),
+                              pw.SizedBox(height: 4),
+                              pw.Text(
+                                'Georreferenciamento e disposição angular dos módulos no plano de cobertura.',
+                                style: pw.TextStyle(fontSize: 9, color: textMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        pw.SizedBox(height: 12),
+
+        // 3. Detalhamento Técnico das Águas e Parecer de Engenharia
+        pw.Expanded(
+          flex: 4,
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              // Detalhamento das Águas / Planos de Telhado
+              pw.Expanded(
+                flex: 6,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: cardBg,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(color: borderCol, width: 1),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'DISTRIBUIÇÃO DOS MÓDULOS POR ÁGUA DO TELHADO',
+                        style: pw.TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: textDark,
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Table(
+                        border: pw.TableBorder(
+                          horizontalInside: pw.BorderSide(color: borderCol, width: 0.5),
+                        ),
+                        children: [
+                          pw.TableRow(
+                            decoration: pw.BoxDecoration(color: PdfColor.fromHex('#F1F5F9')),
+                            children: [
+                              _buildTableHeaderCell('Água / Plano'),
+                              _buildTableHeaderCell('Placas'),
+                              _buildTableHeaderCell('Potência'),
+                              _buildTableHeaderCell('Estrutura'),
+                              _buildTableHeaderCell('Inclinação'),
+                            ],
+                          ),
+                          for (int i = 0; i < (sections.isNotEmpty ? sections.length : 1); i++) ...[
+                            if (sections.isNotEmpty)
+                              pw.TableRow(
+                                children: [
+                                  _buildTableCell(sections[i].name),
+                                  _buildTableCell('${sections[i].activeModuleCount} un'),
+                                  _buildTableCell('${((sections[i].activeModuleCount * sections[i].moduleSpec.watts) / 1000.0).toStringAsFixed(2)} kWp'),
+                                  _buildTableCell(sections[i].roofType.name == 'gabledCeramic' ? 'Cerâmico' : (sections[i].roofType.name == 'monoPitch' ? 'Metálico' : 'Platibanda')),
+                                  _buildTableCell('${sections[i].tiltDegrees.toStringAsFixed(0)}°'),
+                                ],
+                              )
+                            else
+                              pw.TableRow(
+                                children: [
+                                  _buildTableCell('Plano 1'),
+                                  _buildTableCell('$totalModules un'),
+                                  _buildTableCell('${totalKwp.toStringAsFixed(2)} kWp'),
+                                  _buildTableCell('Telhado Padrão'),
+                                  _buildTableCell('12°'),
+                                ],
+                              ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.SizedBox(width: 8),
+
+              // Parecer de Engenharia
+              pw.Expanded(
+                flex: 4,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#F0FDF4'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(color: PdfColor.fromHex('#BBF7D0'), width: 1),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Row(
+                        children: [
+                          pw.Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const pw.BoxDecoration(
+                              color: PdfColor.fromInt(0xFF10B981),
+                              shape: pw.BoxShape.circle,
+                            ),
+                          ),
+                          pw.SizedBox(width: 6),
+                          pw.Text(
+                            'PARECER DE VIABILIDADE TÉCNICA',
+                            style: pw.TextStyle(
+                              fontSize: 8.0,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColor.fromHex('#166534'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        'A disposição foi planejada respeitando recuos de segurança para circulação técnica e manutenção, além de evitar zonas de turbulência e sombreamento severo por platibandas ou obstáculos.',
+                        style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('#15803D'), lineSpacing: 1.3),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        'Orientação angular otimizada para capturar o maior índice de irradiação solar ao longo do ano.',
+                        style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('#15803D'), lineSpacing: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Constrói o miolo de uma página dedicada a uma foto grande da Simulação Solar
+  static pw.Widget _buildStudyPhotoPageContent({
+    required RoofStudyPhoto photo,
+    required RoofStudyModel study,
+    required PdfColor primaryColor,
+    required SolarSettingsModel settings,
+  }) {
+    final textDark = PdfColor.fromHex('#0F172A');
+    final textMuted = PdfColor.fromHex('#64748B');
+    final cardBg = PdfColor.fromHex('#F8FAFC');
+    final borderCol = PdfColor.fromHex('#E2E8F0');
+
+    pw.MemoryImage? photoImg;
+    if (photo.imageBase64.isNotEmpty) {
+      try {
+        final clean = photo.imageBase64.contains(',')
+            ? photo.imageBase64.split(',').last
+            : photo.imageBase64;
+        photoImg = pw.MemoryImage(base64Decode(clean));
+      } catch (_) {}
+    }
+
+    final totalMods = photo.totalModules ?? study.totalModulesCount;
+    final shaded = photo.shadedCount ?? 0;
+    final sunCount = (totalMods - shaded).clamp(0, totalMods);
+    final ratio = photo.sunRatio ?? (totalMods > 0 ? (sunCount / totalMods) : 1.0);
+    final hourFormatted = _formatHour(photo.hourOfDay);
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        // 1. Barra de Diagnóstico Astronômico e Sombreamento
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: cardBg,
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+            border: pw.Border.all(color: borderCol, width: 1),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Row(
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: pw.BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    ),
+                    child: pw.Text(
+                      'HORÁRIO: $hourFormatted',
+                      style: pw.TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(width: 12),
+                  pw.Text(
+                    'Altitude Solar: ${photo.sunElevation?.toStringAsFixed(1) ?? '--'}°  •  Azimute: ${photo.sunAzimuth?.toStringAsFixed(1) ?? '--'}°',
+                    style: pw.TextStyle(fontSize: 8.0, color: textDark, fontWeight: pw.FontWeight.bold),
+                  ),
+                ],
+              ),
+              pw.Row(
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: pw.BoxDecoration(
+                      color: ratio >= 0.8
+                          ? const PdfColor.fromInt(0xFFD1FAE5)
+                          : const PdfColor.fromInt(0xFFFEF3C7),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                    ),
+                    child: pw.Text(
+                      '${(ratio * 100).toStringAsFixed(0)}% APROVEITAMENTO SOLAR',
+                      style: pw.TextStyle(
+                        fontSize: 8.0,
+                        fontWeight: pw.FontWeight.bold,
+                        color: ratio >= 0.8
+                            ? const PdfColor.fromInt(0xFF059669)
+                            : const PdfColor.fromInt(0xFFD97706),
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(width: 8),
+                  pw.Text(
+                    '$sunCount de $totalMods módulos livres',
+                    style: pw.TextStyle(fontSize: 8.0, color: textMuted),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 10),
+
+        // 2. Imagem Grande Nítida da Simulação
+        pw.Expanded(
+          child: pw.Container(
+            padding: const pw.EdgeInsets.all(6),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+              border: pw.Border.all(color: borderCol, width: 1.2),
+            ),
+            child: photoImg != null
+                ? pw.Center(
+                    child: pw.ClipRRect(
+                      horizontalRadius: 6,
+                      verticalRadius: 6,
+                      child: pw.Image(photoImg, fit: pw.BoxFit.contain),
+                    ),
+                  )
+                : pw.Center(
+                    child: pw.Text('Registro fotográfico indisponível', style: pw.TextStyle(fontSize: 10, color: textMuted)),
+                  ),
+          ),
+        ),
+        pw.SizedBox(height: 8),
+
+        // 3. Rodapé Explicativo do Estudo
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: pw.BoxDecoration(
+            color: PdfColor.fromHex('#F8FAFC'),
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+          ),
+          child: pw.Text(
+            'Nota: Simulação de radiação e sombreamento em tempo real calculada conforme as coordenadas geográficas (${study.latitude.toStringAsFixed(4)}, ${study.longitude.toStringAsFixed(4)}) e inclinação geométrica das águas.',
+            style: pw.TextStyle(fontSize: 7.0, color: textMuted),
+            textAlign: pw.TextAlign.center,
+          ),
+        ),
+      ],
     );
   }
 
