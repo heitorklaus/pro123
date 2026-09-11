@@ -314,6 +314,12 @@ Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha cont
      - **Botão Toggle `"Mostrar Itens de Usinas"` com Persistência:** Aparece automaticamente na barra de filtros apenas quando a categoria Usina Solar está selecionada, permitindo alternar entre visualizar apenas os kits de usinas ou exibir também os componentes fotovoltaicos cadastrados avulsamente. O estado do botão (Ativo/Inativo) é persistido no `SharedPreferences`, mantendo-se ativo ao entrar e sair da edição de itens avulsos ou recarregar a tela.
      - **Botão Dinâmico `"NOVA USINA"`:** Ao filtrar por **Usina Solar**, o botão superior direito muda automaticamente de *"NOVO PRODUTO"* para *"NOVA USINA"* (com ícone e gradiente solar dourado), abrindo diretamente o formulário de cadastro de usinas sem passar pelo assistente de 20 nichos.
      - **Persistência de Segmento / Nicho (`SharedPreferences`):** O segmento selecionado no dropdown de filtro é salvo automaticamente localmente e restaurado ao reabrir ou navegar no aplicativo.
+     - **4 Nichos Especializados Ativos (`ProductSector.activeSectors`):** Os cards e seletores de nicho do sistema foram configurados para exibir exclusivamente os 4 segmentos solicitados:
+       1. **Usina Solar** (`ProductSector.solarPlant`): Inversor, placas, estrutura, estudos 3D e importador com IA.
+       2. **Automação Residencial** (`ProductSector.homeAutomation`): Smart Home, protocolos (Zigbee, Wi-Fi), compatibilidade (Alexa, Google Home, HomeKit) e tensão.
+       3. **Prestação de Serviços Gerais** (`ProductSector.generalServices`): Manutenção, facilities, consultoria e duração estimada.
+       4. **Móveis e Decoração** (`ProductSector.furniture`): Móveis planejados, dimensões, material e montagem.
+       *(Os demais 17 nichos comerciais legados permanecem protegidos no enum para integridade do banco NoSQL, mas ficam 100% ocultos de todos os cards, wizards e seletores de tela).*
      - **Distinção Inteligente de Edição (Usina Solar vs Item Avulso):** Ao clicar em Editar em uma Usina Solar (Kit), abre o formulário completo `SolarPlantFormCard` com título *"Editar Usina Solar"* e a lista de equipamentos do conjunto. Ao clicar em Editar em um **Item Avulso** (módulo, inversor, cabo, bateria, estrutura), abre o formulário padrão de produto (`_ProductFormCard`) com o título *"Editar Item Avulso"*, categoria *"Usina Solar • Item Avulso / Equipamento"* e a ficha técnica específica do equipamento.
 
 ### 6. `SuppliersModule` / `SuppliersView`

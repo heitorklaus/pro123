@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app/widgets/taos_logo.dart';
 import '../../../app/widgets/tech_background.dart';
 import 'register_store.dart';
@@ -315,9 +316,16 @@ class _RegisterPageState extends State<RegisterPage> {
                         onPressed: controller.isLoading
                             ? null
                             : () async {
+                                final messenger = ScaffoldMessenger.of(context);
                                 final success = await controller.register();
-                                if (success && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                if (success && mounted) {
+                                  try {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.setInt('taos_onboarding_step', 1);
+                                    await prefs.remove('taos_onboarding_sector');
+                                    await prefs.remove('mavis_crm_has_completed_onboarding');
+                                  } catch (_) {}
+                                  messenger.showSnackBar(
                                     const SnackBar(
                                       content: Text('Cadastro realizado com sucesso!'),
                                       backgroundColor: Color(0xFF10B981),

@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 enum ProductSector {
   solarPlant('Usina Solar', 'Inversor, Placa Solar, Estrutura e acessórios', Icons.solar_power_rounded, Color(0xFFF59E0B)),
+  homeAutomation('Automação Residencial', 'Smart Home, iluminação inteligente, áudio, vídeo e segurança', Icons.sensors_rounded, Color(0xFF6366F1)),
+  generalServices('Prestação de Serviços Gerais', 'Consultorias, manutenções, facilities e suporte', Icons.business_center_rounded, Color(0xFF0D9488)),
+  furniture('Móveis e Decoração', 'Móveis planejados, luminárias, decoração e utilidades do lar', Icons.chair_rounded, Color(0xFFB45309)),
   cleaning('Produtos de Limpeza & Higiene', 'Detergentes, desinfetantes, saneantes e químicos', Icons.cleaning_services_rounded, Color(0xFF0284C7)),
   food('Alimentos, Bebidas & Mercearia', 'Alimentos, refrigerantes, grãos e produtos perecíveis', Icons.restaurant_rounded, Color(0xFFEA580C)),
   fashion('Vestuário, Calçados & Moda', 'Roupas, calçados, bolsas e acessórios de moda', Icons.checkroom_rounded, Color(0xFF8B5CF6)),
@@ -15,9 +18,7 @@ enum ProductSector {
   autoparts('Autopeças, Moto & Acessórios', 'Peças mecânicas, óleos, baterias e pneus', Icons.directions_car_rounded, Color(0xFF475569)),
   stationery('Papelaria, Livraria & Escritório', 'Cadernos, materiais de escritório, tintas e presentes', Icons.edit_note_rounded, Color(0xFF7C3AED)),
   pet('Pet Shop & Agropecuária', 'Rações, medicamentos veterinários, sementes e insumos', Icons.pets_rounded, Color(0xFF16A34A)),
-  furniture('Móveis, Decoração & Casa', 'Móveis, luminárias, cortinas e utilidades do lar', Icons.chair_rounded, Color(0xFFB45309)),
   restaurant('Restaurantes, Bares & Delivery', 'Pratos prontos, lanches, porções e marmitex', Icons.fastfood_rounded, Color(0xFFDC2626)),
-  generalServices('Prestação de Serviços Gerais', 'Consultorias, manutenções, facilities e suporte', Icons.business_center_rounded, Color(0xFF0D9488)),
   healthServices('Saúde, Clínicas & Estética', 'Consultas, exames, procedimentos e tratamentos', Icons.medical_services_rounded, Color(0xFFE11D48)),
   education('Educação, Cursos & Treinamentos', 'Cursos presenciais/EAD, workshops e mentorias', Icons.school_rounded, Color(0xFF4F46E5)),
   mechanic('Oficina Mecânica & Manutenção Auto', 'Mão de obra mecânica, alinhamento e revisão', Icons.build_rounded, Color(0xFF334155)),
@@ -34,11 +35,19 @@ enum ProductSector {
 
   const ProductSector(this.title, this.description, this.icon, this.themeColor);
 
+  /// Lista dos 4 nichos/segmentos ativos exibidos nos cards e seletores do sistema
+  static const List<ProductSector> activeSectors = [
+    ProductSector.solarPlant,
+    ProductSector.homeAutomation,
+    ProductSector.generalServices,
+    ProductSector.furniture,
+  ];
+
   static ProductSector fromString(String? val) {
-    if (val == null) return ProductSector.cleaning;
+    if (val == null) return ProductSector.solarPlant;
     return ProductSector.values.firstWhere(
       (s) => s.name == val,
-      orElse: () => ProductSector.cleaning,
+      orElse: () => ProductSector.solarPlant,
     );
   }
 }

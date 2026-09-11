@@ -79,9 +79,9 @@ class CategoryModel {
     );
   }
 
-  /// Lista das 20 categorias padrão do sistema
+  /// Lista das 4 categorias/nichos padrão do sistema
   static List<CategoryModel> get nativeCategories {
-    return ProductSector.values.map((s) => CategoryModel.fromSector(s)).toList();
+    return ProductSector.activeSectors.map((s) => CategoryModel.fromSector(s)).toList();
   }
 
   CategoryModel copyWith({

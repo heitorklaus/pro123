@@ -863,7 +863,7 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildSectorGrid() {
-    final allSectors = ProductSector.values;
+    final allSectors = ProductSector.activeSectors;
     final filtered = allSectors.where((s) {
       if (_searchFilter.isEmpty) return true;
       return s.title.toLowerCase().contains(_searchFilter) || s.description.toLowerCase().contains(_searchFilter);
@@ -992,12 +992,14 @@ class SectorOnboardingDialog extends StatefulWidget {
   final ValueChanged<ProductSector>? onSectorSelected;
   final VoidCallback? onCompleted;
   final bool openCompanyFormAfter;
+  final bool isMandatory;
 
   const SectorOnboardingDialog({
     super.key,
     this.onSectorSelected,
     this.onCompleted,
     this.openCompanyFormAfter = true,
+    this.isMandatory = true,
   });
 
   @override
@@ -1013,21 +1015,22 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.60),
+      barrierColor: Colors.black.withValues(alpha: 0.75),
       builder: (ctx) => CompanySetupDialog(
         selectedSector: sel,
-        isFirstAccess: true,
+        isFirstAccess: widget.isMandatory,
         onBackToSectors: () {
           Navigator.of(ctx).pop();
           if (mounted) {
             showDialog(
               context: context,
               barrierDismissible: false,
-              barrierColor: Colors.black.withValues(alpha: 0.60),
+              barrierColor: Colors.black.withValues(alpha: 0.75),
               builder: (_) => SectorOnboardingDialog(
                 onSectorSelected: widget.onSectorSelected,
                 onCompleted: widget.onCompleted,
                 openCompanyFormAfter: true,
+                isMandatory: widget.isMandatory,
               ),
             );
           }
@@ -1042,14 +1045,17 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
   Future<void> _selectSectorAndProceed(ProductSector sector) async {
     setState(() => _selected = sector);
     await SettingsService.savePreferredSector(sector, isFixed: true);
-    await SettingsService.setCompletedOnboarding(true);
     widget.onSectorSelected?.call(sector);
-    widget.onCompleted?.call();
     if (!mounted) return;
-    Navigator.of(context).pop();
 
     if (widget.openCompanyFormAfter) {
+      Navigator.of(context).pop();
       _openCompanyDialog(sector);
+    } else {
+      await SettingsService.setCompletedOnboarding(true);
+      widget.onCompleted?.call();
+      if (!mounted) return;
+      Navigator.of(context).pop();
     }
   }
 
@@ -1060,7 +1066,7 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final allSectors = ProductSector.values;
+    final allSectors = ProductSector.activeSectors;
     final filtered = allSectors.where((s) {
       if (_searchFilter.isEmpty) return true;
       return s.title.toLowerCase().contains(_searchFilter) || s.description.toLowerCase().contains(_searchFilter);
@@ -1068,199 +1074,212 @@ class _SectorOnboardingDialogState extends State<SectorOnboardingDialog> {
 
     final screenSize = MediaQuery.of(context).size;
     final dialogWidth = (screenSize.width * 0.90).clamp(380.0, 960.0);
-    final dialogHeight = (screenSize.height * 0.88).clamp(480.0, 720.0);
+    final dialogHeight = (screenSize.height * 0.88).clamp(520.0, 740.0);
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Center(
-        child: Container(
-          width: dialogWidth,
-          height: dialogHeight,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Cabeçalho de Boas-vindas
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 26),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bem-vindo ao TAOS CRM! 🚀',
-                          style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                        ),
-                        Text(
-                          'Clique no ramo de atuação da sua empresa para avançar diretamente para o cadastro dos dados institucionais:',
-                          style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-              const Divider(color: AppColors.divider),
-              const SizedBox(height: 12),
-
-              // Barra de busca
-              TextField(
-                onChanged: (v) => setState(() => _searchFilter = v.trim().toLowerCase()),
-                decoration: InputDecoration(
-                  hintText: 'Buscar nicho (ex: Usina Solar, Moda, Farmácia...)',
-                  hintStyle: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8)),
-                  prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 18),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+    return PopScope(
+      canPop: !widget.isMandatory,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Center(
+          child: Container(
+            width: dialogWidth,
+            height: dialogHeight,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 50,
+                  offset: const Offset(0, 20),
                 ),
-              ),
+              ],
+            ),
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Cabeçalho de Boas-vindas
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 26),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bem-vindo ao TAOS CRM! 🚀',
+                            style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'O TAOS CRM é um ecossistema comercial flexível e multiuso. Selecione abaixo o nicho de atuação principal da sua empresa para direcionar seu ambiente de vendas e preencher os dados institucionais:',
+                            style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B), height: 1.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
 
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
+                const Divider(color: AppColors.divider),
+                const SizedBox(height: 12),
 
-              // Grade de Nichos
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossCount = constraints.maxWidth > 650 ? 3 : (constraints.maxWidth > 420 ? 2 : 1);
-                    final cardWidth = (constraints.maxWidth - ((crossCount - 1) * 12)) / crossCount;
+                // Barra de busca
+                TextField(
+                  onChanged: (v) => setState(() => _searchFilter = v.trim().toLowerCase()),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar nicho (ex: Usina Solar, Automação, Serviços...)',
+                    hintStyle: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8)),
+                    prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 18),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                  ),
+                ),
 
-                    return SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: filtered.map((sector) {
-                          final isSel = _selected == sector;
+                const SizedBox(height: 14),
 
-                          return SizedBox(
-                            width: cardWidth,
-                            height: 120,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => _selectSectorAndProceed(sector),
-                                borderRadius: BorderRadius.circular(14),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: isSel ? sector.themeColor.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: isSel ? sector.themeColor : AppColors.border,
-                                      width: isSel ? 2 : 1,
+                // Grade de Nichos
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final crossCount = constraints.maxWidth > 650 ? 3 : (constraints.maxWidth > 420 ? 2 : 1);
+                      final cardWidth = (constraints.maxWidth - ((crossCount - 1) * 12)) / crossCount;
+
+                      return SingleChildScrollView(
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: filtered.map((sector) {
+                            final isSel = _selected == sector;
+
+                            return SizedBox(
+                              width: cardWidth,
+                              height: 120,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _selectSectorAndProceed(sector),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: isSel ? sector.themeColor.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: isSel ? sector.themeColor : AppColors.border,
+                                        width: isSel ? 2 : 1,
+                                      ),
                                     ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(sector.icon, size: 20, color: sector.themeColor),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              sector.title,
-                                              style: GoogleFonts.outfit(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: isSel ? sector.themeColor : const Color(0xFF0F172A),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(sector.icon, size: 20, color: sector.themeColor),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                sector.title,
+                                                style: GoogleFonts.outfit(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isSel ? sector.themeColor : const Color(0xFF0F172A),
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                          Icon(
-                                            Icons.arrow_forward_ios_rounded,
-                                            size: 13,
-                                            color: isSel ? sector.themeColor : const Color(0xFF94A3B8),
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        sector.description,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B), height: 1.25),
-                                      ),
-                                    ],
+                                            Icon(
+                                              Icons.arrow_forward_ios_rounded,
+                                              size: 13,
+                                              color: isSel ? sector.themeColor : const Color(0xFF94A3B8),
+                                            ),
+                                          ],
+                                        ),
+                                        Text(
+                                          sector.description,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B), height: 1.25),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 14),
-              const Divider(color: AppColors.divider),
-              const SizedBox(height: 12),
-
-              // Botões Rodapé
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('CANCELAR', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF64748B))),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _selected == null ? null : _handleConfirm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _selected?.themeColor ?? AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'AVANÇAR PARA DADOS DA EMPRESA',
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
+                            );
+                          }).toList(),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_forward_rounded, size: 16),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                ],
-              ),
-            ],
+                ),
+
+                const SizedBox(height: 14),
+                const Divider(color: AppColors.divider),
+                const SizedBox(height: 12),
+
+                // Botões Rodapé
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (!widget.isMandatory) ...[
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text('CANCELAR', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF64748B))),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    ElevatedButton(
+                      onPressed: _selected == null ? null : _handleConfirm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _selected?.themeColor ?? AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'AVANÇAR PARA DADOS DA EMPRESA',
+                            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward_rounded, size: 16),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -7,6 +7,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../products/domain/models/product_model.dart';
 import '../../data/services/company_service.dart';
+import '../../data/services/cnpj_service.dart';
 import '../../data/services/settings_service.dart';
 import '../../domain/models/company_model.dart';
 
@@ -32,16 +33,23 @@ class CompanySetupDialog extends StatefulWidget {
 class _CompanySetupDialogState extends State<CompanySetupDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores: Dados Principais da Empresa
+  // Controladores: Dados da Ficha Cadastral da Empresa (Receita Federal)
   final _nameCtrl = TextEditingController();
-  final _docCtrl = TextEditingController();
+  final _corporateNameCtrl = TextEditingController(); // Nome Empresarial / Razão Social
+  final _tradeNameCtrl = TextEditingController(); // Nome Fantasia
+  final _docCtrl = TextEditingController(); // CNPJ / CPF
+  final _registrationStatusCtrl = TextEditingController(); // Situação Cadastral (ex: ATIVA)
+  final _companySizeCtrl = TextEditingController(); // Porte (ex: ME, EPP, DEMAIS)
+  final _mainCnaeCtrl = TextEditingController(); // CNAE Principal (Código + Atividade)
+  final _secondaryCnaesCtrl = TextEditingController(); // CNAEs Secundários
+  final _companyEmailCtrl = TextEditingController(); // E-mail Empresarial Oficial
   final _phoneCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController(); // E-mail Comercial / Vendas
   final _websiteCtrl = TextEditingController();
   final _instagramCtrl = TextEditingController();
   final _sloganCtrl = TextEditingController();
 
-  // Controladores: Endereço (ViaCEP)
+  // Controladores: Endereço (ViaCEP / Receita)
   final _cepCtrl = TextEditingController();
   final _streetCtrl = TextEditingController();
   final _numberCtrl = TextEditingController();
@@ -54,6 +62,9 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
   bool _isCepLoading = false;
   String? _cepError;
   bool _addressLocked = false;
+
+  bool _isCnpjLoading = false;
+  String? _cnpjError;
 
   // Logomarca da Empresa
   String? _logoBase64;
@@ -75,7 +86,14 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _corporateNameCtrl.dispose();
+    _tradeNameCtrl.dispose();
     _docCtrl.dispose();
+    _registrationStatusCtrl.dispose();
+    _companySizeCtrl.dispose();
+    _mainCnaeCtrl.dispose();
+    _secondaryCnaesCtrl.dispose();
+    _companyEmailCtrl.dispose();
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
     _websiteCtrl.dispose();
@@ -102,7 +120,14 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
 
       if (existing != null) {
         _nameCtrl.text = existing.name;
+        _corporateNameCtrl.text = existing.corporateName ?? existing.name;
+        _tradeNameCtrl.text = existing.tradeName ?? existing.name;
         _docCtrl.text = existing.document;
+        _registrationStatusCtrl.text = existing.registrationStatus ?? '';
+        _companySizeCtrl.text = existing.companySize ?? '';
+        _mainCnaeCtrl.text = existing.mainCnae ?? '';
+        _secondaryCnaesCtrl.text = existing.secondaryCnaes ?? '';
+        _companyEmailCtrl.text = existing.companyEmail ?? '';
         _phoneCtrl.text = existing.phone;
         _emailCtrl.text = existing.email ?? (user?.email ?? '');
         _websiteCtrl.text = existing.website ?? '';
@@ -195,6 +220,111 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
     }
   }
 
+  // ── Busca Gratuita de Dados por CNPJ (BrasilAPI) e Validação de Unicidade ──
+  Future<void> _searchCnpj(String rawCnpj) async {
+    final clean = rawCnpj.replaceAll(RegExp(r'\D'), '');
+    if (clean.length != 14) return;
+
+    setState(() {
+      _isCnpjLoading = true;
+      _cnpjError = null;
+    });
+
+    try {
+      // 1. Checa se o CNPJ já pertence a outra empresa no Firestore (Unicidade de CNPJ)
+      final isRegistered = await CompanyService.isCnpjAlreadyRegistered(
+        clean,
+        currentCompanyId: _companyId,
+      );
+
+      if (!mounted) return;
+
+      if (isRegistered) {
+        setState(() {
+          _isCnpjLoading = false;
+          _cnpjError = '⚠️ Este CNPJ ($rawCnpj) já está cadastrado por outra empresa no TAOS CRM. Cada CNPJ deve ser único.';
+        });
+        return;
+      }
+
+      // 2. Consulta gratuita na Receita Federal via BrasilAPI
+      final data = await CnpjService.lookupCnpj(clean);
+      if (!mounted) return;
+
+      if (data != null) {
+        setState(() {
+          _isCnpjLoading = false;
+          _cnpjError = null;
+
+          _corporateNameCtrl.text = data.razaoSocial;
+          _tradeNameCtrl.text = data.displayName;
+          _nameCtrl.text = data.displayName;
+          if (data.situacaoCadastral != null) _registrationStatusCtrl.text = data.situacaoCadastral!;
+          if (data.porte != null) _companySizeCtrl.text = data.porte!;
+          if (data.cnaePrincipal != null) _mainCnaeCtrl.text = data.cnaePrincipal!;
+          if (data.cnaesSecundarios != null) _secondaryCnaesCtrl.text = data.cnaesSecundarios!;
+          if (data.email != null && data.email!.isNotEmpty) {
+            _companyEmailCtrl.text = data.email!;
+            if (_emailCtrl.text.isEmpty) _emailCtrl.text = data.email!;
+          }
+          if (data.phone != null && data.phone!.isNotEmpty) {
+            _phoneCtrl.text = data.phone!;
+          }
+          if (data.zipCode != null && data.zipCode!.isNotEmpty) {
+            _cepCtrl.text = data.zipCode!;
+          }
+          if (data.street != null && data.street!.isNotEmpty) {
+            _streetCtrl.text = data.street!;
+          }
+          if (data.number != null && data.number!.isNotEmpty) {
+            _numberCtrl.text = data.number!;
+          }
+          if (data.complement != null && data.complement!.isNotEmpty) {
+            _complementCtrl.text = data.complement!;
+          }
+          if (data.neighborhood != null && data.neighborhood!.isNotEmpty) {
+            _neighborhoodCtrl.text = data.neighborhood!;
+          }
+          if (data.city != null && data.city!.isNotEmpty) {
+            _cityCtrl.text = data.city!;
+          }
+          if (data.state != null && data.state!.isNotEmpty) {
+            _stateCtrl.text = data.state!;
+          }
+          _addressLocked = true;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Dados do CNPJ (${data.displayName}) consultados na Receita Federal e preenchidos automaticamente!',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        setState(() {
+          _isCnpjLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isCnpjLoading = false;
+      });
+    }
+  }
+
   // ── Upload da Logomarca ──────────────────────────────────────────────────
   Future<void> _pickLogoFile() async {
     try {
@@ -229,15 +359,41 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
     });
 
     try {
+      // 1. Checa se o CNPJ é ÚNICO antes de salvar no banco de dados
+      final cleanDoc = _docCtrl.text.replaceAll(RegExp(r'\D'), '');
+      if (cleanDoc.length == 14) {
+        final isRegistered = await CompanyService.isCnpjAlreadyRegistered(
+          cleanDoc,
+          currentCompanyId: _companyId,
+        );
+        if (isRegistered && mounted) {
+          setState(() {
+            _isSaving = false;
+            _cnpjError = '⚠️ CNPJ ÚNICO: Este CNPJ já está cadastrado em outra empresa.';
+            _errorMessage = 'CNPJ Duplicado! Cada conta deve possuir um CNPJ único no sistema.';
+          });
+          return;
+        }
+      }
+
       final now = DateTime.now();
       final cid = _companyId ?? 'company_${now.millisecondsSinceEpoch}';
 
       final company = CompanyModel(
         id: cid,
-        name: _nameCtrl.text.trim(),
+        name: _tradeNameCtrl.text.trim().isNotEmpty
+            ? _tradeNameCtrl.text.trim()
+            : (_nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : 'Minha Empresa'),
+        corporateName: _corporateNameCtrl.text.trim().isNotEmpty ? _corporateNameCtrl.text.trim() : null,
+        tradeName: _tradeNameCtrl.text.trim().isNotEmpty ? _tradeNameCtrl.text.trim() : null,
         document: _docCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
         email: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+        companyEmail: _companyEmailCtrl.text.trim().isNotEmpty ? _companyEmailCtrl.text.trim() : null,
+        registrationStatus: _registrationStatusCtrl.text.trim().isNotEmpty ? _registrationStatusCtrl.text.trim() : null,
+        companySize: _companySizeCtrl.text.trim().isNotEmpty ? _companySizeCtrl.text.trim() : null,
+        mainCnae: _mainCnaeCtrl.text.trim().isNotEmpty ? _mainCnaeCtrl.text.trim() : null,
+        secondaryCnaes: _secondaryCnaesCtrl.text.trim().isNotEmpty ? _secondaryCnaesCtrl.text.trim() : null,
         website: _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
         instagram: _instagramCtrl.text.trim().isNotEmpty ? _instagramCtrl.text.trim() : null,
         slogan: _sloganCtrl.text.trim().isNotEmpty ? _sloganCtrl.text.trim() : null,
@@ -297,80 +453,7 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
     }
   }
 
-  // ── Pular Preenchimento e Configurar Depois ──────────────────────────────
-  Future<void> _skipAndFillLater() async {
-    setState(() {
-      _isSaving = true;
-      _errorMessage = null;
-    });
 
-    try {
-      // 1. Salva o nicho de atuação escolhido como fixo no cache e no Firestore
-      await SettingsService.savePreferredSector(_sector, isFixed: true);
-      await SettingsService.setCompletedOnboarding(true);
-      await CompanyService.saveCompanySector(_sector, companyId: _companyId);
-
-      // 2. Se houver algum campo preenchido, salva silenciosamente
-      if (_nameCtrl.text.trim().isNotEmpty || _docCtrl.text.trim().isNotEmpty) {
-        final now = DateTime.now();
-        final cid = _companyId ?? 'company_${now.millisecondsSinceEpoch}';
-        final partialCompany = CompanyModel(
-          id: cid,
-          name: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : '',
-          document: _docCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim(),
-          email: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
-          website: _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : null,
-          instagram: _instagramCtrl.text.trim().isNotEmpty ? _instagramCtrl.text.trim() : null,
-          slogan: _sloganCtrl.text.trim().isNotEmpty ? _sloganCtrl.text.trim() : null,
-          sector: _sector.name,
-          logoBase64: _logoBase64,
-          zipCode: _cepCtrl.text.trim().isNotEmpty ? _cepCtrl.text.trim() : null,
-          street: _streetCtrl.text.trim().isNotEmpty ? _streetCtrl.text.trim() : null,
-          number: _numberCtrl.text.trim().isNotEmpty ? _numberCtrl.text.trim() : null,
-          complement: _complementCtrl.text.trim().isNotEmpty ? _complementCtrl.text.trim() : null,
-          neighborhood: _neighborhoodCtrl.text.trim().isNotEmpty ? _neighborhoodCtrl.text.trim() : null,
-          city: _cityCtrl.text.trim().isNotEmpty ? _cityCtrl.text.trim() : null,
-          state: _stateCtrl.text.trim().isNotEmpty ? _stateCtrl.text.trim() : null,
-          onboardingCompleted: true,
-          createdAt: now,
-          updatedAt: now,
-        );
-        await CompanyService.saveCompany(partialCompany);
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Ramo "${_sector.title}" ativado! Você pode preencher os dados da empresa e logomarca a qualquer momento em Configurações.',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF0F172A),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-
-        Navigator.of(context).pop();
-        widget.onCompleted?.call();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-          _errorMessage = 'Falha ao salvar preferências: $e';
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -379,25 +462,27 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
     final dialogWidth = (screenSize.width * 0.94).clamp(380.0, 980.0);
     final dialogHeight = (screenSize.height * 0.92).clamp(520.0, 840.0);
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Center(
-        child: Container(
-          width: dialogWidth,
-          height: dialogHeight,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
+    return PopScope(
+      canPop: !widget.isFirstAccess,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Center(
+          child: Container(
+            width: dialogWidth,
+            height: dialogHeight,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 50,
+                  offset: const Offset(0, 20),
+                ),
+              ],
+            ),
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
               : Column(
@@ -534,19 +619,113 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
 
                                   if (isMobile) ...[
                                     _buildTextField(
-                                      controller: _nameCtrl,
-                                      label: 'Razão Social / Nome Fantasia *',
+                                      controller: _corporateNameCtrl,
+                                      label: 'Nome Empresarial / Razão Social *',
                                       hintText: 'Ex: Alpha Soluções & Energia Ltda',
                                       prefixIcon: Icons.business_rounded,
-                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe a Razão Social ou Nome Fantasia' : null,
+                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe a Razão Social' : null,
                                     ),
                                     const SizedBox(height: 12),
                                     _buildTextField(
-                                      controller: _docCtrl,
-                                      label: 'CNPJ / CPF *',
-                                      hintText: '00.000.000/0000-00',
-                                      prefixIcon: Icons.badge_outlined,
-                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o CNPJ ou CPF' : null,
+                                      controller: _tradeNameCtrl,
+                                      label: 'Nome Fantasia',
+                                      hintText: 'Ex: Alpha Solar',
+                                      prefixIcon: Icons.storefront_rounded,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _fieldLabel('CNPJ / CPF * (Consulta Grátis)'),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: _docCtrl,
+                                          keyboardType: TextInputType.number,
+                                          onChanged: (v) {
+                                            final clean = v.replaceAll(RegExp(r'\D'), '');
+                                            if (clean.length == 14) _searchCnpj(clean);
+                                          },
+                                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o CNPJ ou CPF' : null,
+                                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                                          decoration: InputDecoration(
+                                            hintText: '00.000.000/0000-00',
+                                            prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B), size: 18),
+                                            suffixIcon: _isCnpjLoading
+                                                ? const Padding(
+                                                    padding: EdgeInsets.all(10),
+                                                    child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                                                  )
+                                                : IconButton(
+                                                    icon: const Icon(Icons.search_rounded, color: Color(0xFF6366F1), size: 18),
+                                                    tooltip: 'Consultar CNPJ na Receita Federal (Gratuito)',
+                                                    onPressed: () => _searchCnpj(_docCtrl.text),
+                                                  ),
+                                            filled: true,
+                                            fillColor: const Color(0xFFF8FAFC),
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                                          ),
+                                        ),
+                                        if (_cnpjError != null) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _cnpjError!,
+                                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFEF4444), fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _buildTextField(
+                                            controller: _registrationStatusCtrl,
+                                            label: 'Situação Cadastral',
+                                            hintText: 'Ex: ATIVA',
+                                            prefixIcon: Icons.verified_rounded,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: _buildTextField(
+                                            controller: _companySizeCtrl,
+                                            label: 'Porte da Empresa',
+                                            hintText: 'Ex: ME / EPP',
+                                            prefixIcon: Icons.domain_rounded,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _buildTextField(
+                                      controller: _mainCnaeCtrl,
+                                      label: 'CNAE Principal (Código e Atividade)',
+                                      hintText: 'Ex: 47.54-7-01 - Comércio varejista de móveis',
+                                      prefixIcon: Icons.account_tree_rounded,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _buildTextField(
+                                      controller: _secondaryCnaesCtrl,
+                                      label: 'CNAEs Secundários (Atividades Econômicas)',
+                                      hintText: 'Ex: 43.21-5-00 - Instalação e manutenção elétrica',
+                                      prefixIcon: Icons.list_alt_rounded,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _buildTextField(
+                                      controller: _companyEmailCtrl,
+                                      label: 'E-mail Empresarial / Institucional',
+                                      hintText: 'empresa@oficial.com.br',
+                                      prefixIcon: Icons.mark_email_read_rounded,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _buildTextField(
+                                      controller: _emailCtrl,
+                                      label: 'E-mail Comercial / Vendas',
+                                      hintText: 'vendas@empresa.com.br',
+                                      prefixIcon: Icons.mail_outline_rounded,
                                     ),
                                     const SizedBox(height: 12),
                                     _buildTextField(
@@ -555,13 +734,6 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
                                       hintText: '(00) 00000-0000',
                                       prefixIcon: Icons.phone_outlined,
                                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o Telefone / WhatsApp' : null,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _buildTextField(
-                                      controller: _emailCtrl,
-                                      label: 'E-mail Comercial',
-                                      hintText: 'contato@empresa.com.br',
-                                      prefixIcon: Icons.mail_outline_rounded,
                                     ),
                                     const SizedBox(height: 12),
                                     _buildTextField(
@@ -585,52 +757,146 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
                                       prefixIcon: Icons.auto_awesome_rounded,
                                     ),
                                   ] else ...[
+                                    // ── LINHA 1: Nome Empresarial, Nome Fantasia & CNPJ ──
                                     Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
                                           flex: 3,
                                           child: _buildTextField(
-                                            controller: _nameCtrl,
-                                            label: 'Razão Social / Nome Fantasia *',
+                                            controller: _corporateNameCtrl,
+                                            label: 'Nome Empresarial / Razão Social *',
                                             hintText: 'Ex: Alpha Soluções & Energia Ltda',
                                             prefixIcon: Icons.business_rounded,
-                                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe a Razão Social ou Nome Fantasia' : null,
+                                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o Nome Empresarial' : null,
                                           ),
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(
                                           flex: 2,
                                           child: _buildTextField(
-                                            controller: _docCtrl,
-                                            label: 'CNPJ / CPF *',
-                                            hintText: '00.000.000/0000-00',
-                                            prefixIcon: Icons.badge_outlined,
-                                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o CNPJ ou CPF' : null,
+                                            controller: _tradeNameCtrl,
+                                            label: 'Nome Fantasia',
+                                            hintText: 'Ex: Alpha Solar',
+                                            prefixIcon: Icons.storefront_rounded,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              _fieldLabel('CNPJ / CPF * (Consulta Grátis)'),
+                                              const SizedBox(height: 6),
+                                              TextFormField(
+                                                controller: _docCtrl,
+                                                keyboardType: TextInputType.number,
+                                                onChanged: (v) {
+                                                  final clean = v.replaceAll(RegExp(r'\D'), '');
+                                                  if (clean.length == 14) _searchCnpj(clean);
+                                                },
+                                                validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o CNPJ ou CPF' : null,
+                                                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                                                decoration: InputDecoration(
+                                                  hintText: '00.000.000/0000-00',
+                                                  prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B), size: 18),
+                                                  suffixIcon: _isCnpjLoading
+                                                      ? const Padding(
+                                                          padding: EdgeInsets.all(10),
+                                                          child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                                                        )
+                                                      : IconButton(
+                                                          icon: const Icon(Icons.search_rounded, color: Color(0xFF6366F1), size: 18),
+                                                          tooltip: 'Consultar CNPJ na Receita Federal (Gratuito)',
+                                                          onPressed: () => _searchCnpj(_docCtrl.text),
+                                                        ),
+                                                  filled: true,
+                                                  fillColor: const Color(0xFFF8FAFC),
+                                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                                                ),
+                                              ),
+                                              if (_cnpjError != null) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _cnpjError!,
+                                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFEF4444), fontWeight: FontWeight.w600),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 14),
+
+                                    // ── LINHA 2: Situação Cadastral, Porte, E-mail Empresarial & E-mail Comercial ──
                                     Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
                                           child: _buildTextField(
-                                            controller: _phoneCtrl,
-                                            label: 'Telefone / WhatsApp Comercial *',
-                                            hintText: '(00) 00000-0000',
-                                            prefixIcon: Icons.phone_outlined,
-                                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o Telefone / WhatsApp' : null,
+                                            controller: _registrationStatusCtrl,
+                                            label: 'Situação Cadastral',
+                                            hintText: 'Ex: ATIVA',
+                                            prefixIcon: Icons.verified_rounded,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: _buildTextField(
+                                            controller: _companySizeCtrl,
+                                            label: 'Porte da Empresa',
+                                            hintText: 'Ex: ME / EPP / DEMAIS',
+                                            prefixIcon: Icons.domain_rounded,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: _buildTextField(
+                                            controller: _companyEmailCtrl,
+                                            label: 'E-mail Empresarial / Oficial',
+                                            hintText: 'oficial@empresa.com.br',
+                                            prefixIcon: Icons.mark_email_read_rounded,
                                           ),
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(
                                           child: _buildTextField(
                                             controller: _emailCtrl,
-                                            label: 'E-mail Comercial',
+                                            label: 'E-mail Comercial / Vendas',
                                             hintText: 'contato@empresa.com.br',
                                             prefixIcon: Icons.mail_outline_rounded,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // ── LINHA 3: CNAE Principal, Telefone & Site ──
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          flex: 2,
+                                          child: _buildTextField(
+                                            controller: _mainCnaeCtrl,
+                                            label: 'Código e Atividade Econômica Principal (CNAE Principal)',
+                                            hintText: 'Ex: 47.54-7-01 - Comércio varejista de móveis',
+                                            prefixIcon: Icons.account_tree_rounded,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: _buildTextField(
+                                            controller: _phoneCtrl,
+                                            label: 'Telefone / WhatsApp Comercial *',
+                                            hintText: '(00) 00000-0000',
+                                            prefixIcon: Icons.phone_outlined,
+                                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o Telefone' : null,
                                           ),
                                         ),
                                         const SizedBox(width: 14),
@@ -645,9 +911,21 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
                                       ],
                                     ),
                                     const SizedBox(height: 14),
+
+                                    // ── LINHA 4: CNAEs Secundários, Instagram & Slogan ──
                                     Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
+                                        Expanded(
+                                          flex: 2,
+                                          child: _buildTextField(
+                                            controller: _secondaryCnaesCtrl,
+                                            label: 'Atividades Econômicas Secundárias (CNAEs Secundários)',
+                                            hintText: 'Ex: 43.21-5-00 - Instalação e manutenção elétrica',
+                                            prefixIcon: Icons.list_alt_rounded,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
                                         Expanded(
                                           child: _buildTextField(
                                             controller: _instagramCtrl,
@@ -658,7 +936,6 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(
-                                          flex: 2,
                                           child: _buildTextField(
                                             controller: _sloganCtrl,
                                             label: 'Slogan / Frase de Impacto',
@@ -1031,29 +1308,6 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
                                 ),
                               Row(
                                 children: [
-                                  if (widget.isFirstAccess) ...[
-                                    OutlinedButton.icon(
-                                      onPressed: _isSaving ? null : _skipAndFillLater,
-                                      icon: const Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF64748B)),
-                                      label: Text(
-                                        'PREENCHER DEPOIS',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF475569),
-                                        ),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: isMobile ? 12 : 18,
-                                          vertical: isMobile ? 12 : 14,
-                                        ),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                  ],
                                   ElevatedButton.icon(
                                     onPressed: _isSaving ? null : _saveCompanyProfile,
                                     icon: _isSaving
@@ -1087,6 +1341,7 @@ class _CompanySetupDialogState extends State<CompanySetupDialog> {
                         ),
                       ],
                     ),
+          ),
         ),
       ),
     );

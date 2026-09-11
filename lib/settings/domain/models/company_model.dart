@@ -7,14 +7,25 @@ class CompanyModel {
   final String name; // Razão Social ou Nome Fantasia (Obrigatório)
   final String document; // CNPJ ou CPF formatado (Obrigatório)
   final String phone; // Telefone comercial / WhatsApp (Obrigatório)
-  final String? email; // E-mail corporativo
+  final String? email; // E-mail comercial / vendas
   final String? website; // Site oficial (ex: www.empresa.com.br)
   final String? instagram; // Instagram ou rede social (ex: @empresa)
   final String? slogan; // Frase de impacto / slogan
   final String? sector; // Identificador do nicho principal (ex: 'solarPlant', 'fashion', etc.)
   final String? logoBase64; // Logomarca personalizada em Base64
 
-  // Endereço Estruturado (Preenchimento via API ViaCEP)
+  // Ficha Cadastral Ampliada da Receita Federal
+  final String? corporateName; // Razão Social / Nome Empresarial oficial
+  final String? tradeName; // Nome Fantasia
+  final String? registrationStatus; // Situação Cadastral (ex: ATIVA, SUSPENSA)
+  final String? companySize; // Porte (ex: ME, EPP, DEMAIS)
+  final String? mainCnae; // Atividade Econômica Principal (Código + Descrição)
+  final String? secondaryCnaes; // Atividades Econômicas Secundárias (CNAEs)
+  final String? companyEmail; // E-mail Empresarial / Institucional Oficial
+  final String? openingDate; // Data de Abertura / Início das Atividades
+  final String? legalNature; // Natureza Jurídica (ex: 206-2 Sociedade Empresária Ltda)
+
+  // Endereço Estruturado (Preenchimento via API ViaCEP / Receita)
   final String? zipCode; // CEP (8 dígitos)
   final String? street; // Logradouro / Rua
   final String? number; // Número do imóvel
@@ -24,8 +35,8 @@ class CompanyModel {
   final String? state; // UF (ex: SP, AM, MG)
 
   final bool onboardingCompleted; // Se já concluiu o setup inicial
-  final int? maxSellers; // Limite customizado de vendedores para este integrador (se null, usa o global)
-  final int? maxDailyAiAnalyses; // Limite customizado de análises de IA para este integrador (se null, usa o global)
+  final int? maxSellers; // Limite customizado de vendedores para este integrador
+  final int? maxDailyAiAnalyses; // Limite customizado de análises de IA
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -40,6 +51,15 @@ class CompanyModel {
     this.slogan,
     this.sector,
     this.logoBase64,
+    this.corporateName,
+    this.tradeName,
+    this.registrationStatus,
+    this.companySize,
+    this.mainCnae,
+    this.secondaryCnaes,
+    this.companyEmail,
+    this.openingDate,
+    this.legalNature,
     this.zipCode,
     this.street,
     this.number,
@@ -89,7 +109,7 @@ class CompanyModel {
   factory CompanyModel.fromMap(Map<String, dynamic> map, String id) {
     return CompanyModel(
       id: id,
-      name: map['name'] as String? ?? (map['tradeName'] as String? ?? ''),
+      name: map['name'] as String? ?? (map['tradeName'] as String? ?? map['corporateName'] as String? ?? ''),
       document: map['document'] as String? ?? (map['cnpj'] as String? ?? ''),
       phone: map['phone'] as String? ?? '',
       email: map['email'] as String?,
@@ -98,6 +118,15 @@ class CompanyModel {
       slogan: map['slogan'] as String?,
       sector: map['sector'] as String?,
       logoBase64: map['logoBase64'] as String?,
+      corporateName: map['corporateName'] as String? ?? map['razaoSocial'] as String?,
+      tradeName: map['tradeName'] as String? ?? map['nomeFantasia'] as String?,
+      registrationStatus: map['registrationStatus'] as String? ?? map['situacaoCadastral'] as String?,
+      companySize: map['companySize'] as String? ?? map['porte'] as String?,
+      mainCnae: map['mainCnae'] as String? ?? map['cnaePrincipal'] as String?,
+      secondaryCnaes: map['secondaryCnaes'] as String? ?? map['cnaesSecundarios'] as String?,
+      companyEmail: map['companyEmail'] as String? ?? map['emailEmpresarial'] as String?,
+      openingDate: map['openingDate'] as String?,
+      legalNature: map['legalNature'] as String?,
       zipCode: map['zipCode'] as String? ?? (map['cep'] as String?),
       street: map['street'] as String? ?? (map['logradouro'] as String?),
       number: map['number'] as String? ?? (map['numero'] as String?),
@@ -124,6 +153,15 @@ class CompanyModel {
       'slogan': slogan,
       'sector': sector,
       'logoBase64': logoBase64,
+      'corporateName': corporateName,
+      'tradeName': tradeName,
+      'registrationStatus': registrationStatus,
+      'companySize': companySize,
+      'mainCnae': mainCnae,
+      'secondaryCnaes': secondaryCnaes,
+      'companyEmail': companyEmail,
+      'openingDate': openingDate,
+      'legalNature': legalNature,
       'zipCode': zipCode,
       'street': street,
       'number': number,
@@ -150,6 +188,15 @@ class CompanyModel {
     String? slogan,
     String? sector,
     String? logoBase64,
+    String? corporateName,
+    String? tradeName,
+    String? registrationStatus,
+    String? companySize,
+    String? mainCnae,
+    String? secondaryCnaes,
+    String? companyEmail,
+    String? openingDate,
+    String? legalNature,
     String? zipCode,
     String? street,
     String? number,
@@ -174,6 +221,15 @@ class CompanyModel {
       slogan: slogan ?? this.slogan,
       sector: sector ?? this.sector,
       logoBase64: logoBase64 ?? this.logoBase64,
+      corporateName: corporateName ?? this.corporateName,
+      tradeName: tradeName ?? this.tradeName,
+      registrationStatus: registrationStatus ?? this.registrationStatus,
+      companySize: companySize ?? this.companySize,
+      mainCnae: mainCnae ?? this.mainCnae,
+      secondaryCnaes: secondaryCnaes ?? this.secondaryCnaes,
+      companyEmail: companyEmail ?? this.companyEmail,
+      openingDate: openingDate ?? this.openingDate,
+      legalNature: legalNature ?? this.legalNature,
       zipCode: zipCode ?? this.zipCode,
       street: street ?? this.street,
       number: number ?? this.number,

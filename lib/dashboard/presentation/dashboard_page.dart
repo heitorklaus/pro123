@@ -33,6 +33,9 @@ import '../../settings/presentation/settings_view.dart';
 import 'widgets/master_system_config_card.dart';
 import '../../solar_designer/presentation/roof_studies_view.dart';
 import '../../solar_designer/domain/models/roof_study_model.dart';
+import '../../onboarding/presentation/onboarding_page.dart';
+import '../../subscription/data/services/subscription_service.dart';
+import '../../subscription/presentation/widgets/subscription_plans_dialog.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -53,7 +56,8 @@ class _DashboardPageState extends State<DashboardPage> {
   RoofStudyModel? _pendingRoofStudy;
   ProductSector? _preferredSector = ProductSector.solarPlant;
 
-  bool _isOnboardingOpen = false;
+  bool _isCheckingOnboarding = true;
+  bool _needsOnboarding = false;
 
   @override
   void initState() {
@@ -68,9 +72,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
     _listenCurrentUser();
     _loadPreferredSector();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkFirstLoginOnboarding();
-    });
+    _loadSubscriptionInfo();
+    _checkFirstLoginOnboarding();
   }
 
   void _listenCurrentUser() {
@@ -84,7 +87,9 @@ class _DashboardPageState extends State<DashboardPage> {
         if (user != null) {
           ProposalAutoPdfSyncService.startSync(
               companyId: user.effectiveCompanyId);
-          _checkFirstLoginOnboarding();
+          if (!_needsOnboarding && !_isCheckingOnboarding) {
+            _checkFirstLoginOnboarding();
+          }
         }
       }
     });
@@ -95,6 +100,34 @@ class _DashboardPageState extends State<DashboardPage> {
     _userSub?.cancel();
     ProposalAutoPdfSyncService.stopSync();
     super.dispose();
+  }
+
+  SubscriptionInfo? _subscriptionInfo;
+
+  Future<void> _loadSubscriptionInfo() async {
+    try {
+      final user = _currentUser ?? await _authRepo.getCurrentUser();
+      final info = await SubscriptionService.getSubscriptionInfo(
+        companyId: user?.effectiveCompanyId,
+        userId: user?.uid,
+      );
+      if (mounted) {
+        setState(() {
+          _subscriptionInfo = info;
+        });
+      }
+    } catch (e) {
+      debugPrint('[DashboardPage] Erro ao carregar assinatura: $e');
+    }
+  }
+
+  void _openSubscriptionPlansDialog() {
+    SubscriptionPlansDialog.show(
+      context,
+      onSubscribed: () {
+        _loadSubscriptionInfo();
+      },
+    );
   }
 
   Future<void> _loadPreferredSector() async {
@@ -110,8 +143,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _checkFirstLoginOnboarding() async {
-    if (_isOnboardingOpen || !mounted) return;
-
     try {
       final user = _currentUser ?? await _authRepo.getCurrentUser();
       // Verifica se é administrador / dono da empresa
@@ -119,7 +150,15 @@ class _DashboardPageState extends State<DashboardPage> {
           user.isAdmin ||
           user.role == 'admin' ||
           user.isSuperAdmin;
-      if (!isAdmin) return;
+      if (!isAdmin) {
+        if (mounted) {
+          setState(() {
+            _isCheckingOnboarding = false;
+            _needsOnboarding = false;
+          });
+        }
+        return;
+      }
 
       // 1. Verifica no Banco de Dados se o usuário ou a empresa já têm um nicho salvo
       final hasSectorInDb = await CompanyService.hasCompletedOnboarding(
@@ -128,43 +167,33 @@ class _DashboardPageState extends State<DashboardPage> {
       );
 
       if (hasSectorInDb) {
-        // Nicho já está salvo no banco de dados! Garante sincronia local e NÃO abre a janela
+        // Nicho já está salvo no banco de dados! Garante sincronia local e exibe o dashboard
         await _loadPreferredSector();
         await SettingsService.setCompletedOnboarding(true);
+        if (mounted) {
+          setState(() {
+            _isCheckingOnboarding = false;
+            _needsOnboarding = false;
+          });
+        }
         return;
       }
 
-      // 2. Se o usuário NÃO escolheu o nicho no banco de dados ainda, AI SIM abre a janela toda vez
-      if (mounted && !_isOnboardingOpen) {
-        _openOnboardingDialog();
+      // 2. Se o usuário NÃO completou o onboarding, entra direto no Onboarding
+      if (mounted) {
+        setState(() {
+          _isCheckingOnboarding = false;
+          _needsOnboarding = true;
+        });
       }
     } catch (e) {
       debugPrint('[DashboardPage] Erro ao verificar onboarding: $e');
+      if (mounted) {
+        setState(() {
+          _isCheckingOnboarding = false;
+        });
+      }
     }
-  }
-
-  void _openOnboardingDialog() {
-    if (_isOnboardingOpen || !mounted) return;
-    _isOnboardingOpen = true;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.60),
-      builder: (ctx) => SectorOnboardingDialog(
-        onSectorSelected: (sector) {
-          _loadPreferredSector();
-        },
-        onCompleted: () {
-          _isOnboardingOpen = false;
-          _loadPreferredSector();
-          if (mounted) setState(() {});
-        },
-        openCompanyFormAfter: true,
-      ),
-    ).then((_) {
-      _isOnboardingOpen = false;
-    });
   }
 
   void _toggleSidebar() {
@@ -188,6 +217,51 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingOnboarding) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0F172A),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const TaosLogo(height: 60),
+              const SizedBox(height: 24),
+              const SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: Color(0xFF6366F1),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Carregando ecossistema...',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_needsOnboarding) {
+      return OnboardingPage(
+        onCompleted: () {
+          setState(() {
+            _needsOnboarding = false;
+          });
+          _loadPreferredSector();
+          _loadSubscriptionInfo();
+        },
+      );
+    }
+
     final isMobile = MediaQuery.of(context).size.width < 768;
     final isSolar = _preferredSector == ProductSector.solarPlant;
     final productsTitle = isSolar ? 'Usinas Solares' : 'Produtos';
@@ -245,6 +319,80 @@ class _DashboardPageState extends State<DashboardPage> {
           height: isMobile ? 32 : 70,
         ),
         actions: [
+          // Contador de Teste Grátis & Botão de Assinar Agora
+          if (_subscriptionInfo != null && _subscriptionInfo!.isTrial) ...[
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.timer_outlined, size: 14, color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${_subscriptionInfo!.remainingDays} dias de teste',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Center(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  elevation: 2,
+                ),
+                onPressed: _openSubscriptionPlansDialog,
+                icon: const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFBBF24)),
+                label: Text(
+                  'ASSINAR AGORA',
+                  style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ] else if (_subscriptionInfo != null && _subscriptionInfo!.isActive) ...[
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF10B981)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF10B981)),
+                    const SizedBox(width: 5),
+                    Text(
+                      'PRO ATIVO',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           ValueListenableBuilder<ThemeMode>(
             valueListenable: AppTheme.themeModeNotifier,
             builder: (context, themeMode, _) {

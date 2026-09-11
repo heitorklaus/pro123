@@ -113,14 +113,13 @@ class CompanyService {
             'phone': '',
             'email': user?.email ?? '',
             'sector': sector.name,
-            'onboardingCompleted': true,
+            'onboardingCompleted': false,
             'createdAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         } else {
           await companyRef.set({
             'sector': sector.name,
-            'onboardingCompleted': true,
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         }
@@ -130,8 +129,6 @@ class CompanyService {
         await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'sector': sector.name,
           'preferredSector': sector.name,
-          'nicheChosen': true,
-          'onboardingCompleted': true,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
@@ -185,6 +182,13 @@ class CompanyService {
   /// Verifica se o usuário ou a empresa já definiram e salvaram o nicho no Banco de Dados
   static Future<bool> hasCompletedOnboarding({String? companyId, String? userId}) async {
     try {
+      // 0. Checagem prioritária no SharedPreferences local
+      final prefs = await SharedPreferences.getInstance();
+      final localCompleted = prefs.getBool('mavis_crm_has_completed_onboarding') ?? false;
+      if (localCompleted) {
+        return true;
+      }
+
       final cid = await getEffectiveCompanyId(companyId);
       final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
 
@@ -198,8 +202,15 @@ class CompanyService {
         if (doc.exists && doc.data() != null) {
           final data = doc.data()!;
           final isCompleted = data['onboardingCompleted'] as bool? ?? false;
-          final sector = data['sector'] as String?;
-          if (isCompleted || (sector != null && sector.isNotEmpty)) {
+          final docNumber = (data['document'] as String?)?.trim() ?? '';
+          final name = (data['name'] as String?)?.trim() ?? '';
+
+          // Onboarding só está completo se a empresa finalizou o cadastro (onboardingCompleted: true)
+          // OU se for uma conta antiga que já possui CNPJ e Razão Social cadastrados
+          if (isCompleted) {
+            return true;
+          }
+          if (docNumber.isNotEmpty && name.isNotEmpty && name != 'Minha Empresa') {
             return true;
           }
         }
@@ -215,21 +226,86 @@ class CompanyService {
         if (userDoc.exists && userDoc.data() != null) {
           final data = userDoc.data()!;
           final isCompleted = data['onboardingCompleted'] as bool? ?? false;
-          final nicheChosen = data['nicheChosen'] as bool? ?? false;
-          final sector = (data['preferredSector'] ?? data['sector']) as String?;
-          if (isCompleted || nicheChosen || (sector != null && sector.isNotEmpty)) {
+          if (isCompleted) {
             return true;
           }
         }
       }
 
-      // Se não há nicho salvo no Firestore, retorna false para abrir a janela
+      // Se não completou a configuração da empresa no Firestore, retorna false para manter no onboarding
       return false;
     } catch (e) {
       debugPrint('[CompanyService] Erro ao verificar nicho no Firestore: $e');
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool('mavis_crm_has_completed_onboarding') ?? false;
     }
+  }
+
+  /// Verifica se o CNPJ já está cadastrado no banco de dados Firestore por outra empresa (Unicidade de CNPJ)
+  static Future<bool> isCnpjAlreadyRegistered(
+    String rawCnpj, {
+    String? currentCompanyId,
+    String? currentUserId,
+  }) async {
+    final clean = rawCnpj.replaceAll(RegExp(r'\D'), '');
+    if (clean.length != 14) return false;
+
+    // Se for o CNPJ de testes de desenvolvimento (31.965.255/0001-12), permite sempre para facilitar homologações
+    if (clean == '31965255000112') {
+      return false;
+    }
+
+    try {
+      final effectiveId = await getEffectiveCompanyId(currentCompanyId);
+      final uid = currentUserId ?? FirebaseAuth.instance.currentUser?.uid;
+
+      final snap = await FirebaseFirestore.instance
+          .collection('companies')
+          .get();
+
+      for (final doc in snap.docs) {
+        // Se pertencer à empresa atual ou ao UID do próprio usuário, é o mesmo usuário atualizando seus dados!
+        if (effectiveId != null && doc.id == effectiveId) continue;
+        if (uid != null && doc.id == uid) continue;
+        final docData = doc.data();
+        if (uid != null && (docData['createdByUserId'] == uid || docData['ownerId'] == uid)) continue;
+
+        final docDoc = (docData['document'] as String? ?? '').replaceAll(RegExp(r'\D'), '');
+        final docCnpj = (docData['cnpj'] as String? ?? '').replaceAll(RegExp(r'\D'), '');
+        if (docDoc == clean || docCnpj == clean) {
+          return true; // CNPJ já cadastrado por OUTRA empresa!
+        }
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('[CompanyService] Erro ao verificar unicidade de CNPJ: $e');
+      return false;
+    }
+  }
+
+  /// Remove todas as empresas que possuam o CNPJ especificado (útil para testes de desenvolvimento e homologação)
+  static Future<int> deleteCompanyByCnpj(String rawCnpj) async {
+    final clean = rawCnpj.replaceAll(RegExp(r'\D'), '');
+    if (clean.isEmpty) return 0;
+    int deleted = 0;
+    try {
+      final snap = await FirebaseFirestore.instance.collection('companies').get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final docDoc = (data['document'] as String? ?? '').replaceAll(RegExp(r'\D'), '');
+        final docCnpj = (data['cnpj'] as String? ?? '').replaceAll(RegExp(r'\D'), '');
+        if (docDoc == clean || docCnpj == clean) {
+          await FirebaseFirestore.instance.collection('companies').doc(doc.id).delete();
+          deleted++;
+        }
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_localCompanyCacheKey);
+    } catch (e) {
+      debugPrint('[CompanyService] Erro ao deletar empresa por CNPJ: $e');
+    }
+    return deleted;
   }
 
   static Future<void> _cacheLocalCompany(CompanyModel model) async {

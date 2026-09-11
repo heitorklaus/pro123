@@ -553,7 +553,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Catálogo inteligente com 20 segmentos',
+                      'Catálogo inteligente de produtos e serviços',
                       style: GoogleFonts.inter(
                           fontSize: isMobile ? 12 : 14,
                           color: isDark
@@ -903,7 +903,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
                           items: [
                             DropdownMenuItem<ProductSector?>(
                               value: null,
-                              child: Text('Todos os Segmentos (20)',
+                              child: Text(
+                                  'Todos os Segmentos (${ProductSector.activeSectors.length})',
                                   style: GoogleFonts.inter(
                                       fontSize: 12,
                                       color: isDark
@@ -911,7 +912,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                           : const Color(0xFF0F172A),
                                       fontWeight: FontWeight.w600)),
                             ),
-                            ...ProductSector.values.map(
+                            ...ProductSector.activeSectors.map(
                               (s) => DropdownMenuItem<ProductSector?>(
                                 value: s,
                                 child: Row(
@@ -1145,7 +1146,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
                           dropdownColor:
                               isDark ? const Color(0xFF1E293B) : Colors.white,
                           hint: Text(
-                            'Todos os Segmentos (20)',
+                            'Todos os Segmentos (${ProductSector.activeSectors.length})',
                             style: GoogleFonts.inter(
                                 fontSize: 13,
                                 color: isDark
@@ -1161,7 +1162,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
                           items: [
                             DropdownMenuItem<ProductSector?>(
                               value: null,
-                              child: Text('Todos os Segmentos (20)',
+                              child: Text(
+                                  'Todos os Segmentos (${ProductSector.activeSectors.length})',
                                   style: GoogleFonts.inter(
                                       fontSize: 13,
                                       color: isDark
@@ -1169,7 +1171,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                           : const Color(0xFF0F172A),
                                       fontWeight: FontWeight.w600)),
                             ),
-                            ...ProductSector.values.map(
+                            ...ProductSector.activeSectors.map(
                               (s) => DropdownMenuItem<ProductSector?>(
                                 value: s,
                                 child: Row(
@@ -3433,7 +3435,14 @@ class _SectorSelectorViewState extends State<_SectorSelectorView> {
                 );
               }
 
-              final all = snap.data ?? CategoryModel.nativeCategories;
+              final raw = snap.data ?? CategoryModel.nativeCategories;
+              final all = raw.where((c) {
+                if (!c.isCustom) {
+                  final s = c.matchingSector;
+                  return s != null && ProductSector.activeSectors.contains(s);
+                }
+                return true;
+              }).toList();
               final filtered = all.where((c) {
                 if (_filter.isEmpty) return true;
                 return c.title.toLowerCase().contains(_filter) ||
@@ -4276,6 +4285,16 @@ class _ProductFormCardState extends State<_ProductFormCard> {
         _dynamicControllers['microPowerKwp'] = TextEditingController();
         _dynamicControllers['batteryCapacityKwh'] = TextEditingController();
         _dynamicControllers['batteryVoltage'] = TextEditingController();
+        _dynamicControllers['brand'] = TextEditingController();
+        _dynamicControllers['model'] = TextEditingController();
+        _dynamicControllers['warranty'] = TextEditingController();
+        _dynamicControllers['technicalNotes'] = TextEditingController();
+        break;
+
+      case ProductSector.homeAutomation:
+        _dynamicControllers['protocol'] = TextEditingController();
+        _dynamicControllers['compatibility'] = TextEditingController();
+        _dynamicControllers['voltage'] = TextEditingController();
         _dynamicControllers['brand'] = TextEditingController();
         _dynamicControllers['model'] = TextEditingController();
         _dynamicControllers['warranty'] = TextEditingController();
@@ -5287,6 +5306,45 @@ class _ProductFormCardState extends State<_ProductFormCard> {
                 Expanded(
                   child: _dynField('mfgWarrantyYears',
                       'Garantia de Fabricação (Anos)', 'Ex: 5 ou 12 anos'),
+                ),
+              ],
+            ),
+          ],
+        );
+
+      // Automação Residencial & Smart Home
+      case ProductSector.homeAutomation:
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _dynField('protocol', 'Protocolo / Conectividade',
+                      'Ex: Zigbee 3.0, Wi-Fi 2.4GHz, Z-Wave, Bluetooth, RF 433MHz'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _dynField('compatibility', 'Compatibilidade Smart',
+                      'Ex: Alexa, Google Assistant, Apple HomeKit, Tuya, Smart Life'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _dynField('voltage', 'Alimentação / Tensão',
+                      'Ex: Bivolt Automático (110V/220V), 12V DC, Bateria Recarregável'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _dynField('brand', 'Fabricante / Marca',
+                      'Ex: Sonoff, Tuya, Intelbras, NovaDigital, Ekaza'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _dynField('warranty', 'Garantia',
+                      'Ex: 12 meses de garantia do fabricante'),
                 ),
               ],
             ),

@@ -94,7 +94,6 @@ class SettingsService {
         await prefs.remove(_preferredSectorKey);
       }
       await prefs.setBool(_isFixedSectorKey, isFixed);
-      await prefs.setBool(_hasOnboardingKey, sector != null);
 
       // Salva no banco de dados Firestore (empresa e usuário)
       if (sector != null) {
