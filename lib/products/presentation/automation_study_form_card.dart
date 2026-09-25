@@ -927,7 +927,7 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   Widget _buildHeader(bool isEditing) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 800;
+        final isCompact = constraints.maxWidth < 1120;
 
         final titleBlock = Row(
           children: [
