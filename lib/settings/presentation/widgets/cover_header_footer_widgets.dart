@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../domain/models/proposal_pages_models.dart';
 
 /// Modelo de metadados para os estilos de Cabeçalho
 class HeaderStyleMeta {
@@ -629,10 +630,10 @@ class CoverHeaderWidget extends StatelessWidget {
 
   // 9. Compacto Micro
   Widget _buildCompactMicro() {
-    final bg = _customBg ?? const Color(0xFFF8FAFC);
-    final isDark = _customBg != null ? _isDark(bg) : false;
+    final bg = _customBg ?? const Color(0xFF0F172A);
+    final isDark = _customBg != null ? _isDark(bg) : true;
     final txt = _customText ?? (isDark ? Colors.white : const Color(0xFF334155));
-    final subTxt = _customText?.withValues(alpha: 0.7) ?? (isDark ? Colors.white70 : const Color(0xFF64748B));
+    final subTxt = _customText?.withValues(alpha: 0.8) ?? (isDark ? Colors.white70 : const Color(0xFF64748B));
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 6 * scale),
@@ -1601,6 +1602,8 @@ class CoverHeaderFooterTabContent extends StatelessWidget {
   final ValueChanged<String> onFooterIconColorChanged;
 
   final Color accentColor;
+  final String? selectedInternalPresetId;
+  final ValueChanged<InternalPagesLayoutPreset>? onSelectInternalPreset;
 
   const CoverHeaderFooterTabContent({
     super.key,
@@ -1632,10 +1635,14 @@ class CoverHeaderFooterTabContent extends StatelessWidget {
     required this.footerIconColor,
     required this.onFooterIconColorChanged,
     this.accentColor = const Color(0xFFEAB308),
+    this.selectedInternalPresetId,
+    this.onSelectInternalPreset,
   });
 
   @override
   Widget build(BuildContext context) {
+    final presets = InternalPagesLayoutPreset.getAllPresets();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1663,6 +1670,134 @@ class CoverHeaderFooterTabContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+
+          // ── SEÇÃO 0: 20 PADRÕES PRONTOS DE DESIGN (1 CLIQUE) ──
+          if (onSelectInternalPreset != null) ...[
+            _buildSectionHeader(
+              '20 Padrões Prontos de Design (1 Clique)',
+              'Aplique combinações perfeitas de cabeçalho, rodapé e paleta de cores para todas as páginas internas',
+            ),
+            const SizedBox(height: 12),
+
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 2.3,
+                    ),
+                    itemCount: presets.length,
+                    itemBuilder: (ctx, idx) {
+                      final p = presets[idx];
+                      final isSelected = selectedInternalPresetId == p.id;
+                      final colorVal = Color(int.tryParse(p.primaryColorHex.replaceAll('#', '0xFF')) ?? 0xFF0284C7);
+
+                      return InkWell(
+                        onTap: () => onSelectInternalPreset?.call(p),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF1E293B) : const Color(0xFF1E293B).withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected ? colorVal : const Color(0xFF334155),
+                              width: isSelected ? 2 : 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: colorVal.withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ]
+                                : null,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: colorVal,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      p.title,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: colorVal,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text('ATIVO', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    ),
+                                ],
+                              ),
+                              Text(
+                                p.subtitle,
+                                style: GoogleFonts.inter(fontSize: 9.5, color: const Color(0xFF94A3B8)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Topo: Estilo ${p.headerStyle} • Base: Estilo ${p.footerStyle}',
+                                    style: GoogleFonts.inter(fontSize: 8.5, color: const Color(0xFF64748B)),
+                                  ),
+                                  Text(
+                                    isSelected ? 'APLICADO' : 'APLICAR ->',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected ? colorVal : const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // ── SEÇÃO 1: CABEÇALHO DA PROPOSTA ──
           _buildSectionHeader(

@@ -397,17 +397,23 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         coverLogoPositionY: _current.proposalStyle != 'verticalSplit' ? 0.78 : 0.05,
         coverLogoWidth: 95.0,
         // Cabeçalho & Rodapé:
-        coverShowHeader: false,
-        coverHeaderStyle: 1,
+        coverShowHeader: true,
+        coverHeaderStyle: 9,
         coverHeaderText1: 'PROPOSTA COMERCIAL',
         coverHeaderText2: 'ENERGIA SOLAR FOTOVOLTAICA',
         coverHeaderText3: 'SOLUÇÕES DE ALTA PERFORMANCE',
-        coverShowFooter: false,
+        coverHeaderBgColor: '#0F172A',
+        coverHeaderTextColor: '#FFFFFF',
+        coverHeaderIconColor: '#38BDF8',
+        coverShowFooter: true,
         coverFooterStyle: 1,
         coverFooterText1: 'ENERGIA LIMPA • ECONOMIA REAL • SUSTENTABILIDADE',
-        coverFooterText2: '(11) 99999-9999 • contato@empresa.com.br',
+        coverFooterText2: '(11) 00000-0000 • contato@empresa.com.br',
         coverFooterText3: 'www.suaempresa.com.br',
         coverFooterText4: 'Proposta comercial válida por 10 dias corridos.',
+        coverFooterBgColor: '#0F172A',
+        coverFooterTextColor: '#CBD5E1',
+        coverFooterIconColor: '#38BDF8',
       );
       _coverTitleCtrl.text = 'PROPOSTA COMERCIAL';
       _coverSubtitleCtrl.text = 'ENERGIA SOLAR FOTOVOLTAICA';
@@ -2482,6 +2488,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       footerText3Ctrl: _footerText3Ctrl,
       footerText4Ctrl: _footerText4Ctrl,
       accentColor: const Color(0xFFEAB308),
+      selectedInternalPresetId: _current.internalPagesLayoutPreset,
+      onSelectInternalPreset: (preset) {
+        setState(() {
+          _current = _current.copyWith(
+            internalPagesLayoutPreset: preset.id,
+            coverHeaderStyle: preset.headerStyle,
+            coverFooterStyle: preset.footerStyle,
+            verticalSplitAccentColor: preset.primaryColorHex,
+            coverHeaderBgColor: preset.headerBgColorHex,
+            coverHeaderTextColor: preset.headerTextColorHex,
+            coverFooterBgColor: preset.footerBgColorHex,
+            coverFooterTextColor: preset.footerTextColorHex,
+          );
+        });
+      },
       headerBgColor: _current.coverHeaderBgColor,
       onHeaderBgColorChanged: (c) => setState(() => _current = _current.copyWith(coverHeaderBgColor: c)),
       headerTextColor: _current.coverHeaderTextColor,

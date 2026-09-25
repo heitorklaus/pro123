@@ -7,6 +7,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../products/domain/models/product_model.dart';
+import '../../../products/domain/models/automation_study_model.dart';
 import '../../../settings/data/services/automation_settings_service.dart';
 import '../../../settings/domain/models/automation_settings_model.dart';
 import '../../../settings/domain/models/proposal_pages_models.dart';
@@ -191,6 +192,12 @@ class AutomationProposalPdfService {
       smartHomeBannerBytes = data.buffer.asUint8List();
     } catch (_) {}
 
+    Uint8List? defaultRoomHeroBytes;
+    try {
+      final heroData = await rootBundle.load('assets/images/smart_home_hero.jpg');
+      defaultRoomHeroBytes = heroData.buffer.asUint8List();
+    } catch (_) {}
+
     if (!hiddenPages.contains('page_2')) {
       pdf.addPage(
         _buildProgrammaticPage(
@@ -215,9 +222,19 @@ class AutomationProposalPdfService {
     }
 
     // -------------------------------------------------------------
-    // 📄 PÁGINA 3: APRESENTAÇÃO INSTITUCIONAL & DADOS DA SEDE
+    // 📄 PÁGINA 3: PORTFÓLIO & CLIENTES (CASES DE SUCESSO)
     // -------------------------------------------------------------
     if (!hiddenPages.contains('page_3')) {
+      final p3BgColor = _parsePdfColor(settings.page3BgColor.isNotEmpty ? settings.page3BgColor : '#0B132B');
+      final p3CardBgColor = _parsePdfColor(settings.page3CardBgColor.isNotEmpty ? settings.page3CardBgColor : '#111C38');
+      final p3BorderColor = _parsePdfColor(settings.page3BorderColor.isNotEmpty ? settings.page3BorderColor : '#00E5FF');
+      final p3TitleColor = _parsePdfColor(settings.page3TitleColor.isNotEmpty ? settings.page3TitleColor : '#FFFFFF');
+      final p3SubtitleColor = _parsePdfColor(settings.page3SubtitleColor.isNotEmpty ? settings.page3SubtitleColor : '#94A3B8');
+      final p3AccentColor = _parsePdfColor(settings.page3AccentColor.isNotEmpty ? settings.page3AccentColor : '#00E5FF');
+
+      final portfolioItems = settings.page3PortfolioItems.where((c) => c.isVisible).toList();
+      final effectiveItems = portfolioItems.isNotEmpty ? portfolioItems : AutomationPortfolioItem.defaultItems();
+
       pdf.addPage(
         _buildProgrammaticPage(
           settings: settings,
@@ -226,54 +243,36 @@ class AutomationProposalPdfService {
           fontSemiBold: fontMontserratSemiBold,
           pageNumber: curPage++,
           totalPages: totalPages,
+          pageBgColor: p3BgColor,
           content: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              _buildPdfHeader('DADOS INSTITUCIONAL & SEDE', settings.companyName, primaryColor, fontOutfit, fontRegular),
-              pw.SizedBox(height: 20),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(16),
-                decoration: pw.BoxDecoration(
-                  color: PdfColor.fromHex('#F8FAFC'),
-                  borderRadius: pw.BorderRadius.circular(8),
-                  border: pw.Border.all(color: PdfColor.fromHex('#E2E8F0')),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('EMPRESA: ${settings.companyName}', style: pw.TextStyle(font: fontBold, fontSize: 11, color: PdfColor.fromHex('#0F172A'))),
-                    pw.SizedBox(height: 4),
-                    pw.Text('CNPJ / CPF: ${settings.companyDoc}', style: pw.TextStyle(font: fontRegular, fontSize: 10, color: PdfColor.fromHex('#475569'))),
-                    pw.SizedBox(height: 4),
-                    pw.Text('TELEFONE: ${settings.companyPhone}  •  EMAIL: ${settings.companyEmail}', style: pw.TextStyle(font: fontRegular, fontSize: 10, color: PdfColor.fromHex('#475569'))),
-                    if (settings.companyWebsite.isNotEmpty) ...[
-                      pw.SizedBox(height: 4),
-                      pw.Text('SITE: ${settings.companyWebsite}', style: pw.TextStyle(font: fontRegular, fontSize: 10, color: primaryColor)),
-                    ],
-                    pw.SizedBox(height: 8),
-                    pw.Divider(color: PdfColor.fromHex('#E2E8F0')),
-                    pw.SizedBox(height: 8),
-                    pw.Text('ENDEREÇO DA SEDE:', style: pw.TextStyle(font: fontBold, fontSize: 10, color: PdfColor.fromHex('#0F172A'))),
-                    pw.Text('${settings.logradouro}, ${settings.numero} ${settings.complemento} — ${settings.bairro}', style: pw.TextStyle(font: fontRegular, fontSize: 10, color: PdfColor.fromHex('#475569'))),
-                    pw.Text('${settings.cidade} / ${settings.uf} — CEP: ${settings.cep}', style: pw.TextStyle(font: fontRegular, fontSize: 10, color: PdfColor.fromHex('#475569'))),
-                  ],
-                ),
+              _buildPdfHeader(
+                settings.page3Subtitle.isNotEmpty ? settings.page3Subtitle : 'Cases de Sucesso e Obras Concluídas',
+                settings.page3Title.isNotEmpty ? settings.page3Title : 'PORTFÓLIO & CLIENTES',
+                p3AccentColor,
+                fontOutfit,
+                fontRegular,
+                titleColor: p3TitleColor,
+                subtitleColor: p3AccentColor,
               ),
-              pw.SizedBox(height: 24),
-              pw.Text('RESUMO DOS CÔMODOS & AMBIENTES AUTOMATIZADOS', style: pw.TextStyle(font: fontOutfit, fontSize: 14, color: PdfColor.fromHex('#0F172A'))),
               pw.SizedBox(height: 12),
-              ...environments.map((env) {
-                return pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 12),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('• ${env.name}: ${env.description}', style: pw.TextStyle(font: fontBold, fontSize: 10, color: primaryColor)),
-                      pw.SizedBox(height: 4),
-                      pw.Text('  Itens: ${env.items.map((i) => "${i.quantity}x ${i.name}").join(", ")}',
-                          style: pw.TextStyle(font: fontRegular, fontSize: 9, color: PdfColor.fromHex('#475569'))),
-                    ],
-                  ),
+              ...effectiveItems.take(3).map((item) {
+                final idx = effectiveItems.indexOf(item);
+                Uint8List? fallback = (idx == 0)
+                    ? defaultRoomHeroBytes
+                    : (idx == 1 ? smartHomeBannerBytes : defaultRoomHeroBytes);
+                return _buildPdfPortfolioCard(
+                  item: item,
+                  cardBgColor: p3CardBgColor,
+                  borderColor: p3BorderColor,
+                  titleColor: p3TitleColor,
+                  subtitleColor: p3SubtitleColor,
+                  accentColor: p3AccentColor,
+                  fontBold: fontBold,
+                  fontRegular: fontRegular,
+                  fontOutfit: fontOutfit,
+                  fallbackPhotoBytes: fallback,
                 );
               }),
             ],
@@ -283,70 +282,102 @@ class AutomationProposalPdfService {
     }
 
     // -------------------------------------------------------------
-    // 📄 PÁGINA 4: DETALHAMENTO DE EQUIPAMENTOS POR CÔMODO
+    // 📄 PÁGINA 4: DETALHAMENTO DE EQUIPAMENTOS POR CÔMODO (CARDS PROPOSTA WEB - IMAGEM 1)
     // -------------------------------------------------------------
     if (!hiddenPages.contains('page_4')) {
-      pdf.addPage(
-        _buildProgrammaticPage(
-          settings: settings,
-          primaryColor: primaryColor,
-          fontBold: fontBold,
-          fontSemiBold: fontMontserratSemiBold,
-          pageNumber: curPage++,
-          totalPages: totalPages,
-          content: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              _buildPdfHeader('CATÁLOGO & EQUIPAMENTOS', 'Detalhamento Técnico por Ambiente', primaryColor, fontOutfit, fontRegular),
-              pw.SizedBox(height: 16),
-              ...environments.map((env) {
-                return pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 16),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        color: PdfColor.fromHex('#0F172A'),
-                        child: pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text(env.name.toUpperCase(), style: pw.TextStyle(font: fontBold, fontSize: 10, color: PdfColors.white)),
-                            pw.Text('SUBTOTAL: ${_currencyFormat.format(env.subtotal)}',
-                                style: pw.TextStyle(font: fontBold, fontSize: 10, color: primaryColor)),
-                          ],
-                        ),
-                      ),
-                      pw.Table(
-                        border: pw.TableBorder.all(color: PdfColor.fromHex('#E2E8F0')),
-                        children: env.items.map((eq) {
-                          return pw.TableRow(
-                            children: [
-                              pw.Padding(
-                                padding: const pw.EdgeInsets.all(6),
-                                child: pw.Text(eq.name, style: pw.TextStyle(font: fontRegular, fontSize: 9)),
-                              ),
-                              pw.Padding(
-                                padding: const pw.EdgeInsets.all(6),
-                                child: pw.Text('Qtd: ${eq.quantity}', style: pw.TextStyle(font: fontRegular, fontSize: 9)),
-                              ),
-                              pw.Padding(
-                                padding: const pw.EdgeInsets.all(6),
-                                child: pw.Text(_currencyFormat.format(eq.unitPrice * eq.quantity),
-                                    style: pw.TextStyle(font: fontBold, fontSize: 9)),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ],
+      final p4BgColor = _parsePdfColor(settings.page4BgColor.isNotEmpty ? settings.page4BgColor : '#0B132B');
+      final p4CardBgColor = _parsePdfColor(settings.page4CardBgColor.isNotEmpty ? settings.page4CardBgColor : '#111C38');
+      final p4BorderColor = _parsePdfColor(settings.page4BorderColor.isNotEmpty ? settings.page4BorderColor : '#00E5FF');
+      final p4TitleColor = _parsePdfColor(settings.page4TitleColor.isNotEmpty ? settings.page4TitleColor : '#FFFFFF');
+      final p4SubtitleColor = _parsePdfColor(settings.page4SubtitleColor.isNotEmpty ? settings.page4SubtitleColor : '#94A3B8');
+      final p4AccentColor = _parsePdfColor(settings.page4AccentColor.isNotEmpty ? settings.page4AccentColor : '#00E5FF');
+
+      // Ambientes efetivos
+      final effectiveEnvironments = environments.isNotEmpty
+          ? environments
+          : [
+              AutomationEnvironment(
+                id: 'demo_env',
+                name: 'Ambiente Principal Integrado',
+                description: 'Automação residencial completa de iluminação, climatização e conforto.',
+                items: [
+                  AutomationItem(
+                    id: 'it_1',
+                    name: effectiveProduct.name.isNotEmpty ? effectiveProduct.name : 'Central de Automação & Módulos',
+                    quantity: 1,
+                    unitPrice: effectiveProduct.salePrice > 0 ? effectiveProduct.salePrice : 5000.0,
+                    categoryTitle: 'Automação',
+                    manufacturer: (effectiveProduct.supplierName != null && effectiveProduct.supplierName!.isNotEmpty)
+                        ? effectiveProduct.supplierName!
+                        : settings.companyName,
                   ),
-                );
-              }),
-            ],
+                ],
+              ),
+            ];
+
+      // Divide os ambientes em páginas (máximo 2 ambientes por página se forem curtos, ou 1 por página se tiver mais de 4 itens)
+      final List<List<AutomationEnvironment>> envPages = [];
+      List<AutomationEnvironment> currentBatch = [];
+      int currentItemsInBatch = 0;
+
+      for (final env in effectiveEnvironments) {
+        final int count = env.items.length;
+        if (currentBatch.isNotEmpty && (currentBatch.length >= 2 || currentItemsInBatch + count > 5)) {
+          envPages.add(List.from(currentBatch));
+          currentBatch = [];
+          currentItemsInBatch = 0;
+        }
+        currentBatch.add(env);
+        currentItemsInBatch += count;
+      }
+      if (currentBatch.isNotEmpty) {
+        envPages.add(currentBatch);
+      }
+
+      for (int i = 0; i < envPages.length; i++) {
+        final pageBatch = envPages[i];
+        final isFirstPage = i == 0;
+
+        pdf.addPage(
+          _buildProgrammaticPage(
+            settings: settings,
+            primaryColor: primaryColor,
+            fontBold: fontBold,
+            fontSemiBold: fontMontserratSemiBold,
+            pageNumber: curPage++,
+            totalPages: totalPages,
+            pageBgColor: p4BgColor,
+            content: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildPdfHeader(
+                  isFirstPage ? 'CATÁLOGO & EQUIPAMENTOS' : 'CATÁLOGO & EQUIPAMENTOS (CONTINUAÇÃO)',
+                  'Detalhamento Técnico por Ambiente',
+                  p4AccentColor,
+                  fontOutfit,
+                  fontRegular,
+                  titleColor: p4TitleColor,
+                  subtitleColor: p4AccentColor,
+                ),
+                pw.SizedBox(height: 12),
+                ...pageBatch.map((env) => _buildPdfEnvironmentCard(
+                      env: env,
+                      proposalTotal: effectiveProposal.totalAmount,
+                      cardBgColor: p4CardBgColor,
+                      borderColor: p4BorderColor,
+                      titleColor: p4TitleColor,
+                      subtitleColor: p4SubtitleColor,
+                      accentColor: p4AccentColor,
+                      fontBold: fontBold,
+                      fontRegular: fontRegular,
+                      fontOutfit: fontOutfit,
+                      defaultRoomPhotoBytes: defaultRoomHeroBytes,
+                    )),
+              ],
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     // -------------------------------------------------------------
@@ -452,6 +483,7 @@ class AutomationProposalPdfService {
     pw.Font? fontSemiBold,
     int? pageNumber,
     int? totalPages,
+    PdfColor? pageBgColor,
   }) {
     final customHeaderBg = settings.coverHeaderBgColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderBgColor) : null;
     final customHeaderTxt = settings.coverHeaderTextColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderTextColor) : null;
@@ -466,7 +498,7 @@ class AutomationProposalPdfService {
       margin: pw.EdgeInsets.zero,
       build: (pw.Context context) {
         return pw.Container(
-          color: PdfColors.white,
+          color: pageBgColor ?? PdfColors.white,
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
@@ -1410,6 +1442,19 @@ class AutomationProposalPdfService {
       case 'show_chart':
         svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><rect x="3" y="12" width="4.5" height="9" rx="1" fill="$hex"/><rect x="9.75" y="4" width="4.5" height="17" rx="1" fill="$hex"/><rect x="16.5" y="8" width="4.5" height="13" rx="1" fill="$hex"/></svg>';
         break;
+      case 'pie':
+      case 'pie_chart':
+      case 'pizza':
+      case 'representatividade':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 2.07c3.61.45 6.48 3.32 6.93 6.93H13V4.07zM4 12c0-4.07 3.06-7.44 7-7.93v15.87c-3.94-.5-7-3.87-7-7.94zm9 7.93V13h6.93c-.45 3.61-3.32 6.48-6.93 6.93z" fill="$hex"/></svg>';
+        break;
+      case 'inventory':
+      case 'box':
+      case 'caixa':
+      case 'equipamento':
+      case 'equipamentos':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z" fill="$hex"/></svg>';
+        break;
       case 'coins':
       case 'moedas':
       case 'dinheiro':
@@ -1454,11 +1499,64 @@ class AutomationProposalPdfService {
       case 'casa':
         svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="$hex"/></svg>';
         break;
+      case 'car':
+      case 'garage':
+      case 'garagem':
+      case 'estacionamento':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z" fill="$hex"/><circle cx="7.5" cy="14.5" r="1.5" fill="$hex"/><circle cx="16.5" cy="14.5" r="1.5" fill="$hex"/></svg>';
+        break;
+      case 'bed':
+      case 'quarto':
+      case 'dormitorio':
+      case 'suite':
+      case 'suite_master':
+      case 'cama':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M19 7h-8v8H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4zm1 8h-8V9h7c.55 0 1 .45 1 1v5z" fill="$hex"/><circle cx="7" cy="11" r="2" fill="$hex"/></svg>';
+        break;
+      case 'service':
+      case 'wash':
+      case 'lavanderia':
+      case 'area_servico':
+      case 'servico':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M18 2.01L6 2c-1.11 0-2 .89-2 2v16c0 1.11.89 2 2 2h12c1.11 0 2-.89 2-2V4c0-1.11-.89-1.99-2-1.99zM18 20H6v-9.02h12V20zm0-11H6V4h12v5z" fill="$hex"/><circle cx="12" cy="15" r="3" fill="$hex"/><circle cx="8" cy="6.5" r="1" fill="$hex"/><circle cx="11" cy="6.5" r="1" fill="$hex"/></svg>';
+        break;
+      case 'kitchen':
+      case 'cozinha':
+      case 'gourmet':
+      case 'copa':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M18 2.01L6 2c-1.1 0-2 .89-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.11-.9-1.99-2-1.99zM8 4h3v5H8V4zm-2 7h5v9H6v-9zm12 9h-5V4h5v16z" fill="$hex"/></svg>';
+        break;
+      case 'living':
+      case 'sofa':
+      case 'sala':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 10V7c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v3c-1.1 0-2 .9-2 2v5h2v2h2v-2h12v2h2v-2h2v-5c0-1.1-.9-2-2-2zm-14-3h12v3H6V7zm14 8H4v-3c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v3z" fill="$hex"/></svg>';
+        break;
+      case 'bath':
+      case 'banheiro':
+      case 'lavabo':
+      case 'bwc':
+      case 'wc':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 13V4.83C20 3.27 18.73 2 17.17 2c-.75 0-1.47.3-2 .83l-1.25 1.25c-.16-.05-.33-.08-.51-.08-.83 0-1.5.67-1.5 1.5v.68l-2-2V3c0-.55-.45-1-1-1s-1 .45-1 1v3.17l-3.29-3.3a.996.996 0 10-1.41 1.41L5.17 6.5C3.32 8.35 3.03 11.23 4.29 13.4L2 15.69V20h20v-4.31l-2-2.69zM6.59 7.91l1.41-1.41 1.41 1.41-1.41 1.41-1.41-1.41zM20 18H4v-1.19l1.63-1.63c.12-.12.2-.27.24-.44.75-3.05 3.32-5.3 6.43-5.48l3.7 3.7V14h4v4z" fill="$hex"/></svg>';
+        break;
+      case 'pool':
+      case 'piscina':
+      case 'deck':
+      case 'externo':
+      case 'jardim':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M22 21c-1.11 0-1.73-.37-2.18-.64-.39-.23-.6-.36-1.82-.36s-1.43.13-1.82.36c-.45.27-1.07.64-2.18.64s-1.73-.37-2.18-.64c-.39-.23-.6-.36-1.82-.36s-1.43.13-1.82.36c-.45.27-1.07.64-2.18.64s-1.73-.37-2.18-.64c-.39-.23-.6-.36-1.82-.36s-1.43.13-1.82.36c-.45.27-1.07.64-2.18.64v-2c.6 0 .97-.22 1.34-.44.49-.3 1.15-.69 2.66-.69s2.17.4 2.66.69c.38.23.74.44 1.34.44s.97-.22 1.34-.44c.49-.3 1.15-.69 2.66-.69s2.17.4 2.66.69c.38.23.74.44 1.34.44s.97-.22 1.34-.44c.49-.3 1.15-.69 2.66-.69s2.17.4 2.66.69c.38.23.74.44 1.34.44v2zm-12-8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5zM8.5 7A1.5 1.5 0 0010 8.5 1.5 1.5 0 008.5 10 1.5 1.5 0 007 8.5 1.5 1.5 0 008.5 7zm4.1-3.69L11.5 4.4 7.21.11a1 1 0 00-1.41 0L4.38 1.53a1 1 0 000 1.41L5.8 4.36 4.38 5.77a1 1 0 000 1.41l1.41 1.41a1 1 0 001.41 0L8.62 7.18l4.49 4.49a1 1 0 001.41 0l1.41-1.41a1 1 0 000-1.41L12.6 5.54l1.41-1.41a1 1 0 000-1.41l-1.41-1.41z" fill="$hex"/></svg>';
+        break;
       case 'light':
       case 'lampada':
       case 'iluminacao':
       case 'lightbulb':
         svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z" fill="$hex"/></svg>';
+        break;
+      case 'sensors':
+      case 'sensor':
+      case 'ondas':
+      case 'atuador':
+      case 'atuadores':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-8c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0-4C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" fill="$hex"/></svg>';
         break;
       case 'music':
       case 'audio':
@@ -1474,9 +1572,12 @@ class AutomationProposalPdfService {
         svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-3-8c.55 0 1 .45 1 1v3h-2V6c0-.55.45-1 1-1z" fill="$hex"/></svg>';
         break;
       case 'camera':
+      case 'camera_alt':
+      case 'photo':
+      case 'foto':
       case 'monitoramento':
       case 'video':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" fill="$hex"/></svg>';
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><circle cx="12" cy="12" r="3.2" fill="$hex"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5 2.24-5 5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill="$hex"/></svg>';
         break;
       case 'lock':
       case 'acesso':
@@ -1506,6 +1607,112 @@ class AutomationProposalPdfService {
         break;
     }
     return pw.SvgImage(svg: svgContent, width: size, height: size);
+  }
+
+  /// Retorna o nome da chave SVG adequada para o ambiente/cômodo
+  static String _getRoomIconKey(String roomName) {
+    final lower = roomName.toLowerCase().trim();
+    if (lower.contains('garagem') || lower.contains('estacionamento') || lower.contains('carro')) {
+      return 'car';
+    }
+    if (lower.contains('quarto') || lower.contains('dorm') || lower.contains('suite') || lower.contains('suíte') || lower.contains('cama')) {
+      return 'bed';
+    }
+    if (lower.contains('serviço') || lower.contains('servico') || lower.contains('lavand') || lower.contains('lavagem')) {
+      return 'service';
+    }
+    if (lower.contains('cozinha') || lower.contains('gourmet') || lower.contains('copa') || lower.contains('jantar')) {
+      return 'kitchen';
+    }
+    if (lower.contains('sala') || lower.contains('living') || lower.contains('estar') || lower.contains('tv') || lower.contains('visita')) {
+      return 'living';
+    }
+    if (lower.contains('banheiro') || lower.contains('lavabo') || lower.contains('bwc') || lower.contains('wc')) {
+      return 'bath';
+    }
+    if (lower.contains('piscina') || lower.contains('extern') || lower.contains('deck') || lower.contains('jardim') || lower.contains('sacada') || lower.contains('varanda')) {
+      return 'pool';
+    }
+    if (lower.contains('cinema') || lower.contains('theater') || lower.contains('áudio') || lower.contains('audio')) {
+      return 'tv';
+    }
+    return 'home';
+  }
+
+  /// Obtém o perfil visual de categorias para renderização fiel dos cards da Proposta Web
+  static _PdfCategoryVisual _getPdfCategoryVisual(String? catTitle) {
+    final title = catTitle ?? '';
+    final lower = title.toLowerCase().trim();
+    if (lower.contains('ilumina') || lower.contains('luz') || lower.contains('dimmer') || lower.contains('led') || lower.contains('lamp')) {
+      return const _PdfCategoryVisual(
+        iconKey: 'light',
+        color: PdfColor.fromInt(0xFFF59E0B),
+        bgColor: PdfColor.fromInt(0xFF261A05),
+        badgeBgColor: PdfColor.fromInt(0xFF2B1D08),
+        displayName: 'Iluminação & Cenas',
+      );
+    }
+    if (lower.contains('sensor') || lower.contains('presença') || lower.contains('presenca') || lower.contains('atuador') || lower.contains('rele') || lower.contains('relé')) {
+      return const _PdfCategoryVisual(
+        iconKey: 'sensors',
+        color: PdfColor.fromInt(0xFFEC4899),
+        bgColor: PdfColor.fromInt(0xFF2D0B1F),
+        badgeBgColor: PdfColor.fromInt(0xFF310E23),
+        displayName: 'Sensores & Atuadores',
+      );
+    }
+    if (lower.contains('audio') || lower.contains('áudio') || lower.contains('som') || lower.contains('video') || lower.contains('vídeo') || lower.contains('tv') || lower.contains('home')) {
+      return const _PdfCategoryVisual(
+        iconKey: 'music',
+        color: PdfColor.fromInt(0xFF8B5CF6),
+        bgColor: PdfColor.fromInt(0xFF1B0F38),
+        badgeBgColor: PdfColor.fromInt(0xFF221445),
+        displayName: 'Áudio & Home Theater',
+      );
+    }
+    if (lower.contains('clima') || lower.contains('ar') || lower.contains('ac') || lower.contains('temperatura') || lower.contains('termostato')) {
+      return const _PdfCategoryVisual(
+        iconKey: 'temp',
+        color: PdfColor.fromInt(0xFF06B6D4),
+        bgColor: PdfColor.fromInt(0xFF06242E),
+        badgeBgColor: PdfColor.fromInt(0xFF082D3A),
+        displayName: 'Climatização & AC',
+      );
+    }
+    if (lower.contains('persiana') || lower.contains('cortina') || lower.contains('motor')) {
+      return const _PdfCategoryVisual(
+        iconKey: 'curtain',
+        color: PdfColor.fromInt(0xFF6366F1),
+        bgColor: PdfColor.fromInt(0xFF13163A),
+        badgeBgColor: PdfColor.fromInt(0xFF191C4A),
+        displayName: 'Persianas & Cortinas',
+      );
+    }
+    if (lower.contains('seguran') || lower.contains('fechadura') || lower.contains('alarme') || lower.contains('camera') || lower.contains('câmera') || lower.contains('acesso')) {
+      return const _PdfCategoryVisual(
+        iconKey: 'lock',
+        color: PdfColor.fromInt(0xFF10B981),
+        bgColor: PdfColor.fromInt(0xFF062419),
+        badgeBgColor: PdfColor.fromInt(0xFF092E20),
+        displayName: 'Segurança & Acesso',
+      );
+    }
+    if (lower.contains('rede') || lower.contains('wifi') || lower.contains('wi-fi') || lower.contains('router')) {
+      return const _PdfCategoryVisual(
+        iconKey: 'wifi',
+        color: PdfColor.fromInt(0xFF38BDF8),
+        bgColor: PdfColor.fromInt(0xFF082236),
+        badgeBgColor: PdfColor.fromInt(0xFF0A2942),
+        displayName: 'Rede & Wi-Fi',
+      );
+    }
+    return _PdfCategoryVisual(
+      iconKey: 'inventory',
+      color: const PdfColor.fromInt(0xFF00E5FF),
+      bgColor: const PdfColor.fromInt(0xFF072433),
+      badgeBgColor: const PdfColor.fromInt(0xFF0A2D3F),
+      displayName: title.isNotEmpty ? title : 'Automação Geral',
+    );
   }
 
   static String _buildCyberConnectorsSvg(List<AutomationCyberNode> nodes, double w, double h) {
@@ -1740,10 +1947,11 @@ class AutomationProposalPdfService {
           ),
         );
       case 9: // Compacto Micro
-        final bg = customBgColor ?? PdfColor.fromHex('#F8FAFC');
-        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : true;
         final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#334155'));
         final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
+        final tagColor = customTextColor ?? (isDark ? PdfColors.white : effectiveAccent);
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 5),
@@ -1755,7 +1963,7 @@ class AutomationProposalPdfService {
               if (subtitle.isNotEmpty)
                 pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
               if (tag.isNotEmpty)
-                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: effectiveAccent)),
+                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: tagColor)),
             ],
           ),
         );
@@ -2878,13 +3086,21 @@ class AutomationProposalPdfService {
     );
   }
 
-  static pw.Widget _buildPdfHeader(String subtitle, String title, PdfColor primaryColor, pw.Font fontT, pw.Font fontS) {
+  static pw.Widget _buildPdfHeader(
+    String subtitle,
+    String title,
+    PdfColor primaryColor,
+    pw.Font fontT,
+    pw.Font fontS, {
+    PdfColor? titleColor,
+    PdfColor? subtitleColor,
+  }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(subtitle.toUpperCase(), style: pw.TextStyle(font: fontS, fontSize: 9, color: primaryColor)),
+        pw.Text(subtitle.toUpperCase(), style: pw.TextStyle(font: fontS, fontSize: 9, color: subtitleColor ?? primaryColor)),
         pw.SizedBox(height: 2),
-        pw.Text(title, style: pw.TextStyle(font: fontT, fontSize: 18, color: PdfColor.fromHex('#0F172A'))),
+        pw.Text(title, style: pw.TextStyle(font: fontT, fontSize: 18, color: titleColor ?? PdfColor.fromHex('#0F172A'))),
         pw.SizedBox(height: 8),
         pw.Divider(color: primaryColor, thickness: 1.5),
       ],
@@ -2898,6 +3114,527 @@ class AutomationProposalPdfService {
         pw.Text(title, style: pw.TextStyle(font: fontT, fontSize: isTotal ? 12 : 10, color: isTotal ? PdfColor.fromHex('#0F172A') : PdfColor.fromHex('#475569'))),
         pw.Text(val, style: pw.TextStyle(font: fontV, fontSize: isTotal ? 14 : 10, color: color ?? PdfColor.fromHex('#0F172A'))),
       ],
+    );
+  }
+
+  static pw.Widget _buildPdfPortfolioCard({
+    required AutomationPortfolioItem item,
+    required PdfColor cardBgColor,
+    required PdfColor borderColor,
+    required PdfColor titleColor,
+    required PdfColor subtitleColor,
+    required PdfColor accentColor,
+    required pw.Font fontBold,
+    required pw.Font fontRegular,
+    required pw.Font fontOutfit,
+    Uint8List? fallbackPhotoBytes,
+  }) {
+    Uint8List? photoBytes;
+    if (item.imageBase64 != null && item.imageBase64!.trim().isNotEmpty) {
+      try {
+        final clean = item.imageBase64!.contains(',')
+            ? item.imageBase64!.split(',').last
+            : item.imageBase64!;
+        photoBytes = base64Decode(clean);
+      } catch (_) {}
+    }
+    photoBytes ??= fallbackPhotoBytes;
+
+    final tagsList = item.tags.split(RegExp(r'[•,\n]')).map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      decoration: pw.BoxDecoration(
+        color: cardBgColor,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+        border: pw.Border.all(color: borderColor, width: 1.1),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          // 1. Coluna Esquerda: Foto Real da Obra
+          pw.Container(
+            width: 155,
+            height: 105,
+            child: pw.ClipRRect(
+              horizontalRadius: 7,
+              verticalRadius: 7,
+              child: pw.Stack(
+                fit: pw.StackFit.expand,
+                children: [
+                  if (photoBytes != null)
+                    pw.Image(
+                      pw.MemoryImage(photoBytes),
+                      fit: pw.BoxFit.cover,
+                    )
+                  else
+                    pw.Container(color: const PdfColor.fromInt(0xFF0F172A)),
+                  // Badge de Status / Entrega
+                  pw.Positioned(
+                    top: 6,
+                    left: 6,
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                      decoration: pw.BoxDecoration(
+                        color: const PdfColor.fromInt(0xFF061424),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        border: pw.Border.all(color: accentColor, width: 0.8),
+                      ),
+                      child: pw.Row(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          _buildPdfCoverCustomIcon('verified', 8, accentColor),
+                          pw.SizedBox(width: 4),
+                          pw.Text(
+                            item.completionDate.isNotEmpty ? item.completionDate : 'Case Concluído',
+                            style: pw.TextStyle(font: fontBold, fontSize: 6.8, color: PdfColors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 2. Coluna Direita: Informações & Especificações Técnicas
+          pw.Expanded(
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Título e Localização
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Expanded(
+                        child: pw.Text(
+                          item.title.toUpperCase(),
+                          style: pw.TextStyle(
+                            font: fontOutfit,
+                            fontSize: 10.5,
+                            color: titleColor,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                      if (item.clientOrLocation.isNotEmpty) ...[
+                        pw.SizedBox(width: 6),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: pw.BoxDecoration(
+                            color: const PdfColor.fromInt(0xFF082B3E),
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                            border: pw.Border.all(color: accentColor, width: 0.7),
+                          ),
+                          child: pw.Text(
+                            item.clientOrLocation,
+                            style: pw.TextStyle(font: fontBold, fontSize: 6.5, color: accentColor),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  pw.SizedBox(height: 5),
+
+                  // Chips de Tags / Serviços Realizados
+                  if (tagsList.isNotEmpty)
+                    pw.Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: tagsList.take(4).map((tag) {
+                        return pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: pw.BoxDecoration(
+                            color: const PdfColor.fromInt(0xFF0B2136),
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+                            border: pw.Border.all(color: const PdfColor.fromInt(0xFF1E3A5F), width: 0.6),
+                          ),
+                          child: pw.Text(
+                            tag,
+                            style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: accentColor),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  pw.SizedBox(height: 6),
+
+                  pw.Divider(height: 1, thickness: 0.6, color: const PdfColor.fromInt(0xFF163048)),
+                  pw.SizedBox(height: 5),
+
+                  // Especificação Técnica Detalhada
+                  pw.Text(
+                    'ESPECIFICAÇÃO DO PROJETO:',
+                    style: pw.TextStyle(font: fontBold, fontSize: 6.8, color: accentColor),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    item.description,
+                    style: pw.TextStyle(font: fontRegular, fontSize: 7.2, color: subtitleColor, lineSpacing: 1.3),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildPdfEnvironmentCard({
+    required AutomationEnvironment env,
+    required double proposalTotal,
+    required PdfColor cardBgColor,
+    required PdfColor borderColor,
+    required PdfColor titleColor,
+    required PdfColor subtitleColor,
+    required PdfColor accentColor,
+    required pw.Font fontBold,
+    required pw.Font fontRegular,
+    required pw.Font fontOutfit,
+    Uint8List? defaultRoomPhotoBytes,
+  }) {
+    final grandTotal = proposalTotal > 0 ? proposalTotal : 1.0;
+    final envPct = (env.subtotal / grandTotal) * 100.0;
+    final roomPhotoBytes = defaultRoomPhotoBytes;
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      decoration: pw.BoxDecoration(
+        color: cardBgColor,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+        border: pw.Border.all(color: borderColor, width: 1.2),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          // ── 1. CABEÇALHO DO CARD DE AMBIENTE ──
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF071829),
+              borderRadius: pw.BorderRadius.only(
+                topLeft: pw.Radius.circular(9),
+                topRight: pw.Radius.circular(9),
+              ),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Row(
+                  children: [
+                    pw.Container(
+                      width: 28,
+                      height: 28,
+                      decoration: pw.BoxDecoration(
+                        color: const PdfColor.fromInt(0xFF092537),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                        border: pw.Border.all(color: accentColor, width: 1),
+                      ),
+                      child: pw.Center(
+                        child: _buildPdfCoverCustomIcon(_getRoomIconKey(env.name), 15, accentColor),
+                      ),
+                    ),
+                    pw.SizedBox(width: 10),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Row(
+                          children: [
+                            pw.Text(
+                              env.name.toUpperCase(),
+                              style: pw.TextStyle(
+                                font: fontOutfit,
+                                fontSize: 11,
+                                color: titleColor,
+                              ),
+                            ),
+                            pw.SizedBox(width: 8),
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: pw.BoxDecoration(
+                                color: const PdfColor.fromInt(0xFF082B3E),
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                                border: pw.Border.all(color: accentColor, width: 0.8),
+                              ),
+                              child: pw.Text(
+                                '${env.totalItemsCount} ${env.totalItemsCount == 1 ? "dispositivo" : "dispositivos"}',
+                                style: pw.TextStyle(font: fontBold, fontSize: 7.2, color: accentColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          env.miniexplanation,
+                          style: pw.TextStyle(font: fontRegular, fontSize: 7.5, color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'SUBTOTAL DO AMBIENTE',
+                      style: pw.TextStyle(font: fontBold, fontSize: 6.8, color: subtitleColor),
+                    ),
+                    pw.SizedBox(height: 1),
+                    pw.Text(
+                      _currencyFormat.format(env.subtotal),
+                      style: pw.TextStyle(font: fontOutfit, fontSize: 13, color: accentColor),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          pw.Divider(height: 1, thickness: 1, color: const PdfColor.fromInt(0xFF132B42)),
+
+          // ── 2. CORPO DO CARD (COLUNA ESQUERDA: FOTO/RESUMO + COLUNA DIREITA: EQUIPAMENTOS) ──
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(10),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Coluna Esquerda: Box Cenário Integrado + Representatividade
+                pw.Container(
+                  width: 140,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Box Ilustrativo do Cenário com Foto Real HD
+                      pw.Container(
+                        height: 82,
+                        decoration: pw.BoxDecoration(
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(7)),
+                          border: pw.Border.all(color: const PdfColor.fromInt(0xFF1E3A5F), width: 1),
+                        ),
+                        child: pw.ClipRRect(
+                          horizontalRadius: 6,
+                          verticalRadius: 6,
+                          child: pw.Stack(
+                            fit: pw.StackFit.expand,
+                            children: [
+                              if (roomPhotoBytes != null)
+                                pw.Image(
+                                  pw.MemoryImage(roomPhotoBytes),
+                                  fit: pw.BoxFit.cover,
+                                )
+                              else
+                                pw.Container(color: const PdfColor.fromInt(0xFF0A192F)),
+                              pw.Positioned(
+                                top: 5,
+                                left: 5,
+                                child: pw.Container(
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                                  decoration: pw.BoxDecoration(
+                                    color: const PdfColor.fromInt(0xFF061424),
+                                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                                    border: pw.Border.all(color: const PdfColor.fromInt(0xFF1E3A5F), width: 0.8),
+                                  ),
+                                  child: pw.Row(
+                                    mainAxisSize: pw.MainAxisSize.min,
+                                    children: [
+                                      _buildPdfCoverCustomIcon('camera_alt', 8, accentColor),
+                                      pw.SizedBox(width: 4),
+                                      pw.Text(
+                                        'Cenário Integrado',
+                                        style: pw.TextStyle(font: fontBold, fontSize: 6.8, color: PdfColors.white),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+
+                      // Card de Representatividade no Projeto
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: pw.BoxDecoration(
+                          color: const PdfColor.fromInt(0xFF071A2B),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                          border: pw.Border.all(color: const PdfColor.fromInt(0xFF1E3A5F), width: 0.8),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Representatividade no Projeto',
+                              style: pw.TextStyle(font: fontRegular, fontSize: 6.8, color: subtitleColor),
+                            ),
+                            pw.SizedBox(height: 3),
+                            pw.Row(
+                              children: [
+                                _buildPdfCoverCustomIcon('pie_chart', 9, accentColor),
+                                pw.SizedBox(width: 4),
+                                pw.Text(
+                                  '${envPct.toStringAsFixed(1)}% do valor total da proposta',
+                                  style: pw.TextStyle(font: fontBold, fontSize: 7.2, color: titleColor),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(width: 10),
+
+                // Coluna Direita: Equipamentos Adotados
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Row(
+                            children: [
+                              _buildPdfCoverCustomIcon('inventory', 11, accentColor),
+                              pw.SizedBox(width: 5),
+                              pw.Text(
+                                'EQUIPAMENTOS ADOTADOS (${env.items.length})',
+                                style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: titleColor),
+                              ),
+                            ],
+                          ),
+                          pw.Text(
+                            'Hardware & Módulos Oficiais',
+                            style: pw.TextStyle(font: fontRegular, fontSize: 7, color: subtitleColor),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 5),
+
+                      if (env.items.isEmpty)
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(8),
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColor.fromInt(0xFF071829),
+                            borderRadius: pw.BorderRadius.all(pw.Radius.circular(5)),
+                          ),
+                          child: pw.Center(
+                            child: pw.Text(
+                              'Nenhum equipamento listado para este ambiente.',
+                              style: pw.TextStyle(font: fontRegular, fontSize: 7.5, color: subtitleColor),
+                            ),
+                          ),
+                        )
+                      else
+                        ...env.items.map((eq) {
+                          final catVisual = _getPdfCategoryVisual(eq.categoryTitle);
+                          return pw.Container(
+                            margin: const pw.EdgeInsets.only(bottom: 5),
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            decoration: pw.BoxDecoration(
+                              color: const PdfColor.fromInt(0xFF081B2D),
+                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                              border: pw.Border.all(color: const PdfColor.fromInt(0xFF163048), width: 0.8),
+                            ),
+                            child: pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                // 1. Ícone quadrado colorido da categoria
+                                pw.Container(
+                                  width: 26,
+                                  height: 26,
+                                  decoration: pw.BoxDecoration(
+                                    color: catVisual.bgColor,
+                                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                                    border: pw.Border.all(color: catVisual.color, width: 1),
+                                  ),
+                                  child: pw.Center(
+                                    child: _buildPdfCoverCustomIcon(catVisual.iconKey, 13, catVisual.color),
+                                  ),
+                                ),
+                                pw.SizedBox(width: 8),
+
+                                // 2. Informações do Equipamento
+                                pw.Expanded(
+                                  child: pw.Column(
+                                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                    children: [
+                                      pw.Text(
+                                        eq.name,
+                                        style: pw.TextStyle(font: fontBold, fontSize: 8.2, color: titleColor),
+                                        maxLines: 1,
+                                      ),
+                                      pw.SizedBox(height: 2),
+                                      pw.Row(
+                                        children: [
+                                          pw.Container(
+                                            padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                            decoration: pw.BoxDecoration(
+                                              color: catVisual.badgeBgColor,
+                                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+                                              border: pw.Border.all(color: catVisual.color, width: 0.7),
+                                            ),
+                                            child: pw.Text(
+                                              eq.categoryTitle.isNotEmpty ? eq.categoryTitle : catVisual.displayName,
+                                              style: pw.TextStyle(font: fontBold, fontSize: 6.2, color: catVisual.color),
+                                            ),
+                                          ),
+                                          pw.SizedBox(width: 5),
+                                          pw.Text(
+                                            'Marca: ${(eq.manufacturer != null && eq.manufacturer!.isNotEmpty) ? eq.manufacturer! : "A definir"}',
+                                            style: pw.TextStyle(font: fontRegular, fontSize: 6.5, color: subtitleColor),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                pw.SizedBox(width: 8),
+
+                                // 3. Quantidade e Preços
+                                pw.Column(
+                                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                                  children: [
+                                    pw.Container(
+                                      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: pw.BoxDecoration(
+                                        color: const PdfColor.fromInt(0xFF052538),
+                                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                                        border: pw.Border.all(color: accentColor, width: 0.8),
+                                      ),
+                                      child: pw.Text(
+                                        '${eq.quantity} UN',
+                                        style: pw.TextStyle(font: fontBold, fontSize: 6.8, color: accentColor),
+                                      ),
+                                    ),
+                                    pw.SizedBox(height: 2),
+                                    pw.Text(
+                                      _currencyFormat.format(eq.unitPrice * eq.quantity),
+                                      style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: accentColor),
+                                    ),
+                                    pw.Text(
+                                      '${_currencyFormat.format(eq.unitPrice)} un.',
+                                      style: pw.TextStyle(font: fontRegular, fontSize: 6, color: subtitleColor),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3072,3 +3809,19 @@ class AutomationPdfIcons {
   }
 }
 
+/// Estrutura para estilização consistente e fiel dos cards de categoria no PDF
+class _PdfCategoryVisual {
+  final String iconKey;
+  final PdfColor color;
+  final PdfColor bgColor;
+  final PdfColor badgeBgColor;
+  final String displayName;
+
+  const _PdfCategoryVisual({
+    required this.iconKey,
+    required this.color,
+    required this.bgColor,
+    required this.badgeBgColor,
+    required this.displayName,
+  });
+}

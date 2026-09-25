@@ -245,6 +245,128 @@ class ProposalPageCard {
   }
 }
 
+/// Case de Sucesso / Projeto de Portfólio configurável da Página 3 (Portfólio & Clientes)
+class AutomationPortfolioItem {
+  final String id;
+  final String title;
+  final String clientOrLocation;
+  final String description;
+  final String tags;
+  final String? imageBase64;
+  final String completionDate;
+  final String cardBgColorHex;
+  final String cardBorderColorHex;
+  final bool isVisible;
+  final int order;
+
+  const AutomationPortfolioItem({
+    required this.id,
+    required this.title,
+    this.clientOrLocation = '',
+    required this.description,
+    this.tags = 'Iluminação • Climatização • Áudio',
+    this.imageBase64,
+    this.completionDate = 'Projeto Entregue',
+    this.cardBgColorHex = '#111C38',
+    this.cardBorderColorHex = '#00E5FF',
+    this.isVisible = true,
+    this.order = 0,
+  });
+
+  AutomationPortfolioItem copyWith({
+    String? id,
+    String? title,
+    String? clientOrLocation,
+    String? description,
+    String? tags,
+    String? imageBase64,
+    String? completionDate,
+    String? cardBgColorHex,
+    String? cardBorderColorHex,
+    bool? isVisible,
+    int? order,
+  }) {
+    return AutomationPortfolioItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      clientOrLocation: clientOrLocation ?? this.clientOrLocation,
+      description: description ?? this.description,
+      tags: tags ?? this.tags,
+      imageBase64: imageBase64 ?? this.imageBase64,
+      completionDate: completionDate ?? this.completionDate,
+      cardBgColorHex: cardBgColorHex ?? this.cardBgColorHex,
+      cardBorderColorHex: cardBorderColorHex ?? this.cardBorderColorHex,
+      isVisible: isVisible ?? this.isVisible,
+      order: order ?? this.order,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'clientOrLocation': clientOrLocation,
+      'description': description,
+      'tags': tags,
+      if (imageBase64 != null) 'imageBase64': imageBase64,
+      'completionDate': completionDate,
+      'cardBgColorHex': cardBgColorHex,
+      'cardBorderColorHex': cardBorderColorHex,
+      'isVisible': isVisible,
+      'order': order,
+    };
+  }
+
+  factory AutomationPortfolioItem.fromMap(Map<String, dynamic> map) {
+    return AutomationPortfolioItem(
+      id: map['id'] as String? ?? 'case_${DateTime.now().millisecondsSinceEpoch}',
+      title: map['title'] as String? ?? 'Projeto Concluído',
+      clientOrLocation: map['clientOrLocation'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      tags: map['tags'] as String? ?? 'Iluminação • Áudio • Conforto',
+      imageBase64: map['imageBase64'] as String?,
+      completionDate: map['completionDate'] as String? ?? 'Projeto Entregue',
+      cardBgColorHex: map['cardBgColorHex'] as String? ?? '#111C38',
+      cardBorderColorHex: map['cardBorderColorHex'] as String? ?? '#00E5FF',
+      isVisible: map['isVisible'] as bool? ?? true,
+      order: (map['order'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  static List<AutomationPortfolioItem> defaultItems() {
+    return const [
+      AutomationPortfolioItem(
+        id: 'case_alphaville',
+        title: 'Residência Alphaville 01 • Mansão Contemporânea',
+        clientOrLocation: 'Alphaville / Barueri - SP',
+        description: 'Automação residencial de alta densidade com 42 circuitos dimmerizáveis, integração total de climatização VRF em 6 zonas, som multiroom na área gourmet/piscina e controle unificado por voz e keypads de vidro.',
+        tags: 'Iluminação Cênica • Climatização VRF • Som Multiroom • Cortinas',
+        completionDate: 'Obra Entregue • 2024',
+        order: 0,
+      ),
+      AutomationPortfolioItem(
+        id: 'case_jardins',
+        title: 'Penthouse Jardins • Smart Living & Home Cinema',
+        clientOrLocation: 'Jardins / São Paulo - SP',
+        description: 'Sala de cinema dedicada com tela tensionada 4K HDR e áudio surround 7.2.4 Dolby Atmos imersivo. Rede cabeada estruturada Cat6A com pontos de acesso Wi-Fi 6 e fechaduras digitais biométricas integradas.',
+        tags: 'Home Cinema 7.2.4 • Wi-Fi 6 Mesh • Acesso Biométrico • Cenas',
+        completionDate: 'Obra Entregue • 2024',
+        order: 1,
+      ),
+      AutomationPortfolioItem(
+        id: 'case_boa_vista',
+        title: 'Fazenda Boa Vista • Automação Perimetral & Lazer',
+        clientOrLocation: 'Porto Feliz - SP',
+        description: 'Projeto luminotécnico paisagístico com relógio astronômico, automação inteligente da piscina com aquecimento solar integrado, sistema de irrigação inteligente e monitoramento perimetral conectado.',
+        tags: 'Lazer & Paisagismo • Piscina Inteligente • Segurança Perimetral',
+        completionDate: 'Obra Entregue • 2023',
+        order: 2,
+      ),
+    ];
+  }
+}
+
+
 /// Imagem livre inserida em uma página personalizada
 class ProposalFreeImageItem {
   final String id;
@@ -1227,13 +1349,13 @@ class InternalPagesLayoutPreset {
         id: 'preset_01',
         title: 'Minimalista Corporativo',
         subtitle: 'Bordas sutis cinza e destaque sutil',
-        headerStyle: 1,
+        headerStyle: 9,
         footerStyle: 1,
         primaryColorHex: '#0284C7',
-        headerBgColorHex: '#FFFFFF',
-        headerTextColorHex: '#0F172A',
+        headerBgColorHex: '#0F172A',
+        headerTextColorHex: '#FFFFFF',
         footerBgColorHex: '#0F172A',
-        footerTextColorHex: '#FFFFFF',
+        footerTextColorHex: '#CBD5E1',
       ),
       InternalPagesLayoutPreset(
         id: 'preset_02',

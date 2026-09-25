@@ -1171,7 +1171,8 @@ class _AutomationProposalCustomizerDialogState
                                       const SizedBox(width: 6),
                                       Switch.adaptive(
                                         value: _glbAutoRotate,
-                                        activeColor: _selectedColor,
+                                        activeTrackColor: _selectedColor,
+                                        activeThumbColor: Colors.white,
                                         onChanged: (val) {
                                           setState(() => _glbAutoRotate = val);
                                           _notifyLiveChange();

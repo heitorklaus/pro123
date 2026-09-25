@@ -1271,10 +1271,11 @@ class SolarProposalPdfService {
           ),
         );
       case 9: // Compacto Micro
-        final bg = customBgColor ?? PdfColor.fromHex('#F8FAFC');
-        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : true;
         final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#334155'));
         final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
+        final tagColor = customTextColor ?? (isDark ? PdfColors.white : effectiveAccent);
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 5),
@@ -1286,7 +1287,7 @@ class SolarProposalPdfService {
               if (subtitle.isNotEmpty)
                 pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
               if (tag.isNotEmpty)
-                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: effectiveAccent)),
+                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: tagColor)),
             ],
           ),
         );

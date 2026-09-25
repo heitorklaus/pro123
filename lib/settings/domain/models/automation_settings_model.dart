@@ -477,6 +477,35 @@ class AutomationSettingsModel {
   final String? customPagesJson;
   final String internalPagesLayoutPreset;
 
+  // ── Customização da Página 3 (Portfólio & Clientes) ───────────────
+  final String page3Title;
+  final String page3Subtitle;
+  final String? page3PortfolioJson;
+  final String page3BgColor;
+  final String page3CardBgColor;
+  final String page3BorderColor;
+  final String page3TitleColor;
+  final String page3SubtitleColor;
+  final String page3AccentColor;
+
+  // ── Customização Visual da Página 4 (Ambientes & Equipamentos) ──────
+  final String page4BgColor;
+  final String page4CardBgColor;
+  final String page4BorderColor;
+  final String page4TitleColor;
+  final String page4SubtitleColor;
+  final String page4AccentColor;
+
+  List<AutomationPortfolioItem> get page3PortfolioItems {
+    if (page3PortfolioJson != null && page3PortfolioJson!.isNotEmpty) {
+      try {
+        final list = jsonDecode(page3PortfolioJson!) as List<dynamic>;
+        return list.map((e) => AutomationPortfolioItem.fromMap(e as Map<String, dynamic>)).toList();
+      } catch (_) {}
+    }
+    return AutomationPortfolioItem.defaultItems();
+  }
+
   List<ProposalPageCard> get page2Cards {
     if (page2CardsJson != null && page2CardsJson!.isNotEmpty) {
       try {
@@ -697,23 +726,23 @@ class AutomationSettingsModel {
     this.coverClientInfoColor = '#0F172A',
     this.coverClientInfoSecondaryColor = '#38BDF8',
     this.coverShowClientInfo = true,
-    this.coverHeaderStyle = 1,
+    this.coverHeaderStyle = 9,
     this.coverShowHeader = true,
     this.coverHeaderText1 = 'PROPOSTA EXECUTIVA',
     this.coverHeaderText2 = 'AUTOMAÇÃO RESIDENCIAL HIGH-END',
     this.coverHeaderText3 = 'CONFORTO, SEGURANÇA E TECNOLOGIA INTEGRADA',
-    this.coverHeaderBgColor = '',
-    this.coverHeaderTextColor = '',
-    this.coverHeaderIconColor = '',
+    this.coverHeaderBgColor = '#0F172A',
+    this.coverHeaderTextColor = '#FFFFFF',
+    this.coverHeaderIconColor = '#38BDF8',
     this.coverFooterStyle = 1,
     this.coverShowFooter = true,
     this.coverFooterText1 = 'A CASA QUE ENTENDE VOCÊ • EXPERIÊNCIA ÚNICA',
-    this.coverFooterText2 = '(11) 99999-9999  •  contato@suaempresa.com.br',
+    this.coverFooterText2 = '(11) 00000-0000 • contato@suaempresa.com.br',
     this.coverFooterText3 = 'www.suaempresa.com.br',
     this.coverFooterText4 = 'Proposta técnica e comercial válida por 15 dias corridos.',
-    this.coverFooterBgColor = '',
-    this.coverFooterTextColor = '',
-    this.coverFooterIconColor = '',
+    this.coverFooterBgColor = '#0F172A',
+    this.coverFooterTextColor = '#CBD5E1',
+    this.coverFooterIconColor = '#38BDF8',
     this.page2TemplateId = 'tpl_01_tech_grid',
     this.page2CardsJson,
     this.page2ShowIllustration = true,
@@ -721,6 +750,21 @@ class AutomationSettingsModel {
     this.hiddenPagesJson,
     this.customPagesJson,
     this.internalPagesLayoutPreset = 'preset_01',
+    this.page3Title = 'PORTFÓLIO & CLIENTES',
+    this.page3Subtitle = 'Cases de Sucesso e Obras Concluídas',
+    this.page3PortfolioJson,
+    this.page3BgColor = '#0B132B',
+    this.page3CardBgColor = '#111C38',
+    this.page3BorderColor = '#00E5FF',
+    this.page3TitleColor = '#FFFFFF',
+    this.page3SubtitleColor = '#94A3B8',
+    this.page3AccentColor = '#00E5FF',
+    this.page4BgColor = '#0B132B',
+    this.page4CardBgColor = '#111C38',
+    this.page4BorderColor = '#00E5FF',
+    this.page4TitleColor = '#FFFFFF',
+    this.page4SubtitleColor = '#94A3B8',
+    this.page4AccentColor = '#00E5FF',
   });
 
   AutomationSettingsModel copyWith({
@@ -731,6 +775,21 @@ class AutomationSettingsModel {
     String? hiddenPagesJson,
     String? customPagesJson,
     String? internalPagesLayoutPreset,
+    String? page3Title,
+    String? page3Subtitle,
+    String? page3PortfolioJson,
+    String? page3BgColor,
+    String? page3CardBgColor,
+    String? page3BorderColor,
+    String? page3TitleColor,
+    String? page3SubtitleColor,
+    String? page3AccentColor,
+    String? page4BgColor,
+    String? page4CardBgColor,
+    String? page4BorderColor,
+    String? page4TitleColor,
+    String? page4SubtitleColor,
+    String? page4AccentColor,
     String? companyId,
     String? companyName,
     String? companyDoc,
@@ -1018,6 +1077,21 @@ class AutomationSettingsModel {
       page2CardsJson: page2CardsJson ?? this.page2CardsJson,
       page2ShowIllustration: page2ShowIllustration ?? this.page2ShowIllustration,
       page2IllustrationType: page2IllustrationType ?? this.page2IllustrationType,
+      page3Title: page3Title ?? this.page3Title,
+      page3Subtitle: page3Subtitle ?? this.page3Subtitle,
+      page3PortfolioJson: page3PortfolioJson ?? this.page3PortfolioJson,
+      page3BgColor: page3BgColor ?? this.page3BgColor,
+      page3CardBgColor: page3CardBgColor ?? this.page3CardBgColor,
+      page3BorderColor: page3BorderColor ?? this.page3BorderColor,
+      page3TitleColor: page3TitleColor ?? this.page3TitleColor,
+      page3SubtitleColor: page3SubtitleColor ?? this.page3SubtitleColor,
+      page3AccentColor: page3AccentColor ?? this.page3AccentColor,
+      page4BgColor: page4BgColor ?? this.page4BgColor,
+      page4CardBgColor: page4CardBgColor ?? this.page4CardBgColor,
+      page4BorderColor: page4BorderColor ?? this.page4BorderColor,
+      page4TitleColor: page4TitleColor ?? this.page4TitleColor,
+      page4SubtitleColor: page4SubtitleColor ?? this.page4SubtitleColor,
+      page4AccentColor: page4AccentColor ?? this.page4AccentColor,
       hiddenPagesJson: hiddenPagesJson ?? this.hiddenPagesJson,
       customPagesJson: customPagesJson ?? this.customPagesJson,
       internalPagesLayoutPreset: internalPagesLayoutPreset ?? this.internalPagesLayoutPreset,
@@ -1170,6 +1244,21 @@ class AutomationSettingsModel {
       'coverFooterBgColor': coverFooterBgColor,
       'coverFooterTextColor': coverFooterTextColor,
       'coverFooterIconColor': coverFooterIconColor,
+      'page3Title': page3Title,
+      'page3Subtitle': page3Subtitle,
+      'page3PortfolioJson': page3PortfolioJson,
+      'page3BgColor': page3BgColor,
+      'page3CardBgColor': page3CardBgColor,
+      'page3BorderColor': page3BorderColor,
+      'page3TitleColor': page3TitleColor,
+      'page3SubtitleColor': page3SubtitleColor,
+      'page3AccentColor': page3AccentColor,
+      'page4BgColor': page4BgColor,
+      'page4CardBgColor': page4CardBgColor,
+      'page4BorderColor': page4BorderColor,
+      'page4TitleColor': page4TitleColor,
+      'page4SubtitleColor': page4SubtitleColor,
+      'page4AccentColor': page4AccentColor,
     };
   }
 
@@ -1323,23 +1412,23 @@ class AutomationSettingsModel {
       headlinePosX: (map['headlinePosX'] as num?)?.toDouble() ?? 0.06,
       headlinePosY: (map['headlinePosY'] as num?)?.toDouble() ?? 0.12,
       pdfTermsText: map['pdfTermsText'] as String? ?? '50% na aprovação do projeto e 50% na conclusão da programação final.',
-      coverHeaderStyle: (map['coverHeaderStyle'] as num?)?.toInt() ?? 1,
+      coverHeaderStyle: (map['coverHeaderStyle'] as num?)?.toInt() ?? 9,
       coverShowHeader: map['coverShowHeader'] as bool? ?? true,
       coverHeaderText1: map['coverHeaderText1'] as String? ?? 'PROPOSTA EXECUTIVA',
       coverHeaderText2: map['coverHeaderText2'] as String? ?? 'AUTOMAÇÃO RESIDENCIAL HIGH-END',
       coverHeaderText3: map['coverHeaderText3'] as String? ?? 'CONFORTO, SEGURANÇA E TECNOLOGIA INTEGRADA',
-      coverHeaderBgColor: map['coverHeaderBgColor'] as String? ?? '',
-      coverHeaderTextColor: map['coverHeaderTextColor'] as String? ?? '',
-      coverHeaderIconColor: map['coverHeaderIconColor'] as String? ?? '',
+      coverHeaderBgColor: map['coverHeaderBgColor'] as String? ?? '#0F172A',
+      coverHeaderTextColor: map['coverHeaderTextColor'] as String? ?? '#FFFFFF',
+      coverHeaderIconColor: map['coverHeaderIconColor'] as String? ?? '#38BDF8',
       coverFooterStyle: (map['coverFooterStyle'] as num?)?.toInt() ?? 1,
       coverShowFooter: map['coverShowFooter'] as bool? ?? true,
       coverFooterText1: map['coverFooterText1'] as String? ?? 'A CASA QUE ENTENDE VOCÊ • EXPERIÊNCIA ÚNICA',
-      coverFooterText2: map['coverFooterText2'] as String? ?? '(11) 99999-9999  •  contato@suaempresa.com.br',
+      coverFooterText2: map['coverFooterText2'] as String? ?? '(11) 00000-0000 • contato@suaempresa.com.br',
       coverFooterText3: map['coverFooterText3'] as String? ?? 'www.suaempresa.com.br',
       coverFooterText4: map['coverFooterText4'] as String? ?? 'Proposta técnica e comercial válida por 15 dias corridos.',
-      coverFooterBgColor: map['coverFooterBgColor'] as String? ?? '',
-      coverFooterTextColor: map['coverFooterTextColor'] as String? ?? '',
-      coverFooterIconColor: map['coverFooterIconColor'] as String? ?? '',
+      coverFooterBgColor: map['coverFooterBgColor'] as String? ?? '#0F172A',
+      coverFooterTextColor: map['coverFooterTextColor'] as String? ?? '#CBD5E1',
+      coverFooterIconColor: map['coverFooterIconColor'] as String? ?? '#38BDF8',
       page2TemplateId: map['page2TemplateId'] as String? ?? 'tpl_01_tech_grid',
       page2CardsJson: map['page2CardsJson'] as String?,
       page2ShowIllustration: map['page2ShowIllustration'] as bool? ?? true,
@@ -1347,6 +1436,21 @@ class AutomationSettingsModel {
       hiddenPagesJson: map['hiddenPagesJson'] as String?,
       customPagesJson: map['customPagesJson'] as String?,
       internalPagesLayoutPreset: map['internalPagesLayoutPreset'] as String? ?? 'preset_01',
+      page3Title: map['page3Title'] as String? ?? 'PORTFÓLIO & CLIENTES',
+      page3Subtitle: map['page3Subtitle'] as String? ?? 'Cases de Sucesso e Obras Concluídas',
+      page3PortfolioJson: map['page3PortfolioJson'] as String?,
+      page3BgColor: map['page3BgColor'] as String? ?? '#0B132B',
+      page3CardBgColor: map['page3CardBgColor'] as String? ?? '#111C38',
+      page3BorderColor: map['page3BorderColor'] as String? ?? '#00E5FF',
+      page3TitleColor: map['page3TitleColor'] as String? ?? '#FFFFFF',
+      page3SubtitleColor: map['page3SubtitleColor'] as String? ?? '#94A3B8',
+      page3AccentColor: map['page3AccentColor'] as String? ?? '#00E5FF',
+      page4BgColor: map['page4BgColor'] as String? ?? '#0B132B',
+      page4CardBgColor: map['page4CardBgColor'] as String? ?? '#111C38',
+      page4BorderColor: map['page4BorderColor'] as String? ?? '#00E5FF',
+      page4TitleColor: map['page4TitleColor'] as String? ?? '#FFFFFF',
+      page4SubtitleColor: map['page4SubtitleColor'] as String? ?? '#94A3B8',
+      page4AccentColor: map['page4AccentColor'] as String? ?? '#00E5FF',
     );
   }
 

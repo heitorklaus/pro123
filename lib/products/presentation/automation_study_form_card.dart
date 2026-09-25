@@ -4,9 +4,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:printing/printing.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
+import '../../proposals/data/services/automation_proposal_pdf_service.dart';
 import '../../proposals/domain/models/proposal_item_model.dart';
+import '../../proposals/domain/models/proposal_model.dart';
+import '../../settings/data/services/automation_settings_service.dart';
+import '../../settings/domain/models/automation_settings_model.dart';
 import '../data/repositories/product_repository.dart';
 import '../domain/models/automation_study_model.dart';
 import '../domain/models/category_model.dart';
@@ -17,6 +22,7 @@ import 'widgets/automation_equipment_dialogs.dart';
 import 'widgets/automation_pdf_import_dialog.dart';
 import 'widgets/automation_proposal_customizer_dialog.dart';
 import 'widgets/automation_preview_bridge.dart';
+import '../../settings/presentation/widgets/automation_cover_customizer_dialog.dart';
 
 /// Formulário Especial de Cadastro & Edição de Estudo de Proposta de Automação Residencial/Comercial
 class AutomationStudyFormCard extends StatefulWidget {
@@ -58,6 +64,7 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   List<AutomationEnvironment> _environments = [];
   bool _isSaving = false;
   String? _errorMessage;
+  ProductModel? _activeProduct;
   AutomationProposalThemeConfig _proposalThemeConfig = const AutomationProposalThemeConfig();
 
   StreamSubscription<List<AutomationCategoryModel>>? _categorySub;
@@ -215,6 +222,7 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   }
 
   void _initFromExistingProduct() {
+    _activeProduct = widget.product;
     final p = widget.product;
     if (p != null) {
       _nameCtrl.text = p.name;
@@ -401,7 +409,7 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   }
 
   Future<void> _openProposalPreview([ProductModel? customProduct]) async {
-    final baseProduct = customProduct ?? widget.product;
+    final baseProduct = customProduct ?? _activeProduct ?? widget.product;
     final previewProduct = ProductModel(
       id: baseProduct?.id ?? 'preview_mode',
       name: _nameCtrl.text.trim().isNotEmpty
@@ -440,6 +448,216 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
       previewProduct: previewProduct,
       themeConfig: _proposalThemeConfig,
     );
+  }
+
+  // ── VISUALIZADOR MODAL DE PDF DA PROPOSTA ──
+  Future<void> _openPdfPreview(ProductModel product) async {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Container(
+          width: 960,
+          height: 860,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF334155), width: 1.5),
+            boxShadow: const [
+              BoxShadow(color: Colors.black54, blurRadius: 24, offset: Offset(0, 8)),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header do Modal
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFF334155))),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFEF4444), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Prévia Oficial da Proposta em PDF',
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            product.name.isNotEmpty ? product.name : 'Estudo de Automação Residencial',
+                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      onPressed: () => Navigator.pop(ctx),
+                      tooltip: 'Fechar',
+                    ),
+                  ],
+                ),
+              ),
+
+              // Visualizador de PDF Interativo com Prévia Fiel
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                  child: FutureBuilder<AutomationSettingsModel>(
+                    future: AutomationSettingsService.loadSettings(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: Color(0xFF00E5FF)),
+                        );
+                      }
+                      final settings = snapshot.data!;
+                      final proposal = ProposalModel(
+                        id: product.id,
+                        proposalNumber: 'PROP-${DateTime.now().year}/${product.id.length >= 4 ? product.id.substring(0, 4).toUpperCase() : "AUTO"}',
+                        title: product.name.isNotEmpty ? product.name : 'Estudo de Automação Residencial',
+                        clientName: _clientNameCtrl.text.trim().isNotEmpty
+                            ? _clientNameCtrl.text.trim()
+                            : (settings.clientName.isNotEmpty ? settings.clientName : 'Cliente / Local do Projeto'),
+                        subtotal: _grandTotal > 0 ? _grandTotal : _equipmentTotal,
+                        totalAmount: _grandTotal > 0 ? _grandTotal : _equipmentTotal,
+                        validityDays: 15,
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                        items: [
+                          ProposalItemModel.fromProduct(product),
+                        ],
+                      );
+
+                      return PdfPreview(
+                        build: (format) => AutomationProposalPdfService.generateProposalPdf(
+                          studyProduct: product,
+                          settings: settings,
+                          proposal: proposal,
+                        ),
+                        allowPrinting: true,
+                        allowSharing: true,
+                        canChangePageFormat: false,
+                        pdfFileName: 'Proposta_${product.name.replaceAll(' ', '_')}.pdf',
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── AÇÕES DE PRÉVIA COM SALVAMENTO AUTOMÁTICO ──
+  Future<void> _handlePreviewPdf() async {
+    final saved = await _saveStudyInternal(isPreviewTrigger: true);
+    if (saved != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text('Estudo salvo com sucesso! Abrindo prévia PDF...'),
+            ],
+          ),
+          backgroundColor: Color(0xFFEF4444),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      await _openPdfPreview(saved);
+    }
+  }
+
+  Future<void> _handlePreviewWeb() async {
+    final saved = await _saveStudyInternal(isPreviewTrigger: true);
+    if (saved != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text('Estudo salvo com sucesso! Abrindo Proposta Web...'),
+            ],
+          ),
+          backgroundColor: Color(0xFF0284C7),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      await _openProposalPreview(saved);
+    }
+  }
+
+  Future<void> _handleCustomizePdf() async {
+    final saved = await _saveStudyInternal(isPreviewTrigger: true);
+    if (saved != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text('Estudo salvo com sucesso! Abrindo Estúdio e Configurador do PDF...'),
+            ],
+          ),
+          backgroundColor: Color(0xFF0284C7),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      final currentSettings = await AutomationSettingsService.loadSettings();
+      if (!mounted) return;
+
+      await AutomationCoverCustomizerDialog.show(
+        context,
+        initialSettings: currentSettings,
+        initialPageId: 'page_4',
+        onSave: (updatedSettings) async {
+          await AutomationSettingsService.saveSettings(updatedSettings);
+          if (mounted) {
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 10),
+                    Text('Configurações do PDF da proposta salvas com sucesso!'),
+                  ],
+                ),
+                backgroundColor: Color(0xFF10B981),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        },
+      );
+    }
   }
 
   void _showPostSavePreviewDialog(ProductModel savedProduct) {
@@ -534,14 +752,31 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // SALVAR NO FIRESTORE
+  // SALVAR NO FIRESTORE COM RETORNO DO PRODUTO (REUTILIZÁVEL)
   // ─────────────────────────────────────────────────────────────────────────
-  Future<void> _handleSave({bool proceedToProposal = false}) async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<ProductModel?> _saveStudyInternal({bool isPreviewTrigger = false}) async {
+    if (!_formKey.currentState!.validate()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, preencha o nome do estudo para continuar.'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+      }
+      return null;
+    }
 
     if (_environments.isEmpty) {
-      setState(() => _errorMessage = 'Adicione ao menos um ambiente no estudo.');
-      return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Adicione ao menos um ambiente no estudo antes de visualizar.'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+      }
+      return null;
     }
 
     setState(() {
@@ -553,7 +788,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
       final user = widget.currentUser ?? await _authRepo.getCurrentUser();
       final companyId = user?.effectiveCompanyId;
 
-      final isEditing = widget.product != null;
+      final currentProd = _activeProduct ?? widget.product;
+      final isEditing = currentProd != null;
 
       final envsData = _environments.map((e) {
         final map = e.toMap();
@@ -584,7 +820,7 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
       }
 
       final specificAttrs = <String, dynamic>{
-        ...?widget.product?.specificAttributes,
+        ...?currentProd?.specificAttributes,
         'isAutomationStudy': true,
         'environments': envsData,
         'environmentsCount': _environments.length,
@@ -599,7 +835,7 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
 
       ProductModel savedProduct;
       if (isEditing) {
-        final updated = widget.product!.copyWith(
+        final updated = currentProd.copyWith(
           name: _nameCtrl.text.trim(),
           sector: ProductSector.homeAutomation,
           categoryTitle: 'Automação Residencial',
@@ -634,7 +870,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         );
       }
 
-      // Salva o rascunho completo com a foto da casa, 3D e background no IndexedDB / Bridge
+      _activeProduct = savedProduct;
+
+      // Salva o rascunho completo no IndexedDB / Bridge
       await AutomationPreviewBridge.savePreviewData(savedProduct.copyWith(
         specificAttributes: {
           ...savedProduct.specificAttributes,
@@ -645,23 +883,39 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
 
       widget.onProductSaved?.call(savedProduct);
 
-      if (proceedToProposal && widget.onProceedToProposal != null) {
-        final proposalItem = ProposalItemModel.fromProduct(savedProduct);
-        widget.onProceedToProposal!(proposalItem);
-        return;
-      }
-
       if (mounted) {
         setState(() => _isSaving = false);
-        _showPostSavePreviewDialog(savedProduct);
       }
+      return savedProduct;
     } catch (e) {
       if (mounted) {
         setState(() {
           _isSaving = false;
           _errorMessage = 'Erro ao salvar estudo: $e';
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar estudo: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
       }
+      return null;
+    }
+  }
+
+  Future<void> _handleSave({bool proceedToProposal = false}) async {
+    final savedProduct = await _saveStudyInternal(isPreviewTrigger: false);
+    if (savedProduct == null) return;
+
+    if (proceedToProposal && widget.onProceedToProposal != null) {
+      final proposalItem = ProposalItemModel.fromProduct(savedProduct);
+      widget.onProceedToProposal!(proposalItem);
+      return;
+    }
+
+    if (mounted) {
+      _showPostSavePreviewDialog(savedProduct);
     }
   }
 
@@ -744,117 +998,244 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   // COMPONENTES DE UI
   // ─────────────────────────────────────────────────────────────────────────
   Widget _buildHeader(bool isEditing) {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: widget.onBack,
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF94A3B8)),
-          tooltip: 'Voltar para a listagem',
-        ),
-        const SizedBox(width: 12),
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-            ),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 26),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEditing ? 'Editar Estudo de Proposta' : 'Novo Estudo de Proposta',
-                style: GoogleFonts.outfit(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                'Automação Residencial & Comercial • Estruturação por Ambientes e Circuitos',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: const Color(0xFF94A3B8),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 800;
 
-        // ── BOTÕES DA PROPOSTA WEB & IA ──
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        final titleBlock = Row(
           children: [
-            OutlinedButton.icon(
-              onPressed: _openThemeCustomizer,
-              icon: const Icon(Icons.palette_rounded, size: 16, color: Color(0xFF00E5FF)),
-              label: Text(
-                'PERSONALIZAR PROPOSTA WEB',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF00E5FF),
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF00E5FF), width: 1.2),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+            IconButton(
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF94A3B8)),
+              tooltip: 'Voltar para a listagem',
             ),
-            // ── BOTÃO DE IMPORTAÇÃO COM IA ──
+            const SizedBox(width: 8),
             Container(
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
+                  colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
                 ),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                    blurRadius: 14,
+                    blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
                 ],
               ),
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _handleImportWithAi,
-                icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
-                label: Text(
-                  'IMPORTAR COM IA (PDF/IMG)',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 0.4,
+              child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isEditing ? 'Editar Estudo de Proposta' : 'Novo Estudo de Proposta',
+                    style: GoogleFonts.outfit(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Automação Residencial & Comercial • Ambientes e Circuitos',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ],
-        ),
-      ],
+        );
+
+        final buttonsBlock = Column(
+          crossAxisAlignment: isCompact ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── LINHA 1: AÇÕES DE PDF (PRÉVIA + PERSONALIZAR) ──
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // BOTÃO 1: PRÉVIA PDF
+                ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _handlePreviewPdf,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 13,
+                          height: 13,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.picture_as_pdf_rounded, size: 15, color: Colors.white),
+                  label: Text(
+                    'PRÉVIA PDF',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEF4444),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // BOTÃO 2: PERSONALIZAR PDF (CONFIGURADOR A4 & PÁGINA 4)
+                ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _handleCustomizePdf,
+                  icon: const Icon(Icons.tune_rounded, size: 15, color: Color(0xFF00E5FF)),
+                  label: Text(
+                    'PERSONALIZAR PDF',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF00E5FF),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    foregroundColor: const Color(0xFF00E5FF),
+                    side: const BorderSide(color: Color(0xFF00E5FF), width: 1.1),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // ── LINHA 2: AÇÕES WEB & IA (PRÉVIA + PERSONALIZAR + IA) ──
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // BOTÃO 3: PRÉVIA PROPOSTA WEB
+                ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _handlePreviewWeb,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 13,
+                          height: 13,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.laptop_chromebook_rounded, size: 15, color: Colors.white),
+                  label: Text(
+                    'PRÉVIA PROPOSTA WEB',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // BOTÃO 4: PERSONALIZAR PROPOSTA WEB
+                OutlinedButton.icon(
+                  onPressed: _openThemeCustomizer,
+                  icon: const Icon(Icons.palette_rounded, size: 15, color: Color(0xFF00E5FF)),
+                  label: Text(
+                    'PERSONALIZAR PROPOSTA WEB',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF00E5FF),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF00E5FF), width: 1.1),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // BOTÃO 4: IMPORTAR COM IA
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _handleImportWithAi,
+                    icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
+                    label: Text(
+                      'IMPORTAR COM IA (PDF/IMG)',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleBlock,
+              const SizedBox(height: 14),
+              buttonsBlock,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: titleBlock),
+            const SizedBox(width: 16),
+            buttonsBlock,
+          ],
+        );
+      },
     );
   }
 

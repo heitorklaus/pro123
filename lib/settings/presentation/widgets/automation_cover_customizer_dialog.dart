@@ -23,17 +23,20 @@ import 'cover_custom_page_interactive_canvas.dart';
 class AutomationCoverCustomizerDialog extends StatefulWidget {
   final AutomationSettingsModel initialSettings;
   final ValueChanged<AutomationSettingsModel> onSave;
+  final String? initialPageId;
 
   const AutomationCoverCustomizerDialog({
     super.key,
     required this.initialSettings,
     required this.onSave,
+    this.initialPageId,
   });
 
   static Future<AutomationSettingsModel?> show(
     BuildContext context, {
     required AutomationSettingsModel initialSettings,
     required ValueChanged<AutomationSettingsModel> onSave,
+    String? initialPageId,
   }) {
     return showDialog<AutomationSettingsModel>(
       context: context,
@@ -41,6 +44,7 @@ class AutomationCoverCustomizerDialog extends StatefulWidget {
       builder: (ctx) => AutomationCoverCustomizerDialog(
         initialSettings: initialSettings,
         onSave: onSave,
+        initialPageId: initialPageId,
       ),
     );
   }
@@ -147,7 +151,19 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
   void initState() {
     super.initState();
     _current = widget.initialSettings;
-    _tabController = TabController(length: 6, vsync: this);
+    if (widget.initialPageId != null && widget.initialPageId!.isNotEmpty) {
+      _activeCustomizerPageId = widget.initialPageId!;
+    }
+    _tabController = TabController(
+      length: 6,
+      vsync: this,
+      initialIndex: (widget.initialPageId == 'page_4' ||
+              widget.initialPageId == 'page_2' ||
+              widget.initialPageId == 'page_3' ||
+              widget.initialPageId == 'page_5')
+          ? 5
+          : 0,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -533,27 +549,33 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
         coverLogoPositionY: _current.proposalStyle != 'verticalSplit' ? 0.78 : 0.05,
         coverLogoWidth: 95.0,
         // Cabeçalho & Rodapé:
-        coverShowHeader: false,
-        coverHeaderStyle: 1,
-        coverHeaderText1: 'PROPOSTA COMERCIAL',
-        coverHeaderText2: 'AUTOMAÇÃO RESIDENCIAL & PREDIAL',
-        coverHeaderText3: 'PROJETOS DE ALTA PERFORMANCE',
-        coverShowFooter: false,
+        coverShowHeader: true,
+        coverHeaderStyle: 9,
+        coverHeaderText1: 'PROPOSTA EXECUTIVA',
+        coverHeaderText2: 'AUTOMAÇÃO RESIDENCIAL HIGH-END',
+        coverHeaderText3: 'CONFORTO, SEGURANÇA E TECNOLOGIA INTEGRADA',
+        coverHeaderBgColor: '#0F172A',
+        coverHeaderTextColor: '#FFFFFF',
+        coverHeaderIconColor: '#38BDF8',
+        coverShowFooter: true,
         coverFooterStyle: 1,
-        coverFooterText1: 'INOVAÇÃO • CONFORTO • TECNOLOGIA INTEGRADA',
-        coverFooterText2: '(11) 99999-9999 • contato@empresa.com.br',
+        coverFooterText1: 'A CASA QUE ENTENDE VOCÊ • EXPERIÊNCIA ÚNICA',
+        coverFooterText2: '(11) 00000-0000 • contato@suaempresa.com.br',
         coverFooterText3: 'www.suaempresa.com.br',
-        coverFooterText4: 'Proposta comercial válida por 10 dias corridos.',
+        coverFooterText4: 'Proposta técnica e comercial válida por 15 dias corridos.',
+        coverFooterBgColor: '#0F172A',
+        coverFooterTextColor: '#CBD5E1',
+        coverFooterIconColor: '#38BDF8',
       );
       _coverTitleCtrl.text = 'PROPOSTA COMERCIAL';
       _coverSubtitleCtrl.text = 'AUTOMAÇÃO RESIDENCIAL HIGH-END';
-      _headerText1Ctrl.text = 'PROPOSTA COMERCIAL';
-      _headerText2Ctrl.text = 'AUTOMAÇÃO RESIDENCIAL & PREDIAL';
-      _headerText3Ctrl.text = 'PROJETOS DE ALTA PERFORMANCE';
-      _footerText1Ctrl.text = 'INOVAÇÃO • CONFORTO • TECNOLOGIA INTEGRADA';
-      _footerText2Ctrl.text = '(11) 99999-9999 • contato@empresa.com.br';
+      _headerText1Ctrl.text = 'PROPOSTA EXECUTIVA';
+      _headerText2Ctrl.text = 'AUTOMAÇÃO RESIDENCIAL HIGH-END';
+      _headerText3Ctrl.text = 'CONFORTO, SEGURANÇA E TECNOLOGIA INTEGRADA';
+      _footerText1Ctrl.text = 'A CASA QUE ENTENDE VOCÊ • EXPERIÊNCIA ÚNICA';
+      _footerText2Ctrl.text = '(11) 00000-0000 • contato@suaempresa.com.br';
       _footerText3Ctrl.text = 'www.suaempresa.com.br';
-      _footerText4Ctrl.text = 'Proposta comercial válida por 10 dias corridos.';
+      _footerText4Ctrl.text = 'Proposta técnica e comercial válida por 15 dias corridos.';
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1431,7 +1453,17 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                 );
               }
 
-              // ── SELECIONADAS PÁGINAS INTERNAS (PÁG 3, 4, 5) OU ABA CABEÇALHO/RODAPÉ (INDEX == 3) ──
+              // ── SELECIONADA PÁGINA 3 ESPECÍFICA (PORTFÓLIO & CLIENTES) ──
+              if (_activeCustomizerPageId == 'page_3') {
+                return _buildPage3CanvasPreview(canvasW, canvasH, scale);
+              }
+
+              // ── SELECIONADA PÁGINA 4 ESPECÍFICA (AMBIENTES & CARDS DA PROPOSTA WEB) ──
+              if (_activeCustomizerPageId == 'page_4') {
+                return _buildPage4CanvasPreview(canvasW, canvasH, scale);
+              }
+
+              // ── SELECIONADAS PÁGINAS INTERNAS (PÁG 3, 5) OU ABA CABEÇALHO/RODAPÉ (INDEX == 3) ──
               if (_tabController.index == 3 || _activeCustomizerPageId.startsWith('page_3') || _activeCustomizerPageId.startsWith('page_4') || _activeCustomizerPageId.startsWith('page_5')) {
                 final pNum = _activeCustomizerPageId.replaceAll('page_', '');
                 return Container(
@@ -2625,7 +2657,917 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PAINEL LATERAL DE CONTROLES E TEXTOS EM TEMPO REAL
+  // PREVIEW DA PÁGINA 3 (PORTFÓLIO & CLIENTES) NO CANVAS A4
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildPage3CanvasPreview(double canvasW, double canvasH, double scale) {
+    final pageBgColor = Color(_hexToInt(_current.page3BgColor, fallback: 0xFF0B132B));
+    final cardBgColor = Color(_hexToInt(_current.page3CardBgColor, fallback: 0xFF111C38));
+    final borderColor = Color(_hexToInt(_current.page3BorderColor, fallback: 0xFF38BDF8));
+    final titleColor = Color(_hexToInt(_current.page3TitleColor, fallback: 0xFFFFFFFF));
+    final subtitleColor = Color(_hexToInt(_current.page3SubtitleColor, fallback: 0xFF94A3B8));
+    final accentColor = Color(_hexToInt(_current.page3AccentColor, fallback: 0xFF38BDF8));
+
+    final portfolioItems = _current.page3PortfolioItems.isNotEmpty
+        ? _current.page3PortfolioItems
+        : AutomationPortfolioItem.defaultItems();
+
+    return Container(
+      width: canvasW,
+      height: canvasH,
+      decoration: BoxDecoration(
+        color: pageBgColor,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // ── MIOLO DA PÁGINA 3 COM OS CARDS DE PORTFÓLIO & CLIENTES ──
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 24 * scale,
+                  vertical: (_current.coverShowHeader ? 52 * scale : 24 * scale),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header Superior da Seção de Portfólio
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 4 * scale),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6 * scale),
+                                  border: Border.all(color: accentColor.withValues(alpha: 0.4), width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.photo_library_rounded, color: accentColor, size: 12 * scale),
+                                    SizedBox(width: 6 * scale),
+                                    Text(
+                                      'PORTFÓLIO & CASES REAIS',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 9 * scale,
+                                        fontWeight: FontWeight.bold,
+                                        color: accentColor,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 6 * scale),
+                              Text(
+                                _current.page3Title.isNotEmpty ? _current.page3Title : 'PORTFÓLIO & CLIENTES',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 16 * scale,
+                                  fontWeight: FontWeight.bold,
+                                  color: titleColor,
+                                ),
+                              ),
+                              if (_current.page3Subtitle.isNotEmpty) ...[
+                                SizedBox(height: 2 * scale),
+                                Text(
+                                  _current.page3Subtitle,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 8.5 * scale,
+                                    color: subtitleColor,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Text(
+                          'Cases Entregues • Padrão High-End',
+                          style: GoogleFonts.inter(
+                            fontSize: 9 * scale,
+                            color: subtitleColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12 * scale),
+
+                    // ── CARDS DOS CASES DE PORTFÓLIO ──
+                    Expanded(
+                      child: Column(
+                        children: portfolioItems.take(3).map((caseItem) {
+                          return Expanded(
+                            child: Container(
+                              margin: EdgeInsets.only(bottom: 10 * scale),
+                              decoration: BoxDecoration(
+                                color: cardBgColor,
+                                borderRadius: BorderRadius.circular(12 * scale),
+                                border: Border.all(color: borderColor.withValues(alpha: 0.6), width: 1.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.25),
+                                    blurRadius: 8 * scale,
+                                    offset: Offset(0, 3 * scale),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Foto do Case (Lado Esquerdo)
+                                  Container(
+                                    width: 140 * scale,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0F172A),
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: Radius.circular(11 * scale),
+                                        bottomLeft: Radius.circular(11 * scale),
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: Radius.circular(11 * scale),
+                                        bottomLeft: Radius.circular(11 * scale),
+                                      ),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          if (caseItem.imageBase64 != null && caseItem.imageBase64!.isNotEmpty)
+                                            Builder(builder: (ctx) {
+                                              try {
+                                                return Image.memory(
+                                                  base64Decode(caseItem.imageBase64!.contains(',')
+                                                      ? caseItem.imageBase64!.split(',').last
+                                                      : caseItem.imageBase64!),
+                                                  fit: BoxFit.cover,
+                                                );
+                                              } catch (_) {
+                                                return const Icon(Icons.broken_image_rounded, color: Colors.white24);
+                                              }
+                                            })
+                                          else
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    const Color(0xFF1E293B),
+                                                    accentColor.withValues(alpha: 0.2),
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                              ),
+                                              child: Center(
+                                                child: Icon(
+                                                  Icons.home_work_rounded,
+                                                  size: 38 * scale,
+                                                  color: accentColor.withValues(alpha: 0.5),
+                                                ),
+                                              ),
+                                            ),
+                                          // Badge Concluído sobre a foto
+                                          Positioned(
+                                            top: 6 * scale,
+                                            left: 6 * scale,
+                                            child: Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.8),
+                                                borderRadius: BorderRadius.circular(4 * scale),
+                                                border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.check_circle_rounded, size: 8 * scale, color: const Color(0xFF10B981)),
+                                                  SizedBox(width: 3 * scale),
+                                                  Text(
+                                                    'Case Entregue',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 7.5 * scale,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Dados e Especificação Técnica (Lado Direito)
+                                  Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(10 * scale),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      caseItem.title,
+                                                      style: GoogleFonts.outfit(
+                                                        fontSize: 11.5 * scale,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: titleColor,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (caseItem.clientOrLocation.isNotEmpty) ...[
+                                                    SizedBox(width: 4 * scale),
+                                                    Container(
+                                                      padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
+                                                      decoration: BoxDecoration(
+                                                        color: accentColor.withValues(alpha: 0.15),
+                                                        borderRadius: BorderRadius.circular(4 * scale),
+                                                      ),
+                                                      child: Text(
+                                                        caseItem.clientOrLocation,
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 7.5 * scale,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: accentColor,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                              SizedBox(height: 4 * scale),
+                                              // Tags Chips
+                                              if (caseItem.tags.isNotEmpty)
+                                                Wrap(
+                                                  spacing: 4 * scale,
+                                                  runSpacing: 2 * scale,
+                                                  children: caseItem.tags.split('•').map((t) => t.trim()).where((t) => t.isNotEmpty).take(4).map((tag) {
+                                                    return Container(
+                                                      padding: EdgeInsets.symmetric(horizontal: 5 * scale, vertical: 1.5 * scale),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white.withValues(alpha: 0.06),
+                                                        borderRadius: BorderRadius.circular(3 * scale),
+                                                        border: Border.all(color: Colors.white12, width: 0.5),
+                                                      ),
+                                                      child: Text(
+                                                        tag,
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 7 * scale,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: subtitleColor,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }).toList(),
+                                                ),
+                                            ],
+                                          ),
+                                          // Especificação Técnica Detalhada
+                                          Text(
+                                            caseItem.description,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 8.5 * scale,
+                                              color: subtitleColor,
+                                              height: 1.25,
+                                            ),
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── CABEÇALHO NO TOPO (PÁGINA INTERNA) ──
+            if (_current.coverShowHeader)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: CoverHeaderWidget(
+                  styleId: _current.coverHeaderStyle,
+                  text1: _current.coverHeaderText1.isNotEmpty ? _current.coverHeaderText1 : 'PORTFÓLIO E CLIENTES',
+                  text2: _current.coverHeaderText2.isNotEmpty ? _current.coverHeaderText2 : _current.companyName,
+                  text3: 'Página 3 de 5',
+                  accentColor: accentColor,
+                  scale: scale,
+                  customBgColorHex: _current.coverHeaderBgColor,
+                  customTextColorHex: _current.coverHeaderTextColor,
+                  customIconColorHex: _current.coverHeaderIconColor,
+                ),
+              ),
+
+            // ── RODAPÉ NA BASE (PÁGINA INTERNA) ──
+            if (_current.coverShowFooter)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: CoverFooterWidget(
+                  styleId: _current.coverFooterStyle,
+                  text1: _current.coverFooterText1.isNotEmpty ? _current.coverFooterText1 : 'A CASA QUE ENTENDE VOCÊ • EXPERIÊNCIA ÚNICA',
+                  text2: _current.coverFooterText2.isNotEmpty ? _current.coverFooterText2 : _current.companyPhone,
+                  text3: _current.coverFooterText3.isNotEmpty ? _current.coverFooterText3 : _current.companyWebsite,
+                  text4: 'Página 3 de 5',
+                  accentColor: accentColor,
+                  scale: scale,
+                  customBgColorHex: _current.coverFooterBgColor,
+                  customTextColorHex: _current.coverFooterTextColor,
+                  customIconColorHex: _current.coverFooterIconColor,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PREVIEW DA PÁGINA 4 (AMBIENTES & CARDS DA PROPOSTA WEB) NO CANVAS A4
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildPage4CanvasPreview(double canvasW, double canvasH, double scale) {
+    final pageBgColor = Color(_hexToInt(_current.page4BgColor, fallback: 0xFF0B132B));
+    final cardBgColor = Color(_hexToInt(_current.page4CardBgColor, fallback: 0xFF111C38));
+    final borderColor = Color(_hexToInt(_current.page4BorderColor, fallback: 0xFF00E5FF));
+    final titleColor = Color(_hexToInt(_current.page4TitleColor, fallback: 0xFFFFFFFF));
+    final subtitleColor = Color(_hexToInt(_current.page4SubtitleColor, fallback: 0xFF94A3B8));
+    final accentColor = Color(_hexToInt(_current.page4AccentColor, fallback: 0xFF00E5FF));
+
+    return Container(
+      width: canvasW,
+      height: canvasH,
+      decoration: BoxDecoration(
+        color: pageBgColor,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // ── MIOLO DA PÁGINA 4 COM OS CARDS DE AMBIENTES (IMAGEM 1) ──
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 24 * scale,
+                  vertical: (_current.coverShowHeader ? 52 * scale : 24 * scale),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header Superior da Seção Técnica
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 4 * scale),
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6 * scale),
+                                border: Border.all(color: accentColor.withValues(alpha: 0.4), width: 1),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.layers_rounded, color: accentColor, size: 12 * scale),
+                                  SizedBox(width: 6 * scale),
+                                  Text(
+                                    'CATÁLOGO & EQUIPAMENTOS',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 9 * scale,
+                                      fontWeight: FontWeight.bold,
+                                      color: accentColor,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 6 * scale),
+                            Text(
+                              'Detalhamento Técnico por Ambiente',
+                              style: GoogleFonts.outfit(
+                                fontSize: 16 * scale,
+                                fontWeight: FontWeight.bold,
+                                color: titleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'Hardware Homologado • Padrão ABNT/IEEE',
+                          style: GoogleFonts.inter(
+                            fontSize: 9 * scale,
+                            color: subtitleColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 14 * scale),
+
+                    // ── CARD VISUAL DO AMBIENTE (LIVING INTEGRADO) ──
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardBgColor,
+                          borderRadius: BorderRadius.circular(14 * scale),
+                          border: Border.all(color: borderColor.withValues(alpha: 0.8), width: 1.2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 10 * scale,
+                              offset: Offset(0, 4 * scale),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            // 1. Cabeçalho do Card
+                            Container(
+                              padding: EdgeInsets.all(12 * scale),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(13 * scale),
+                                  topRight: Radius.circular(13 * scale),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 34 * scale,
+                                    height: 34 * scale,
+                                    decoration: BoxDecoration(
+                                      color: accentColor.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8 * scale),
+                                      border: Border.all(color: accentColor.withValues(alpha: 0.35)),
+                                    ),
+                                    child: Icon(Icons.meeting_room_rounded, color: accentColor, size: 18 * scale),
+                                  ),
+                                  SizedBox(width: 10 * scale),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'LIVING INTEGRADO & HOME THEATER',
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 13 * scale,
+                                                fontWeight: FontWeight.bold,
+                                                color: titleColor,
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                            SizedBox(width: 8 * scale),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 2 * scale),
+                                              decoration: BoxDecoration(
+                                                color: accentColor.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(10 * scale),
+                                                border: Border.all(color: accentColor.withValues(alpha: 0.4)),
+                                              ),
+                                              child: Text(
+                                                '8 dispositivos',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 8.5 * scale,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: accentColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 2 * scale),
+                                        Text(
+                                          'Controle de iluminação dimerizável, climatização, cortinas e áudio multiroom',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 9.5 * scale,
+                                            color: subtitleColor,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(width: 12 * scale),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        'SUBTOTAL DO AMBIENTE',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 7.5 * scale,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.8,
+                                          color: subtitleColor,
+                                        ),
+                                      ),
+                                      Text(
+                                        'R\$ 14.850,00',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 16 * scale,
+                                          fontWeight: FontWeight.w900,
+                                          color: accentColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            Divider(height: 1, color: borderColor.withValues(alpha: 0.2)),
+
+                            // 2. Corpo do Card: Duas Colunas (Foto/Resumo + Lista de Equipamentos)
+                            Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.all(12 * scale),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Coluna Esquerda: Foto Ilustrativa & Representatividade
+                                    SizedBox(
+                                      width: 175 * scale,
+                                      child: Column(
+                                        children: [
+                                          // Foto com Overlay
+                                          Expanded(
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(10 * scale),
+                                                color: const Color(0xFF0F172A),
+                                                border: Border.all(color: Colors.white12),
+                                              ),
+                                              child: Stack(
+                                                fit: StackFit.expand,
+                                                children: [
+                                                  Center(
+                                                    child: Icon(
+                                                      Icons.living_rounded,
+                                                      size: 42 * scale,
+                                                      color: accentColor.withValues(alpha: 0.35),
+                                                    ),
+                                                  ),
+                                                  Positioned(
+                                                    top: 8 * scale,
+                                                    left: 8 * scale,
+                                                    child: Container(
+                                                      padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 3 * scale),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.black.withValues(alpha: 0.75),
+                                                        borderRadius: BorderRadius.circular(12 * scale),
+                                                        border: Border.all(color: accentColor.withValues(alpha: 0.5)),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(Icons.photo_camera_rounded, size: 9 * scale, color: accentColor),
+                                                          SizedBox(width: 4 * scale),
+                                                          Text(
+                                                            'Cenário Integrado',
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 8 * scale,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: Colors.white,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(height: 8 * scale),
+                                          // Card de Representatividade
+                                          Container(
+                                            padding: EdgeInsets.all(8 * scale),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.3),
+                                              borderRadius: BorderRadius.circular(8 * scale),
+                                              border: Border.all(color: Colors.white10),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.pie_chart_outline_rounded, size: 16 * scale, color: accentColor),
+                                                SizedBox(width: 8 * scale),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        'Representatividade no Projeto',
+                                                        style: GoogleFonts.inter(fontSize: 8 * scale, color: subtitleColor),
+                                                      ),
+                                                      Text(
+                                                        '38.5% do valor total',
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 9.5 * scale,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: titleColor,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(width: 12 * scale),
+
+                                    // Coluna Direita: Equipamentos Adotados
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.inventory_2_outlined, color: accentColor, size: 14 * scale),
+                                                  SizedBox(width: 6 * scale),
+                                                  Text(
+                                                    'EQUIPAMENTOS ADOTADOS (8)',
+                                                    style: GoogleFonts.outfit(
+                                                      fontSize: 11 * scale,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: titleColor,
+                                                      letterSpacing: 0.4,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              Text(
+                                                'Hardware & Módulos Oficiais',
+                                                style: GoogleFonts.inter(fontSize: 8.5 * scale, color: subtitleColor),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(height: 8 * scale),
+
+                                          // 4 Equipamentos Simulados da Proposta
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                _buildPreviewItemRow(
+                                                  name: 'Módulo Dimmer 4 Canais Zigbee 3.0 Pro',
+                                                  category: 'Iluminação',
+                                                  brand: 'Aqara Pro',
+                                                  qty: 2,
+                                                  unitPrice: 1700.0,
+                                                  scale: scale,
+                                                  titleColor: titleColor,
+                                                  subtitleColor: subtitleColor,
+                                                  accentColor: accentColor,
+                                                ),
+                                                SizedBox(height: 6 * scale),
+                                                _buildPreviewItemRow(
+                                                  name: 'Keypad Inteligente Touch Glass 6 Teclas',
+                                                  category: 'Interruptor',
+                                                  brand: 'Sonoff Smart',
+                                                  qty: 3,
+                                                  unitPrice: 1450.0,
+                                                  scale: scale,
+                                                  titleColor: titleColor,
+                                                  subtitleColor: subtitleColor,
+                                                  accentColor: accentColor,
+                                                ),
+                                                SizedBox(height: 6 * scale),
+                                                _buildPreviewItemRow(
+                                                  name: 'Controlador IR/RF Climatização & Cortinas',
+                                                  category: 'Climatização',
+                                                  brand: 'Broadlink RM4',
+                                                  qty: 1,
+                                                  unitPrice: 1200.0,
+                                                  scale: scale,
+                                                  titleColor: titleColor,
+                                                  subtitleColor: subtitleColor,
+                                                  accentColor: accentColor,
+                                                ),
+                                                SizedBox(height: 6 * scale),
+                                                _buildPreviewItemRow(
+                                                  name: 'Amplificador Áudio Multiroom Wi-Fi/BT 200W',
+                                                  category: 'Áudio & Vídeo',
+                                                  brand: 'Arylic Hi-Fi',
+                                                  qty: 2,
+                                                  unitPrice: 2950.0,
+                                                  scale: scale,
+                                                  titleColor: titleColor,
+                                                  subtitleColor: subtitleColor,
+                                                  accentColor: accentColor,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── CABEÇALHO NO TOPO (PÁGINA INTERNA) ──
+            if (_current.coverShowHeader)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: CoverHeaderWidget(
+                  styleId: _current.coverHeaderStyle,
+                  text1: _current.coverHeaderText1.isNotEmpty ? _current.coverHeaderText1 : 'AUTOMAÇÃO RESIDENCIAL',
+                  text2: _current.coverHeaderText2.isNotEmpty ? _current.coverHeaderText2 : _current.companyName,
+                  text3: 'Página 4 de 5',
+                  accentColor: accentColor,
+                  scale: scale,
+                  customBgColorHex: _current.coverHeaderBgColor,
+                  customTextColorHex: _current.coverHeaderTextColor,
+                  customIconColorHex: _current.coverHeaderIconColor,
+                ),
+              ),
+
+            // ── RODAPÉ NA BASE (PÁGINA INTERNA) ──
+            if (_current.coverShowFooter)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: CoverFooterWidget(
+                  styleId: _current.coverFooterStyle,
+                  text1: _current.coverFooterText1.isNotEmpty ? _current.coverFooterText1 : 'A CASA QUE ENTENDE VOCÊ • EXPERIÊNCIA ÚNICA',
+                  text2: _current.coverFooterText2.isNotEmpty ? _current.coverFooterText2 : _current.companyPhone,
+                  text3: _current.coverFooterText3.isNotEmpty ? _current.coverFooterText3 : _current.companyWebsite,
+                  text4: 'Página 4 de 5',
+                  accentColor: accentColor,
+                  scale: scale,
+                  customBgColorHex: _current.coverFooterBgColor,
+                  customTextColorHex: _current.coverFooterTextColor,
+                  customIconColorHex: _current.coverFooterIconColor,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewItemRow({
+    required String name,
+    required String category,
+    required String brand,
+    required int qty,
+    required double unitPrice,
+    required double scale,
+    required Color titleColor,
+    required Color subtitleColor,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 7 * scale),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(8 * scale),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(5 * scale),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6 * scale),
+            ),
+            child: Icon(Icons.devices_rounded, color: accentColor, size: 12 * scale),
+          ),
+          SizedBox(width: 8 * scale),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.inter(
+                    fontSize: 9.5 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: titleColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 1 * scale),
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 5 * scale, vertical: 1 * scale),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4 * scale),
+                      ),
+                      child: Text(
+                        category,
+                        style: GoogleFonts.inter(
+                          fontSize: 7.5 * scale,
+                          fontWeight: FontWeight.bold,
+                          color: accentColor,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 6 * scale),
+                    Text(
+                      'Marca: $brand',
+                      style: GoogleFonts.inter(fontSize: 8 * scale, color: subtitleColor),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8 * scale),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Qtd: $qty',
+                style: GoogleFonts.inter(fontSize: 8 * scale, color: subtitleColor),
+              ),
+              Text(
+                'R\$ ${(qty * unitPrice).toStringAsFixed(2).replaceAll('.', ',')}',
+                style: GoogleFonts.inter(
+                  fontSize: 9.5 * scale,
+                  fontWeight: FontWeight.bold,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildInspectorPanel() {
     return Container(
@@ -2758,6 +3700,57 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
         );
       },
       primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF0284C7)),
+      page3Title: _current.page3Title,
+      onUpdatePage3Title: (t) => setState(() => _current = _current.copyWith(page3Title: t)),
+      page3Subtitle: _current.page3Subtitle,
+      onUpdatePage3Subtitle: (s) => setState(() => _current = _current.copyWith(page3Subtitle: s)),
+      page3PortfolioItems: _current.page3PortfolioItems,
+      onUpdatePage3PortfolioItems: (items) => setState(() => _current = _current.copyWith(
+            page3PortfolioJson: jsonEncode(items.map((i) => i.toMap()).toList()),
+          )),
+      page3BgColor: _current.page3BgColor,
+      onUpdatePage3BgColor: (c) => setState(() => _current = _current.copyWith(page3BgColor: c)),
+      page3CardBgColor: _current.page3CardBgColor,
+      onUpdatePage3CardBgColor: (c) => setState(() => _current = _current.copyWith(page3CardBgColor: c)),
+      page3BorderColor: _current.page3BorderColor,
+      onUpdatePage3BorderColor: (c) => setState(() => _current = _current.copyWith(page3BorderColor: c)),
+      page3TitleColor: _current.page3TitleColor,
+      onUpdatePage3TitleColor: (c) => setState(() => _current = _current.copyWith(page3TitleColor: c)),
+      page3SubtitleColor: _current.page3SubtitleColor,
+      onUpdatePage3SubtitleColor: (c) => setState(() => _current = _current.copyWith(page3SubtitleColor: c)),
+      page3AccentColor: _current.page3AccentColor,
+      onUpdatePage3AccentColor: (c) => setState(() => _current = _current.copyWith(page3AccentColor: c)),
+      onResetPage3Items: () => setState(() => _current = _current.copyWith(
+            page3Title: 'PORTFÓLIO & CLIENTES',
+            page3Subtitle: 'Projetos executados com excelência e tecnologia de ponta',
+            page3PortfolioJson: '',
+            page3BgColor: '#0B132B',
+            page3CardBgColor: '#111C38',
+            page3BorderColor: '#38BDF8',
+            page3TitleColor: '#FFFFFF',
+            page3SubtitleColor: '#94A3B8',
+            page3AccentColor: '#38BDF8',
+          )),
+      page4BgColor: _current.page4BgColor,
+      onUpdatePage4BgColor: (c) => setState(() => _current = _current.copyWith(page4BgColor: c)),
+      page4CardBgColor: _current.page4CardBgColor,
+      onUpdatePage4CardBgColor: (c) => setState(() => _current = _current.copyWith(page4CardBgColor: c)),
+      page4BorderColor: _current.page4BorderColor,
+      onUpdatePage4BorderColor: (c) => setState(() => _current = _current.copyWith(page4BorderColor: c)),
+      page4TitleColor: _current.page4TitleColor,
+      onUpdatePage4TitleColor: (c) => setState(() => _current = _current.copyWith(page4TitleColor: c)),
+      page4SubtitleColor: _current.page4SubtitleColor,
+      onUpdatePage4SubtitleColor: (c) => setState(() => _current = _current.copyWith(page4SubtitleColor: c)),
+      page4AccentColor: _current.page4AccentColor,
+      onUpdatePage4AccentColor: (c) => setState(() => _current = _current.copyWith(page4AccentColor: c)),
+      onResetPage4Colors: () => setState(() => _current = _current.copyWith(
+            page4BgColor: '#0B132B',
+            page4CardBgColor: '#111C38',
+            page4BorderColor: '#00E5FF',
+            page4TitleColor: '#FFFFFF',
+            page4SubtitleColor: '#94A3B8',
+            page4AccentColor: '#00E5FF',
+          )),
     );
   }
 
@@ -2795,6 +3788,21 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
       footerText3Ctrl: _footerText3Ctrl,
       footerText4Ctrl: _footerText4Ctrl,
       accentColor: const Color(0xFF38BDF8),
+      selectedInternalPresetId: _current.internalPagesLayoutPreset,
+      onSelectInternalPreset: (preset) {
+        setState(() {
+          _current = _current.copyWith(
+            internalPagesLayoutPreset: preset.id,
+            coverHeaderStyle: preset.headerStyle,
+            coverFooterStyle: preset.footerStyle,
+            primaryColorHex: preset.primaryColorHex,
+            coverHeaderBgColor: preset.headerBgColorHex,
+            coverHeaderTextColor: preset.headerTextColorHex,
+            coverFooterBgColor: preset.footerBgColorHex,
+            coverFooterTextColor: preset.footerTextColorHex,
+          );
+        });
+      },
       headerBgColor: _current.coverHeaderBgColor,
       onHeaderBgColorChanged: (c) => setState(() => _current = _current.copyWith(coverHeaderBgColor: c)),
       headerTextColor: _current.coverHeaderTextColor,
