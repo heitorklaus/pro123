@@ -9,7 +9,10 @@ import '../../products/domain/models/product_model.dart';
 import '../../proposals/data/services/automation_proposal_pdf_service.dart';
 import '../data/services/automation_preset_catalog.dart';
 import '../data/services/automation_settings_service.dart';
+import '../data/services/cnpj_service.dart';
+import '../data/services/company_service.dart';
 import '../domain/models/automation_settings_model.dart';
+import '../domain/models/company_model.dart';
 import 'widgets/automation_cover_customizer_dialog.dart';
 import 'widgets/automation_cyber_connector_painter.dart';
 import 'widgets/solar_cover_divider_painter.dart';
@@ -90,12 +93,47 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
     super.dispose();
   }
 
+  bool _isSearchingCnpj = false;
+
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
     try {
       final user = await _authRepo.getCurrentUser();
       final companyId = user?.companyId ?? '';
       _settings = await _service.fetchSettings(companyId);
+
+      // Sincroniza prioritariamente com os dados oficiais do CNPJ / Empresa
+      final company = await CompanyService.getCompany(companyId: companyId.isNotEmpty ? companyId : null);
+      if (company != null && (company.name.isNotEmpty || company.document.isNotEmpty)) {
+        final bool isDefaultMock = _settings.companyName.isEmpty ||
+            _settings.companyName == 'ARBO AUTOMAÇÃO' ||
+            _settings.companyDoc == '12.345.678/0001-90';
+
+        final effectiveName = company.tradeName?.trim().isNotEmpty == true
+            ? company.tradeName!.trim()
+            : (company.name.trim().isNotEmpty ? company.name.trim() : (company.corporateName ?? _settings.companyName));
+
+        if (isDefaultMock) {
+          _settings = _settings.copyWith(
+            companyName: effectiveName.isNotEmpty ? effectiveName : _settings.companyName,
+            companyDoc: company.document.isNotEmpty ? company.document : _settings.companyDoc,
+            companyPhone: company.phone.isNotEmpty ? company.phone : _settings.companyPhone,
+            companyEmail: (company.email?.isNotEmpty == true ? company.email : company.companyEmail) ?? _settings.companyEmail,
+            companyWebsite: company.website?.isNotEmpty == true ? company.website! : _settings.companyWebsite,
+            companyInstagram: company.instagram?.isNotEmpty == true ? company.instagram! : _settings.companyInstagram,
+            companySlogan: company.slogan?.isNotEmpty == true ? company.slogan! : _settings.companySlogan,
+            companyLogoBase64: company.logoBase64 ?? _settings.companyLogoBase64,
+            cep: company.zipCode?.isNotEmpty == true ? company.zipCode! : _settings.cep,
+            logradouro: company.street?.isNotEmpty == true ? company.street! : _settings.logradouro,
+            numero: company.number?.isNotEmpty == true ? company.number! : _settings.numero,
+            complemento: company.complement?.isNotEmpty == true ? company.complement! : _settings.complemento,
+            bairro: company.neighborhood?.isNotEmpty == true ? company.neighborhood! : _settings.bairro,
+            cidade: company.city?.isNotEmpty == true ? company.city! : _settings.cidade,
+            uf: company.state?.isNotEmpty == true ? company.state! : _settings.uf,
+          );
+        }
+      }
+
       _selectedCategory = _settings.activeCategory;
       _populateControllers();
     } catch (_) {
@@ -103,6 +141,135 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
       _populateControllers();
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Puxa todos os dados institucionais e endereço diretamente do cadastro oficial do CNPJ da empresa
+  Future<void> _syncFromCompanyProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await _authRepo.getCurrentUser();
+      final companyId = user?.companyId ?? '';
+      final company = await CompanyService.getCompany(companyId: companyId.isNotEmpty ? companyId : null);
+
+      if (company != null && (company.name.isNotEmpty || company.document.isNotEmpty)) {
+        final effectiveName = company.tradeName?.trim().isNotEmpty == true
+            ? company.tradeName!.trim()
+            : (company.name.trim().isNotEmpty ? company.name.trim() : (company.corporateName ?? ''));
+
+        setState(() {
+          if (effectiveName.isNotEmpty) _nameCtrl.text = effectiveName;
+          if (company.document.isNotEmpty) _docCtrl.text = company.document;
+          if (company.phone.isNotEmpty) _phoneCtrl.text = company.phone;
+          if (company.email?.isNotEmpty == true) {
+            _emailCtrl.text = company.email!;
+          } else if (company.companyEmail?.isNotEmpty == true) {
+            _emailCtrl.text = company.companyEmail!;
+          }
+          if (company.website?.isNotEmpty == true) _websiteCtrl.text = company.website!;
+          if (company.instagram?.isNotEmpty == true) _instagramCtrl.text = company.instagram!;
+          if (company.slogan?.isNotEmpty == true) _sloganCtrl.text = company.slogan!;
+
+          if (company.zipCode?.isNotEmpty == true) _cepCtrl.text = company.zipCode!;
+          if (company.street?.isNotEmpty == true) _logradouroCtrl.text = company.street!;
+          if (company.number?.isNotEmpty == true) _numeroCtrl.text = company.number!;
+          if (company.complement?.isNotEmpty == true) _complementoCtrl.text = company.complement!;
+          if (company.neighborhood?.isNotEmpty == true) _bairroCtrl.text = company.neighborhood!;
+          if (company.city?.isNotEmpty == true) _cidadeCtrl.text = company.city!;
+          if (company.state?.isNotEmpty == true) _ufCtrl.text = company.state!;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dados e endereço sincronizados do cadastro do CNPJ da empresa com sucesso!'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Nenhum cadastro de empresa localizado. Preencha os campos abaixo para salvar.'),
+              backgroundColor: Color(0xFFF59E0B),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao sincronizar com perfil da empresa: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Consulta os dados da empresa e endereço na Receita Federal via CNPJ
+  Future<void> _fetchCnpj(String cnpj) async {
+    final clean = cnpj.replaceAll(RegExp(r'\D'), '');
+    if (clean.length != 14) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Digite os 14 dígitos do CNPJ para consultar na Receita Federal.'),
+          backgroundColor: Color(0xFFF59E0B),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSearchingCnpj = true);
+    try {
+      final data = await CnpjService.lookupCnpj(clean);
+      if (data != null && mounted) {
+        setState(() {
+          final effectiveName = data.displayName;
+          if (effectiveName.isNotEmpty) _nameCtrl.text = effectiveName;
+          _docCtrl.text = data.cnpj;
+          if (data.phone != null && data.phone!.isNotEmpty) _phoneCtrl.text = data.phone!;
+          if (data.email != null && data.email!.isNotEmpty) _emailCtrl.text = data.email!;
+          if (data.zipCode != null && data.zipCode!.isNotEmpty) _cepCtrl.text = data.zipCode!;
+          if (data.street != null && data.street!.isNotEmpty) _logradouroCtrl.text = data.street!;
+          if (data.number != null && data.number!.isNotEmpty) _numeroCtrl.text = data.number!;
+          if (data.complement != null && data.complement!.isNotEmpty) _complementoCtrl.text = data.complement!;
+          if (data.neighborhood != null && data.neighborhood!.isNotEmpty) _bairroCtrl.text = data.neighborhood!;
+          if (data.city != null && data.city!.isNotEmpty) _cidadeCtrl.text = data.city!;
+          if (data.state != null && data.state!.isNotEmpty) _ufCtrl.text = data.state!;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dados da empresa e endereço preenchidos via Receita Federal!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('CNPJ não localizado na base pública da Receita.'),
+            backgroundColor: Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao consultar CNPJ: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSearchingCnpj = false);
     }
   }
 
@@ -184,6 +351,43 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
 
       await AutomationSettingsService.saveSettings(updated);
       _settings = updated;
+
+      // Sincroniza também com o cadastro unificado da empresa (CompanyService)
+      try {
+        final user = await _authRepo.getCurrentUser();
+        final companyId = user?.companyId ?? '';
+        final existingCompany = await CompanyService.getCompany(companyId: companyId.isNotEmpty ? companyId : null);
+
+        final updatedCompany = (existingCompany ?? CompanyModel(
+          id: companyId,
+          name: _nameCtrl.text.trim(),
+          document: _docCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        )).copyWith(
+          name: _nameCtrl.text.trim(),
+          tradeName: _nameCtrl.text.trim(),
+          document: _docCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          email: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : existingCompany?.email,
+          website: _websiteCtrl.text.trim().isNotEmpty ? _websiteCtrl.text.trim() : existingCompany?.website,
+          instagram: _instagramCtrl.text.trim().isNotEmpty ? _instagramCtrl.text.trim() : existingCompany?.instagram,
+          slogan: _sloganCtrl.text.trim().isNotEmpty ? _sloganCtrl.text.trim() : existingCompany?.slogan,
+          zipCode: _cepCtrl.text.trim().isNotEmpty ? _cepCtrl.text.trim() : existingCompany?.zipCode,
+          street: _logradouroCtrl.text.trim().isNotEmpty ? _logradouroCtrl.text.trim() : existingCompany?.street,
+          number: _numeroCtrl.text.trim().isNotEmpty ? _numeroCtrl.text.trim() : existingCompany?.number,
+          complement: _complementoCtrl.text.trim().isNotEmpty ? _complementoCtrl.text.trim() : existingCompany?.complement,
+          neighborhood: _bairroCtrl.text.trim().isNotEmpty ? _bairroCtrl.text.trim() : existingCompany?.neighborhood,
+          city: _cidadeCtrl.text.trim().isNotEmpty ? _cidadeCtrl.text.trim() : existingCompany?.city,
+          state: _ufCtrl.text.trim().isNotEmpty ? _ufCtrl.text.trim() : existingCompany?.state,
+          updatedAt: DateTime.now(),
+        );
+
+        await CompanyService.saveCompany(updatedCompany);
+      } catch (e) {
+        debugPrint('[AutomationSettingsView] Aviso: Falha ao sincronizar com CompanyService: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -414,13 +618,44 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle('DADOS INSTITUCIONAIS DA EMPRESA', Icons.domain_rounded, primaryColor),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSectionTitle('DADOS INSTITUCIONAIS DA EMPRESA', Icons.domain_rounded, primaryColor),
+                  OutlinedButton.icon(
+                    onPressed: _syncFromCompanyProfile,
+                    icon: const Icon(Icons.sync_rounded, size: 14, color: Color(0xFF38BDF8)),
+                    label: Text(
+                      'PUXAR DO CADASTRO DA EMPRESA (CNPJ)',
+                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF0284C7)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(child: _buildInput('Razão Social / Nome Fantasia', _nameCtrl, Icons.business_rounded)),
                   const SizedBox(width: 16),
-                  Expanded(child: _buildInput('CNPJ / CPF', _docCtrl, Icons.badge_outlined)),
+                  Expanded(
+                    child: _buildInput(
+                      'CNPJ / CPF',
+                      _docCtrl,
+                      Icons.badge_outlined,
+                      suffix: IconButton(
+                        icon: _isSearchingCnpj
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF38BDF8)))
+                            : const Icon(Icons.search_rounded, size: 18, color: Color(0xFF38BDF8)),
+                        tooltip: 'Consultar CNPJ na Receita Federal',
+                        onPressed: _isSearchingCnpj ? null : () => _fetchCnpj(_docCtrl.text),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -1046,6 +1281,7 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
     TextEditingController controller,
     IconData icon, {
     ValueChanged<String>? onChanged,
+    Widget? suffix,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1063,6 +1299,7 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
             filled: true,
             fillColor: const Color(0xFF0F172A),
             prefixIcon: Icon(icon, color: Colors.white54, size: 18),
+            suffixIcon: suffix,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white10)),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white10)),

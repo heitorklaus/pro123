@@ -7,6 +7,7 @@ import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../products/domain/models/product_model.dart';
 import '../../domain/models/company_model.dart';
 import 'solar_settings_service.dart';
+import 'automation_settings_service.dart';
 
 /// Serviço responsável pelo gerenciamento de dados cadastrais, endereço e logomarca da Empresa no Firestore
 class CompanyService {
@@ -81,6 +82,36 @@ class CompanyService {
           await SolarSettingsService.saveSettings(mergedSolar, companyId: effectiveId);
         } catch (e) {
           debugPrint('[CompanyService] Aviso: Falha ao sincronizar com SolarSettings: $e');
+        }
+
+        // 4. Sincroniza os dados institucionais, endereço completo e logomarca com as configurações de Automação Residencial
+        try {
+          final autoSettings = await AutomationSettingsService.loadSettings(companyId: effectiveId);
+          final effectiveName = updatedCompany.tradeName?.trim().isNotEmpty == true
+              ? updatedCompany.tradeName!.trim()
+              : (updatedCompany.name.trim().isNotEmpty ? updatedCompany.name.trim() : (updatedCompany.corporateName ?? ''));
+
+          final mergedAuto = autoSettings.copyWith(
+            companyId: effectiveId,
+            companyName: effectiveName.isNotEmpty ? effectiveName : autoSettings.companyName,
+            companyDoc: updatedCompany.document.isNotEmpty ? updatedCompany.document : autoSettings.companyDoc,
+            companyPhone: updatedCompany.phone.isNotEmpty ? updatedCompany.phone : autoSettings.companyPhone,
+            companyEmail: (updatedCompany.email?.isNotEmpty == true ? updatedCompany.email : updatedCompany.companyEmail) ?? autoSettings.companyEmail,
+            companyWebsite: updatedCompany.website?.isNotEmpty == true ? updatedCompany.website! : autoSettings.companyWebsite,
+            companyInstagram: updatedCompany.instagram?.isNotEmpty == true ? updatedCompany.instagram! : autoSettings.companyInstagram,
+            companySlogan: updatedCompany.slogan?.isNotEmpty == true ? updatedCompany.slogan! : autoSettings.companySlogan,
+            companyLogoBase64: updatedCompany.logoBase64 ?? autoSettings.companyLogoBase64,
+            cep: updatedCompany.zipCode?.isNotEmpty == true ? updatedCompany.zipCode! : autoSettings.cep,
+            logradouro: updatedCompany.street?.isNotEmpty == true ? updatedCompany.street! : autoSettings.logradouro,
+            numero: updatedCompany.number?.isNotEmpty == true ? updatedCompany.number! : autoSettings.numero,
+            complemento: updatedCompany.complement?.isNotEmpty == true ? updatedCompany.complement! : autoSettings.complemento,
+            bairro: updatedCompany.neighborhood?.isNotEmpty == true ? updatedCompany.neighborhood! : autoSettings.bairro,
+            cidade: updatedCompany.city?.isNotEmpty == true ? updatedCompany.city! : autoSettings.cidade,
+            uf: updatedCompany.state?.isNotEmpty == true ? updatedCompany.state! : autoSettings.uf,
+          );
+          await AutomationSettingsService.saveSettings(mergedAuto);
+        } catch (e) {
+          debugPrint('[CompanyService] Aviso: Falha ao sincronizar com AutomationSettings: $e');
         }
       }
     } catch (e) {

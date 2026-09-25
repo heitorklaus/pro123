@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../domain/models/automation_settings_model.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import 'automation_preset_catalog.dart';
+import 'company_service.dart';
 
 /// Modelo de Capa Vertical Split de Automação com divisor geométrico e tipografia estilizada
 class VerticalSplitCoverModel {
@@ -341,37 +342,78 @@ class AutomationSettingsService {
     }
   }
 
-  /// Carrega as configurações do Firestore (Método Estático)
   static Future<AutomationSettingsModel> loadSettings({String? companyId}) async {
+    AutomationSettingsModel? model;
+    String id = companyId?.trim() ?? '';
     try {
-      String? id = companyId?.trim();
-      if (id == null || id.isEmpty) {
+      if (id.isEmpty) {
         final auth = AuthRepository();
-        id = await auth.getCurrentCompanyId();
+        id = (await auth.getCurrentCompanyId()) ?? '';
       }
-      if (id == null || id.isEmpty) {
+      if (id.isEmpty) {
         final user = await AuthRepository().getCurrentUser();
-        id = user?.companyId;
+        id = user?.companyId ?? '';
       }
-      if (id == null || id.isEmpty) id = 'default_company';
+      if (id.isEmpty) id = 'default_company';
 
       final doc = await FirebaseFirestore.instance.collection('automation_settings').doc(id).get();
       if (doc.exists && doc.data() != null) {
         final loaded = AutomationSettingsModel.fromMap(doc.data()!);
-        return loaded.copyWith(companyId: loaded.companyId.isNotEmpty ? loaded.companyId : id);
+        model = loaded.copyWith(companyId: loaded.companyId.isNotEmpty ? loaded.companyId : id);
       }
       // Se não encontrou pelo id específico, tenta fallback em 'default_company'
-      if (id != 'default_company') {
+      if (model == null && id != 'default_company') {
         final fallbackDoc = await FirebaseFirestore.instance.collection('automation_settings').doc('default_company').get();
         if (fallbackDoc.exists && fallbackDoc.data() != null) {
           final loaded = AutomationSettingsModel.fromMap(fallbackDoc.data()!);
-          return loaded.copyWith(companyId: id);
+          model = loaded.copyWith(companyId: id);
         }
       }
     } catch (e) {
       debugPrint('[AutomationSettingsService] Erro ao carregar configurações: $e');
     }
-    return AutomationSettingsModel(companyId: companyId ?? '');
+
+    AutomationSettingsModel finalModel = model ?? AutomationSettingsModel(companyId: id);
+
+    // ── INTEGRAÇÃO COM CADASTRO OFICIAL DA EMPRESA (CNPJ / RECEITA) ──
+    // Se os dados da empresa estiverem vazios ou com o placeholder fictício mockado ('ARBO AUTOMAÇÃO'),
+    // busca os dados reais da empresa cadastrada no CompanyService.
+    final bool needsCompanySync = finalModel.companyName.isEmpty ||
+        finalModel.companyName == 'ARBO AUTOMAÇÃO' ||
+        finalModel.companyDoc == '12.345.678/0001-90';
+
+    if (needsCompanySync) {
+      try {
+        final company = await CompanyService.getCompany(companyId: id != 'default_company' ? id : null);
+        if (company != null && (company.name.isNotEmpty || company.document.isNotEmpty)) {
+          final effectiveName = company.tradeName?.trim().isNotEmpty == true
+              ? company.tradeName!.trim()
+              : (company.name.trim().isNotEmpty ? company.name.trim() : (company.corporateName ?? finalModel.companyName));
+
+          finalModel = finalModel.copyWith(
+            companyName: effectiveName.isNotEmpty ? effectiveName : finalModel.companyName,
+            companyDoc: company.document.isNotEmpty ? company.document : finalModel.companyDoc,
+            companyPhone: company.phone.isNotEmpty ? company.phone : finalModel.companyPhone,
+            companyEmail: (company.email?.isNotEmpty == true ? company.email : company.companyEmail) ?? finalModel.companyEmail,
+            companyWebsite: company.website?.isNotEmpty == true ? company.website! : finalModel.companyWebsite,
+            companyInstagram: company.instagram?.isNotEmpty == true ? company.instagram! : finalModel.companyInstagram,
+            companySlogan: company.slogan?.isNotEmpty == true ? company.slogan! : finalModel.companySlogan,
+            companyLogoBase64: company.logoBase64 ?? finalModel.companyLogoBase64,
+            cep: company.zipCode?.isNotEmpty == true ? company.zipCode! : finalModel.cep,
+            logradouro: company.street?.isNotEmpty == true ? company.street! : finalModel.logradouro,
+            numero: company.number?.isNotEmpty == true ? company.number! : finalModel.numero,
+            complemento: company.complement?.isNotEmpty == true ? company.complement! : finalModel.complemento,
+            bairro: company.neighborhood?.isNotEmpty == true ? company.neighborhood! : finalModel.bairro,
+            cidade: company.city?.isNotEmpty == true ? company.city! : finalModel.cidade,
+            uf: company.state?.isNotEmpty == true ? company.state! : finalModel.uf,
+          );
+        }
+      } catch (e) {
+        debugPrint('[AutomationSettingsService] Falha ao hidratar com dados da empresa: $e');
+      }
+    }
+
+    return finalModel;
   }
 
   /// Busca a lista dinâmica de capas de automação
