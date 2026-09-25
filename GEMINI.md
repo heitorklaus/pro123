@@ -257,8 +257,8 @@ Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha cont
 - Configuração de rotas principais: `/` → `/auth`, `/auth` (Login/Register) e `/dashboard` (Painel SPA).
 
 ### 2. `AuthModule`
-- **Tela de Login (`login_page.dart`):** Interface moderna com `TechBackground` (malha cibernética e orbes luminosos), card branco alargado (480px) com cantos arredondados e elevação suave, logo compacta otimizada, campos estilizados e autenticação E-mail/Senha e Google OAuth validada via MobX (`LoginStore`).
-- **Tela de Cadastro (`register_page.dart`):** Cadastro moderno com `TechBackground`, card branco alargado, campos consistentes e persistência direta no Firestore e Auth com perfil de Admin / Dono da Empresa.
+- **Tela de Login (`login_page.dart`):** Interface holográfica 3D imersiva com fundo cibernético (`_LoginCyberGridPainter`), coluna de branding com 3 ícones 3D de features, cena holográfica central com monitor 3D transparente projetando-se para fora do card branco, badges flutuantes de KPIs, nota manuscrita com seta estilizada, painel flutuante minimizável de Dev Tools e autenticação E-mail/Senha e Google OAuth validada via MobX (`LoginStore`).
+- **Tela de Cadastro (`register_page.dart`):** Gêmea visual idêntica da tela de login, compartilhando a mesma disposição espacial holográfica 3D com monitor saindo do card, fundo cibernético e branding. O card branco lateral apresenta os 4 campos essenciais de cadastro (*Nome Completo*, *E-mail*, *Senha* e *Confirmar Senha*), botão com gradiente neon ciano/esmeralda (*CRIAR CONTA GRÁTIS ->*), login social Google e atalho de redirecionamento. Ao concluir o cadastro com sucesso, aciona o envio de e-mail de verificação oficial pelo Firebase Auth, registra notificação de boas-vindas no Firestore (sem senha) e apresenta um diálogo modal executivo com os dados de acesso do usuário (Nome e Login/E-mail, mantendo a senha estritamente oculta e criptografada por segurança).
 - **Serviço de Autenticação (`auth_repository.dart`):** Gerenciador de chamadas Firebase com tratamento de erros em português.
 
 ### 4. `ClientsModule` / `ClientsView` / `ClientFormDialog`
@@ -321,6 +321,34 @@ Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha cont
        4. **Móveis e Decoração** (`ProductSector.furniture`): Móveis planejados, dimensões, material e montagem.
        *(Os demais 17 nichos comerciais legados permanecem protegidos no enum para integridade do banco NoSQL, mas ficam 100% ocultos de todos os cards, wizards e seletores de tela).*
      - **Distinção Inteligente de Edição (Usina Solar vs Item Avulso):** Ao clicar em Editar em uma Usina Solar (Kit), abre o formulário completo `SolarPlantFormCard` com título *"Editar Usina Solar"* e a lista de equipamentos do conjunto. Ao clicar em Editar em um **Item Avulso** (módulo, inversor, cabo, bateria, estrutura), abre o formulário padrão de produto (`_ProductFormCard`) com o título *"Editar Item Avulso"*, categoria *"Usina Solar • Item Avulso / Equipamento"* e a ficha técnica específica do equipamento.
+
+  10. **Nicho de Automação Residencial & Comercial — 'Estudo de Proposta' (`ProductSector.homeAutomation`):**
+      - **Adaptação Dinâmica do Menu Lateral (`AppSidebar`):** Quando a empresa ou nicho ativo for **Automação Residencial**, o item *'Produtos'* do menu lateral é automaticamente rotulado como **'Estudo de Proposta'** com ícone `Icons.sensors_rounded`.
+      - **Terminologias Dinâmicas no Catálogo:** Títulos adaptados para *'Estudos de Proposta'*, *'Cadastrar Estudo'*, *'Novo Estudo'*. O botão superior direito se torna **'NOVO ESTUDO'** (com gradiente índigo/violeta e ícone `Icons.sensors_rounded`).
+      - **Arquitetura Baseada em Ambientes & Equipamentos (`AutomationEnvironment` e `AutomationItem`):**
+        - O estudo organiza as soluções estruturadas por cômodos/zonas (ex: *Sala de Estar*, *Home Theater*, *Suíte Master*, *Espaço Gourmet*, *Jardim*, etc.).
+        - Cada ambiente contém seus equipamentos com quantidades, unidades, preços unitários e subtotais por cômodo.
+        - Subtotal de Equipamentos + Valor de Mão de Obra / Programação / Instalação = **Valor Total do Estudo de Automação**.
+      - **Importação Multimodal com IA Google Gemini Vision (`GeminiAutomationVisionService` & `AutomationPdfImportDialog`):**
+        - O usuário pode enviar PDF ou Imagens (memorial descritivo, planta baixa com legendas de automação, cotação de distribuidor ou lista de materiais).
+        - A IA analisa visualmente os documentos, extrai o nome do projeto/cliente, identifica os ambientes e mapeia os equipamentos com quantidades por cômodo automaticamente.
+      - **Detalhamento Expansível Inline (`_AutomationStudyDetails`):**
+        - Na tabela do catálogo (Desktop e Mobile), o estudo de automação possui botão de expansão inline `+` / `-` (`{N} ambientes`), revelando todos os cômodos, ícones contextuais de cada ambiente, lista de equipamentos, marcas/modelos e subtotais por zona.
+      - **Equipamentos são Produtos do Catálogo (Autocomplete & Seleção Inteligente):**
+        - No cadastro do estudo, os equipamentos sugeridos pela IA ou inseridos manualmente funcionam como produtos reais do catálogo (análogo aos inversores e módulos solares em Usinas Solares).
+        - **Seleção Total ao Clicar:** Ao clicar no campo do equipamento, seleciona automaticamente todo o texto do input (`selectAll`) para agilizar a digitação ou substituição.
+        - **Autocomplete Flutuante em Tempo Real (`AutomationEquipmentAutocompleteField`):** Conectado à stream de produtos de automação do Firestore, pesquisa instantaneamente por nome, SKU, marca ou categoria e exibe um menu suspenso elegante com ícone de categoria, modelo, SKU e preço em R$.
+        - Ao selecionar uma sugestão, preenche automaticamente nome, SKU, marca, categoria, preço unitário e recalcula os totais do ambiente.
+      - **Gerenciador de Equipamentos de Automação (`AutomationEquipmentManagerDialog`):**
+        - Botão `+` junto a cada linha de equipamento e no cabeçalho da tabela de ambientes.
+        - Diálogo completo com duas abas: **Catálogo** (listagem em tempo real, busca, filtro por categoria, botões de Usar no Item, Editar e Excluir com confirmação) e **Novo Equipamento** (formulário para cadastrar novos dimmers, relés, interruptores, sensores, etc. com preço de venda, custo, SKU, marca e estoque inicial).
+      - **Proposta Web Interativa com Maquete 3D (.GLB / Collada) & Persistência IndexedDB (`AutomationWebProposalView` & `AutomationPreviewBridge`):**
+        - A proposta web de automação reproduz fielmente a estética de alto padrão com fundo de residência em alpha, casa integrada e órbita 360°.
+        - **Engine 3D WebGL Real com Google `<model-viewer>`:** Carrega modelos 3D volumétricos (`.glb`, `.gltf`, `.dae`, `.obj`) com órbita livre, zoom e suporte a auto-rotação.
+        - **Persistência Ilimitada via IndexedDB (`AutomationPreviewBridge`):** Bypassa a cota de 5MB do `localStorage` e a limitação de 1MB por documento do Cloud Firestore, armazenando binários e Base64 no banco local `mavis_automation_db` (`models_store` e `preview_store`).
+        - **Resolução Automática entre Abas:** Ao salvar o estudo e abrir o preview em nova aba (`_blank`), o motor gera um Blob URL determinístico (`blob:...#model.glb`), sincronizando o modelo 3D sem perda de dados.
+        - **Painel Retangular Expandido do Ambiente (`_buildExpandedActiveRoomPanel`):** Elimina redundâncias visuais e grids duplicados na página. Posicionado estrategicamente logo abaixo da maquete 3D, ocupa o espaço horizontal nobre com um painel executivo em glassmorphism. Unifica a foto do interior do cômodo, checklist técnico e percentual do projeto (coluna esquerda) com o detalhamento completo dos equipamentos reais instalados (coluna direita, com ícones, marcas, quantidades e valores), sincronizando em tempo real com os cliques na lista de cômodos da barra lateral e no pin da casa 3D.
+      - **Zero Impacto em Usinas Solares:** Todo o fluxo solar fotovoltaico (cálculos kWp, telhados, inversores, placas) permanece 100% isolado, intacto e protegido.
 
 ### 6. `SuppliersModule` / `SuppliersView`
 - **`suppliers_view.dart`:** Gestão completa de fornecedores e parceiros comerciais:
@@ -505,21 +533,21 @@ Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha cont
 
 ## 📐 7. Padrões de Código e Convenções
 
-1. **Injeção de Dependências:** Sempre registrar repositórios e stores nos módulos via `Bind.lazySingleton`. Evitar instanciar serviços diretamente nas Views (usar `try { Modular.get<T>() } catch (_) { T() }` como fallback seguro).
+1. **Injeção de Dependências:** Sempre registrar repositórios e stores nos módulos via Bind.lazySingleton. Evitar instanciar serviços diretamente nas Views (usar 	ry { Modular.get<T>() } catch (_) { T() } como fallback seguro).
 2. **Gerenciamento de Estado com MobX:**
-   - Apenas o `Store` gerencia estados (`@observable`, `@action`, `@computed`).
-   - Usar widgets `Observer` pontuais em torno dos elementos reativos para evitar rebuild total da tela.
-   - Sempre executar `flutter pub run build_runner build --delete-conflicting-outputs` ao criar/modificar stores.
+   - Apenas o Store gerencia estados (@observable, @action, @computed).
+   - Usar widgets Observer pontuais em torno dos elementos reativos para evitar rebuild total da tela.
+   - Sempre executar lutter pub run build_runner build --delete-conflicting-outputs ao criar/modificar stores.
 3. **Design Tokens:**
-   - Nunca utilizar cores cruas (`Colors.blue`, `Colors.red`) nos componentes novos.
-   - Sempre consumir `AppColors`, `AppDecorations` e `AppTheme.font(...)` definidos em `lib/app/theme/`.
+   - Nunca utilizar cores cruas (Colors.blue, Colors.red) nos componentes novos.
+   - Sempre consumir AppColors, AppDecorations e AppTheme.font(...) definidos em lib/app/theme/.
 4. **Layout Responsivo Web/Mobile:**
-   - Widgets no miolo do SPA **sempre** usar `LayoutBuilder` ou `SizedBox.expand` como raiz para garantir constraints finitas.
-   - Nunca colocar `Expanded` como filho direto de `Column` sem altura garantida pelo pai.
-   - `ElevatedButton` e `OutlinedButton` **NUNCA** devem ser usados diretamente dentro de `Row` ou `Column` com decorações conflitantes.
+   - Widgets no miolo do SPA **sempre** usar LayoutBuilder ou SizedBox.expand como raiz para garantir constraints finitas.
+   - Nunca colocar Expanded como filho direto de Column sem altura garantida pelo pai.
+   - ElevatedButton e OutlinedButton **NUNCA** devem ser usados diretamente dentro de Row ou Column com decorações conflitantes.
 5. **Configurações Multiplataforma (Android/Web):**
-   - `AndroidManifest.xml` configurado com `android.permission.INTERNET` e `ACCESS_NETWORK_STATE`.
-   - `build.gradle.kts` com `minSdk = 21` para Firebase e `google_sign_in`.
+   - AndroidManifest.xml configurado com ndroid.permission.INTERNET e ACCESS_NETWORK_STATE.
+   - uild.gradle.kts com minSdk = 21 para Firebase e google_sign_in.
 
 ---
 
@@ -531,16 +559,30 @@ Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha cont
 - [x] **Consulta de CEP Automática:** Auto-preenchimento via API pública ViaCEP com validação e auto-foco.
 - [x] **Cadastro e Gestão de Produtos & Serviços:** Módulo completo com ramificação em 20 segmentos brasileiros, categorização customizada com ícones/cores e controle de estoque.
 - [x] **Cadastro e Gestão de Fornecedores:** Módulo completo de Fornecedores com consulta ViaCEP automática, condições comerciais e integração direta no cadastro de produtos.
-- [x] **Módulo de Propostas Comerciais & Geração de PDF com Armazenamento no Firebase Storage:** Emissão de orçamentos com múltiplos produtos, cliente vinculado ou avulso, escolha de paleta de cores e geração de PDF vetorial de alta qualidade (6 páginas para Usinas Solares e formato padrão). O sistema agora faz o upload automático do arquivo físico `.pdf` diretamente no **Firebase Storage** no caminho oficial `gs://solardino-aea02.appspot.com/propostas_mavis/{companyId}/{userId}/{proposalNumber}_proposta.pdf` e grava `pdfUrl` e `pdfPath` no documento Firestore, garantindo download instantâneo via web, celular ou integrações externas.
-- [x] **Arquitetura SPA estabilizada:** Scaffold único no Dashboard, AppSidebar com enum tipado (`dashboard`, `clients`, `products`, `suppliers`, `proposals`, `users`), troca de miolo dinâmica sem erros de render.
-- [x] **Prontidão Android:** `minSdk = 21`, permissões de Internet e `google-services.json` integrados.
-- [x] **Multi-Empresa & Isolamento de Dados (Multi-tenancy):** Isolamento total por `companyId` em todos os módulos (Clientes, Produtos, Fornecedores, Propostas, Categorias, Usuários). Cada conta registrada atua como empresa/tenant raiz (`companyId == uid` e `role == 'admin'`). Usuários cadastrados internamente herdam o `companyId` da empresa e seu nível de acesso.
-- [x] **Controle de Cotas de IA & Limite de Vendedores por Integrador (Painel Master):** Sistema robusto com permissão granular no RBAC (`useAi`), cota diária padrão configurável de análises de IA (default: 25/dia com renovação à meia-noite), limite padrão de vendedores por empresa/integrador (default: 5 vendedores por integrador com bloqueio inteligente de novos cadastros), diálogos explicativos com estética moderna e painel configurador exclusivo para o SuperAdmin no Dashboard master (`admin@admin.com.br`) com personalização de cotas globais e individuais por integradora via `SystemSettingsService` (`system_settings/global_config`).
-- [x] **Solar Roof Designer & Anotações de Drone (Orientação & Quedas d'Água):** Módulo de dimensionamento solar sobre imagem de satélite (Google/Esri) e fotos de alta resolução de drone. Oculta a rosa dos ventos fixa em fotos de drone e introduz janela flutuante arrastável (`OrientationToolbox`) acessada pelo botão `🧭 Orientação & Quedas`. Permite adicionar bússola móvel com pontos cardeais (`DroneNorthCompass`) rotacionável em 360° pelo painel ou diretamente no Canvas. Permite adicionar setas técnicas de indicação de caimento/quedas do telhado (`DroneRoofArrow`) com rotação de 360° (sliders, botões rápidos de ±90° e 180° de oposição), nós de arraste e giro livre no Canvas, paleta de cores e Motor de Auto-Alinhamento Magnético inteligente (Snap de eixos X/Y e snap angular para quedas opostas e ortogonais com linha guia pontilhada esmeralda).
-- [ ] **Microserviço Nativo Dart de Geração de PDFs (mavis-pdf):** Microserviço em Dart para rodar no Easypanel (porta 8080) compartilhando a lógica oficial de compilação do `SolarProposalPdfService`. Quando o `mavis-bot` registrar propostas via WhatsApp, aciona o microserviço Dart para compilar o PDF de 6 páginas com fotos HD, salvar no Firebase Storage (`gs://solardino-aea02.appspot.com/propostas_mavis/{companyId}/{userId}/`) e disparar o documento `.pdf` diretamente no WhatsApp do operador.
+- [x] **Módulo de Propostas Comerciais & Geração de PDF com Armazenamento no Firebase Storage:** Emissão de orçamentos com múltiplos produtos, cliente vinculado ou avulso, escolha de paleta de cores e geração de PDF vetorial de alta qualidade (6 páginas para Usinas Solares e formato padrão). O sistema agora faz o upload automático do arquivo físico .pdf diretamente no **Firebase Storage** no caminho oficial gs://solardino-aea02.appspot.com/propostas_mavis/{companyId}/{userId}/{proposalNumber}_proposta.pdf e grava pdfUrl e pdfPath no documento Firestore, garantindo download instantâneo via web, celular ou integrações externas.
+- [x] **Arquitetura SPA estabilizada:** Scaffold único no Dashboard, AppSidebar com enum tipado (dashboard, clients, products, suppliers, proposals, users), troca de miolo dinâmica sem erros de render.
+- [x] **Prontidão Android:** minSdk = 21, permissões de Internet e google-services.json integrados.
+- [x] **Multi-Empresa & Isolamento de Dados (Multi-tenancy):** Isolamento total por companyId em todos os módulos (Clientes, Produtos, Fornecedores, Propostas, Categorias, Usuários). Cada conta registrada atua como empresa/tenant raiz (companyId == uid e 
+ole == 'admin'). Usuários cadastrados internamente herdam o companyId da empresa e seu nível de acesso.
+- [x] **Controle de Cotas de IA & Limite de Vendedores por Integrador (Painel Master):** Sistema robusto com permissão granular no RBAC (useAi), cota diária padrão configurável de análises de IA (default: 25/dia com renovação à meia-noite), limite padrão de vendedores por empresa/integrador (default: 5 vendedores por integrador com bloqueio inteligente de novos cadastros), diálogos explicativos com estética moderna e painel configurador exclusivo para o SuperAdmin no Dashboard master (dmin@admin.com.br) com personalização de cotas globais e individuais por integradora via SystemSettingsService (system_settings/global_config).
+- [x] **Solar Roof Designer & Anotações de Drone (Orientação & Quedas d'Água):** Módulo de dimensionamento solar sobre imagem de satélite (Google/Esri) e fotos de alta resolução de drone. Oculta a rosa dos ventos fixa em fotos de drone e introduz janela flutuante arrastável (OrientationToolbox) acessada pelo botão 🧭 Orientação & Quedas. Permite adicionar bússola móvel com pontos cardeais (DroneNorthCompass) rotacionável em 360° pelo painel ou diretamente no Canvas. Permite adicionar setas técnicas de indicação de caimento/quedas do telhado (DroneRoofArrow) com rotação de 360° (sliders, botões rápidos de ±90° e 180° de oposição), nós de arraste e giro livre no Canvas, paleta de cores e Motor de Auto-Alinhamento Magnético inteligente (Snap de eixos X/Y e snap angular para quedas opostas e ortogonais com linha guia pontilhada esmeralda).
+- [x] **Customização de Linha do Título e Fonte dos Nós Inteligentes (Automação e Usinas):**
+  - **Tamanho da Fonte dos Rótulos dos Nós Inteligentes (coverNodesLabelFontSize):** Na aba *Nós Inteligentes* de Automação, slider dedicado de 6.0 a 18.0 pt para personalizar o tamanho da fonte do texto que fica abaixo dos ícones da fachada (ex: 'ILUMINAÇÃO CÊNICA', 'ÁUDIO MULTIROOM'). As caixas de texto ajustam sua largura dinamicamente e os PDFs compilam com a mesma proporção.
+  - **Linha de Destaque sob o Título (Usinas e Automação):** Na aba *Textos*, seção dedicada para controlar a barra horizontal abaixo do título/subtítulo ('PROPOSTA SOLAR' / 'PROPOSTA AUTOMAÇÃO'). Permite:
+    1. **Ocultar / Remover:** Switch para ligar/desligar a linha (erticalSplitShowRightDivider).
+    2. **Cor da Linha:** Seletor de cores rápidas (erticalSplitRightDividerColor) com fallback para a cor de destaque (accent).
+    3. **Dimensões Customizáveis:** Sliders para largura/comprimento (15 a 160 px - erticalSplitRightDividerWidth) e espessura (1 a 10 px - erticalSplitRightDividerHeight).
+    4. Refletido em tempo real no Canvas (estilos Vertical Split e Modern) e compilado nos motores de PDF (SolarProposalPdfService e AutomationProposalPdfService).
+  - **Proteção Antiestouro (Zero Overflow):** O badge e menu de ações flutuante dos nós inteligentes foi encapsulado com Flexible e maxLines: 1, eliminando avisos de overflow quando posicionado próximo à borda direita do Canvas.
+- [x] **Cabeçalho & Rodapé Customizáveis em Páginas Internas (Usinas e Automação):**
+  - **Regra Rígida de Layout:** O Cabeçalho e o Rodapé **NUNCA** são renderizados na folha de Capa (Página 1). Eles são aplicados obrigatoriamente no topo e base de **TODAS as páginas internas** (Páginas 2 a 6 em Usinas Solares e Páginas 2 a 4 em Automação).
+  - **Live Preview Inteligente no Customizador (CoverInternalPageDemo):** Ao selecionar a aba *'Cabeçalho & Rodapé'* nos diálogos de customização (solar_cover_customizer_dialog.dart e utomation_cover_customizer_dialog.dart), a folha A4 no Canvas muda dinamicamente da capa para um mockup de **página interna limpa** com wireframe representativo de cartões, gráficos e tabelas, permitindo ao usuário visualizar em tempo real a diagramação exata do cabeçalho no topo e rodapé na base. Ao retornar para as outras abas (Textos, Estilo, Nós, Wallpaper), a visualização retorna imediatamente para a Capa.
+  - **Personalização de Cores dos Componentes:** Suporte a 6 novos campos (coverHeaderBgColor, coverHeaderTextColor, coverHeaderIconColor, coverFooterBgColor, coverFooterTextColor, coverFooterIconColor) tanto em SolarSettingsModel quanto em AutomationSettingsModel. Cada elemento permite personalizar a cor de fundo (com switch transparente/sólido), cor do texto e cor de detalhes/ícones/divisores com seletores de cores rápidos e botão de restaurar padrão.
+  - **Renderização Nativa no Motor de PDF (SolarProposalPdfService e AutomationProposalPdfService):** Os serviços de compilação vetorial PDF compilam o cabeçalho no topo e o rodapé na base em todas as páginas subsequentes respeitando as cores customizadas, mantendo a capa 100% limpa e com proporção gráfica profissional.
+- [ ] **Microserviço Nativo Dart de Geração de PDFs (mavis-pdf):** Microserviço em Dart para rodar no Easypanel (porta 8080) compartilhando a lógica oficial de compilação do SolarProposalPdfService. Quando o mavis-bot registrar propostas via WhatsApp, aciona o microserviço Dart para compilar o PDF de 6 páginas com fotos HD, salvar no Firebase Storage (gs://solardino-aea02.appspot.com/propostas_mavis/{companyId}/{userId}/) e disparar o documento .pdf diretamente no WhatsApp do operador.
 - [ ] **Módulo de Leads / Funil de Vendas (CRM):** Criar módulo completo com funil de vendas (Kanban / Lista), filtros por status (Novo, Em Contato, Proposta, Ganho, Perdido) e histórico de interações.
-- [ ] **Recuperação de Senha:** Implementar fluxo `sendPasswordResetEmail` na tela de login.
-- [ ] **Route Guards:** Implementar `RouteGuard` no Modular para proteger `/dashboard/` contra acesso sem autenticação.
+- [ ] **Recuperação de Senha:** Implementar fluxo sendPasswordResetEmail na tela de login.
+- [ ] **Route Guards:** Implementar RouteGuard no Modular para proteger /dashboard/ contra acesso sem autenticação.
 - [ ] **Relatórios e Métricas:** Dashboard com gráficos de conversão e desempenho dos operadores.
 
 > 📚 *Roadmap técnico e tarefas detalhadas em:* [`/docs/roadmap_and_backlog.md`](file:///c:/mavis/docs/roadmap_and_backlog.md) e [`/docs/microservico_pdf_proposta_roadmap.md`](file:///c:/mavis/docs/microservico_pdf_proposta_roadmap.md)

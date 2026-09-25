@@ -67,7 +67,23 @@ class SolarSettingsService {
     if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
       return fileName;
     }
-    final cleanName = fileName.replaceFirst('assets/background_web/', '').replaceFirst('assets/wallpaper_propostas/', '').replaceFirst('wallpapers/energiasolar/', '');
+    final cleanName = fileName
+        .replaceFirst('assets/background_web/', '')
+        .replaceFirst('assets/wallpaper_propostas/', '')
+        .replaceFirst('wallpapers/energiasolar/', '')
+        .replaceFirst('wallpapers/automacao/', '')
+        .replaceFirst('capas/energiasolar/', '')
+        .replaceFirst('capas/automacao/', '');
+
+    if (cleanName.startsWith('modelo_proposta_')) {
+      final encoded = Uri.encodeComponent('capas/energiasolar/$cleanName');
+      return '$_storageBaseUrl/$encoded?alt=media';
+    }
+    if (cleanName.startsWith('modelo_automacao_')) {
+      final encoded = Uri.encodeComponent('capas/automacao/$cleanName');
+      return '$_storageBaseUrl/$encoded?alt=media';
+    }
+
     final encoded = Uri.encodeComponent('wallpapers/energiasolar/$cleanName');
     return '$_storageBaseUrl/$encoded?alt=media';
   }
@@ -80,8 +96,19 @@ class SolarSettingsService {
     }
     try {
       final url = getBigCoverUrl(cleanName);
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
-      if (response.statusCode == 200) {
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        final bytes = response.bodyBytes;
+        _coverBytesCache[cleanName] = bytes;
+        return bytes;
+      }
+    } catch (_) {}
+
+    try {
+      final url = getBigCoverUrl(cleanName);
+      final wsrvUrl = 'https://wsrv.nl/?url=${Uri.encodeComponent(url)}&output=jpg';
+      final response = await http.get(Uri.parse(wsrvUrl)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         final bytes = response.bodyBytes;
         _coverBytesCache[cleanName] = bytes;
         return bytes;
@@ -103,8 +130,19 @@ class SolarSettingsService {
     }
     try {
       final url = getWebBackgroundUrl(cleanName);
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
-      if (response.statusCode == 200) {
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        final bytes = response.bodyBytes;
+        _webBgBytesCache[cleanName] = bytes;
+        return bytes;
+      }
+    } catch (_) {}
+
+    try {
+      final url = getWebBackgroundUrl(cleanName);
+      final wsrvUrl = 'https://wsrv.nl/?url=${Uri.encodeComponent(url)}&output=jpg';
+      final response = await http.get(Uri.parse(wsrvUrl)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         final bytes = response.bodyBytes;
         _webBgBytesCache[cleanName] = bytes;
         return bytes;
@@ -215,9 +253,10 @@ class SolarSettingsService {
     ];
   }
 
-  /// Lista dos 10 estilos de separadores geométricos / decalques
+  /// Lista dos estilos de separadores geométricos / decalques
   static List<Map<String, dynamic>> getAvailableDividers() {
     return const [
+      {'id': -1, 'name': 'Sem Divisor (Foto Completa)', 'desc': 'Exibe a imagem inteira em tela cheia, sem recorte geométrico'},
       {'id': 0, 'name': 'Onda Suave Clássica (S-Curve)', 'desc': 'Curva orgânica dupla com fita de destaque'},
       {'id': 1, 'name': 'Onda Dupla Harmônica', 'desc': 'Duas ondas fluidas intersectantes em degradê'},
       {'id': 2, 'name': 'Corte Diagonal Moderno', 'desc': 'Design angular tecnológico com fita tripla'},

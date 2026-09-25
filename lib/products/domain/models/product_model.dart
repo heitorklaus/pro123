@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'automation_study_model.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 20 SEGMENTOS COMERCIAIS MAIS COMUNS DO BRASIL (Baseados em CNAEs/Atividades)
@@ -73,6 +74,8 @@ enum ProductUnit {
   final String label;
 
   const ProductUnit(this.symbol, this.label);
+
+  String get code => symbol;
 
   static ProductUnit fromString(String? val) {
     if (val == null) return ProductUnit.un;
@@ -162,6 +165,9 @@ class ProductModel {
 
   String get displaySectorTitle => categoryTitle?.isNotEmpty == true ? categoryTitle! : sector.title;
 
+  /// Retorna a marca / fabricante do produto
+  String? get brandModel => (specificAttributes['brand'] as String?) ?? supplierName;
+
   bool get isLowStock => stockQuantity <= minStock && stockQuantity > 0;
   bool get isOutOfStock => stockQuantity <= 0;
   
@@ -184,6 +190,38 @@ class ProductModel {
   }
 
   bool get isSolarComponent => sector == ProductSector.solarPlant && !isSolarPlantKit;
+
+  // 🏠 Propriedades e Getters exclusivos para Estudos de Automação Residencial/Comercial
+  bool get isAutomationStudy {
+    if (sector == ProductSector.homeAutomation) {
+      final attrs = specificAttributes;
+      if (attrs['isAutomationDevice'] == true || attrs['isAutomationComponent'] == true) return false;
+      if (attrs['isAutomationStudy'] == true) return true;
+      if (attrs['environments'] is List && (attrs['environments'] as List).isNotEmpty) return true;
+      return attrs['isAutomationStudy'] == true;
+    }
+    return specificAttributes['isAutomationStudy'] == true;
+  }
+
+  /// Indica se este produto é um equipamento/dispositivo individual de automação (dimmer, relé, sensor, etc.)
+  bool get isAutomationDevice => sector == ProductSector.homeAutomation && !isAutomationStudy;
+
+  List<AutomationEnvironment> get automationEnvironments {
+    final raw = specificAttributes['environments'];
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((m) => AutomationEnvironment.fromMap(Map<String, dynamic>.from(m)))
+          .toList();
+    }
+    return [];
+  }
+
+  int get totalAutomationItemsCount {
+    final envs = automationEnvironments;
+    if (envs.isEmpty) return 0;
+    return envs.fold(0, (acc, e) => acc + e.totalItemsCount);
+  }
 
   List<Map<String, dynamic>> get solarKitItems {
     final raw = specificAttributes['items'];

@@ -264,9 +264,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
     final isMobile = MediaQuery.of(context).size.width < 768;
     final isSolar = _preferredSector == ProductSector.solarPlant;
-    final productsTitle = isSolar ? 'Usinas Solares' : 'Produtos';
-    final productsIcon =
-        isSolar ? Icons.solar_power_rounded : Icons.inventory_2_outlined;
+    final isHomeAutomation = _preferredSector == ProductSector.homeAutomation;
+    final productsTitle = isSolar
+        ? 'Usinas Solares'
+        : isHomeAutomation
+            ? 'Estudo de Proposta'
+            : 'Produtos';
+    final productsIcon = isSolar
+        ? Icons.solar_power_rounded
+        : isHomeAutomation
+            ? Icons.sensors_rounded
+            : Icons.inventory_2_outlined;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -316,14 +324,15 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
         title: TaosLogo(
-          height: isMobile ? 32 : 70,
+          height: isMobile ? 32 : 80,
         ),
         actions: [
           // Contador de Teste Grátis & Botão de Assinar Agora
           if (_subscriptionInfo != null && _subscriptionInfo!.isTrial) ...[
             Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF59E0B).withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(20),
@@ -332,7 +341,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.timer_outlined, size: 14, color: Color(0xFFF59E0B)),
+                    const Icon(Icons.timer_outlined,
+                        size: 14, color: Color(0xFFF59E0B)),
                     const SizedBox(width: 5),
                     Text(
                       '${_subscriptionInfo!.remainingDays} dias de teste',
@@ -352,23 +362,31 @@ class _DashboardPageState extends State<DashboardPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
                   elevation: 2,
                 ),
                 onPressed: _openSubscriptionPlansDialog,
-                icon: const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFBBF24)),
+                icon: const Icon(Icons.star_rounded,
+                    size: 15, color: Color(0xFFFBBF24)),
                 label: Text(
                   'ASSINAR AGORA',
-                  style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+                  style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-          ] else if (_subscriptionInfo != null && _subscriptionInfo!.isActive) ...[
+          ] else if (_subscriptionInfo != null &&
+              _subscriptionInfo!.isActive) ...[
             Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFF10B981).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -377,7 +395,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF10B981)),
+                    const Icon(Icons.verified_rounded,
+                        size: 14, color: Color(0xFF10B981)),
                     const SizedBox(width: 5),
                     Text(
                       'PRO ATIVO',
@@ -1994,10 +2013,10 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 800),
+                constraints: const BoxConstraints(minWidth: 880),
                 child: DataTable(
                   horizontalMargin: 12,
-                  columnSpacing: 20,
+                  columnSpacing: 14,
                   headingRowHeight: 40,
                   dataRowMinHeight: 52,
                   dataRowMaxHeight: 56,

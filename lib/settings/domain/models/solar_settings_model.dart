@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:math' as math;
+import 'proposal_pages_models.dart';
 
 /// Modelo de Banco / Financeira para simulação de financiamento solar
 class SolarFinancingBank {
@@ -372,6 +374,7 @@ class SolarSettingsModel {
   final String? customCoverImageBase64; // Foto customizada enviada pelo cliente
   final int customDividerStyle; // 0 a 9 (Estilo do decalque / separador)
   final String customDividerColor; // Cor do separador customizado
+  final String customDividerBottomColor; // Cor da área inferior/branca da capa
   final bool isCustomCoverMode; // Se está no modo de capa customizada
   final String? companyLogoBase64; // Logomarca personalizada da empresa (Base64)
   final bool coverShowLogo; // Exibir logomarca na capa
@@ -390,6 +393,14 @@ class SolarSettingsModel {
   final String verticalSplitRightSubtitle; // ex: 'SOLAR'
   final String verticalSplitRightTagline; // ex: 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR'
   final String verticalSplitRightFooter; // ex: 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.'
+  final bool verticalSplitShowRightDivider; // Exibir barra sob o título Proposta Solar (default: true)
+  final String verticalSplitRightDividerColor; // Cor da barra (default: '', fallback accent)
+  final double verticalSplitRightDividerWidth; // Largura da barra em px (default: 54.0)
+  final double verticalSplitRightDividerHeight; // Altura/espessura da barra em px (default: 4.5)
+  final bool verticalSplitShowHeadlineDivider; // Exibir barra sob a frase de impacto (default: true)
+  final String verticalSplitHeadlineDividerColor; // Cor da barra da frase de impacto (default: '', fallback accent)
+  final double verticalSplitHeadlineDividerWidth; // Largura da barra da frase de impacto em px (default: 48.0)
+  final double verticalSplitHeadlineDividerHeight; // Altura/espessura da barra da frase de impacto em px (default: 4.0)
   final String verticalSplitAccentColor; // ex: '#EAB308' (Amarelo Dourado)
   final List<CoverFooterBadge> verticalSplitFooterBadges; // Ícones customizáveis do rodapé
   final String verticalSplitBadgesLayout; // 'horizontal' | 'vertical' | 'wrap' (default: 'horizontal')
@@ -419,12 +430,79 @@ class SolarSettingsModel {
   final String coverRightSubtitleColor; // default: '#0F172A'
   final String coverRightTaglineColor; // default: '#475569'
   final String coverBadgesTextColor; // default: '#FFFFFF'
+  final String coverBadgesIconColor; // default: '' (usa coverBadgesTextColor quando vazio)
   final String coverFooterFont; // 'Montserrat' | 'Roboto' | 'Inter' | 'Outfit' | 'Oswald' | 'Poppins'
   final String coverFooterColor; // default: '#64748B'
-
-  // Itens Adicionais Customizados Livres (Textos e Ícones extras adicionados pelo usuário)
   final List<CustomCoverTextItem> customTextItems;
   final List<CustomCoverIconItem> customIconItems;
+
+  // Bloco de Informações do Cliente & CPF/CNPJ (Arrastável, Redimensionável e com Cores)
+  final double coverClientInfoPositionX; // default: 0.58
+  final double coverClientInfoPositionY; // default: 0.88
+  final double coverClientInfoWidth; // default: 240.0
+  final double coverClientInfoFontSize; // default: 8.5
+  final String coverClientInfoColor; // default: '#0F172A'
+  final String coverClientInfoSecondaryColor; // default: '#475569'
+  final bool coverShowClientInfo; // default: true
+
+  // ── Cabeçalho e Rodapé Customizáveis (10 Estilos) ─────────────
+  final int coverHeaderStyle; // 0 = Desativado, 1 a 10 = Estilos
+  final bool coverShowHeader;
+  final String coverHeaderText1;
+  final String coverHeaderText2;
+  final String coverHeaderText3;
+  final String coverHeaderBgColor;
+  final String coverHeaderTextColor;
+  final String coverHeaderIconColor;
+
+  final int coverFooterStyle; // 0 = Desativado, 1 a 10 = Estilos
+  final bool coverShowFooter;
+  final String coverFooterText1;
+  final String coverFooterText2;
+  final String coverFooterText3;
+  final String coverFooterText4;
+  final String coverFooterBgColor;
+  final String coverFooterTextColor;
+  final String coverFooterIconColor;
+
+  // ── Gestão de Páginas, Templates e Cards da Página 2 ─────────────
+  final String page2TemplateId;
+  final String? page2CardsJson;
+  final bool page2ShowIllustration;
+  final String page2IllustrationType;
+  final String? hiddenPagesJson;
+  final String? customPagesJson;
+  final String internalPagesLayoutPreset;
+
+  List<ProposalPageCard> get page2Cards {
+    if (page2CardsJson != null && page2CardsJson!.isNotEmpty) {
+      try {
+        final list = jsonDecode(page2CardsJson!) as List<dynamic>;
+        return list.map((e) => ProposalPageCard.fromMap(e as Map<String, dynamic>)).toList();
+      } catch (_) {}
+    }
+    return ProposalPageCard.defaultSolarCards();
+  }
+
+  List<String> get hiddenPageIds {
+    if (hiddenPagesJson != null && hiddenPagesJson!.isNotEmpty) {
+      try {
+        final list = jsonDecode(hiddenPagesJson!) as List<dynamic>;
+        return list.map((e) => e.toString()).toList();
+      } catch (_) {}
+    }
+    return const [];
+  }
+
+  List<ProposalCustomPage> get customPages {
+    if (customPagesJson != null && customPagesJson!.isNotEmpty) {
+      try {
+        final list = jsonDecode(customPagesJson!) as List<dynamic>;
+        return list.map((e) => ProposalCustomPage.fromMap(e as Map<String, dynamic>)).toList();
+      } catch (_) {}
+    }
+    return const [];
+  }
 
   // Getters para compatibilidade retroativa
   String get selectedSvgHeader => selectedSvgTheme;
@@ -462,6 +540,14 @@ class SolarSettingsModel {
     return 0xFF0284C7;
   }
 
+  /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor da área inferior customizada
+  int get customDividerBottomColorValue {
+    final hex = customDividerBottomColor.replaceAll('#', '').trim();
+    if (hex.length == 6) return int.tryParse('FF$hex', radix: 16) ?? 0xFFFFFFFF;
+    if (hex.length == 8) return int.tryParse(hex, radix: 16) ?? 0xFFFFFFFF;
+    return 0xFFFFFFFF;
+  }
+
   /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor de destaque vertical split
   int get verticalSplitAccentColorValue {
     final hex = verticalSplitAccentColor.replaceAll('#', '').trim();
@@ -474,8 +560,28 @@ class SolarSettingsModel {
   int get coverRightTitleColorValue => _hexToColor(coverRightTitleColor, fallback: 0xFF334155);
   int get coverRightSubtitleColorValue => _hexToColor(coverRightSubtitleColor, fallback: 0xFF0F172A);
   int get coverRightTaglineColorValue => _hexToColor(coverRightTaglineColor, fallback: 0xFF475569);
+  int get verticalSplitRightDividerColorValue {
+    if (verticalSplitRightDividerColor.trim().isNotEmpty) {
+      return _hexToColor(verticalSplitRightDividerColor, fallback: verticalSplitAccentColorValue);
+    }
+    return verticalSplitAccentColorValue;
+  }
+  int get verticalSplitHeadlineDividerColorValue {
+    if (verticalSplitHeadlineDividerColor.trim().isNotEmpty) {
+      return _hexToColor(verticalSplitHeadlineDividerColor, fallback: verticalSplitAccentColorValue);
+    }
+    return verticalSplitAccentColorValue;
+  }
   int get coverBadgesTextColorValue => _hexToColor(coverBadgesTextColor, fallback: 0xFFFFFFFF);
+  int get coverBadgesIconColorValue {
+    if (coverBadgesIconColor.trim().isNotEmpty) {
+      return _hexToColor(coverBadgesIconColor, fallback: coverBadgesTextColorValue);
+    }
+    return coverBadgesTextColorValue;
+  }
   int get coverFooterColorValue => _hexToColor(coverFooterColor, fallback: 0xFF64748B);
+  int get coverClientInfoColorValue => _hexToColor(coverClientInfoColor, fallback: 0xFF0F172A);
+  int get coverClientInfoSecondaryColorValue => _hexToColor(coverClientInfoSecondaryColor, fallback: 0xFF475569);
 
   static int _hexToColor(String hexStr, {required int fallback}) {
     final hex = hexStr.replaceAll('#', '').trim();
@@ -581,6 +687,7 @@ class SolarSettingsModel {
     this.customCoverImageBase64,
     this.customDividerStyle = 0,
     this.customDividerColor = '#0284C7',
+    this.customDividerBottomColor = '#FFFFFF',
     this.isCustomCoverMode = false,
     this.companyLogoBase64,
     this.coverShowLogo = true,
@@ -597,6 +704,14 @@ class SolarSettingsModel {
     this.verticalSplitRightSubtitle = 'SOLAR',
     this.verticalSplitRightTagline = 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR',
     this.verticalSplitRightFooter = 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.',
+    this.verticalSplitShowRightDivider = true,
+    this.verticalSplitRightDividerColor = '',
+    this.verticalSplitRightDividerWidth = 54.0,
+    this.verticalSplitRightDividerHeight = 4.5,
+    this.verticalSplitShowHeadlineDivider = true,
+    this.verticalSplitHeadlineDividerColor = '',
+    this.verticalSplitHeadlineDividerWidth = 48.0,
+    this.verticalSplitHeadlineDividerHeight = 4.0,
     this.verticalSplitAccentColor = '#EAB308',
     this.verticalSplitFooterBadges = const [
       CoverFooterBadge(iconKey: 'eco', label: 'ECONOMIA'),
@@ -624,10 +739,42 @@ class SolarSettingsModel {
     this.coverRightSubtitleColor = '#0F172A',
     this.coverRightTaglineColor = '#475569',
     this.coverBadgesTextColor = '#FFFFFF',
+    this.coverBadgesIconColor = '',
     this.coverFooterFont = 'Montserrat',
     this.coverFooterColor = '#64748B',
     this.customTextItems = const [],
     this.customIconItems = const [],
+    this.coverClientInfoPositionX = 0.58,
+    this.coverClientInfoPositionY = 0.88,
+    this.coverClientInfoWidth = 240.0,
+    this.coverClientInfoFontSize = 8.5,
+    this.coverClientInfoColor = '#0F172A',
+    this.coverClientInfoSecondaryColor = '#475569',
+    this.coverShowClientInfo = true,
+    this.coverHeaderStyle = 1,
+    this.coverShowHeader = true,
+    this.coverHeaderText1 = 'PROPOSTA COMERCIAL',
+    this.coverHeaderText2 = 'ENERGIA SOLAR FOTOVOLTAICA',
+    this.coverHeaderText3 = 'SOLUÇÕES SUSTENTÁVEIS DE ALTA PERFORMANCE',
+    this.coverHeaderBgColor = '',
+    this.coverHeaderTextColor = '',
+    this.coverHeaderIconColor = '',
+    this.coverFooterStyle = 1,
+    this.coverShowFooter = true,
+    this.coverFooterText1 = 'ENERGIA LIMPA • ECONOMIA REAL • VALORIZAÇÃO',
+    this.coverFooterText2 = '(11) 99999-9999  •  contato@suaempresa.com.br',
+    this.coverFooterText3 = 'www.suaempresa.com.br',
+    this.coverFooterText4 = 'Proposta válida por 10 dias corridos a partir da data de emissão.',
+    this.coverFooterBgColor = '',
+    this.coverFooterTextColor = '',
+    this.coverFooterIconColor = '',
+    this.page2TemplateId = 'tpl_01_tech_grid',
+    this.page2CardsJson,
+    this.page2ShowIllustration = true,
+    this.page2IllustrationType = 'banner',
+    this.hiddenPagesJson,
+    this.customPagesJson,
+    this.internalPagesLayoutPreset = 'preset_01',
   });
 
   /// Gera a simulação ano a ano comparando Com Solar vs Sem Solar
@@ -702,6 +849,7 @@ class SolarSettingsModel {
     String? customCoverImageBase64,
     int? customDividerStyle,
     String? customDividerColor,
+    String? customDividerBottomColor,
     bool? isCustomCoverMode,
     String? companyLogoBase64,
     bool? coverShowLogo,
@@ -718,6 +866,14 @@ class SolarSettingsModel {
     String? verticalSplitRightSubtitle,
     String? verticalSplitRightTagline,
     String? verticalSplitRightFooter,
+    bool? verticalSplitShowRightDivider,
+    String? verticalSplitRightDividerColor,
+    double? verticalSplitRightDividerWidth,
+    double? verticalSplitRightDividerHeight,
+    bool? verticalSplitShowHeadlineDivider,
+    String? verticalSplitHeadlineDividerColor,
+    double? verticalSplitHeadlineDividerWidth,
+    double? verticalSplitHeadlineDividerHeight,
     String? verticalSplitAccentColor,
     List<CoverFooterBadge>? verticalSplitFooterBadges,
     String? verticalSplitBadgesLayout,
@@ -741,10 +897,42 @@ class SolarSettingsModel {
     String? coverRightSubtitleColor,
     String? coverRightTaglineColor,
     String? coverBadgesTextColor,
+    String? coverBadgesIconColor,
     String? coverFooterFont,
     String? coverFooterColor,
     List<CustomCoverTextItem>? customTextItems,
     List<CustomCoverIconItem>? customIconItems,
+    double? coverClientInfoPositionX,
+    double? coverClientInfoPositionY,
+    double? coverClientInfoWidth,
+    double? coverClientInfoFontSize,
+    String? coverClientInfoColor,
+    String? coverClientInfoSecondaryColor,
+    bool? coverShowClientInfo,
+    int? coverHeaderStyle,
+    bool? coverShowHeader,
+    String? coverHeaderText1,
+    String? coverHeaderText2,
+    String? coverHeaderText3,
+    String? coverHeaderBgColor,
+    String? coverHeaderTextColor,
+    String? coverHeaderIconColor,
+    int? coverFooterStyle,
+    bool? coverShowFooter,
+    String? coverFooterText1,
+    String? coverFooterText2,
+    String? coverFooterText3,
+    String? coverFooterText4,
+    String? coverFooterBgColor,
+    String? coverFooterTextColor,
+    String? coverFooterIconColor,
+    String? page2TemplateId,
+    String? page2CardsJson,
+    bool? page2ShowIllustration,
+    String? page2IllustrationType,
+    String? hiddenPagesJson,
+    String? customPagesJson,
+    String? internalPagesLayoutPreset,
   }) {
     return SolarSettingsModel(
       utilityCompany: utilityCompany ?? this.utilityCompany,
@@ -779,6 +967,7 @@ class SolarSettingsModel {
       customCoverImageBase64: customCoverImageBase64 ?? this.customCoverImageBase64,
       customDividerStyle: customDividerStyle ?? this.customDividerStyle,
       customDividerColor: customDividerColor ?? this.customDividerColor,
+      customDividerBottomColor: customDividerBottomColor ?? this.customDividerBottomColor,
       isCustomCoverMode: isCustomCoverMode ?? this.isCustomCoverMode,
       companyLogoBase64: companyLogoBase64 ?? this.companyLogoBase64,
       coverShowLogo: coverShowLogo ?? this.coverShowLogo,
@@ -795,6 +984,14 @@ class SolarSettingsModel {
       verticalSplitRightSubtitle: verticalSplitRightSubtitle ?? this.verticalSplitRightSubtitle,
       verticalSplitRightTagline: verticalSplitRightTagline ?? this.verticalSplitRightTagline,
       verticalSplitRightFooter: verticalSplitRightFooter ?? this.verticalSplitRightFooter,
+      verticalSplitShowRightDivider: verticalSplitShowRightDivider ?? this.verticalSplitShowRightDivider,
+      verticalSplitRightDividerColor: verticalSplitRightDividerColor ?? this.verticalSplitRightDividerColor,
+      verticalSplitRightDividerWidth: verticalSplitRightDividerWidth ?? this.verticalSplitRightDividerWidth,
+      verticalSplitRightDividerHeight: verticalSplitRightDividerHeight ?? this.verticalSplitRightDividerHeight,
+      verticalSplitShowHeadlineDivider: verticalSplitShowHeadlineDivider ?? this.verticalSplitShowHeadlineDivider,
+      verticalSplitHeadlineDividerColor: verticalSplitHeadlineDividerColor ?? this.verticalSplitHeadlineDividerColor,
+      verticalSplitHeadlineDividerWidth: verticalSplitHeadlineDividerWidth ?? this.verticalSplitHeadlineDividerWidth,
+      verticalSplitHeadlineDividerHeight: verticalSplitHeadlineDividerHeight ?? this.verticalSplitHeadlineDividerHeight,
       verticalSplitAccentColor: verticalSplitAccentColor ?? this.verticalSplitAccentColor,
       verticalSplitFooterBadges: verticalSplitFooterBadges ?? this.verticalSplitFooterBadges,
       verticalSplitBadgesLayout: verticalSplitBadgesLayout ?? this.verticalSplitBadgesLayout,
@@ -818,15 +1015,53 @@ class SolarSettingsModel {
       coverRightSubtitleColor: coverRightSubtitleColor ?? this.coverRightSubtitleColor,
       coverRightTaglineColor: coverRightTaglineColor ?? this.coverRightTaglineColor,
       coverBadgesTextColor: coverBadgesTextColor ?? this.coverBadgesTextColor,
+      coverBadgesIconColor: coverBadgesIconColor ?? this.coverBadgesIconColor,
       coverFooterFont: coverFooterFont ?? this.coverFooterFont,
-      coverFooterColor: coverFooterColor ?? this.coverFooterColor,
       customTextItems: customTextItems ?? this.customTextItems,
       customIconItems: customIconItems ?? this.customIconItems,
+      coverClientInfoPositionX: coverClientInfoPositionX ?? this.coverClientInfoPositionX,
+      coverClientInfoPositionY: coverClientInfoPositionY ?? this.coverClientInfoPositionY,
+      coverClientInfoWidth: coverClientInfoWidth ?? this.coverClientInfoWidth,
+      coverClientInfoFontSize: coverClientInfoFontSize ?? this.coverClientInfoFontSize,
+      coverClientInfoColor: coverClientInfoColor ?? this.coverClientInfoColor,
+      coverClientInfoSecondaryColor: coverClientInfoSecondaryColor ?? this.coverClientInfoSecondaryColor,
+      coverShowClientInfo: coverShowClientInfo ?? this.coverShowClientInfo,
+      coverHeaderStyle: coverHeaderStyle ?? this.coverHeaderStyle,
+      coverShowHeader: coverShowHeader ?? this.coverShowHeader,
+      coverHeaderText1: coverHeaderText1 ?? this.coverHeaderText1,
+      coverHeaderText2: coverHeaderText2 ?? this.coverHeaderText2,
+      coverHeaderText3: coverHeaderText3 ?? this.coverHeaderText3,
+      coverHeaderBgColor: coverHeaderBgColor ?? this.coverHeaderBgColor,
+      coverHeaderTextColor: coverHeaderTextColor ?? this.coverHeaderTextColor,
+      coverHeaderIconColor: coverHeaderIconColor ?? this.coverHeaderIconColor,
+      coverFooterStyle: coverFooterStyle ?? this.coverFooterStyle,
+      coverShowFooter: coverShowFooter ?? this.coverShowFooter,
+      coverFooterText1: coverFooterText1 ?? this.coverFooterText1,
+      coverFooterText2: coverFooterText2 ?? this.coverFooterText2,
+      coverFooterText3: coverFooterText3 ?? this.coverFooterText3,
+      coverFooterText4: coverFooterText4 ?? this.coverFooterText4,
+      coverFooterBgColor: coverFooterBgColor ?? this.coverFooterBgColor,
+      coverFooterTextColor: coverFooterTextColor ?? this.coverFooterTextColor,
+      coverFooterIconColor: coverFooterIconColor ?? this.coverFooterIconColor,
+      page2TemplateId: page2TemplateId ?? this.page2TemplateId,
+      page2CardsJson: page2CardsJson ?? this.page2CardsJson,
+      page2ShowIllustration: page2ShowIllustration ?? this.page2ShowIllustration,
+      page2IllustrationType: page2IllustrationType ?? this.page2IllustrationType,
+      hiddenPagesJson: hiddenPagesJson ?? this.hiddenPagesJson,
+      customPagesJson: customPagesJson ?? this.customPagesJson,
+      internalPagesLayoutPreset: internalPagesLayoutPreset ?? this.internalPagesLayoutPreset,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'page2TemplateId': page2TemplateId,
+      'page2CardsJson': page2CardsJson,
+      'page2ShowIllustration': page2ShowIllustration,
+      'page2IllustrationType': page2IllustrationType,
+      'hiddenPagesJson': hiddenPagesJson,
+      'customPagesJson': customPagesJson,
+      'internalPagesLayoutPreset': internalPagesLayoutPreset,
       'utilityCompany': utilityCompany,
       'energyTariff': energyTariff,
       'fioBTariff': fioBTariff,
@@ -859,6 +1094,7 @@ class SolarSettingsModel {
       'customCoverImageBase64': customCoverImageBase64,
       'customDividerStyle': customDividerStyle,
       'customDividerColor': customDividerColor,
+      'customDividerBottomColor': customDividerBottomColor,
       'isCustomCoverMode': isCustomCoverMode,
       'companyLogoBase64': companyLogoBase64,
       'coverShowLogo': coverShowLogo,
@@ -875,6 +1111,14 @@ class SolarSettingsModel {
       'verticalSplitRightSubtitle': verticalSplitRightSubtitle,
       'verticalSplitRightTagline': verticalSplitRightTagline,
       'verticalSplitRightFooter': verticalSplitRightFooter,
+      'verticalSplitShowRightDivider': verticalSplitShowRightDivider,
+      'verticalSplitRightDividerColor': verticalSplitRightDividerColor,
+      'verticalSplitRightDividerWidth': verticalSplitRightDividerWidth,
+      'verticalSplitRightDividerHeight': verticalSplitRightDividerHeight,
+      'verticalSplitShowHeadlineDivider': verticalSplitShowHeadlineDivider,
+      'verticalSplitHeadlineDividerColor': verticalSplitHeadlineDividerColor,
+      'verticalSplitHeadlineDividerWidth': verticalSplitHeadlineDividerWidth,
+      'verticalSplitHeadlineDividerHeight': verticalSplitHeadlineDividerHeight,
       'verticalSplitAccentColor': verticalSplitAccentColor,
       'verticalSplitFooterBadges': verticalSplitFooterBadges.map((b) => b.toMap()).toList(),
       'verticalSplitBadgesLayout': verticalSplitBadgesLayout,
@@ -898,10 +1142,35 @@ class SolarSettingsModel {
       'coverRightSubtitleColor': coverRightSubtitleColor,
       'coverRightTaglineColor': coverRightTaglineColor,
       'coverBadgesTextColor': coverBadgesTextColor,
+      'coverBadgesIconColor': coverBadgesIconColor,
       'coverFooterFont': coverFooterFont,
       'coverFooterColor': coverFooterColor,
       'customTextItems': customTextItems.map((t) => t.toMap()).toList(),
       'customIconItems': customIconItems.map((i) => i.toMap()).toList(),
+      'coverClientInfoPositionX': coverClientInfoPositionX,
+      'coverClientInfoPositionY': coverClientInfoPositionY,
+      'coverClientInfoWidth': coverClientInfoWidth,
+      'coverClientInfoFontSize': coverClientInfoFontSize,
+      'coverClientInfoColor': coverClientInfoColor,
+      'coverClientInfoSecondaryColor': coverClientInfoSecondaryColor,
+      'coverShowClientInfo': coverShowClientInfo,
+      'coverHeaderStyle': coverHeaderStyle,
+      'coverShowHeader': coverShowHeader,
+      'coverHeaderText1': coverHeaderText1,
+      'coverHeaderText2': coverHeaderText2,
+      'coverHeaderText3': coverHeaderText3,
+      'coverHeaderBgColor': coverHeaderBgColor,
+      'coverHeaderTextColor': coverHeaderTextColor,
+      'coverHeaderIconColor': coverHeaderIconColor,
+      'coverFooterStyle': coverFooterStyle,
+      'coverShowFooter': coverShowFooter,
+      'coverFooterText1': coverFooterText1,
+      'coverFooterText2': coverFooterText2,
+      'coverFooterText3': coverFooterText3,
+      'coverFooterText4': coverFooterText4,
+      'coverFooterBgColor': coverFooterBgColor,
+      'coverFooterTextColor': coverFooterTextColor,
+      'coverFooterIconColor': coverFooterIconColor,
     };
   }
 
@@ -949,6 +1218,7 @@ class SolarSettingsModel {
       customCoverImageBase64: map['customCoverImageBase64'] as String?,
       customDividerStyle: (map['customDividerStyle'] as num?)?.toInt() ?? 0,
       customDividerColor: map['customDividerColor'] as String? ?? '#0284C7',
+      customDividerBottomColor: map['customDividerBottomColor'] as String? ?? '#FFFFFF',
       isCustomCoverMode: map['isCustomCoverMode'] as bool? ?? false,
       companyLogoBase64: map['companyLogoBase64'] as String?,
       coverShowLogo: map['coverShowLogo'] as bool? ?? true,
@@ -965,6 +1235,14 @@ class SolarSettingsModel {
       verticalSplitRightSubtitle: map['verticalSplitRightSubtitle'] as String? ?? 'SOLAR',
       verticalSplitRightTagline: map['verticalSplitRightTagline'] as String? ?? 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR',
       verticalSplitRightFooter: map['verticalSplitRightFooter'] as String? ?? 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.',
+      verticalSplitShowRightDivider: map['verticalSplitShowRightDivider'] as bool? ?? true,
+      verticalSplitRightDividerColor: map['verticalSplitRightDividerColor'] as String? ?? '',
+      verticalSplitRightDividerWidth: (map['verticalSplitRightDividerWidth'] as num?)?.toDouble() ?? 54.0,
+      verticalSplitRightDividerHeight: (map['verticalSplitRightDividerHeight'] as num?)?.toDouble() ?? 4.5,
+      verticalSplitShowHeadlineDivider: map['verticalSplitShowHeadlineDivider'] as bool? ?? true,
+      verticalSplitHeadlineDividerColor: map['verticalSplitHeadlineDividerColor'] as String? ?? '',
+      verticalSplitHeadlineDividerWidth: (map['verticalSplitHeadlineDividerWidth'] as num?)?.toDouble() ?? 48.0,
+      verticalSplitHeadlineDividerHeight: (map['verticalSplitHeadlineDividerHeight'] as num?)?.toDouble() ?? 4.0,
       verticalSplitAccentColor: map['verticalSplitAccentColor'] as String? ?? '#EAB308',
       verticalSplitFooterBadges: map['verticalSplitFooterBadges'] is List
           ? (map['verticalSplitFooterBadges'] as List)
@@ -993,6 +1271,7 @@ class SolarSettingsModel {
       coverRightSubtitleColor: map['coverRightSubtitleColor'] as String? ?? '#0F172A',
       coverRightTaglineColor: map['coverRightTaglineColor'] as String? ?? '#475569',
       coverBadgesTextColor: map['coverBadgesTextColor'] as String? ?? '#FFFFFF',
+      coverBadgesIconColor: map['coverBadgesIconColor'] as String? ?? '',
       coverFooterFont: map['coverFooterFont'] as String? ?? 'Montserrat',
       coverFooterColor: map['coverFooterColor'] as String? ?? '#64748B',
       customTextItems: map['customTextItems'] is List
@@ -1007,6 +1286,37 @@ class SolarSettingsModel {
               .map((e) => CustomCoverIconItem.fromMap(Map<String, dynamic>.from(e)))
               .toList()
           : const [],
+      coverClientInfoPositionX: (map['coverClientInfoPositionX'] as num?)?.toDouble() ?? 0.58,
+      coverClientInfoPositionY: (map['coverClientInfoPositionY'] as num?)?.toDouble() ?? 0.88,
+      coverClientInfoWidth: (map['coverClientInfoWidth'] as num?)?.toDouble() ?? 240.0,
+      coverClientInfoFontSize: (map['coverClientInfoFontSize'] as num?)?.toDouble() ?? 8.5,
+      coverClientInfoColor: map['coverClientInfoColor'] as String? ?? '#0F172A',
+      coverClientInfoSecondaryColor: map['coverClientInfoSecondaryColor'] as String? ?? '#475569',
+      coverShowClientInfo: map['coverShowClientInfo'] as bool? ?? true,
+      coverHeaderStyle: (map['coverHeaderStyle'] as num?)?.toInt() ?? 1,
+      coverShowHeader: map['coverShowHeader'] as bool? ?? true,
+      coverHeaderText1: map['coverHeaderText1'] as String? ?? 'PROPOSTA COMERCIAL',
+      coverHeaderText2: map['coverHeaderText2'] as String? ?? 'ENERGIA SOLAR FOTOVOLTAICA',
+      coverHeaderText3: map['coverHeaderText3'] as String? ?? 'SOLUÇÕES SUSTENTÁVEIS DE ALTA PERFORMANCE',
+      coverHeaderBgColor: map['coverHeaderBgColor'] as String? ?? '',
+      coverHeaderTextColor: map['coverHeaderTextColor'] as String? ?? '',
+      coverHeaderIconColor: map['coverHeaderIconColor'] as String? ?? '',
+      coverFooterStyle: (map['coverFooterStyle'] as num?)?.toInt() ?? 1,
+      coverShowFooter: map['coverShowFooter'] as bool? ?? true,
+      coverFooterText1: map['coverFooterText1'] as String? ?? 'ENERGIA LIMPA • ECONOMIA REAL • VALORIZAÇÃO',
+      coverFooterText2: map['coverFooterText2'] as String? ?? '(11) 99999-9999  •  contato@suaempresa.com.br',
+      coverFooterText3: map['coverFooterText3'] as String? ?? 'www.suaempresa.com.br',
+      coverFooterText4: map['coverFooterText4'] as String? ?? 'Proposta válida por 10 dias corridos a partir da data de emissão.',
+      coverFooterBgColor: map['coverFooterBgColor'] as String? ?? '',
+      coverFooterTextColor: map['coverFooterTextColor'] as String? ?? '',
+      coverFooterIconColor: map['coverFooterIconColor'] as String? ?? '',
+      page2TemplateId: map['page2TemplateId'] as String? ?? 'tpl_01_tech_grid',
+      page2CardsJson: map['page2CardsJson'] as String?,
+      page2ShowIllustration: map['page2ShowIllustration'] as bool? ?? true,
+      page2IllustrationType: map['page2IllustrationType'] as String? ?? 'banner',
+      hiddenPagesJson: map['hiddenPagesJson'] as String?,
+      customPagesJson: map['customPagesJson'] as String?,
+      internalPagesLayoutPreset: map['internalPagesLayoutPreset'] as String? ?? 'preset_01',
     );
   }
 

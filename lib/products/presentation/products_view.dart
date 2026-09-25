@@ -17,6 +17,7 @@ import '../../settings/data/services/settings_service.dart';
 import '../../solar_designer/presentation/solar_roof_designer_dialog.dart';
 import '../../solar_designer/presentation/roof_studies_view.dart';
 import 'solar_plant_form_card.dart';
+import 'automation_study_form_card.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: View principal integrada ao SPA Master do Dashboard
@@ -58,6 +59,14 @@ class _ProductsViewState extends State<ProductsView> {
     setState(() {
       _editingProduct = null;
       _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
+      _mode = _ProductsViewMode.form;
+    });
+  }
+
+  void _startNewAutomationStudy() {
+    setState(() {
+      _editingProduct = null;
+      _selectedCategory = CategoryModel.fromSector(ProductSector.homeAutomation);
       _mode = _ProductsViewMode.form;
     });
   }
@@ -111,6 +120,7 @@ class _ProductsViewState extends State<ProductsView> {
                 currentUser: widget.currentUser,
                 onAddNew: _startNewProduct,
                 onAddNewSolarPlant: _startNewSolarPlant,
+                onAddNewAutomationStudy: _startNewAutomationStudy,
                 onOpenRoofStudies: _openRoofStudies,
                 onEdit: _onEditProduct,
               ),
@@ -138,6 +148,54 @@ class _ProductsViewState extends State<ProductsView> {
                                 .toLowerCase()
                                 .contains('solar')));
 
+            final isAutomationStudy =
+                (_editingProduct != null && _editingProduct!.isAutomationStudy) ||
+                    (_editingProduct == null &&
+                        (_selectedCategory.matchingSector ==
+                                ProductSector.homeAutomation ||
+                            _selectedCategory.id == 'homeAutomation' ||
+                            _selectedCategory.title
+                                .toLowerCase()
+                                .contains('automação')));
+
+            Widget formCard;
+            if (isSolarPlant) {
+              formCard = SolarPlantFormCard(
+                category: _selectedCategory,
+                product: _editingProduct,
+                currentUser: widget.currentUser,
+                onBack: _backToTable,
+                onChangeSector: _editingProduct == null
+                    ? _backToSectorSelection
+                    : null,
+                onSuccess: _backToTable,
+                onProceedToProposal: widget.onProceedToProposal,
+              );
+            } else if (isAutomationStudy) {
+              formCard = AutomationStudyFormCard(
+                category: _selectedCategory,
+                product: _editingProduct,
+                currentUser: widget.currentUser,
+                onBack: _backToTable,
+                onChangeSector: _editingProduct == null
+                    ? _backToSectorSelection
+                    : null,
+                onSuccess: _backToTable,
+                onProceedToProposal: widget.onProceedToProposal,
+              );
+            } else {
+              formCard = _ProductFormCard(
+                category: _selectedCategory,
+                product: _editingProduct,
+                currentUser: widget.currentUser,
+                onBack: _backToTable,
+                onChangeSector: _editingProduct == null
+                    ? _backToSectorSelection
+                    : null,
+                onSuccess: _backToTable,
+              );
+            }
+
             return SizedBox(
               width: constraints.maxWidth,
               height: constraints.maxHeight,
@@ -145,29 +203,8 @@ class _ProductsViewState extends State<ProductsView> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(32),
                   child: SizedBox(
-                    width: isSolarPlant ? 1040 : 760,
-                    child: isSolarPlant
-                        ? SolarPlantFormCard(
-                            category: _selectedCategory,
-                            product: _editingProduct,
-                            currentUser: widget.currentUser,
-                            onBack: _backToTable,
-                            onChangeSector: _editingProduct == null
-                                ? _backToSectorSelection
-                                : null,
-                            onSuccess: _backToTable,
-                            onProceedToProposal: widget.onProceedToProposal,
-                          )
-                        : _ProductFormCard(
-                            category: _selectedCategory,
-                            product: _editingProduct,
-                            currentUser: widget.currentUser,
-                            onBack: _backToTable,
-                            onChangeSector: _editingProduct == null
-                                ? _backToSectorSelection
-                                : null,
-                            onSuccess: _backToTable,
-                          ),
+                    width: (isSolarPlant || isAutomationStudy) ? 1040 : 760,
+                    child: formCard,
                   ),
                 ),
               ),
@@ -196,6 +233,7 @@ class _ProductTableView extends StatefulWidget {
   final UserModel? currentUser;
   final VoidCallback onAddNew;
   final VoidCallback? onAddNewSolarPlant;
+  final VoidCallback? onAddNewAutomationStudy;
   final VoidCallback? onOpenRoofStudies;
   final ValueChanged<ProductModel> onEdit;
 
@@ -203,6 +241,7 @@ class _ProductTableView extends StatefulWidget {
     this.currentUser,
     required this.onAddNew,
     this.onAddNewSolarPlant,
+    this.onAddNewAutomationStudy,
     this.onOpenRoofStudies,
     required this.onEdit,
   });
@@ -224,7 +263,9 @@ class _ProductTableViewState extends State<_ProductTableView> {
   int _currentPage = 1;
   int _itemsPerPage = 20;
   final List<int> _pageSizeOptions = const [20, 40, 100, 200];
+  // ignore: unused_field
   bool _isSeeding = false;
+  // ignore: unused_field
   bool _isDeletingAll = false;
   bool _showSolarComponents = false;
   bool _isFixedSector = false;
@@ -351,6 +392,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
     super.dispose();
   }
 
+  // ignore: unused_element
   void _confirmDeleteAllProducts() {
     showDialog(
       context: context,
@@ -544,7 +586,11 @@ class _ProductTableViewState extends State<_ProductTableView> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Produtos & Serviços',
+                      _filterSector == ProductSector.homeAutomation
+                          ? 'Estudos de Proposta'
+                          : (_filterSector == ProductSector.solarPlant
+                              ? 'Usinas Solares & Kits'
+                              : 'Produtos & Serviços'),
                       style: GoogleFonts.outfit(
                         fontSize: isMobile ? 20 : 26,
                         fontWeight: FontWeight.bold,
@@ -553,7 +599,11 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Catálogo inteligente de produtos e serviços',
+                      _filterSector == ProductSector.homeAutomation
+                          ? 'Estudos técnicos e dimensionamentos de automação por ambientes'
+                          : (_filterSector == ProductSector.solarPlant
+                              ? 'Catálogo de usinas solares e kits fotovoltaicos'
+                              : 'Catálogo inteligente de produtos e serviços'),
                       style: GoogleFonts.inter(
                           fontSize: isMobile ? 12 : 14,
                           color: isDark
@@ -570,119 +620,15 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       _currentUser?.canCreateProducts ??
                       false) ...[
                     if (!isMobile) ...[
-                      // Botão de Gerar 200 Produtos de Teste
-                      // Material(
-                      //   color: Colors.transparent,
-                      //   child: InkWell(
-                      //     onTap: (_isSeeding || _isDeletingAll)
-                      //         ? null
-                      //         : _confirmSeedProducts,
-                      //     borderRadius: BorderRadius.circular(12),
-                      //     child: Ink(
-                      //       decoration: BoxDecoration(
-                      //         color: const Color(0xFFF59E0B)
-                      //             .withValues(alpha: 0.12),
-                      //         borderRadius: BorderRadius.circular(12),
-                      //         border: Border.all(
-                      //           color: const Color(0xFFF59E0B)
-                      //               .withValues(alpha: 0.4),
-                      //           width: 1,
-                      //         ),
-                      //       ),
-                      //       child: Padding(
-                      //         padding: const EdgeInsets.symmetric(
-                      //             horizontal: 16, vertical: 11),
-                      //         child: _isSeeding
-                      //             ? const SizedBox(
-                      //                 width: 18,
-                      //                 height: 18,
-                      //                 child: CircularProgressIndicator(
-                      //                   strokeWidth: 2,
-                      //                   color: Color(0xFFF59E0B),
-                      //                 ),
-                      //               )
-                      //             : Row(
-                      //                 mainAxisSize: MainAxisSize.min,
-                      //                 children: [
-                      //                   const Icon(Icons.bolt_rounded,
-                      //                       size: 18, color: Color(0xFFF59E0B)),
-                      //                   const SizedBox(width: 8),
-                      //                   Text(
-                      //                     '1GERAR 200 PRODUTOS TESTE',
-                      //                     style: GoogleFonts.inter(
-                      //                       fontWeight: FontWeight.bold,
-                      //                       fontSize: 12.5,
-                      //                       letterSpacing: 0.3,
-                      //                       color: const Color(0xFFB45309),
-                      //                     ),
-                      //                   ),
-                      //                 ],
-                      //               ),
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-                      const SizedBox(width: 12),
-
-                      // Botão de Limpar / Excluir Todos os Produtos
-                      // Material(
-                      //   color: Colors.transparent,
-                      //   child: InkWell(
-                      //     onTap: (_isSeeding || _isDeletingAll)
-                      //         ? null
-                      //         : _confirmDeleteAllProducts,
-                      //     borderRadius: BorderRadius.circular(12),
-                      //     child: Ink(
-                      //       decoration: BoxDecoration(
-                      //         color: const Color(0xFFEF4444)
-                      //             .withValues(alpha: 0.10),
-                      //         borderRadius: BorderRadius.circular(12),
-                      //         border: Border.all(
-                      //           color: const Color(0xFFEF4444)
-                      //               .withValues(alpha: 0.35),
-                      //           width: 1,
-                      //         ),
-                      //       ),
-                      //       child: Padding(
-                      //         padding: const EdgeInsets.symmetric(
-                      //             horizontal: 16, vertical: 11),
-                      //         child: _isDeletingAll
-                      //             ? const SizedBox(
-                      //                 width: 18,
-                      //                 height: 18,
-                      //                 child: CircularProgressIndicator(
-                      //                   strokeWidth: 2,
-                      //                   color: Color(0xFFEF4444),
-                      //                 ),
-                      //               )
-                      //             : Row(
-                      //                 mainAxisSize: MainAxisSize.min,
-                      //                 children: [
-                      //                   const Icon(Icons.delete_sweep_rounded,
-                      //                       size: 18, color: Color(0xFFEF4444)),
-                      //                   const SizedBox(width: 8),
-                      //                   Text(
-                      //                     'LIMPAR CATÁLOGO',
-                      //                     style: GoogleFonts.inter(
-                      //                       fontWeight: FontWeight.bold,
-                      //                       fontSize: 12.5,
-                      //                       letterSpacing: 0.3,
-                      //                       color: const Color(0xFFDC2626),
-                      //                     ),
-                      //                   ),
-                      //                 ],
-                      //               ),
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
                       const SizedBox(width: 12),
                     ],
 
-                    // Botão Estudo de Telhado & Novo Produto / Nova Usina
+                    // Botão Estudo de Telhado & Novo Produto / Nova Usina / Novo Estudo
                     Builder(builder: (context) {
                       final isSolarFiltered =
                           _filterSector == ProductSector.solarPlant;
+                      final isHomeAutomationFiltered =
+                          _filterSector == ProductSector.homeAutomation;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -745,27 +691,39 @@ class _ProductTableViewState extends State<_ProductTableView> {
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: isSolarFiltered
-                                  ? (widget.onAddNewSolarPlant ??
+                              onTap: isHomeAutomationFiltered
+                                  ? (widget.onAddNewAutomationStudy ??
                                       widget.onAddNew)
-                                  : widget.onAddNew,
+                                  : (isSolarFiltered
+                                      ? (widget.onAddNewSolarPlant ??
+                                          widget.onAddNew)
+                                      : widget.onAddNew),
                               borderRadius: BorderRadius.circular(12),
                               child: Ink(
                                 decoration: BoxDecoration(
-                                  gradient: isSolarFiltered
+                                  gradient: isHomeAutomationFiltered
                                       ? const LinearGradient(
                                           colors: [
-                                            Color(0xFFF59E0B),
-                                            Color(0xFFEA580C)
+                                            Color(0xFF6366F1),
+                                            Color(0xFF4F46E5)
                                           ],
                                         )
-                                      : AppColors.primaryGradient,
+                                      : (isSolarFiltered
+                                          ? const LinearGradient(
+                                              colors: [
+                                                Color(0xFFF59E0B),
+                                                Color(0xFFEA580C)
+                                              ],
+                                            )
+                                          : AppColors.primaryGradient),
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: (isSolarFiltered
-                                              ? const Color(0xFFEA580C)
-                                              : AppColors.primary)
+                                      color: (isHomeAutomationFiltered
+                                              ? const Color(0xFF6366F1)
+                                              : (isSolarFiltered
+                                                  ? const Color(0xFFEA580C)
+                                                  : AppColors.primary))
                                           .withValues(alpha: 0.3),
                                       blurRadius: 12,
                                       offset: const Offset(0, 4),
@@ -780,21 +738,27 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isSolarFiltered
-                                            ? Icons.solar_power_rounded
-                                            : Icons.add_shopping_cart_rounded,
+                                        isHomeAutomationFiltered
+                                            ? Icons.sensors_rounded
+                                            : (isSolarFiltered
+                                                ? Icons.solar_power_rounded
+                                                : Icons.add_shopping_cart_rounded),
                                         size: isMobile ? 16 : 18,
                                         color: Colors.white,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        isSolarFiltered
+                                        isHomeAutomationFiltered
                                             ? (isMobile
-                                                ? 'USINA'
-                                                : 'NOVA USINA')
-                                            : (isMobile
-                                                ? 'NOVO'
-                                                : 'NOVO PRODUTO'),
+                                                ? 'ESTUDO'
+                                                : 'NOVO ESTUDO')
+                                            : (isSolarFiltered
+                                                ? (isMobile
+                                                    ? 'USINA'
+                                                    : 'NOVA USINA')
+                                                : (isMobile
+                                                    ? 'NOVO'
+                                                    : 'NOVO PRODUTO')),
                                         style: GoogleFonts.inter(
                                           fontWeight: FontWeight.bold,
                                           fontSize: isMobile ? 12 : 13,
@@ -1443,8 +1407,9 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       final matchesSeller = _selectedSellerId == null ||
                           p.createdByUserId == _selectedSellerId;
 
-                      if (!matchesQuery || !matchesSector || !matchesSeller)
+                      if (!matchesQuery || !matchesSector || !matchesSeller) {
                         return false;
+                      }
 
                       if (_filterSector == ProductSector.solarPlant) {
                         if (!_showSolarComponents && p.isSolarComponent) {
@@ -1495,7 +1460,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                         return _ProductMobileCard(
                                           product: item,
                                           isExpanded: isExpanded,
-                                          onToggleExpand: item.isSolarPlantKit
+                                          onToggleExpand: (item.isSolarPlantKit || item.isAutomationStudy)
                                               ? () => setState(() {
                                                     if (isExpanded) {
                                                       _expandedProductIds
@@ -1526,7 +1491,7 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                         return _ProductRow(
                                           product: item,
                                           isExpanded: isExpanded,
-                                          onToggleExpand: item.isSolarPlantKit
+                                          onToggleExpand: (item.isSolarPlantKit || item.isAutomationStudy)
                                               ? () => setState(() {
                                                     if (isExpanded) {
                                                       _expandedProductIds
@@ -1750,6 +1715,7 @@ class _ProductRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPlant = product.isSolarPlantKit;
+    final isAutomation = product.isAutomationStudy;
     final isComponent = product.isSolarComponent;
     final kitItems = product.solarKitItems;
 
@@ -1759,7 +1725,12 @@ class _ProductRow extends StatelessWidget {
     Color productIconBg = product.sector.themeColor.withValues(alpha: 0.12);
     Color productIconBorder = product.sector.themeColor.withValues(alpha: 0.3);
 
-    if (isPlant) {
+    if (isAutomation) {
+      productIcon = Icons.sensors_rounded;
+      productIconColor = const Color(0xFF6366F1);
+      productIconBg = const Color(0xFF6366F1).withValues(alpha: 0.15);
+      productIconBorder = const Color(0xFF6366F1).withValues(alpha: 0.4);
+    } else if (isPlant) {
       productIcon = Icons.solar_power_rounded;
       productIconColor = const Color(0xFFD97706);
       productIconBg = const Color(0xFFF59E0B).withValues(alpha: 0.15);
@@ -1823,8 +1794,8 @@ class _ProductRow extends StatelessWidget {
                 flex: 6,
                 child: Row(
                   children: [
-                    // Botão [+] / [-] se for Usina Solar Kit
-                    if (isPlant) ...[
+                    // Botão [+] / [-] se for Usina Solar Kit ou Estudo de Automação
+                    if (isPlant || isAutomation) ...[
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -1834,10 +1805,12 @@ class _ProductRow extends StatelessWidget {
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
                               color: isExpanded
-                                  ? const Color(0xFFEA580C)
-                                      .withValues(alpha: 0.15)
-                                  : const Color(0xFFF59E0B)
-                                      .withValues(alpha: 0.15),
+                                  ? (isAutomation
+                                      ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+                                      : const Color(0xFFEA580C).withValues(alpha: 0.15))
+                                  : (isAutomation
+                                      ? const Color(0xFF6366F1).withValues(alpha: 0.12)
+                                      : const Color(0xFFF59E0B).withValues(alpha: 0.15)),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isExpanded
@@ -1985,6 +1958,22 @@ class _ProductRow extends StatelessWidget {
                                       color: const Color(0xFF059669)),
                                 ),
                               ],
+                              if (isAutomation) ...[
+                                Text(
+                                  '• 🏠 ${product.automationEnvironments.length} ambientes',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF6366F1)),
+                                ),
+                                Text(
+                                  '• 📦 ${product.totalAutomationItemsCount} dispositivos',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF0D9488)),
+                                ),
+                              ],
                               if (product.createdByUserName != null &&
                                   product.createdByUserName!.isNotEmpty)
                                 Container(
@@ -2119,6 +2108,9 @@ class _ProductRow extends StatelessWidget {
 
         // Bloco Expansível da Usina Solar com Lista dos Subprodutos Agrupados
         if (isPlant && isExpanded) _SolarPlantKitDetails(product: product),
+
+        // Bloco Expansível do Estudo de Automação com Ambientes e Equipamentos
+        if (isAutomation && isExpanded) _AutomationStudyDetails(product: product),
       ],
     );
   }
@@ -2411,7 +2403,317 @@ class _SolarPlantKitDetails extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Card Mobile de Produto / Usina Solar
+// Detalhes Expansíveis dos Ambientes e Equipamentos do Estudo de Automação
+// ─────────────────────────────────────────────────────────────────────────────
+class _AutomationStudyDetails extends StatelessWidget {
+  final ProductModel product;
+
+  const _AutomationStudyDetails({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final environments = product.automationEnvironments;
+    final laborPrice =
+        (product.specificAttributes['laborPrice'] as num?)?.toDouble() ?? 0.0;
+    final totalEquipments = product.totalAutomationItemsCount;
+
+    return Container(
+      margin: const EdgeInsets.only(left: 48, right: 24, bottom: 12, top: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header de Resumo
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.sensors_rounded,
+                    size: 18, color: Color(0xFF6366F1)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Detalhamento dos Ambientes & Soluções',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      '${environments.length} cômodos / zonas • $totalEquipments itens mapeados',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (laborPrice > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Text(
+                    'Mão de Obra: R\$ ${laborPrice.toStringAsFixed(2).replaceAll('.', ',')}',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF065F46),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (environments.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                'Nenhum ambiente ou equipamento cadastrado neste estudo.',
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: const Color(0xFF64748B)),
+              ),
+            )
+          else
+            ...environments.map((env) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Cabeçalho do Ambiente
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(9)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(env.icon,
+                              size: 16, color: const Color(0xFF475569)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              env.name,
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${env.items.length} ${env.items.length == 1 ? "item" : "itens"}',
+                              style: GoogleFonts.inter(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Subtotal: R\$ ${env.totalPrice.toStringAsFixed(2).replaceAll('.', ',')}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF6366F1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Lista dos Equipamentos
+                    if (env.items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Text(
+                          'Nenhum item atribuído a este ambiente.',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: const Color(0xFF94A3B8),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        child: Column(
+                          children: env.items.map((item) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  Tooltip(
+                                    message: item.categoryTitle,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        color: item.categoryColor
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Icon(item.categoryIcon,
+                                          size: 13,
+                                          color: item.categoryColor),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                item.name,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      const Color(0xFF1E293B),
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: item.categoryColor
+                                                    .withValues(alpha: 0.08),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                border: Border.all(
+                                                  color: item.categoryColor
+                                                      .withValues(alpha: 0.25),
+                                                  width: 0.8,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                item.categoryTitle,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: item.categoryColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (item.brandModel != null &&
+                                            item.brandModel!.isNotEmpty)
+                                          Text(
+                                            item.brandModel!,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10,
+                                              color: const Color(0xFF64748B),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEEF2FF),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      '${item.quantity} ${item.unit}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF4338CA),
+                                      ),
+                                    ),
+                                  ),
+                                  if (item.totalPrice > 0) ...[
+                                    const SizedBox(width: 14),
+                                    Text(
+                                      'R\$ ${item.totalPrice.toStringAsFixed(2).replaceAll('.', ',')}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Card Mobile de Produto / Usina Solar / Estudo de Automação
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProductMobileCard extends StatelessWidget {
   final ProductModel product;
@@ -2432,7 +2734,9 @@ class _ProductMobileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasKit = product.isSolarPlantKit;
-    final themeColor = product.sector.themeColor;
+    final isAutomation = product.isAutomationStudy;
+    final themeColor =
+        isAutomation ? const Color(0xFF6366F1) : product.sector.themeColor;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -2440,10 +2744,12 @@ class _ProductMobileCard extends StatelessWidget {
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: hasKit
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
-              : (isDark ? const Color(0xFF334155) : AppColors.border),
-          width: hasKit ? 1.2 : 1.0,
+          color: isAutomation
+              ? const Color(0xFF6366F1).withValues(alpha: 0.4)
+              : (hasKit
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+                  : (isDark ? const Color(0xFF334155) : AppColors.border)),
+          width: (hasKit || isAutomation) ? 1.2 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
@@ -2477,9 +2783,11 @@ class _ProductMobileCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
-                            hasKit
-                                ? Icons.solar_power_rounded
-                                : product.sector.icon,
+                            isAutomation
+                                ? Icons.sensors_rounded
+                                : (hasKit
+                                    ? Icons.solar_power_rounded
+                                    : product.sector.icon),
                             color: themeColor,
                             size: 18,
                           ),
@@ -2527,6 +2835,24 @@ class _ProductMobileCard extends StatelessWidget {
                                     : const Color(0xFF0F172A),
                               ),
                             ),
+                            if (isAutomation)
+                              Container(
+                                margin: const EdgeInsets.only(top: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEEF2FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '${product.automationEnvironments.length} amb.',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF4338CA),
+                                  ),
+                                ),
+                              ),
                             if (hasKit)
                               Container(
                                 margin: const EdgeInsets.only(top: 2),
@@ -2573,7 +2899,8 @@ class _ProductMobileCard extends StatelessWidget {
                                 color: themeColor),
                           ),
                         ),
-                        if (hasKit && onToggleExpand != null) ...[
+                        if ((hasKit || isAutomation) &&
+                            onToggleExpand != null) ...[
                           const SizedBox(width: 8),
                           InkWell(
                             onTap: onToggleExpand,
@@ -2597,7 +2924,9 @@ class _ProductMobileCard extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
-                                    '${product.solarKitItems.length} itens',
+                                    isAutomation
+                                        ? '${product.automationEnvironments.length} amb.'
+                                        : '${product.solarKitItems.length} itens',
                                     style: GoogleFonts.inter(
                                         fontSize: 10.5,
                                         color: const Color(0xFF475569)),
@@ -2633,6 +2962,8 @@ class _ProductMobileCard extends StatelessWidget {
               ),
             ),
           ),
+          if (isAutomation && isExpanded)
+            _AutomationStudyDetails(product: product),
           if (hasKit && isExpanded && product.solarKitItems.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(10),

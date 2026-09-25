@@ -8,10 +8,12 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../settings/data/services/solar_settings_service.dart';
 import '../../../settings/domain/models/solar_settings_model.dart';
+import '../../../settings/domain/models/proposal_pages_models.dart';
 import '../../../solar_designer/data/repositories/roof_study_repository.dart';
 import '../../../solar_designer/domain/models/roof_study_model.dart';
 import '../../domain/models/proposal_item_model.dart';
 import '../../domain/models/proposal_model.dart';
+import 'cover_divider_svg_builder.dart';
 
 class SolarProposalPdfService {
   static final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
@@ -127,8 +129,22 @@ class SolarProposalPdfService {
       }
     }
 
-    final int studyPagesCount = effectiveStudy != null ? (1 + effectivePhotos.length) : 0;
-    final int totalPages = 6 + studyPagesCount;
+    final hiddenPages = settings.hiddenPageIds;
+    final customPages = settings.customPages;
+
+    final int studyPagesCount = (effectiveStudy != null && !hiddenPages.contains('page_4')) ? (1 + effectivePhotos.length) : 0;
+    int totalPages = 1; // page_1 (Capa)
+    if (!hiddenPages.contains('page_2')) totalPages++;
+    if (!hiddenPages.contains('page_3')) totalPages++;
+    totalPages += studyPagesCount;
+    if (!hiddenPages.contains('page_5')) totalPages++; // Itens da Usina
+    if (!hiddenPages.contains('page_6')) totalPages++; // Análise Financeira
+    if (!hiddenPages.contains('page_7')) totalPages++; // Financiamento
+    for (final cp in customPages) {
+      if (!hiddenPages.contains(cp.id)) totalPages++;
+    }
+
+    int curPage = 1;
 
     // Carrega fontes Montserrat e fontes customizadas oficiais via PdfGoogleFonts
     pw.Font? fontMontserratBlack;
@@ -164,9 +180,12 @@ class SolarProposalPdfService {
           } catch (_) {}
         }
       }
-    } else if (settings.isCustomCoverMode && settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
+    } else if (settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
       try {
-        coverImageBytes = base64Decode(settings.customCoverImageBase64!);
+        final clean = settings.customCoverImageBase64!.contains(',')
+            ? settings.customCoverImageBase64!.split(',').last
+            : settings.customCoverImageBase64!;
+        coverImageBytes = base64Decode(clean);
       } catch (_) {}
     }
 
@@ -258,60 +277,71 @@ class SolarProposalPdfService {
       ),
     );
 
+    // Capa (Página 1)
+    curPage++;
+
     // ─────────────────────────────────────────────────────────────────────────
     // PÁGINA 2: PROPOSTA COMERCIAL & ESCOPO DO PROJETO
     // ─────────────────────────────────────────────────────────────────────────
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.zero,
-        build: (context) => _buildProgrammaticPageLayout(
-          pageTitle: 'PROPOSTA COMERCIAL',
-          pageNumber: 2,
-          totalPages: totalPages,
-          primaryColor: primaryColor,
-          settings: settings,
-          proposal: proposal,
-          content: _buildPage2Content(primaryColor),
+    if (!hiddenPages.contains('page_2')) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => _buildProgrammaticPageLayout(
+            pageTitle: 'PROPOSTA COMERCIAL',
+            pageNumber: curPage++,
+            totalPages: totalPages,
+            primaryColor: primaryColor,
+            settings: settings,
+            proposal: proposal,
+            content: _buildPage2Content(
+              primaryColor,
+              customCards: settings.page2Cards,
+              showIllustration: settings.page2ShowIllustration,
+            ),
+          ),
         ),
-      ),
-    );
+      );
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // PÁGINA 3: SUA USINA (FICHA TÉCNICA)
     // ─────────────────────────────────────────────────────────────────────────
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.zero,
-        build: (context) => _buildProgrammaticPageLayout(
-          pageTitle: 'SUA USINA SOLAR',
-          pageNumber: 3,
-          totalPages: totalPages,
-          primaryColor: primaryColor,
-          settings: settings,
-          proposal: proposal,
-          content: _buildPage3Content(
-            kwp: kwp,
-            modulesCount: modulesCount,
-            moduleWatts: moduleWatts,
-            inverterModel: inverterModel,
-            inverterKw: inverterKw,
-            roofType: roofType,
-            generationMonthly: generationMonthly,
-            occupiedArea: occupiedArea,
+    if (!hiddenPages.contains('page_3')) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => _buildProgrammaticPageLayout(
+            pageTitle: 'SUA USINA SOLAR',
+            pageNumber: curPage++,
+            totalPages: totalPages,
             primaryColor: primaryColor,
+            settings: settings,
+            proposal: proposal,
+            content: _buildPage3Content(
+              kwp: kwp,
+              modulesCount: modulesCount,
+              moduleWatts: moduleWatts,
+              inverterModel: inverterModel,
+              inverterKw: inverterKw,
+              roofType: roofType,
+              generationMonthly: generationMonthly,
+              occupiedArea: occupiedArea,
+              primaryColor: primaryColor,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // ESTUDO SOLAR DE TELHADO & SOMBREAMENTO (SE VINCULADO)
     // INSERIDO EXATAMENTE ANTES DA PÁGINA "ITENS DA USINA & PAGAMENTO"
     // COM CABEÇALHO E RODAPÉ PADRONIZADOS DA PROPOSTA
     // ─────────────────────────────────────────────────────────────────────────
-    if (effectiveStudy != null) {
+    if (effectiveStudy != null && !hiddenPages.contains('page_4')) {
       // 1. Folha do Estudo Técnico de Telhado & Sombreamento
       pdf.addPage(
         pw.Page(
@@ -319,7 +349,7 @@ class SolarProposalPdfService {
           margin: pw.EdgeInsets.zero,
           build: (context) => _buildProgrammaticPageLayout(
             pageTitle: 'ESTUDO DE TELHADO & SOMBREAMENTO',
-            pageNumber: 4,
+            pageNumber: curPage++,
             totalPages: totalPages,
             primaryColor: primaryColor,
             settings: settings,
@@ -337,14 +367,13 @@ class SolarProposalPdfService {
       // 2. Folhas Individuais Dedicadas para Cada Foto da Simulação Solar
       for (int i = 0; i < effectivePhotos.length; i++) {
         final photo = effectivePhotos[i];
-        final pageNum = 5 + i;
         pdf.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.a4,
             margin: pw.EdgeInsets.zero,
             build: (context) => _buildProgrammaticPageLayout(
               pageTitle: 'SIMULAÇÃO SOLAR • ${_formatHour(photo.hourOfDay)}',
-              pageNumber: pageNum,
+              pageNumber: curPage++,
               totalPages: totalPages,
               primaryColor: primaryColor,
               settings: settings,
@@ -364,74 +393,103 @@ class SolarProposalPdfService {
     // ─────────────────────────────────────────────────────────────────────────
     // PÁGINA: ITENS DA USINA & FORMA DE PAGAMENTO
     // ─────────────────────────────────────────────────────────────────────────
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.zero,
-        build: (context) => _buildProgrammaticPageLayout(
-          pageTitle: 'ITENS DA USINA & PAGAMENTO',
-          pageNumber: 4 + studyPagesCount,
-          totalPages: totalPages,
-          primaryColor: primaryColor,
-          settings: settings,
-          proposal: proposal,
-          content: _buildPage4Content(
-            proposal: proposal,
-            solarPlantItem: solarPlantItem,
+    if (!hiddenPages.contains('page_5')) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => _buildProgrammaticPageLayout(
+            pageTitle: 'ITENS DA USINA & PAGAMENTO',
+            pageNumber: curPage++,
+            totalPages: totalPages,
             primaryColor: primaryColor,
+            settings: settings,
+            proposal: proposal,
+            content: _buildPage4Content(
+              proposal: proposal,
+              solarPlantItem: solarPlantItem,
+              primaryColor: primaryColor,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // PÁGINA: ANÁLISE DE INVESTIMENTO & TABELA DE 20 ANOS
     // ─────────────────────────────────────────────────────────────────────────
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.zero,
-        build: (context) => _buildProgrammaticPageLayout(
-          pageTitle: 'ANÁLISE DE INVESTIMENTO',
-          pageNumber: 5 + studyPagesCount,
-          totalPages: totalPages,
-          primaryColor: primaryColor,
-          settings: settings,
-          proposal: proposal,
-          content: _buildPage5Content(
-            proposal: proposal,
-            settings: settings,
-            generationMonthly: generationMonthly,
-            generationDaily: generationDaily,
-            kwp: kwp,
+    if (!hiddenPages.contains('page_6')) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => _buildProgrammaticPageLayout(
+            pageTitle: 'ANÁLISE DE INVESTIMENTO',
+            pageNumber: curPage++,
+            totalPages: totalPages,
             primaryColor: primaryColor,
+            settings: settings,
+            proposal: proposal,
+            content: _buildPage5Content(
+              proposal: proposal,
+              settings: settings,
+              generationMonthly: generationMonthly,
+              generationDaily: generationDaily,
+              kwp: kwp,
+              primaryColor: primaryColor,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // PÁGINA: FINANCIAMENTO BANCÁRIO & CARTÃO DE CRÉDITO
     // ─────────────────────────────────────────────────────────────────────────
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.zero,
-        build: (context) => _buildProgrammaticPageLayout(
-          pageTitle: 'FINANCIAMENTO & CONDIÇÕES',
-          pageNumber: 6 + studyPagesCount,
-          totalPages: totalPages,
-          primaryColor: primaryColor,
-          settings: settings,
-          proposal: proposal,
-          content: _buildPage6Content(
-            proposal: proposal,
-            settings: settings,
+    if (!hiddenPages.contains('page_7')) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => _buildProgrammaticPageLayout(
+            pageTitle: 'FINANCIAMENTO & CONDIÇÕES',
+            pageNumber: curPage++,
+            totalPages: totalPages,
             primaryColor: primaryColor,
+            settings: settings,
+            proposal: proposal,
+            content: _buildPage6Content(
+              proposal: proposal,
+              settings: settings,
+              primaryColor: primaryColor,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PÁGINAS PERSONALIZADAS DO USUÁRIO
+    // ─────────────────────────────────────────────────────────────────────────
+    for (final cp in customPages) {
+      if (!hiddenPages.contains(cp.id)) {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: pw.EdgeInsets.zero,
+            build: (context) => _buildProgrammaticPageLayout(
+              pageTitle: cp.title.toUpperCase(),
+              pageNumber: curPage++,
+              totalPages: totalPages,
+              primaryColor: primaryColor,
+              settings: settings,
+              proposal: proposal,
+              content: _buildCustomPageContent(cp, primaryColor),
+            ),
+          ),
+        );
+      }
+    }
 
     final bytes = await pdf.save();
     if (autoUploadToStorage) {
@@ -514,7 +572,10 @@ class SolarProposalPdfService {
     Uint8List? logoBytes;
     if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
       try {
-        logoBytes = base64Decode(settings.companyLogoBase64!);
+        final cleanLogo = settings.companyLogoBase64!.contains(',')
+            ? settings.companyLogoBase64!.split(',').last
+            : settings.companyLogoBase64!;
+        logoBytes = base64Decode(cleanLogo);
       } catch (_) {}
     }
 
@@ -550,13 +611,19 @@ class SolarProposalPdfService {
                       lineSpacing: 2,
                     ),
                   ),
-                  pw.SizedBox(height: 8),
-                  pw.Container(
-                    width: 48,
-                    height: 4,
-                    color: accentPdfColor,
-                  ),
-                  pw.SizedBox(height: 12),
+                  if (settings.verticalSplitShowHeadlineDivider) ...[
+                    pw.SizedBox(height: 8),
+                    pw.Container(
+                      width: settings.verticalSplitHeadlineDividerWidth,
+                      height: settings.verticalSplitHeadlineDividerHeight,
+                      color: settings.verticalSplitHeadlineDividerColor.isNotEmpty
+                          ? _parsePdfColor(settings.verticalSplitHeadlineDividerColor, fallback: accentPdfColor)
+                          : accentPdfColor,
+                    ),
+                    pw.SizedBox(height: 12),
+                  ] else ...[
+                    pw.SizedBox(height: 12),
+                  ],
                   pw.Text(
                     settings.verticalSplitSubheadline,
                     style: pw.TextStyle(
@@ -600,7 +667,7 @@ class SolarProposalPdfService {
                                   mainAxisSize: pw.MainAxisSize.min,
                                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                                   children: [
-                                    _buildPdfCoverCustomIcon(badges[i].iconKey, 12, accentPdfColor),
+                                    _buildPdfCoverCustomIcon(badges[i].iconKey, 12, PdfColor.fromInt(settings.coverBadgesIconColorValue)),
                                     pw.SizedBox(width: 5),
                                     pw.Text(
                                       badges[i].label,
@@ -628,7 +695,7 @@ class SolarProposalPdfService {
                                     mainAxisSize: pw.MainAxisSize.min,
                                     crossAxisAlignment: pw.CrossAxisAlignment.center,
                                     children: [
-                                      _buildPdfCoverCustomIcon(badges[i].iconKey, 12, accentPdfColor),
+                                      _buildPdfCoverCustomIcon(badges[i].iconKey, 12, PdfColor.fromInt(settings.coverBadgesIconColorValue)),
                                       pw.SizedBox(width: 5),
                                       pw.Text(
                                         badges[i].label,
@@ -719,13 +786,19 @@ class SolarProposalPdfService {
                       letterSpacing: 2.0,
                     ),
                   ),
-                  pw.SizedBox(height: 12),
-                  pw.Container(
-                    width: 54,
-                    height: 4.5,
-                    color: accentPdfColor,
-                  ),
-                  pw.SizedBox(height: 14),
+                  if (settings.verticalSplitShowRightDivider) ...[
+                    pw.SizedBox(height: 12),
+                    pw.Container(
+                      width: settings.verticalSplitRightDividerWidth,
+                      height: settings.verticalSplitRightDividerHeight,
+                      color: settings.verticalSplitRightDividerColor.isNotEmpty
+                          ? _parsePdfColor(settings.verticalSplitRightDividerColor, fallback: accentPdfColor)
+                          : accentPdfColor,
+                    ),
+                    pw.SizedBox(height: 14),
+                  ] else ...[
+                    pw.SizedBox(height: 14),
+                  ],
                   pw.Text(
                     settings.verticalSplitRightTagline,
                     style: pw.TextStyle(
@@ -844,6 +917,7 @@ class SolarProposalPdfService {
             top: iconItem.y * a4H,
             child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size, PdfColor.fromInt(iconItem.colorValue)),
           ),
+
       ],
     );
   }
@@ -936,9 +1010,47 @@ class SolarProposalPdfService {
         svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="$hex"/></svg>';
         break;
       case 'lightbulb':
+      case 'light':
       case 'lampada':
+      case 'iluminacao':
       case 'ideia':
         svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z" fill="$hex"/></svg>';
+        break;
+      case 'music':
+      case 'audio':
+      case 'som':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="$hex"/></svg>';
+        break;
+      case 'temp':
+      case 'clima':
+      case 'climatizacao':
+      case 'climate':
+      case 'hvac':
+      case 'thermostat':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-3-8c.55 0 1 .45 1 1v3h-2V6c0-.55.45-1 1-1z" fill="$hex"/></svg>';
+        break;
+      case 'lock':
+      case 'acesso':
+      case 'fechadura':
+      case 'cadeado':
+      case 'biometria':
+      case 'biometric':
+      case 'fingerprint':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="$hex"/></svg>';
+        break;
+      case 'camera':
+      case 'monitoramento':
+      case 'video':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" fill="$hex"/></svg>';
+        break;
+      case 'wifi':
+      case 'rede':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 3C7.95 3 4.21 4.34 1.2 6.6L3 9c2.47-1.85 5.56-3 9-3s6.53 1.15 9 3l1.8-2.4C19.79 4.34 16.05 3 12 3zm0 6c-2.9 0-5.58.97-7.74 2.6L6 14c1.7-1.28 3.75-2 6-2s4.3.72 6 2l1.74-2.4C17.58 9.97 14.9 9 12 9zm0 6c-1.57 0-3.03.54-4.2 1.44L12 21l4.2-4.56C15.03 15.54 13.57 15 12 15z" fill="$hex"/></svg>';
+        break;
+      case 'curtain':
+      case 'cortina':
+      case 'persiana':
+        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 19V3H4v16H2v2h20v-2h-2zM6 5h5v4H6V5zm0 6h5v4H6v-4zm12 8H6v-2h12v2zm0-4h-5v-4h5v4zm0-6h-5V5h5v4z" fill="$hex"/></svg>';
         break;
       case 'home':
       case 'casa':
@@ -954,6 +1066,540 @@ class SolarProposalPdfService {
         break;
     }
     return pw.SvgImage(svg: svgContent, width: size, height: size);
+  }
+
+  static bool _isDarkColor(PdfColor color) {
+    return (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) < 0.60;
+  }
+
+  static pw.Widget _buildPdfCoverHeader({
+    required int styleId,
+    required String text1,
+    required String text2,
+    required String text3,
+    required PdfColor accentColor,
+    pw.Font? fontBold,
+    pw.Font? fontSemiBold,
+    PdfColor? customBgColor,
+    PdfColor? customTextColor,
+    PdfColor? customIconColor,
+  }) {
+    final effectiveAccent = customIconColor ?? accentColor;
+    final title = text1.trim().isNotEmpty ? text1 : 'PROPOSTA COMERCIAL';
+    final subtitle = text2.trim().isNotEmpty ? text2 : '';
+    final tag = text3.trim().isNotEmpty ? text3 : '';
+
+    switch (styleId) {
+      case 2: // Faixa Executiva Escura
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = _isDarkColor(bg);
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#475569'));
+        final tagColor = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          color: bg,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor, letterSpacing: 1.2)),
+                  if (subtitle.isNotEmpty)
+                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: subColor)),
+                ],
+              ),
+              if (tag.isNotEmpty)
+                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: tagColor)),
+            ],
+          ),
+        );
+      case 3: // Gradiente Tech / Accent Bar
+        final bg = customBgColor ?? PdfColor.fromHex('#0B1120');
+        final isDark = _isDarkColor(bg);
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#38BDF8') : PdfColor.fromHex('#475569'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            border: pw.Border(bottom: pw.BorderSide(color: effectiveAccent, width: 2.5)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 12, fontWeight: pw.FontWeight.bold, color: titleColor, letterSpacing: 1.5)),
+              if (subtitle.isNotEmpty || tag.isNotEmpty)
+                pw.Text('$subtitle ${tag.isNotEmpty ? "• $tag" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+            ],
+          ),
+        );
+      case 4: // Corporate Clean
+        final bg = customBgColor ?? PdfColors.white;
+        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            border: pw.Border(bottom: pw.BorderSide(color: isDark ? effectiveAccent : const PdfColor.fromInt(0xFFE2E8F0), width: isDark ? 2.0 : 1.0)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  if (subtitle.isNotEmpty)
+                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+                ],
+              ),
+              if (tag.isNotEmpty)
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: pw.BoxDecoration(
+                    color: isDark ? const PdfColor.fromInt(0x30FFFFFF) : PdfColor.fromHex('#F1F5F9'),
+                    borderRadius: pw.BorderRadius.circular(4),
+                    border: pw.Border.all(color: isDark ? effectiveAccent : PdfColor.fromHex('#CBD5E1')),
+                  ),
+                  child: pw.Text(tag, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: isDark ? PdfColors.white : PdfColor.fromHex('#334155'))),
+                ),
+            ],
+          ),
+        );
+      case 5: // Dupla Linha
+        final bg = customBgColor;
+        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final tagColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            border: pw.Border(bottom: pw.BorderSide(color: effectiveAccent, width: 2)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor)),
+              if (tag.isNotEmpty)
+                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: tagColor)),
+            ],
+          ),
+        );
+      case 6: // Glass Card / Dark Floating
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = _isDarkColor(bg);
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#475569'));
+        return pw.Container(
+          margin: const pw.EdgeInsets.all(12),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            borderRadius: pw.BorderRadius.circular(8),
+            border: pw.Border.all(color: isDark ? PdfColor.fromHex('#334155') : PdfColor.fromHex('#CBD5E1')),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 10, fontWeight: pw.FontWeight.bold, color: titleColor)),
+              if (subtitle.isNotEmpty)
+                pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+            ],
+          ),
+        );
+      case 7: // Bilateral com Validade
+        final bg = customBgColor ?? PdfColor.fromHex('#1E293B');
+        final isDark = _isDarkColor(bg);
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          color: bg,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  if (subtitle.isNotEmpty)
+                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: subColor)),
+                ],
+              ),
+              if (tag.isNotEmpty)
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: pw.BoxDecoration(
+                    color: effectiveAccent,
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Text(tag, style: pw.TextStyle(font: fontBold, fontSize: 8, color: isDark ? PdfColor.fromHex('#0F172A') : PdfColors.white)),
+                ),
+            ],
+          ),
+        );
+      case 8: // Cyber Grid Futurista
+        final bg = customBgColor ?? PdfColor.fromHex('#030712');
+        final titleColor = customTextColor ?? effectiveAccent;
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            border: pw.Border(bottom: pw.BorderSide(color: effectiveAccent, width: 2)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('[SYSTEM] $title', style: pw.TextStyle(font: fontBold, fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: titleColor)),
+              if (tag.isNotEmpty)
+                pw.Text('AUTH: $tag', style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: customTextColor ?? PdfColors.white)),
+            ],
+          ),
+        );
+      case 9: // Compacto Micro
+        final bg = customBgColor ?? PdfColor.fromHex('#F8FAFC');
+        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#334155'));
+        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 5),
+          color: bg,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 8, color: titleColor)),
+              if (subtitle.isNotEmpty)
+                pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+              if (tag.isNotEmpty)
+                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: effectiveAccent)),
+            ],
+          ),
+        );
+      case 10: // Bold Accent Banner
+        final bg = customBgColor ?? effectiveAccent;
+        final isDark = _isDarkColor(bg);
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#1E293B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          color: bg,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 12, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  if (subtitle.isNotEmpty)
+                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+                ],
+              ),
+              if (tag.isNotEmpty)
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: pw.BoxDecoration(
+                    color: isDark ? const PdfColor.fromInt(0x30FFFFFF) : PdfColor.fromHex('#0F172A'),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Text(tag, style: pw.TextStyle(font: fontBold, fontSize: 8, color: isDark ? PdfColors.white : PdfColors.white)),
+                ),
+            ],
+          ),
+        );
+      case 1: // Modern Minimalist
+      default:
+        final bg = customBgColor ?? PdfColors.white;
+        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#E2E8F0') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            border: pw.Border(bottom: pw.BorderSide(color: isDark ? effectiveAccent : const PdfColor.fromInt(0x30000000), width: isDark ? 2.0 : 0.8)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  if (subtitle.isNotEmpty)
+                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: subColor)),
+                ],
+              ),
+              if (tag.isNotEmpty)
+                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: effectiveAccent)),
+            ],
+          ),
+        );
+    }
+  }
+
+  static pw.Widget _buildPdfCoverFooter({
+    required int styleId,
+    required String text1,
+    required String text2,
+    required String text3,
+    required String text4,
+    required PdfColor accentColor,
+    pw.Font? fontBold,
+    pw.Font? fontSemiBold,
+    PdfColor? customBgColor,
+    PdfColor? customTextColor,
+    PdfColor? customIconColor,
+  }) {
+    final effectiveAccent = customIconColor ?? accentColor;
+    switch (styleId) {
+      case 2: // Slogan & Badges
+        final bg = customBgColor ?? PdfColor.fromHex('#1E293B');
+        final isDark = _isDarkColor(bg);
+        final t1Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#475569'));
+        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          color: bg,
+          child: pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              if (text1.isNotEmpty)
+                pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: t1Color)),
+              if (text2.isNotEmpty || text3.isNotEmpty) ...[
+                pw.SizedBox(height: 3),
+                pw.Text('$text2  •  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+              ],
+              if (text4.isNotEmpty) ...[
+                pw.SizedBox(height: 2),
+                pw.Text(text4, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+              ],
+            ],
+          ),
+        );
+      case 3: // Faixa Legal
+        final bg = customBgColor ?? PdfColor.fromHex('#0B1120');
+        final isDark = _isDarkColor(bg);
+        final t1Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#475569'));
+        final t4Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 7),
+          color: bg,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(text1.isNotEmpty ? text1 : text2, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t1Color)),
+              if (text4.isNotEmpty)
+                pw.Text(text4, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: t4Color)),
+            ],
+          ),
+        );
+      case 4: // Minimalista Paginação
+        final bg = customBgColor ?? PdfColors.white;
+        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#64748B'));
+        final t3Color = customTextColor ?? effectiveAccent;
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            border: pw.Border(top: pw.BorderSide(color: isDark ? effectiveAccent : const PdfColor.fromInt(0x30000000), width: 0.8)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(text1.isNotEmpty ? text1 : text2, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: t1Color)),
+              if (text3.isNotEmpty)
+                pw.Text(text3, style: pw.TextStyle(font: fontBold, fontSize: 8, color: t3Color)),
+            ],
+          ),
+        );
+      case 5: // Duas Colunas
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = _isDarkColor(bg);
+        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#475569'));
+        final t3Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0284C7'));
+        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#64748B') : PdfColor.fromHex('#94A3B8'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          color: bg,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  if (text1.isNotEmpty)
+                    pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
+                  if (text2.isNotEmpty)
+                    pw.Text(text2, style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t2Color)),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  if (text3.isNotEmpty)
+                    pw.Text(text3, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: t3Color)),
+                  if (text4.isNotEmpty)
+                    pw.Text(text4, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+                ],
+              ),
+            ],
+          ),
+        );
+      case 6: // Aviso Legal & Validade
+        final bg = customBgColor ?? PdfColor.fromHex('#F8FAFC');
+        final isDark = _isDarkColor(bg);
+        final t4Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#475569'));
+        final t2Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        return pw.Container(
+          margin: const pw.EdgeInsets.all(12),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            borderRadius: pw.BorderRadius.circular(6),
+            border: pw.Border.all(color: isDark ? PdfColor.fromHex('#334155') : PdfColor.fromHex('#CBD5E1')),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Expanded(
+                child: pw.Text(text4.isNotEmpty ? text4 : text1, style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t4Color)),
+              ),
+              if (text2.isNotEmpty)
+                pw.Text(text2, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: t2Color)),
+            ],
+          ),
+        );
+      case 7: // Borda Superior Neon
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = _isDarkColor(bg);
+        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#475569'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: bg,
+            border: pw.Border(top: pw.BorderSide(color: effectiveAccent, width: 2)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              if (text1.isNotEmpty)
+                pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
+              pw.Text('$text2  ${text3.isNotEmpty ? "• $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+            ],
+          ),
+        );
+      case 8: // Sustentabilidade & Futuro
+        final bg = customBgColor ?? PdfColor.fromHex('#064E3B');
+        final isDark = _isDarkColor(bg);
+        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#064E3B'));
+        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#A7F3D0') : PdfColor.fromHex('#047857'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          color: bg,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(text1.isNotEmpty ? text1 : 'ENERGIA SUSTENTÁVEL PARA O FUTURO', style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
+              if (text2.isNotEmpty || text3.isNotEmpty)
+                pw.Text('$text2 ${text3.isNotEmpty ? "• $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t2Color)),
+            ],
+          ),
+        );
+      case 9: // Compact Contacts
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = _isDarkColor(bg);
+        final tColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 7),
+          color: bg,
+          child: pw.Center(
+            child: pw.Text(
+              [text1, text2, text3].where((s) => s.isNotEmpty).join('  •  '),
+              style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: tColor),
+            ),
+          ),
+        );
+      case 10: // Autenticação & Hash Digital
+        final bg = customBgColor ?? PdfColor.fromHex('#030712');
+        final isDark = _isDarkColor(bg);
+        final t1Color = customTextColor ?? effectiveAccent;
+        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 7),
+          color: bg,
+          decoration: pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: effectiveAccent, width: 1.5)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('DOCUMENTO AUTENTICADO DIGITALMENTE', style: pw.TextStyle(font: fontBold, fontSize: 7, color: t1Color)),
+              if (text4.isNotEmpty || text3.isNotEmpty)
+                pw.Text(text4.isNotEmpty ? text4 : text3, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+            ],
+          ),
+        );
+      case 1: // Institucional Completo
+      default:
+        final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
+        final isDark = _isDarkColor(bg);
+        final t1Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#475569'));
+        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        return pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          color: bg,
+          child: pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              if (text1.isNotEmpty)
+                pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: t1Color, letterSpacing: 0.5)),
+              if (text2.isNotEmpty || text3.isNotEmpty) ...[
+                pw.SizedBox(height: 2),
+                pw.Text('$text2  •  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+              ],
+              if (text4.isNotEmpty) ...[
+                pw.SizedBox(height: 2),
+                pw.Text(text4, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+              ],
+            ],
+          ),
+        );
+    }
   }
 
   static pw.Widget _buildCoverPage({
@@ -994,8 +1640,18 @@ class SolarProposalPdfService {
     const a4W = 595.28;
     const a4H = 841.89;
     final accentPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
-    final accentHex = settings.verticalSplitAccentColor.replaceAll('#', '').trim();
-    final accentSvgColor = '#$accentHex';
+    final accentHex = (settings.customDividerColor.isNotEmpty
+            ? settings.customDividerColor
+            : (settings.verticalSplitAccentColor.isNotEmpty ? settings.verticalSplitAccentColor : '#F59E0B'))
+        .replaceAll('#', '')
+        .trim();
+    final accentSvgColor = '#${accentHex.isNotEmpty ? accentHex : 'F59E0B'}';
+    final bottomAreaHex = (settings.customDividerBottomColor.isNotEmpty
+            ? settings.customDividerBottomColor
+            : '#FFFFFF')
+        .replaceAll('#', '')
+        .trim();
+    final bottomAreaSvgColor = '#${bottomAreaHex.isNotEmpty ? bottomAreaHex : 'FFFFFF'}';
 
     return pw.Stack(
       fit: pw.StackFit.expand,
@@ -1008,15 +1664,17 @@ class SolarProposalPdfService {
             color: PdfColors.white,
           ),
 
-        // 2. Separador Vetorial se for Capa Customizada (Upload próprio)
-        if (settings.isCustomCoverMode)
+        // 2. Separador Vetorial se for Capa Customizada (10 Estilos Matemáticos)
+        if (settings.customDividerStyle >= 0)
           pw.SvgImage(
-            svg: '''
-<svg viewBox="0 0 595.28 841.89" width="595.28" height="841.89" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 0 589 Q 297.64 565 595.28 589 L 595.28 841.89 L 0 841.89 Z" fill="#FFFFFF" />
-  <path d="M 0 589 Q 297.64 565 595.28 589" fill="none" stroke="$accentSvgColor" stroke-width="4.5" stroke-linecap="round" />
-</svg>
-''',
+            svg: CoverDividerSvgBuilder.buildSvg(
+              dividerType: settings.customDividerStyle,
+              width: a4W,
+              height: a4H,
+              splitYRatio: 0.70,
+              primaryColorHex: accentSvgColor,
+              bottomAreaColorHex: bottomAreaSvgColor,
+            ),
           ),
 
         // 3. Frase de Impacto da Foto (Headline & Subheadline)
@@ -1039,13 +1697,19 @@ class SolarProposalPdfService {
                       lineSpacing: 2,
                     ),
                   ),
-                  pw.SizedBox(height: 6),
-                  pw.Container(
-                    width: 44,
-                    height: 3.5,
-                    color: accentPdfColor,
-                  ),
-                  pw.SizedBox(height: 10),
+                  if (settings.verticalSplitShowHeadlineDivider) ...[
+                    pw.SizedBox(height: 6),
+                    pw.Container(
+                      width: settings.verticalSplitHeadlineDividerWidth * 0.9,
+                      height: settings.verticalSplitHeadlineDividerHeight * 0.9,
+                      color: settings.verticalSplitHeadlineDividerColor.isNotEmpty
+                          ? _parsePdfColor(settings.verticalSplitHeadlineDividerColor, fallback: accentPdfColor)
+                          : accentPdfColor,
+                    ),
+                    pw.SizedBox(height: 10),
+                  ] else ...[
+                    pw.SizedBox(height: 10),
+                  ],
                   pw.Text(
                     settings.verticalSplitSubheadline,
                     style: pw.TextStyle(
@@ -1060,40 +1724,47 @@ class SolarProposalPdfService {
             ),
           ),
 
-        // 4. Badges Informativos na Foto
+        // 4. Badges Informativos na Foto (Estilo limpo com ícones e divisores verticais)
         if (settings.verticalSplitShowLeftFooter && settings.verticalSplitFooterBadges.isNotEmpty)
           pw.Positioned(
             left: (a4W * settings.verticalSplitLeftFooterLeft).clamp(0.0, a4W * 0.90),
-            top: a4H - (settings.verticalSplitLeftFooterBottom * a4H) - 24,
+            top: a4H - (settings.verticalSplitLeftFooterBottom * a4H) - 20,
             child: pw.Row(
               mainAxisSize: pw.MainAxisSize.min,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                for (final badge in settings.verticalSplitFooterBadges) ...[
-                  pw.Container(
-                    margin: const pw.EdgeInsets.only(right: 8),
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColor(accentPdfColor.red, accentPdfColor.green, accentPdfColor.blue, 0.20),
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
-                      border: pw.Border.all(color: accentPdfColor, width: 1.0),
-                    ),
-                    child: pw.Row(
-                      mainAxisSize: pw.MainAxisSize.min,
-                      children: [
-                        _buildPdfCoverCustomIcon(badge.iconKey, 10, accentPdfColor),
-                        pw.SizedBox(width: 5),
-                        pw.Text(
-                          badge.label,
-                          style: pw.TextStyle(
-                            font: fontMontserratBold,
-                            fontSize: 8.5,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
-                          ),
+                for (int i = 0; i < settings.verticalSplitFooterBadges.length; i++) ...[
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      _buildPdfCoverCustomIcon(
+                        settings.verticalSplitFooterBadges[i].iconKey,
+                        12,
+                        PdfColor.fromInt(settings.coverBadgesIconColorValue),
+                      ),
+                      pw.SizedBox(width: 5),
+                      pw.Text(
+                        settings.verticalSplitFooterBadges[i].label,
+                        style: pw.TextStyle(
+                          font: fontMontserratBold,
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                          letterSpacing: 0.6,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  if (i < settings.verticalSplitFooterBadges.length - 1)
+                    pw.Container(
+                      width: 1.5,
+                      height: 11,
+                      color: PdfColor.fromInt(settings.coverBadgesTextColorValue).luminance > 0.5
+                          ? PdfColor.fromInt(0x60FFFFFF)
+                          : PdfColor.fromInt(0x40000000),
+                      margin: const pw.EdgeInsets.symmetric(horizontal: 7),
+                    ),
                 ],
               ],
             ),
@@ -1128,13 +1799,19 @@ class SolarProposalPdfService {
                     letterSpacing: 1.5,
                   ),
                 ),
-                pw.SizedBox(height: 9),
-                pw.Container(
-                  width: 44,
-                  height: 3.5,
-                  color: accentPdfColor,
-                ),
-                pw.SizedBox(height: 9),
+                if (settings.verticalSplitShowRightDivider) ...[
+                  pw.SizedBox(height: 9),
+                  pw.Container(
+                    width: settings.verticalSplitRightDividerWidth * 0.8,
+                    height: settings.verticalSplitRightDividerHeight * 0.8,
+                    color: settings.verticalSplitRightDividerColor.isNotEmpty
+                        ? _parsePdfColor(settings.verticalSplitRightDividerColor, fallback: accentPdfColor)
+                        : accentPdfColor,
+                  ),
+                  pw.SizedBox(height: 9),
+                ] else ...[
+                  pw.SizedBox(height: 10),
+                ],
                 pw.Text(
                   settings.verticalSplitRightTagline,
                   style: pw.TextStyle(
@@ -1155,7 +1832,11 @@ class SolarProposalPdfService {
             left: (a4W * settings.coverLogoPositionX).clamp(0.0, a4W - settings.coverLogoWidth),
             top: (a4H * settings.coverLogoPositionY).clamp(0.0, a4H - 50.0),
             child: pw.Image(
-              pw.MemoryImage(base64Decode(settings.companyLogoBase64!)),
+              pw.MemoryImage(base64Decode(
+                settings.companyLogoBase64!.contains(',')
+                    ? settings.companyLogoBase64!.split(',').last
+                    : settings.companyLogoBase64!
+              )),
               width: settings.coverLogoWidth,
               fit: pw.BoxFit.contain,
             ),
@@ -1194,48 +1875,56 @@ class SolarProposalPdfService {
             ),
           ),
 
-        // 8. Informações do Cliente e Usina (Canto inferior direito fixo)
-        pw.Positioned(
-          bottom: 24,
-          right: 40,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              if (proposal.clientName.isNotEmpty)
-                pw.Text(
-                  'Cliente: ${proposal.clientName}',
-                  style: pw.TextStyle(
-                    font: fontMontserratBold,
-                    fontSize: 10.0,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(0xFF0F172A),
+        // 8. Informações do Cliente e Usina Posicionadas pelo Usuário
+        if (settings.coverShowClientInfo)
+          pw.Positioned(
+            left: (a4W * settings.coverClientInfoPositionX).clamp(0.0, a4W - 50.0),
+            top: (a4H * settings.coverClientInfoPositionY).clamp(0.0, a4H - 30.0),
+            child: pw.SizedBox(
+              width: settings.coverClientInfoWidth.clamp(100.0, a4W),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  if (proposal.clientName.isNotEmpty)
+                    pw.Text(
+                      'Cliente: ${proposal.clientName}',
+                      style: pw.TextStyle(
+                        font: fontMontserratBold,
+                        fontSize: settings.coverClientInfoFontSize,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColor.fromInt(settings.coverClientInfoColorValue),
+                      ),
+                      maxLines: 1,
+                    ),
+                  if (proposal.clientDocument != null && proposal.clientDocument!.trim().isNotEmpty) ...[
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      'CPF/CNPJ: ${proposal.clientDocument!.trim()}',
+                      style: pw.TextStyle(
+                        font: fontMontserratBold,
+                        fontSize: settings.coverClientInfoFontSize * 0.9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColor.fromInt(settings.coverClientInfoSecondaryColorValue),
+                      ),
+                      maxLines: 1,
+                    ),
+                  ],
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    'Geração: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
+                    style: pw.TextStyle(
+                      font: fontMontserratBold,
+                      fontSize: settings.coverClientInfoFontSize * 0.9,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(settings.coverClientInfoSecondaryColorValue),
+                    ),
+                    maxLines: 1,
                   ),
-                ),
-              pw.SizedBox(height: 2),
-              pw.Text(
-                'Geração: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
-                style: pw.TextStyle(
-                  font: fontMontserratBold,
-                  fontSize: 9.0,
-                  fontWeight: pw.FontWeight.bold,
-                  color: primaryColor,
-                ),
+                ],
               ),
-              if (settings.companyName?.isNotEmpty == true) ...[
-                pw.SizedBox(height: 2),
-                pw.Text(
-                  settings.companyName!,
-                  style: pw.TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(0xFF475569),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
 
         // 8. Textos Personalizados Extras Adicionados pelo Usuário
         for (final textItem in settings.customTextItems)
@@ -1260,12 +1949,34 @@ class SolarProposalPdfService {
             top: iconItem.y * a4H,
             child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size, PdfColor.fromInt(iconItem.colorValue)),
           ),
+
+
+
+
       ],
     );
   }
 
+  static PdfColor _parsePdfColor(String hex, {double alpha = 1.0, PdfColor? fallback}) {
+    try {
+      var clean = hex.replaceAll('#', '').replaceAll('0x', '').trim();
+      if (clean.length == 8) {
+        clean = clean.substring(2);
+      }
+      if (clean.length == 6) {
+        final r = int.parse(clean.substring(0, 2), radix: 16) / 255.0;
+        final g = int.parse(clean.substring(2, 4), radix: 16) / 255.0;
+        final b = int.parse(clean.substring(4, 6), radix: 16) / 255.0;
+        return PdfColor(r, g, b, alpha);
+      }
+      return fallback ?? PdfColor.fromHex('#EAB308');
+    } catch (_) {
+      return fallback ?? PdfColor.fromHex('#EAB308');
+    }
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
-  // LAYOUT MINIMALISTA PROGRAMÁTICO (CABEÇALHO & RODAPÉ NATIVOS)
+  // LAYOUT MINIMALISTA PROGRAMÁTICO (CABEÇALHO & RODAPÉ NATIVOS / PERSONALIZADOS)
   // ───────────────────────────────────────────────────────────────────────────
   static pw.Widget _buildProgrammaticPageLayout({
     required pw.Widget content,
@@ -1275,6 +1986,8 @@ class SolarProposalPdfService {
     required PdfColor primaryColor,
     required SolarSettingsModel settings,
     ProposalModel? proposal,
+    pw.Font? fontBold,
+    pw.Font? fontSemiBold,
   }) {
     final textDark = PdfColor.fromHex('#0F172A');
     final textMuted = PdfColor.fromHex('#64748B');
@@ -1301,148 +2014,185 @@ class SolarProposalPdfService {
 </svg>
 ''';
 
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 26),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          // ── 1. CABEÇALHO MINIMALISTA ──────────────────────────────────────
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      // Barra vertical sólida de destaque
-                      pw.Container(
-                        width: 3.5,
-                        height: 14,
-                        decoration: pw.BoxDecoration(
-                          color: primaryColor,
-                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
-                        ),
+    final customHeaderBg = settings.coverHeaderBgColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderBgColor) : null;
+    final customHeaderTxt = settings.coverHeaderTextColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderTextColor) : null;
+    final customHeaderIcon = settings.coverHeaderIconColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderIconColor) : null;
+
+    final customFooterBg = settings.coverFooterBgColor.isNotEmpty ? _parsePdfColor(settings.coverFooterBgColor) : null;
+    final customFooterTxt = settings.coverFooterTextColor.isNotEmpty ? _parsePdfColor(settings.coverFooterTextColor) : null;
+    final customFooterIcon = settings.coverFooterIconColor.isNotEmpty ? _parsePdfColor(settings.coverFooterIconColor) : null;
+
+    pw.Widget topHeader;
+    if (settings.coverShowHeader) {
+      topHeader = _buildPdfCoverHeader(
+        styleId: settings.coverHeaderStyle,
+        text1: settings.coverHeaderText1.isNotEmpty ? settings.coverHeaderText1 : pageTitle,
+        text2: settings.coverHeaderText2.isNotEmpty ? settings.coverHeaderText2 : (proposal?.proposalNumber ?? ''),
+        text3: settings.coverHeaderText3.isNotEmpty ? settings.coverHeaderText3 : 'Página $pageNumber de $totalPages',
+        accentColor: primaryColor,
+        fontBold: fontBold,
+        fontSemiBold: fontSemiBold,
+        customBgColor: customHeaderBg,
+        customTextColor: customHeaderTxt,
+        customIconColor: customHeaderIcon,
+      );
+    } else {
+      topHeader = pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 12),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Container(
+                      width: 3.5,
+                      height: 14,
+                      decoration: pw.BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
                       ),
-                      pw.SizedBox(width: 8),
-                      // Título da Seção
-                      pw.Text(
-                        pageTitle.toUpperCase(),
-                        style: pw.TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: pw.FontWeight.bold,
-                          color: textDark,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (proposal != null && proposal.proposalNumber.isNotEmpty)
+                    ),
+                    pw.SizedBox(width: 8),
                     pw.Text(
-                      proposal.proposalNumber,
+                      pageTitle.toUpperCase(),
                       style: pw.TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 10.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: textDark,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+                if (proposal != null && proposal.proposalNumber.isNotEmpty)
+                  pw.Text(
+                    proposal.proposalNumber,
+                    style: pw.TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: textMuted,
+                    ),
+                  ),
+              ],
+            ),
+            pw.SizedBox(height: 7),
+            pw.Stack(
+              children: [
+                pw.Container(
+                  height: 0.8,
+                  width: double.infinity,
+                  color: lineGrey,
+                ),
+                pw.Align(
+                  alignment: pw.Alignment.centerRight,
+                  child: pw.Container(
+                    height: 1.8,
+                    width: 75,
+                    color: primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget bottomFooter;
+    if (settings.coverShowFooter) {
+      bottomFooter = _buildPdfCoverFooter(
+        styleId: settings.coverFooterStyle,
+        text1: settings.coverFooterText1.isNotEmpty ? settings.coverFooterText1 : slogan,
+        text2: settings.coverFooterText2.isNotEmpty ? settings.coverFooterText2 : (settings.companyPhone ?? ''),
+        text3: settings.coverFooterText3.isNotEmpty ? settings.coverFooterText3 : (settings.companyWebsite ?? ''),
+        text4: settings.coverFooterText4.isNotEmpty ? settings.coverFooterText4 : 'Página $pageNumber de $totalPages',
+        accentColor: primaryColor,
+        fontBold: fontBold,
+        fontSemiBold: fontSemiBold,
+        customBgColor: customFooterBg,
+        customTextColor: customFooterTxt,
+        customIconColor: customFooterIcon,
+      );
+    } else {
+      bottomFooter = pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 12),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Stack(
+              children: [
+                pw.Container(
+                  height: 0.8,
+                  width: double.infinity,
+                  color: lineGrey,
+                ),
+                pw.Align(
+                  alignment: pw.Alignment.centerRight,
+                  child: pw.Container(
+                    height: 1.8,
+                    width: 75,
+                    color: primaryColor,
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 7),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.SvgImage(
+                      svg: solarIconSvg,
+                      width: 14,
+                      height: 14,
+                    ),
+                    pw.SizedBox(width: 6),
+                    pw.Text(
+                      slogan,
+                      style: pw.TextStyle(
+                        fontSize: 7.5,
                         fontWeight: pw.FontWeight.bold,
                         color: textMuted,
+                        letterSpacing: 1.2,
                       ),
                     ),
-                ],
-              ),
-              pw.SizedBox(height: 7),
-              // Linha divisória fina com segmento de destaque à direita
-              pw.Stack(
-                children: [
-                  pw.Container(
-                    height: 0.8,
-                    width: double.infinity,
-                    color: lineGrey,
+                  ],
+                ),
+                pw.Text(
+                  'Página $pageNumber de $totalPages',
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    color: textMuted,
+                    fontWeight: pw.FontWeight.normal,
                   ),
-                  pw.Align(
-                    alignment: pw.Alignment.centerRight,
-                    child: pw.Container(
-                      height: 1.8,
-                      width: 75,
-                      color: primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          // ── 2. MIOLO DA PÁGINA (CONTEÚDO) ─────────────────────────────────
-          pw.Expanded(
-            child: pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(vertical: 16),
-              child: content,
+                ),
+              ],
             ),
-          ),
+          ],
+        ),
+      );
+    }
 
-          // ── 3. RODAPÉ MINIMALISTA ─────────────────────────────────────────
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Linha divisória superior do rodapé com segmento de destaque à direita
-              pw.Stack(
-                children: [
-                  pw.Container(
-                    height: 0.8,
-                    width: double.infinity,
-                    color: lineGrey,
-                  ),
-                  pw.Align(
-                    alignment: pw.Alignment.centerRight,
-                    child: pw.Container(
-                      height: 1.8,
-                      width: 75,
-                      color: primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 7),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  // Ícone de usina/energia + Slogan
-                  pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      pw.SvgImage(
-                        svg: solarIconSvg,
-                        width: 14,
-                        height: 14,
-                      ),
-                      pw.SizedBox(width: 6),
-                      pw.Text(
-                        slogan,
-                        style: pw.TextStyle(
-                          fontSize: 7.5,
-                          fontWeight: pw.FontWeight.bold,
-                          color: textMuted,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Numeração da página
-                  pw.Text(
-                    'Página $pageNumber de $totalPages',
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      color: textMuted,
-                      fontWeight: pw.FontWeight.normal,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        topHeader,
+        pw.Expanded(
+          child: pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 12),
+            child: content,
           ),
-        ],
-      ),
+        ),
+        bottomFooter,
+      ],
     );
   }
 
@@ -1956,10 +2706,61 @@ class SolarProposalPdfService {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PÁGINA 2: APRESENTAÇÃO & ESCOPO
+  // PÁGINA 2: APRESENTAÇÃO & ESCOPO (DINÂMICOS & TEMPLATES)
   // ───────────────────────────────────────────────────────────────────────────
-  static pw.Widget _buildPage2Content(PdfColor primaryColor) {
+  static pw.Widget _buildPage2Content(
+    PdfColor primaryColor, {
+    List<ProposalPageCard>? customCards,
+    bool showIllustration = true,
+  }) {
     final hex = _pdfColorToHex(primaryColor);
+
+    if (customCards != null && customCards.isNotEmpty) {
+      final List<pw.Widget> cardRows = [];
+      for (int i = 0; i < customCards.length; i += 2) {
+        final c1 = customCards[i];
+        final c2 = (i + 1 < customCards.length) ? customCards[i + 1] : null;
+
+        cardRows.add(
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: _buildInfoCardBadge(
+                  title: c1.title,
+                  description: c1.description,
+                  svgIcon: _resolveSolarIcon(c1.iconKey, hex),
+                ),
+              ),
+              if (c2 != null) ...[
+                pw.SizedBox(width: 14),
+                pw.Expanded(
+                  child: _buildInfoCardBadge(
+                    title: c2.title,
+                    description: c2.description,
+                    svgIcon: _resolveSolarIcon(c2.iconKey, hex),
+                  ),
+                ),
+              ] else
+                pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+        );
+        cardRows.add(pw.SizedBox(height: 12));
+      }
+
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Diferenciais & Escopo da Usina Solar',
+            style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+          ),
+          pw.SizedBox(height: 14),
+          ...cardRows,
+        ],
+      );
+    }
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -2059,6 +2860,87 @@ class SolarProposalPdfService {
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  static String _resolveSolarIcon(String? iconKey, String hex) {
+    switch (iconKey?.toLowerCase()) {
+      case 'shield':
+      case 'security':
+      case 'lock':
+        return SolarPdfIcons.shieldCheck(hex);
+      case 'dollar':
+      case 'money':
+      case 'coins':
+      case 'finance':
+        return SolarPdfIcons.dollar(hex);
+      case 'tech':
+      case 'solar_power':
+      case 'solar_tech':
+        return SolarPdfIcons.solarTech(hex);
+      case 'like':
+      case 'thumbs_up':
+      case 'thumb_up':
+        return SolarPdfIcons.thumbsUp(hex);
+      case 'lightbulb':
+      case 'light':
+      case 'lamp':
+        return SolarPdfIcons.lightbulb(hex);
+      case 'smartphone':
+      case 'phone':
+      case 'app':
+        return SolarPdfIcons.smartphone(hex);
+      case 'truck':
+      case 'shipping':
+      case 'freight':
+        return SolarPdfIcons.truck(hex);
+      case 'award':
+      case 'cert':
+      case 'star':
+        return SolarPdfIcons.award(hex);
+      case 'bolt':
+      case 'energy':
+      case 'power':
+        return SolarPdfIcons.bolt(hex);
+      case 'panel':
+      case 'solar_panel':
+      default:
+        return SolarPdfIcons.solarPanel(hex);
+    }
+  }
+
+  static pw.Widget _buildCustomPageContent(
+    ProposalCustomPage page,
+    PdfColor primaryColor,
+  ) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        if (page.cards.isNotEmpty)
+          pw.Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: page.cards.map((c) {
+              return pw.Container(
+                width: 250,
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex(c.cardBgColorHex != null && c.cardBgColorHex!.isNotEmpty ? c.cardBgColorHex! : '#F8FAFC'),
+                  borderRadius: pw.BorderRadius.circular(8),
+                  border: pw.Border.all(color: PdfColor.fromHex('#E2E8F0')),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(c.title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#0F172A'))),
+                    pw.SizedBox(height: 4),
+                    pw.Text(c.description, style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569'))),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
       ],
     );
   }

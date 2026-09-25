@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import '../../domain/models/automation_study_model.dart';
+import '../../domain/models/category_model.dart';
 import '../../domain/models/product_model.dart';
 import '../../domain/models/subcategory_model.dart';
-import '../../domain/models/category_model.dart';
 import '../services/product_seed_data.dart';
 
 /// Repositório de persistência e consultas da coleção 'products' e 'subcategories' no Cloud Firestore
@@ -339,6 +341,88 @@ class ProductRepository {
   /// Remove uma categoria do Firestore
   Future<void> deleteCategory(String id) async {
     await _categoriesRef.doc(id).delete();
+  }
+
+  // ── CATEGORIAS DE AUTOMAÇÃO RESIDENCIAL & COMERCIAL ───────────────────────
+
+  CollectionReference<Map<String, dynamic>> get _automationCategoriesRef =>
+      _firestore.collection('automation_categories');
+
+  /// Stream em tempo real das categorias de automação (padrão + customizadas da empresa)
+  Stream<List<AutomationCategoryModel>> getAutomationCategoriesStream({String? companyId}) {
+    Query<Map<String, dynamic>> query = _automationCategoriesRef;
+    if (companyId != null &&
+        companyId.isNotEmpty &&
+        companyId != 'GLOBAL_MASTER' &&
+        companyId != 'ALL') {
+      query = query.where('companyId', isEqualTo: companyId);
+    }
+    return query.snapshots().map((snapshot) {
+      final customList = snapshot.docs
+          .map((doc) => AutomationCategoryModel.fromMap(doc.data(), doc.id))
+          .toList();
+      customList.sort((a, b) =>
+          (a.createdAt ?? DateTime(2000)).compareTo(b.createdAt ?? DateTime(2000)));
+
+      return [
+        ...AutomationCategoryModel.defaultCategories,
+        ...customList,
+      ];
+    });
+  }
+
+  /// Retorna lista de categorias de automação do Firestore de forma assíncrona única
+  Future<List<AutomationCategoryModel>> getAutomationCategories({String? companyId}) async {
+    try {
+      Query<Map<String, dynamic>> query = _automationCategoriesRef;
+      if (companyId != null &&
+          companyId.isNotEmpty &&
+          companyId != 'GLOBAL_MASTER' &&
+          companyId != 'ALL') {
+        query = query.where('companyId', isEqualTo: companyId);
+      }
+      final snapshot = await query.get();
+      final customList = snapshot.docs
+          .map((doc) => AutomationCategoryModel.fromMap(doc.data(), doc.id))
+          .toList();
+      return [
+        ...AutomationCategoryModel.defaultCategories,
+        ...customList,
+      ];
+    } catch (_) {
+      return AutomationCategoryModel.defaultCategories;
+    }
+  }
+
+  /// Cadastra uma nova categoria personalizada de automação no Firestore
+  Future<AutomationCategoryModel> createAutomationCategory({
+    required String title,
+    required IconData icon,
+    required Color color,
+    String? companyId,
+  }) async {
+    final docRef = _automationCategoriesRef.doc();
+    final model = AutomationCategoryModel(
+      id: docRef.id,
+      title: title.trim(),
+      icon: icon,
+      color: color,
+      isCustom: true,
+      companyId: companyId,
+      createdAt: DateTime.now(),
+    );
+    await docRef.set(model.toMap());
+    return model;
+  }
+
+  /// Atualiza uma categoria de automação existente no Firestore
+  Future<void> updateAutomationCategory(AutomationCategoryModel category) async {
+    await _automationCategoriesRef.doc(category.id).update(category.toMap());
+  }
+
+  /// Remove uma categoria de automação personalizada do Firestore
+  Future<void> deleteAutomationCategory(String id) async {
+    await _automationCategoriesRef.doc(id).delete();
   }
 }
 

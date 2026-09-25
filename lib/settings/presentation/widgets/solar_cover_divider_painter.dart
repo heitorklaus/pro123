@@ -7,6 +7,7 @@ class SolarCoverDividerPainter extends CustomPainter {
   final Color primaryColor;
   final Color accentColor;
   final Color darkColor;
+  final Color bottomAreaColor;
   final double splitYRatio; // Posição do corte (ex: 0.72)
 
   SolarCoverDividerPainter({
@@ -14,12 +15,16 @@ class SolarCoverDividerPainter extends CustomPainter {
     required this.primaryColor,
     Color? accentColor,
     Color? darkColor,
+    Color? bottomAreaColor,
     this.splitYRatio = 0.72,
   })  : accentColor = accentColor ?? primaryColor.withValues(alpha: 0.6),
-        darkColor = darkColor ?? const Color(0xFF0F172A);
+        darkColor = darkColor ?? const Color(0xFF0F172A),
+        bottomAreaColor = bottomAreaColor ?? Colors.white;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (dividerType < 0) return;
+
     final w = size.width;
     final h = size.height;
     final splitY = h * splitYRatio;
@@ -37,7 +42,7 @@ class SolarCoverDividerPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final paintWhite = Paint()
-      ..color = Colors.white
+      ..color = bottomAreaColor
       ..style = PaintingStyle.fill;
 
     // 0. Classic Smooth S-Wave
@@ -404,6 +409,7 @@ class SolarCoverDividerPainter extends CustomPainter {
         oldDelegate.primaryColor != primaryColor ||
         oldDelegate.accentColor != accentColor ||
         oldDelegate.darkColor != darkColor ||
+        oldDelegate.bottomAreaColor != bottomAreaColor ||
         oldDelegate.splitYRatio != splitYRatio;
   }
 }

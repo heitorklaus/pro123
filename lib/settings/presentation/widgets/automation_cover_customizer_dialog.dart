@@ -5,13 +5,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
-import '../../../proposals/data/services/solar_proposal_pdf_service.dart';
+import '../../../proposals/data/services/automation_proposal_pdf_service.dart';
 import '../../../proposals/domain/models/proposal_item_model.dart';
 import '../../../proposals/domain/models/proposal_model.dart';
-import '../../data/services/solar_settings_service.dart';
-import '../../domain/models/solar_settings_model.dart';
+import '../../data/services/automation_settings_service.dart';
+import '../../domain/models/automation_settings_model.dart';
 import 'solar_cover_divider_painter.dart';
-import 'solar_vertical_split_painter.dart';
+import 'automation_vertical_split_painter.dart';
+import 'automation_cyber_connector_painter.dart';
 import 'cover_header_footer_widgets.dart';
 import '../../domain/models/proposal_pages_models.dart';
 import 'cover_pages_manager_tab.dart';
@@ -19,25 +20,25 @@ import 'cover_page2_interactive_canvas.dart';
 import 'cover_custom_page_interactive_canvas.dart';
 
 /// Modal amplo de estúdio visual para personalização interativa em tempo real da capa da proposta
-class SolarCoverCustomizerDialog extends StatefulWidget {
-  final SolarSettingsModel initialSettings;
-  final ValueChanged<SolarSettingsModel> onSave;
+class AutomationCoverCustomizerDialog extends StatefulWidget {
+  final AutomationSettingsModel initialSettings;
+  final ValueChanged<AutomationSettingsModel> onSave;
 
-  const SolarCoverCustomizerDialog({
+  const AutomationCoverCustomizerDialog({
     super.key,
     required this.initialSettings,
     required this.onSave,
   });
 
-  static Future<SolarSettingsModel?> show(
+  static Future<AutomationSettingsModel?> show(
     BuildContext context, {
-    required SolarSettingsModel initialSettings,
-    required ValueChanged<SolarSettingsModel> onSave,
+    required AutomationSettingsModel initialSettings,
+    required ValueChanged<AutomationSettingsModel> onSave,
   }) {
-    return showDialog<SolarSettingsModel>(
+    return showDialog<AutomationSettingsModel>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => SolarCoverCustomizerDialog(
+      builder: (ctx) => AutomationCoverCustomizerDialog(
         initialSettings: initialSettings,
         onSave: onSave,
       ),
@@ -45,13 +46,13 @@ class SolarCoverCustomizerDialog extends StatefulWidget {
   }
 
   @override
-  State<SolarCoverCustomizerDialog> createState() => _SolarCoverCustomizerDialogState();
+  State<AutomationCoverCustomizerDialog> createState() => _AutomationCoverCustomizerDialogState();
 }
 
-class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
+class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomizerDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late SolarSettingsModel _current;
+  late AutomationSettingsModel _current;
   bool _isSaving = false;
 
   // Controllers de Textos (Vertical Split)
@@ -146,7 +147,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
   void initState() {
     super.initState();
     _current = widget.initialSettings;
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -304,10 +305,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     setState(() => _selectedElementKey = elementKey);
 
     if (elementKey == 'logo') {
+      if (_tabController.index != 4) {
+        _tabController.animateTo(4);
+      }
+    } else if (elementKey == 'header' || elementKey == 'footer') {
       if (_tabController.index != 3) {
         _tabController.animateTo(3);
       }
-    } else if (elementKey == 'header' || elementKey == 'footer') {
+    } else if (elementKey.startsWith('node_')) {
       if (_tabController.index != 2) {
         _tabController.animateTo(2);
       }
@@ -347,6 +352,137 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       });
     }
   }
+
+  IconData _getNodeIcon(String iconName) {
+    switch (iconName.toLowerCase()) {
+      case 'light':
+      case 'lampada':
+      case 'iluminacao':
+      case 'lightbulb':
+        return Icons.lightbulb_outline_rounded;
+      case 'music':
+      case 'audio':
+      case 'som':
+        return Icons.music_note_rounded;
+      case 'temp':
+      case 'clima':
+      case 'climatizacao':
+      case 'hvac':
+      case 'thermostat':
+        return Icons.thermostat_rounded;
+      case 'camera':
+      case 'monitoramento':
+      case 'video':
+        return Icons.videocam_outlined;
+      case 'lock':
+      case 'fechadura':
+      case 'acesso':
+      case 'biometria':
+        return Icons.lock_outline_rounded;
+      case 'wifi':
+      case 'rede':
+        return Icons.wifi_rounded;
+      case 'tv':
+      case 'cinema':
+      case 'theater':
+        return Icons.tv_rounded;
+      case 'curtain':
+      case 'cortina':
+      case 'persiana':
+        return Icons.curtains_rounded;
+      case 'shield':
+      case 'seguranca':
+        return Icons.security_rounded;
+      case 'power':
+      case 'energia':
+        return Icons.power_settings_new_rounded;
+      default:
+        return Icons.bolt_rounded;
+    }
+  }
+
+  void _updateNode(
+    String id, {
+    String? label,
+    String? iconName,
+    double? posX,
+    double? posY,
+    double? targetX,
+    double? targetY,
+    String? colorHex,
+    bool? showConnectorLine,
+  }) {
+    setState(() {
+      _current = _current.copyWith(
+        nodes: _current.nodes.map((n) {
+          if (n.id == id) {
+            return n.copyWith(
+              label: label,
+              iconName: iconName,
+              posX: posX,
+              posY: posY,
+              targetX: targetX,
+              targetY: targetY,
+              colorHex: colorHex,
+              showConnectorLine: showConnectorLine,
+            );
+          }
+          return n;
+        }).toList(),
+      );
+    });
+  }
+
+  void _addCyberNode() {
+    final newId = 'node_${DateTime.now().millisecondsSinceEpoch}';
+    final newNode = AutomationCyberNode(
+      id: newId,
+      label: 'Novo Ponto',
+      iconName: 'light',
+      posX: 0.50,
+      posY: 0.35,
+      targetX: 0.46,
+      targetY: 0.40,
+      colorHex: _current.customDividerColor.isNotEmpty ? _current.customDividerColor : '#38BDF8',
+      showConnectorLine: true,
+    );
+    setState(() {
+      _current = _current.copyWith(nodes: [..._current.nodes, newNode]);
+      _selectedElementKey = 'node_$newId';
+    });
+    if (_tabController.index != 2) {
+      _tabController.animateTo(2);
+    }
+  }
+
+  void _removeCyberNode(String id) {
+    setState(() {
+      _current = _current.copyWith(
+        nodes: _current.nodes.where((n) => n.id != id).toList(),
+      );
+      if (_selectedElementKey == 'node_$id' || _selectedElementKey == 'node_target_$id') {
+        _selectedElementKey = null;
+      }
+    });
+  }
+
+  void _resetDefaultNodes() {
+    setState(() {
+      _current = _current.copyWith(
+        nodes: AutomationCyberNode.defaultNodes(),
+      );
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('5 Nós Inteligentes padrão restaurados com sucesso!'),
+          backgroundColor: Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
 
   void _resetPositions() {
     setState(() {
@@ -389,7 +525,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         coverClientInfoWidth: 240.0,
         coverClientInfoFontSize: 8.5,
         coverClientInfoColor: '#0F172A',
-        coverClientInfoSecondaryColor: '#475569',
+        coverClientInfoSecondaryColor: '#38BDF8',
         coverShowClientInfo: true,
         // Logo:
         coverShowLogo: true,
@@ -400,21 +536,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         coverShowHeader: false,
         coverHeaderStyle: 1,
         coverHeaderText1: 'PROPOSTA COMERCIAL',
-        coverHeaderText2: 'ENERGIA SOLAR FOTOVOLTAICA',
-        coverHeaderText3: 'SOLUÇÕES DE ALTA PERFORMANCE',
+        coverHeaderText2: 'AUTOMAÇÃO RESIDENCIAL & PREDIAL',
+        coverHeaderText3: 'PROJETOS DE ALTA PERFORMANCE',
         coverShowFooter: false,
         coverFooterStyle: 1,
-        coverFooterText1: 'ENERGIA LIMPA • ECONOMIA REAL • SUSTENTABILIDADE',
+        coverFooterText1: 'INOVAÇÃO • CONFORTO • TECNOLOGIA INTEGRADA',
         coverFooterText2: '(11) 99999-9999 • contato@empresa.com.br',
         coverFooterText3: 'www.suaempresa.com.br',
         coverFooterText4: 'Proposta comercial válida por 10 dias corridos.',
       );
       _coverTitleCtrl.text = 'PROPOSTA COMERCIAL';
-      _coverSubtitleCtrl.text = 'ENERGIA SOLAR FOTOVOLTAICA';
+      _coverSubtitleCtrl.text = 'AUTOMAÇÃO RESIDENCIAL HIGH-END';
       _headerText1Ctrl.text = 'PROPOSTA COMERCIAL';
-      _headerText2Ctrl.text = 'ENERGIA SOLAR FOTOVOLTAICA';
-      _headerText3Ctrl.text = 'SOLUÇÕES DE ALTA PERFORMANCE';
-      _footerText1Ctrl.text = 'ENERGIA LIMPA • ECONOMIA REAL • SUSTENTABILIDADE';
+      _headerText2Ctrl.text = 'AUTOMAÇÃO RESIDENCIAL & PREDIAL';
+      _headerText3Ctrl.text = 'PROJETOS DE ALTA PERFORMANCE';
+      _footerText1Ctrl.text = 'INOVAÇÃO • CONFORTO • TECNOLOGIA INTEGRADA';
       _footerText2Ctrl.text = '(11) 99999-9999 • contato@empresa.com.br';
       _footerText3Ctrl.text = 'www.suaempresa.com.br';
       _footerText4Ctrl.text = 'Proposta comercial válida por 10 dias corridos.';
@@ -455,7 +591,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         }
       }
     } catch (e) {
-      debugPrint('[SolarCoverCustomizerDialog] Erro ao selecionar foto: $e');
+      debugPrint('[AutomationCoverCustomizerDialog] Erro ao selecionar foto: $e');
     }
   }
 
@@ -915,8 +1051,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     final sampleProposal = ProposalModel(
       id: 'preview_id',
       proposalNumber: 'PROP-2026/001',
-      title: 'Proposta Comercial Usina Solar',
-      clientName: 'Cliente Exemplo Proposta',
+      title: 'Proposta Comercial de Automação Residencial',
+      clientName: _current.clientName.isNotEmpty ? _current.clientName : 'Cliente Exemplo Proposta',
       clientEmail: 'cliente@exemplo.com.br',
       clientPhone: '(11) 98765-4321',
       subtotal: 24500.0,
@@ -926,19 +1062,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       status: ProposalStatus.negotiating,
       items: [
         ProposalItemModel(
-          name: 'Usina Solar Fotovoltaica 8.68 kWp',
+          name: 'Sistema de Automação Residencial High-End',
           quantity: 1,
           unitPrice: 24500.0,
           totalPrice: 24500.0,
-          isSolarPlant: true,
-          solarKilowatts: 8.68,
-          solarRoofType: 'Cerâmico',
-          solarComponents: [
-            '14x Módulo Solar Monocristalino 620W N-Type Bifacial',
-            '1x Inversor Solar Grid-Tie 6kW String Wi-Fi',
-            '1x Estrutura Fixação Telhado Cerâmico Alumínio Anodizado',
-            '1x String Box CC 2 Entradas / 2 Saídas com DPS',
-          ],
         ),
       ],
     );
@@ -958,7 +1085,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 children: [
                   Expanded(
                     child: Text(
-                      'Prévia Instantânea do PDF com o seu Layout Personalizado',
+                      'Prévia Instantânea do PDF (Automação Residencial)',
                       style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -972,9 +1099,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               const Divider(),
               Expanded(
                 child: PdfPreview(
-                  build: (format) => SolarProposalPdfService.generateSolarProposalPdf(
-                    sampleProposal,
-                    solarSettings: _current,
+                  build: (format) => AutomationProposalPdfService.generateProposalPdf(
+                    settings: _current,
+                    proposal: sampleProposal,
                   ),
                   allowPrinting: true,
                   allowSharing: true,
@@ -992,7 +1119,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     _syncAllControllersToCurrent();
     setState(() => _isSaving = true);
     try {
-      await SolarSettingsService.saveSettings(_current);
+      await AutomationSettingsService.saveSettings(_current);
       widget.onSave(_current);
       if (mounted) {
         setState(() => _isSaving = false);
@@ -1095,7 +1222,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Estúdio Visual da Capa • Personalização Livre em Tempo Real',
+                'Estúdio Visual da Capa • Personalização Livre em Tempo Real (Automação Residencial)',
                 style: GoogleFonts.outfit(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1184,173 +1311,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       },
       child: Container(
         color: const Color(0xFF0B1120),
-        child: Center(
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.all(24),
-            child: LayoutBuilder(
-              builder: (ctx, constraints) {
-                // Altura disponível e escala do canvas (levemente reduzido para acomodar aba Páginas com folga)
-                final maxH = 610.0;
-                final scale = maxH / a4Height;
-                final canvasW = a4Width * scale;
-                final canvasH = maxH;
+      child: Center(
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          child: LayoutBuilder(
+            builder: (ctx, constraints) {
+              // Altura disponível e escala do canvas (levemente reduzido para acomodar aba Páginas com folga)
+              final maxH = 610.0;
+              final scale = maxH / a4Height;
+              final canvasW = a4Width * scale;
+              final canvasH = maxH;
 
-                // ── SELECIONADA PÁGINA 2 OU ABA PÁGINAS COM PÁGINA 2 ATIVA ──
-                if (_activeCustomizerPageId == 'page_2') {
-                  return Container(
-                    width: canvasW,
-                    height: canvasH,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CoverPage2InteractiveCanvas(
-                        width: canvasW,
-                        height: canvasH,
-                        scale: scale,
-                        isSolar: true,
-                        primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
-                        cards: _current.page2Cards,
-                        selectedCardId: _selectedPage2CardId,
-                        onSelectCard: (cId) {
-                          setState(() {
-                            _selectedPage2CardId = cId;
-                            if (_tabController.index != 4) {
-                              _tabController.animateTo(4);
-                            }
-                          });
-                        },
-                        showHeader: _current.coverShowHeader,
-                        headerStyle: _current.coverHeaderStyle,
-                        headerText1: _current.coverHeaderText1,
-                        headerText2: _current.coverHeaderText2,
-                        headerText3: _current.coverHeaderText3,
-                        headerBgColor: _current.coverHeaderBgColor,
-                        headerTextColor: _current.coverHeaderTextColor,
-                        headerIconColor: _current.coverHeaderIconColor,
-                        showFooter: _current.coverShowFooter,
-                        footerStyle: _current.coverFooterStyle,
-                        footerText1: _current.coverFooterText1,
-                        footerText2: _current.coverFooterText2,
-                        footerText3: _current.coverFooterText3,
-                        footerText4: _current.coverFooterText4,
-                        footerBgColor: _current.coverFooterBgColor,
-                        footerTextColor: _current.coverFooterTextColor,
-                        footerIconColor: _current.coverFooterIconColor,
-                        showIllustration: _current.page2ShowIllustration,
-                        illustrationType: _current.page2IllustrationType,
-                      ),
-                    ),
-                  );
-                }
-
-                // ── SELECIONADA PÁGINA CUSTOMIZADA CRIADA PELO USUÁRIO ──
-                if (_activeCustomizerPageId.startsWith('custom_')) {
-                  final customPage = _current.customPages.firstWhere(
-                    (cp) => cp.id == _activeCustomizerPageId,
-                    orElse: () => ProposalCustomPage(id: _activeCustomizerPageId, title: 'Nova Página Personalizada'),
-                  );
-                  return Container(
-                    width: canvasW,
-                    height: canvasH,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CoverCustomPageInteractiveCanvas(
-                        width: canvasW,
-                        height: canvasH,
-                        scale: scale,
-                        page: customPage,
-                        primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
-                        showHeader: _current.coverShowHeader,
-                        headerStyle: _current.coverHeaderStyle,
-                        headerText1: _current.coverHeaderText1,
-                        headerText2: _current.coverHeaderText2,
-                        headerText3: _current.coverHeaderText3,
-                        headerBgColor: _current.coverHeaderBgColor,
-                        headerTextColor: _current.coverHeaderTextColor,
-                        headerIconColor: _current.coverHeaderIconColor,
-                        showFooter: _current.coverShowFooter,
-                        footerStyle: _current.coverFooterStyle,
-                        footerText1: _current.coverFooterText1,
-                        footerText2: _current.coverFooterText2,
-                        footerText3: _current.coverFooterText3,
-                        footerText4: _current.coverFooterText4,
-                        footerBgColor: _current.coverFooterBgColor,
-                        footerTextColor: _current.coverFooterTextColor,
-                        footerIconColor: _current.coverFooterIconColor,
-                      ),
-                    ),
-                  );
-                }
-
-                // Se a aba selecionada for Cabeçalho & Rodapé (index == 2) ou páginas 3, 4, 5
-                // exibe a prévia da folha interna (sem conteúdo da capa) para visualização clara
-                if (_tabController.index == 2 || _activeCustomizerPageId.startsWith('page_3') || _activeCustomizerPageId.startsWith('page_4') || _activeCustomizerPageId.startsWith('page_5')) {
-                  final pNum = _activeCustomizerPageId.replaceAll('page_', '');
-                  return Container(
-                    width: canvasW,
-                    height: canvasH,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CoverInternalPageDemo(
-                        width: canvasW,
-                        height: canvasH,
-                        scale: scale,
-                        showHeader: _current.coverShowHeader,
-                        headerStyleId: _current.coverHeaderStyle,
-                        headerText1: _current.coverHeaderText1,
-                        headerText2: _current.coverHeaderText2,
-                        headerText3: _activeCustomizerPageId != 'page_1' ? 'Página $pNum de 5' : _current.coverHeaderText3,
-                        headerBgColor: _current.coverHeaderBgColor,
-                        headerTextColor: _current.coverHeaderTextColor,
-                        headerIconColor: _current.coverHeaderIconColor,
-                        showFooter: _current.coverShowFooter,
-                        footerStyleId: _current.coverFooterStyle,
-                        footerText1: _current.coverFooterText1,
-                        footerText2: _current.coverFooterText2,
-                        footerText3: _current.coverFooterText3,
-                        footerText4: _activeCustomizerPageId != 'page_1' ? 'Página $pNum de 5' : _current.coverFooterText4,
-                        footerBgColor: _current.coverFooterBgColor,
-                        footerTextColor: _current.coverFooterTextColor,
-                        footerIconColor: _current.coverFooterIconColor,
-                        accentColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
-                      ),
-                    ),
-                  );
-                }
-
+              // ── SELECIONADA PÁGINA 2 OU ABA PÁGINAS COM PÁGINA 2 ATIVA ──
+              if (_activeCustomizerPageId == 'page_2') {
                 return Container(
                   width: canvasW,
                   height: canvasH,
@@ -1367,34 +1341,199 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      fit: StackFit.expand,
-                      children: [
-                        // ── 1. RENDERIZAÇÃO DA CAPA BASE (VERTICAL SPLIT OU MODERN) ──
-                        if (_current.proposalStyle == 'verticalSplit') ...[
-                          // Capa Vertical Split Renderizada em tempo real
-                          SolarVerticalSplitCoverView(
-                            settings: _current,
-                            width: canvasW,
-                            height: canvasH,
-                            clientName: 'João da Silva Santos',
-                            proposalNumber: 'PROP-2026/001',
-                          ),
+                    child: CoverPage2InteractiveCanvas(
+                      width: canvasW,
+                      height: canvasH,
+                      scale: scale,
+                      isSolar: false,
+                      primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF38BDF8)),
+                      cards: _current.page2Cards,
+                      selectedCardId: _selectedPage2CardId,
+                      onSelectCard: (cId) {
+                        setState(() {
+                          _selectedPage2CardId = cId;
+                          if (_tabController.index != 5) {
+                            _tabController.animateTo(5);
+                          }
+                        });
+                      },
+                      showHeader: _current.coverShowHeader,
+                      headerStyle: _current.coverHeaderStyle,
+                      headerText1: _current.coverHeaderText1,
+                      headerText2: _current.coverHeaderText2,
+                      headerText3: _current.coverHeaderText3,
+                      headerBgColor: _current.coverHeaderBgColor,
+                      headerTextColor: _current.coverHeaderTextColor,
+                      headerIconColor: _current.coverHeaderIconColor,
+                      showFooter: _current.coverShowFooter,
+                      footerStyle: _current.coverFooterStyle,
+                      footerText1: _current.coverFooterText1,
+                      footerText2: _current.coverFooterText2,
+                      footerText3: _current.coverFooterText3,
+                      footerText4: _current.coverFooterText4,
+                      footerBgColor: _current.coverFooterBgColor,
+                      footerTextColor: _current.coverFooterTextColor,
+                      footerIconColor: _current.coverFooterIconColor,
+                      showIllustration: _current.page2ShowIllustration,
+                      illustrationType: _current.page2IllustrationType,
+                    ),
+                  ),
+                );
+              }
 
-                          // Desselecionar ao clicar na foto da capa
-                          Positioned.fill(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                if (_selectedElementKey != null) {
-                                  setState(() => _selectedElementKey = null);
-                                }
-                              },
+              // ── SELECIONADA PÁGINA CUSTOMIZADA CRIADA PELO USUÁRIO ──
+              if (_activeCustomizerPageId.startsWith('custom_')) {
+                final customPage = _current.customPages.firstWhere(
+                  (cp) => cp.id == _activeCustomizerPageId,
+                  orElse: () => ProposalCustomPage(id: _activeCustomizerPageId, title: 'Nova Página Personalizada'),
+                );
+                return Container(
+                  width: canvasW,
+                  height: canvasH,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CoverCustomPageInteractiveCanvas(
+                      width: canvasW,
+                      height: canvasH,
+                      scale: scale,
+                      page: customPage,
+                      primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF38BDF8)),
+                      showHeader: _current.coverShowHeader,
+                      headerStyle: _current.coverHeaderStyle,
+                      headerText1: _current.coverHeaderText1,
+                      headerText2: _current.coverHeaderText2,
+                      headerText3: _current.coverHeaderText3,
+                      headerBgColor: _current.coverHeaderBgColor,
+                      headerTextColor: _current.coverHeaderTextColor,
+                      headerIconColor: _current.coverHeaderIconColor,
+                      showFooter: _current.coverShowFooter,
+                      footerStyle: _current.coverFooterStyle,
+                      footerText1: _current.coverFooterText1,
+                      footerText2: _current.coverFooterText2,
+                      footerText3: _current.coverFooterText3,
+                      footerText4: _current.coverFooterText4,
+                      footerBgColor: _current.coverFooterBgColor,
+                      footerTextColor: _current.coverFooterTextColor,
+                      footerIconColor: _current.coverFooterIconColor,
+                    ),
+                  ),
+                );
+              }
+
+              // ── SELECIONADAS PÁGINAS INTERNAS (PÁG 3, 4, 5) OU ABA CABEÇALHO/RODAPÉ (INDEX == 3) ──
+              if (_tabController.index == 3 || _activeCustomizerPageId.startsWith('page_3') || _activeCustomizerPageId.startsWith('page_4') || _activeCustomizerPageId.startsWith('page_5')) {
+                final pNum = _activeCustomizerPageId.replaceAll('page_', '');
+                return Container(
+                  width: canvasW,
+                  height: canvasH,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CoverInternalPageDemo(
+                      width: canvasW,
+                      height: canvasH,
+                      scale: scale,
+                      showHeader: _current.coverShowHeader,
+                      headerStyleId: _current.coverHeaderStyle,
+                      headerText1: _current.coverHeaderText1,
+                      headerText2: _current.coverHeaderText2,
+                      headerText3: _activeCustomizerPageId != 'page_1' ? 'Página $pNum de 5' : _current.coverHeaderText3,
+                      headerBgColor: _current.coverHeaderBgColor,
+                      headerTextColor: _current.coverHeaderTextColor,
+                      headerIconColor: _current.coverHeaderIconColor,
+                      showFooter: _current.coverShowFooter,
+                      footerStyleId: _current.coverFooterStyle,
+                      footerText1: _current.coverFooterText1,
+                      footerText2: _current.coverFooterText2,
+                      footerText3: _current.coverFooterText3,
+                      footerText4: _activeCustomizerPageId != 'page_1' ? 'Página $pNum de 5' : _current.coverFooterText4,
+                      footerBgColor: _current.coverFooterBgColor,
+                      footerTextColor: _current.coverFooterTextColor,
+                      footerIconColor: _current.coverFooterIconColor,
+                      accentColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF38BDF8)),
+                    ),
+                  ),
+                );
+              }
+
+              return Container(
+                width: canvasW,
+                height: canvasH,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      blurRadius: 25,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    fit: StackFit.expand,
+                    children: [
+                      // ── 1. RENDERIZAÇÃO DA CAPA BASE (VERTICAL SPLIT OU MODERN) ──
+                      if (_current.proposalStyle == 'verticalSplit') ...[
+                        // Capa Vertical Split Renderizada em tempo real
+                        AutomationVerticalSplitCoverView(
+                          settings: _current,
+                          width: canvasW,
+                          height: canvasH,
+                          clientName: 'João da Silva Santos',
+                          proposalNumber: 'PROP-2026/001',
+                        ),
+
+                        // Linhas Cibernéticas Neon dos Nós de Automação (Vertical Split)
+                        if (_current.nodes.isNotEmpty)
+                          CustomPaint(
+                            size: Size(canvasW, canvasH),
+                            painter: AutomationCyberConnectorPainter(
+                              nodes: _current.nodes,
+                              primaryColor: Color(_hexToInt(_current.customDividerColor.isNotEmpty ? _current.customDividerColor : '#38BDF8')),
+                              selectedNodeId: _selectedElementKey?.startsWith('node_') == true
+                                  ? _selectedElementKey!.replaceFirst('node_target_', '').replaceFirst('node_', '')
+                                  : null,
                             ),
                           ),
 
-                          // Bloco 1: Headline Esquerda
+                        // Desselecionar ao clicar na foto da capa
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              if (_selectedElementKey != null) {
+                                setState(() => _selectedElementKey = null);
+                              }
+                            },
+                          ),
+                        ),
+
+                        // Bloco 1: Headline Esquerda
                         if (_current.verticalSplitShowHeadline)
                           _buildDraggableHandle(
                             elementKey: 'headline',
@@ -1467,7 +1606,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         if (_current.verticalSplitShowRightBlock)
                           _buildDraggableHandle(
                             elementKey: 'rightBlock',
-                            label: '📌 Proposta Solar',
+                            label: '📌 Proposta de Automação',
                             left: canvasW - (_current.verticalSplitRightBlockRight * canvasW) - (canvasW * 0.42),
                             top: _current.verticalSplitRightBlockTop * canvasH,
                             width: canvasW * 0.42,
@@ -1528,7 +1667,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           )
                         else
                           Image.network(
-                            SolarSettingsService.getBigCoverUrl(_current.selectedCoverTemplate),
+                            AutomationSettingsService.getBigCoverUrl(_current.selectedCoverTemplate),
                             fit: BoxFit.cover,
                             width: canvasW,
                             height: canvasH,
@@ -1544,6 +1683,19 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                               primaryColor: Color(_hexToInt(_current.customDividerColor)),
                               bottomAreaColor: Color(_hexToInt(_current.customDividerBottomColor)),
                               splitYRatio: 0.70,
+                            ),
+                          ),
+
+                        // 2.1. Linhas Cibernéticas Neon dos Nós de Automação (Modern)
+                        if (_current.nodes.isNotEmpty)
+                          CustomPaint(
+                            size: Size(canvasW, canvasH),
+                            painter: AutomationCyberConnectorPainter(
+                              nodes: _current.nodes,
+                              primaryColor: Color(_hexToInt(_current.customDividerColor.isNotEmpty ? _current.customDividerColor : '#38BDF8')),
+                              selectedNodeId: _selectedElementKey?.startsWith('node_') == true
+                                  ? _selectedElementKey!.replaceFirst('node_target_', '').replaceFirst('node_', '')
+                                  : null,
                             ),
                           ),
 
@@ -1649,7 +1801,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         // 6. Rodapé Informativo na Área Branca Preservada da Capa Modern
                         ..._buildModernRightFooter(canvasW, canvasH, scale),
 
-                        // 7. Dados do Cliente, CPF/CNPJ e Geração (Arrastável, Redimensionável e Cores Editáveis)
+                        // 7. Dados do Cliente, CPF/CNPJ e Solução (Arrastável, Redimensionável e Cores Editáveis)
                         ..._buildModernClientInfo(canvasW, canvasH, scale),
                       ],
 
@@ -1800,6 +1952,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             });
                           },
                         ),
+
+                      // ── 5. NÓS CIBERNÉTICOS / PONTOS INTELIGENTES (ARRASRO DO ÍCONE E DO ALVO) ──
+                      ..._buildCyberNodesCanvasElements(canvasW, canvasH, scale),
                     ],
                   ),
                 ),
@@ -1974,7 +2129,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       ),
       _buildDraggableHandle(
         elementKey: 'rightBlock',
-        label: '📌 Proposta Solar',
+        label: '📌 Proposta de Automação',
         left: blockLeft,
         top: blockTop,
         width: canvasW * 0.42,
@@ -2064,7 +2219,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Cliente: João da Silva Santos',
+                  'Cliente: ${_current.clientName.isNotEmpty ? _current.clientName : "João da Silva Santos"}',
                   style: getCoverTextStyle(
                     fontFamily: _current.coverHeadlineFont,
                     fontSize: _current.coverClientInfoFontSize * scale,
@@ -2088,7 +2243,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 ),
                 SizedBox(height: 2 * scale),
                 Text(
-                  'Geração: 990 kWh/mês (8.61 kWp)',
+                  'Automação: Iluminação, Áudio & Climatização',
                   style: getCoverTextStyle(
                     fontFamily: _current.coverHeadlineFont,
                     fontSize: (_current.coverClientInfoFontSize * 0.9) * scale,
@@ -2132,6 +2287,161 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         },
       ),
     ];
+  }
+
+  List<Widget> _buildCyberNodesCanvasElements(double canvasW, double canvasH, double scale) {
+    if (_current.nodes.isEmpty) return const [];
+
+    final widgets = <Widget>[];
+
+    for (final node in _current.nodes) {
+      final isNodeSelected = _selectedElementKey == 'node_${node.id}';
+      final isTargetSelected = _selectedElementKey == 'node_target_${node.id}';
+      final isAnySelected = isNodeSelected || isTargetSelected;
+      final nodeColor = Color(_hexToInt(node.colorHex, fallback: 0xFF38BDF8));
+      final badgeRadius = (20.0 * scale).clamp(16.0, 26.0);
+
+      final posX = (node.posX * canvasW).clamp(10.0, canvasW - 10.0);
+      final posY = (node.posY * canvasH).clamp(10.0, canvasH - 10.0);
+      final targetX = (node.targetX * canvasW).clamp(5.0, canvasW - 5.0);
+      final targetY = (node.targetY * canvasH).clamp(5.0, canvasH - 5.0);
+
+      // 1. VISUAL: Badge Redondo com Borda Neon e Fundo Escuro
+      widgets.add(
+        Positioned(
+          left: posX - badgeRadius,
+          top: posY - badgeRadius,
+          child: IgnorePointer(
+            child: Container(
+              width: badgeRadius * 2,
+              height: badgeRadius * 2,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF0F172A).withValues(alpha: 0.92),
+                border: Border.all(
+                  color: isAnySelected ? Colors.white : nodeColor,
+                  width: isAnySelected ? 2.5 : 2.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: nodeColor.withValues(alpha: isAnySelected ? 0.85 : 0.50),
+                    blurRadius: isAnySelected ? 16 : 8,
+                    spreadRadius: isAnySelected ? 2.5 : 0.5,
+                  ),
+                  const BoxShadow(
+                    color: Colors.black87,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Icon(
+                  _getNodeIcon(node.iconName),
+                  size: badgeRadius * 0.95,
+                  color: isAnySelected ? Colors.white : nodeColor,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // 2. VISUAL: Mini Etiqueta de Identificação do Nó
+      final labelFontSize = (_current.coverNodesLabelFontSize * scale).clamp(6.0, 24.0);
+      final labelBoxWidth = math.max(110.0 * scale, node.label.length * (labelFontSize * 0.95));
+      widgets.add(
+        Positioned(
+          left: posX - (labelBoxWidth / 2),
+          top: posY + badgeRadius + (3 * scale),
+          child: IgnorePointer(
+            child: SizedBox(
+              width: labelBoxWidth,
+              child: Center(
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2.5 * scale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: nodeColor.withValues(alpha: 0.5),
+                      width: 0.8,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                    ],
+                  ),
+                  child: Text(
+                    node.label.toUpperCase(),
+                    style: GoogleFonts.inter(
+                      fontSize: labelFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // 3. INTERATIVO: Handle para Arrastar o Badge do Nó
+      widgets.add(
+        _buildDraggableHandle(
+          elementKey: 'node_${node.id}',
+          label: '⚡ ${node.label}',
+          left: posX - badgeRadius,
+          top: posY - badgeRadius,
+          width: badgeRadius * 2,
+          height: (badgeRadius * 2) + (18 * scale),
+          onDelete: () => _removeCyberNode(node.id),
+          onDrag: (dx, dy) {
+            setState(() {
+              final newX = ((node.posX * canvasW) + (dx * 2.5)) / canvasW;
+              final newY = ((node.posY * canvasH) + (dy * 2.5)) / canvasH;
+              _updateNode(
+                node.id,
+                posX: newX.clamp(0.02, 0.98),
+                posY: newY.clamp(0.02, 0.98),
+              );
+            });
+          },
+        ),
+      );
+
+      // 4. INTERATIVO: Handle para Arrastar o Alvo na Arquitetura
+      if (node.showConnectorLine) {
+        final targetHandleRadius = 14.0 * scale;
+        widgets.add(
+          _buildDraggableHandle(
+            elementKey: 'node_target_${node.id}',
+            label: '🎯 Alvo: ${node.label}',
+            left: targetX - targetHandleRadius,
+            top: targetY - targetHandleRadius,
+            width: targetHandleRadius * 2,
+            height: targetHandleRadius * 2,
+            onDelete: null,
+            onDrag: (dx, dy) {
+              setState(() {
+                final newTargetX = ((node.targetX * canvasW) + (dx * 2.5)) / canvasW;
+                final newTargetY = ((node.targetY * canvasH) + (dy * 2.5)) / canvasH;
+                _updateNode(
+                  node.id,
+                  targetX: newTargetX.clamp(0.02, 0.98),
+                  targetY: newTargetY.clamp(0.02, 0.98),
+                );
+              });
+            },
+          ),
+        );
+      }
+    }
+
+    return widgets;
   }
 
   Widget _buildDraggableHandle({
@@ -2333,6 +2643,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             tabs: const [
               Tab(icon: Icon(Icons.edit_note_rounded, size: 18), text: 'Textos & Conteúdo'),
               Tab(icon: Icon(Icons.tune_rounded, size: 18), text: 'Estilo & Divisor'),
+              Tab(icon: Icon(Icons.hub_rounded, size: 18), text: 'Nós Inteligentes'),
               Tab(icon: Icon(Icons.view_headline_rounded, size: 18), text: 'Cabeçalho & Rodapé'),
               Tab(icon: Icon(Icons.image_outlined, size: 18), text: 'Logo & Papel de Parede'),
               Tab(icon: Icon(Icons.auto_stories_rounded, size: 18), text: 'Páginas'),
@@ -2347,6 +2658,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               children: [
                 _buildTextsTab(),
                 _buildStyleTab(),
+                _buildCyberNodesTab(),
                 _buildHeaderFooterTab(),
                 _buildLogoAndWallpaperTab(),
                 _buildPagesTab(),
@@ -2360,7 +2672,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   Widget _buildPagesTab() {
     return CoverPagesManagerTab(
-      isSolar: true,
+      isSolar: false,
       activePageId: _activeCustomizerPageId,
       onSelectPage: (pId) {
         setState(() {
@@ -2396,6 +2708,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             page2TemplateId: tpl.id,
             page2IllustrationType: tpl.illustrationKey,
             page2CardsJson: jsonEncode(tpl.defaultCards.map((c) => c.toMap()).toList()),
+            primaryColorHex: tpl.defaultPrimaryColor,
             verticalSplitAccentColor: tpl.defaultPrimaryColor,
           );
           _activeCustomizerPageId = 'page_2';
@@ -2408,7 +2721,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             internalPagesLayoutPreset: preset.id,
             coverHeaderStyle: preset.headerStyle,
             coverFooterStyle: preset.footerStyle,
-            verticalSplitAccentColor: preset.primaryColorHex,
+            primaryColorHex: preset.primaryColorHex,
             coverHeaderBgColor: preset.headerBgColorHex,
             coverHeaderTextColor: preset.headerTextColorHex,
             coverFooterBgColor: preset.footerBgColorHex,
@@ -2433,18 +2746,18 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           if (img.localAsset != null && img.localAsset!.isNotEmpty) {
             _current = _current.copyWith(selectedCoverTemplate: img.localAsset!);
           } else {
-            _current = _current.copyWith(selectedCoverTemplate: img.url);
+            _current = _current.copyWith(coverImageUrl: img.url);
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Imagem "${img.title}" selecionada!'),
-            backgroundColor: const Color(0xFFEAB308),
+            backgroundColor: const Color(0xFF0284C7),
             behavior: SnackBarBehavior.floating,
           ),
         );
       },
-      primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
+      primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF0284C7)),
     );
   }
 
@@ -2481,7 +2794,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       footerText2Ctrl: _footerText2Ctrl,
       footerText3Ctrl: _footerText3Ctrl,
       footerText4Ctrl: _footerText4Ctrl,
-      accentColor: const Color(0xFFEAB308),
+      accentColor: const Color(0xFF38BDF8),
       headerBgColor: _current.coverHeaderBgColor,
       onHeaderBgColorChanged: (c) => setState(() => _current = _current.copyWith(coverHeaderBgColor: c)),
       headerTextColor: _current.coverHeaderTextColor,
@@ -2894,7 +3207,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         scale: 0.8,
                         child: Switch(
                           value: _current.verticalSplitShowHeadlineDivider,
-                          activeThumbColor: const Color(0xFFF59E0B),
+                          activeThumbColor: const Color(0xFF38BDF8),
                           onChanged: (val) {
                             setState(() {
                               _current = _current.copyWith(verticalSplitShowHeadlineDivider: val);
@@ -2915,16 +3228,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         ),
                         Text(
                           '${_current.verticalSplitHeadlineDividerWidth.round()} px',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
                         ),
                       ],
                     ),
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: const Color(0xFFD97706),
+                        activeTrackColor: const Color(0xFF0284C7),
                         inactiveTrackColor: const Color(0xFF334155),
-                        thumbColor: const Color(0xFFF59E0B),
-                        overlayColor: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        thumbColor: const Color(0xFF38BDF8),
+                        overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
                         trackHeight: 3,
                       ),
                       child: Slider(
@@ -2949,16 +3262,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         ),
                         Text(
                           '${_current.verticalSplitHeadlineDividerHeight.toStringAsFixed(1)} px',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
                         ),
                       ],
                     ),
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: const Color(0xFFD97706),
+                        activeTrackColor: const Color(0xFF0284C7),
                         inactiveTrackColor: const Color(0xFF334155),
-                        thumbColor: const Color(0xFFF59E0B),
-                        overlayColor: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        thumbColor: const Color(0xFF38BDF8),
+                        overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
                         trackHeight: 3,
                       ),
                       child: Slider(
@@ -3328,7 +3641,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     focusNode: _rightSubtitleFocusNode,
                     isHighlighted: _selectedElementKey == 'rightBlock',
                     label: 'Subtítulo / Destaque',
-                    hint: 'SOLAR',
+                    hint: 'AUTOMAÇÃO',
                   ),
                 ),
               ],
@@ -3388,7 +3701,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
                         ),
                         Text(
-                          ' px',
+                          '${_current.verticalSplitRightDividerWidth.round()} px',
                           style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
                         ),
                       ],
@@ -3422,7 +3735,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
                         ),
                         Text(
-                          ' px',
+                          '${_current.verticalSplitRightDividerHeight.toStringAsFixed(1)} px',
                           style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
                         ),
                       ],
@@ -3525,7 +3838,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           // ── 5. SEÇÃO: DADOS DO CLIENTE & CPF/CNPJ ───────────────────────────────
           _panelSectionTitle(
             'Dados do Cliente & CPF/CNPJ',
-            'Posição, cores e dimensões dos dados do cliente e geração na capa',
+            'Posição, cores e dimensões dos dados do cliente e solução na capa',
             onDelete: _current.coverShowClientInfo
                 ? () => setState(() => _current = _current.copyWith(coverShowClientInfo: false))
                 : null,
@@ -3549,7 +3862,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             ),
             const SizedBox(height: 12),
             Text(
-              'Cor Secundária (CPF/CNPJ e Geração):',
+              'Cor Secundária (CPF/CNPJ e Solução):',
               style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
@@ -3681,7 +3994,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
   }
 
   Widget _buildModernStyleTab() {
-    final dividers = SolarSettingsService.getAvailableDividers();
+    final dividers = AutomationSettingsService.getAvailableDividers();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -3915,9 +4228,392 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     );
   }
 
+  Widget _buildCyberNodesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── BOTÕES DE AÇÃO SUPERIOR (NOVA CONEXÃO & RESTAURAR) ─────────────
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _addCyberNode,
+                  icon: const Icon(Icons.add_location_alt_rounded, size: 16),
+                  label: const Text('+ NOVO PONTO INTELIGENTE'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: _resetDefaultNodes,
+                icon: const Icon(Icons.restore_rounded, size: 16),
+                label: const Text('PADRÃO'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF94A3B8),
+                  side: const BorderSide(color: Color(0xFF475569)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // ── CONTROLE DO TAMANHO DA FONTE DOS RÓTULOS DOS NÓS ──
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.format_size_rounded, color: Color(0xFF38BDF8), size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Tamanho da Fonte dos Rótulos',
+                          style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                      ),
+                      child: Text(
+                        ' pt',
+                        style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700, color: const Color(0xFF38BDF8)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: const Color(0xFF38BDF8),
+                    inactiveTrackColor: const Color(0xFF334155),
+                    thumbColor: const Color(0xFF38BDF8),
+                    overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                    trackHeight: 3,
+                  ),
+                  child: Slider(
+                    value: _current.coverNodesLabelFontSize.clamp(6.0, 18.0),
+                    min: 6.0,
+                    max: 18.0,
+                    divisions: 24,
+                    onChanged: (val) {
+                      setState(() {
+                        _current = _current.copyWith(coverNodesLabelFontSize: val);
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _panelSectionTitle('Pontos Tecnológicos na Fachada', 'Posicione os ícones inteligentes sobre a arquitetura da residência'),
+          const SizedBox(height: 12),
+
+          // Dica de uso
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.touch_app_rounded, color: Color(0xFF38BDF8), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Arraste livremente o ícone e o anel alvo na folha A4 para apontar exatamente para o telhado, esquadria, porta ou cômodo da casa.',
+                    style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFE0F2FE), height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Lista de Nós Cibernéticos
+          if (_current.nodes.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    const Icon(Icons.hub_outlined, color: Color(0xFF64748B), size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Nenhum ponto inteligente na capa',
+                      style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white70),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton.icon(
+                      onPressed: _resetDefaultNodes,
+                      icon: const Icon(Icons.restore_rounded),
+                      label: const Text('Restaurar 5 Pontos Padrão'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            for (int idx = 0; idx < _current.nodes.length; idx++) ...[
+              Builder(
+                builder: (ctx) {
+                  final node = _current.nodes[idx];
+                  final isSel = _selectedElementKey == 'node_${node.id}' || _selectedElementKey == 'node_target_${node.id}';
+                  final nodeColor = Color(_hexToInt(node.colorHex, fallback: 0xFF38BDF8));
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSel ? const Color(0xFF38BDF8) : const Color(0xFF334155),
+                        width: isSel ? 2 : 1,
+                      ),
+                      boxShadow: isSel
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Cabeçalho do Card
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF1E293B),
+                                border: Border.all(color: nodeColor, width: 1.8),
+                              ),
+                              child: Center(
+                                child: Icon(_getNodeIcon(node.iconName), size: 16, color: nodeColor),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    node.label.isNotEmpty ? node.label : 'Ponto #${idx + 1}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSel ? const Color(0xFF38BDF8) : Colors.white,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Ícone: (${(node.posX * 100).toInt()}%, ${(node.posY * 100).toInt()}%) • Alvo: (${(node.targetX * 100).toInt()}%, ${(node.targetY * 100).toInt()}%)',
+                                    style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isSel)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0284C7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'SELECIONADO',
+                                  style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                            const SizedBox(width: 6),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                              tooltip: 'Excluir Ponto',
+                              onPressed: () => _removeCyberNode(node.id),
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Campo Nome / Rótulo
+                        Text(
+                          'RÓTULO DO PONTO:',
+                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
+                        ),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          key: ValueKey('node_lbl_${node.id}'),
+                          initialValue: node.label,
+                          onTap: () => setState(() => _selectedElementKey = 'node_${node.id}'),
+                          onChanged: (val) => _updateNode(node.id, label: val),
+                          style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Ex: ILUMINAÇÃO CÊNICA, ÁUDIO HIGH END...',
+                            hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                            filled: true,
+                            fillColor: const Color(0xFF1E293B),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Seletor de Ícone
+                        Text(
+                          'ÍCONE TECNOLÓGICO:',
+                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            {'key': 'light', 'icon': Icons.lightbulb_outline_rounded, 'tip': 'Iluminação'},
+                            {'key': 'music', 'icon': Icons.music_note_rounded, 'tip': 'Áudio / Som'},
+                            {'key': 'temp', 'icon': Icons.thermostat_rounded, 'tip': 'Climatização'},
+                            {'key': 'camera', 'icon': Icons.videocam_outlined, 'tip': 'Câmera / AI'},
+                            {'key': 'lock', 'icon': Icons.lock_outline_rounded, 'tip': 'Acesso / Biometria'},
+                            {'key': 'wifi', 'icon': Icons.wifi_rounded, 'tip': 'Wi-Fi / Rede'},
+                            {'key': 'tv', 'icon': Icons.tv_rounded, 'tip': 'Home Cinema'},
+                            {'key': 'curtain', 'icon': Icons.curtains_rounded, 'tip': 'Cortinas'},
+                            {'key': 'shield', 'icon': Icons.security_rounded, 'tip': 'Segurança'},
+                            {'key': 'power', 'icon': Icons.power_settings_new_rounded, 'tip': 'Energia'},
+                          ].map((opt) {
+                            final iconKey = opt['key'] as String;
+                            final iconData = opt['icon'] as IconData;
+                            final tip = opt['tip'] as String;
+                            final isIconSel = node.iconName.toLowerCase() == iconKey;
+
+                            return Tooltip(
+                              message: tip,
+                              child: InkWell(
+                                onTap: () => _updateNode(node.id, iconName: iconKey),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: isIconSel ? const Color(0xFF0284C7) : const Color(0xFF1E293B),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isIconSel ? Colors.white : const Color(0xFF334155),
+                                      width: isIconSel ? 1.8 : 1,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    iconData,
+                                    size: 16,
+                                    color: isIconSel ? Colors.white : const Color(0xFFCBD5E1),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Seletor de Cor Neon
+                        Row(
+                          children: [
+                            Text(
+                              'COR NEON:',
+                              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
+                            ),
+                            const SizedBox(width: 8),
+                            Wrap(
+                              spacing: 6,
+                              children: ['#38BDF8', '#00E5FF', '#2563EB', '#10B981', '#EAB308', '#A855F7', '#EF4444', '#FFFFFF'].map((hex) {
+                                final isColorSel = node.colorHex.toUpperCase() == hex.toUpperCase();
+                                return InkWell(
+                                  onTap: () => _updateNode(node.id, colorHex: hex),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Color(_hexToInt(hex)),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isColorSel ? Colors.white : Colors.transparent,
+                                        width: isColorSel ? 2 : 1,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Switch Linha Conectora
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Linha Conectora na Fachada',
+                              style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFCBD5E1)),
+                            ),
+                            Switch(
+                              value: node.showConnectorLine,
+                              activeThumbColor: const Color(0xFF38BDF8),
+                              onChanged: (val) => _updateNode(node.id, showConnectorLine: val),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildLogoAndWallpaperTab() {
-    final defaultCovers = SolarSettingsService.getDefaultCoverList();
-    final defaultBgs = SolarSettingsModel.availableWebBackgrounds;
+    final defaultCovers = AutomationSettingsService.getDefaultCoverList();
+    final defaultBgs = AutomationSettingsModel.availableWebBackgrounds;
 
     final isCoversMode = _selectedCoverGalleryTab == 0;
     final currentList = isCoversMode ? defaultCovers : defaultBgs;
@@ -3979,7 +4675,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           // ── FOTO DE FUNDO PERSONALIZADA (UPLOAD DO USUÁRIO) ─────────────────
           _panelSectionTitle(
             'Foto de Fundo Personalizada (Upload)',
-            'Envie uma foto da sua empresa, escritório ou projeto para ser o background da capa',
+            'Envie uma foto do seu escritório, projeto ou residência para ser o background da capa',
           ),
           const SizedBox(height: 12),
           Container(
@@ -4277,8 +4973,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   (_current.selectedCoverTemplate == item || _current.webBackgroundTemplate == item);
 
               final rawUrl = isCoversMode
-                  ? SolarSettingsService.getSmallCoverUrl(item)
-                  : SolarSettingsService.getWebBackgroundUrl(item);
+                  ? AutomationSettingsService.getSmallCoverUrl(item)
+                  : AutomationSettingsService.getWebBackgroundUrl(item);
               final thumbUrl = 'https://wsrv.nl/?url=${Uri.encodeComponent(rawUrl)}&w=300&output=webp';
 
               final numMatch = RegExp(r'\d+').firstMatch(item);

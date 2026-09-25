@@ -161,11 +161,13 @@ class _LoginPageState extends State<LoginPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Row(
           children: [
-            const Icon(Icons.lock_reset_rounded, color: Color(0xFF00B4D8), size: 26),
+            const Icon(Icons.lock_reset_rounded,
+                color: Color(0xFF00B4D8), size: 26),
             const SizedBox(width: 8),
             Text(
               'Recuperar Senha',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 18),
+              style:
+                  GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 18),
             ),
           ],
         ),
@@ -175,7 +177,8 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             Text(
               'Informe o e-mail associado à sua conta para enviarmos as instruções de redefinição:',
-              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF475569)),
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: const Color(0xFF475569)),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -185,8 +188,10 @@ class _LoginPageState extends State<LoginPage> {
                 labelText: 'E-mail cadastrado',
                 hintText: 'seuemail@empresa.com.br',
                 prefixIcon: const Icon(Icons.mail_outline_rounded, size: 18),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),
           ],
@@ -196,14 +201,16 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'CANCELAR',
-              style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(
+                  color: const Color(0xFF64748B), fontWeight: FontWeight.w600),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00B4D8),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
               final email = resetEmailCtrl.text.trim();
@@ -218,11 +225,13 @@ class _LoginPageState extends State<LoginPage> {
               }
               Navigator.of(ctx).pop();
               try {
-                await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                await FirebaseAuth.instance
+                    .sendPasswordResetEmail(email: email);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('E-mail de recuperação enviado para $email! Verifique sua caixa de entrada.'),
+                      content: Text(
+                          'E-mail de recuperação enviado para $email! Verifique sua caixa de entrada.'),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -355,13 +364,14 @@ class _LoginPageState extends State<LoginPage> {
             top: 50,
             bottom: 50,
             left: 0,
-            right: 220, // Passa por trás do card de login (largura 430), criando a sobreposição 3D
+            right:
+                220, // Passa por trás do card de login (largura 430), criando a sobreposição 3D
             child: Image.asset(
               'assets/images/login/crm_screen_transparent.png',
               fit: BoxFit.contain,
               filterQuality: FilterQuality.high,
               errorBuilder: (_, __, ___) => Image.asset(
-                'assets/images/login/93ddf6b7-f724-4855-b538-076d0f6a208e.png',
+                'assets/images/login/crm_screen_transparent.png',
                 fit: BoxFit.contain,
               ),
             ),
@@ -448,7 +458,8 @@ class _LoginPageState extends State<LoginPage> {
       decoration: BoxDecoration(
         color: const Color(0xFF0A152B).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: glowColor.withValues(alpha: 0.55), width: 1.2),
+        border:
+            Border.all(color: glowColor.withValues(alpha: 0.55), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -641,19 +652,22 @@ class _LoginPageState extends State<LoginPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildFeatureItem(
-          imagePath: 'assets/images/login/b69f61f1-663b-4cc4-981a-1b4f51844277.png',
+          imagePath:
+              'assets/images/login/1c8a4419-fd65-4c57-8cb3-eef633a90ebc.png',
           fallbackIcon: Icons.description_rounded,
           title: 'Propostas\nprofissionais',
         ),
         const SizedBox(width: 24),
         _buildFeatureItem(
-          imagePath: 'assets/images/login/1c8a4419-fd65-4c57-8cb3-eef633a90ebc.png',
+          imagePath:
+              'assets/images/login/2e695fb0-67d2-4269-a8c0-3cd8a94ed006.png',
           fallbackIcon: Icons.psychology_rounded,
-          title: 'IA integrada\n',
+          title: 'IA \n integrada\n',
         ),
         const SizedBox(width: 24),
         _buildFeatureItem(
-          imagePath: 'assets/images/login/2e695fb0-67d2-4269-a8c0-3cd8a94ed006.png',
+          imagePath:
+              'assets/images/login/b69f61f1-663b-4cc4-981a-1b4f51844277.png',
           fallbackIcon: Icons.bar_chart_rounded,
           title: 'Gestão\ncompleta',
         ),
@@ -681,9 +695,11 @@ class _LoginPageState extends State<LoginPage> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0B162C),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.5)),
+                border: Border.all(
+                    color: const Color(0xFF00E5FF).withValues(alpha: 0.5)),
               ),
-              child: Icon(fallbackIcon, color: const Color(0xFF00E5FF), size: 26),
+              child:
+                  Icon(fallbackIcon, color: const Color(0xFF00E5FF), size: 26),
             ),
           ),
         ),
@@ -765,7 +781,8 @@ class _LoginPageState extends State<LoginPage> {
               }
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(10),
@@ -773,7 +790,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                    const Icon(Icons.error_outline_rounded,
+                        color: Color(0xFFEF4444), size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -805,14 +823,18 @@ class _LoginPageState extends State<LoginPage> {
             controller: _emailCtrl,
             onChanged: controller.setEmail,
             keyboardType: TextInputType.emailAddress,
-            style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13.5),
+            style: GoogleFonts.inter(
+                color: const Color(0xFF0F172A), fontSize: 13.5),
             decoration: InputDecoration(
               hintText: 'seuemail@empresa.com.br',
-              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
-              prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF64748B), size: 18),
+              hintStyle: GoogleFonts.inter(
+                  color: const Color(0xFF94A3B8), fontSize: 13),
+              prefixIcon: const Icon(Icons.mail_outline_rounded,
+                  color: Color(0xFF64748B), size: 18),
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -823,7 +845,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
+                borderSide:
+                    const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
               ),
             ),
           ),
@@ -844,11 +867,14 @@ class _LoginPageState extends State<LoginPage> {
               controller: _passwordCtrl,
               onChanged: controller.setPassword,
               obscureText: controller.obscurePassword,
-              style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13.5),
+              style: GoogleFonts.inter(
+                  color: const Color(0xFF0F172A), fontSize: 13.5),
               decoration: InputDecoration(
                 hintText: 'Digite sua senha',
-                hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
-                prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF64748B), size: 18),
+                hintStyle: GoogleFonts.inter(
+                    color: const Color(0xFF94A3B8), fontSize: 13),
+                prefixIcon: const Icon(Icons.lock_outline_rounded,
+                    color: Color(0xFF64748B), size: 18),
                 suffixIcon: IconButton(
                   icon: Icon(
                     controller.obscurePassword
@@ -861,7 +887,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -872,7 +899,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
                 ),
               ),
             ),
@@ -926,9 +954,12 @@ class _LoginPageState extends State<LoginPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
-                onPressed: (controller.isLoading || controller.isGoogleLoading || _isQuickLoading)
+                onPressed: (controller.isLoading ||
+                        controller.isGoogleLoading ||
+                        _isQuickLoading)
                     ? null
                     : () async {
                         final success = await controller.login();
@@ -940,7 +971,8 @@ class _LoginPageState extends State<LoginPage> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.2),
                       )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -955,7 +987,8 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                          const Icon(Icons.arrow_forward_rounded,
+                              color: Colors.white, size: 18),
                         ],
                       ),
               ),
@@ -1003,9 +1036,12 @@ class _LoginPageState extends State<LoginPage> {
                 style: OutlinedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   side: BorderSide.none,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
-                onPressed: (controller.isLoading || controller.isGoogleLoading || _isQuickLoading)
+                onPressed: (controller.isLoading ||
+                        controller.isGoogleLoading ||
+                        _isQuickLoading)
                     ? null
                     : () async {
                         final success = await controller.loginWithGoogle();
@@ -1017,7 +1053,8 @@ class _LoginPageState extends State<LoginPage> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Color(0xFF00B4D8), strokeWidth: 2.2),
+                        child: CircularProgressIndicator(
+                            color: Color(0xFF00B4D8), strokeWidth: 2.2),
                       )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1084,12 +1121,14 @@ class _LoginPageState extends State<LoginPage> {
             color: const Color(0xFF0A152B),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFF00E5FF).withValues(alpha: isDarkBackground ? 0.7 : 0.5),
+              color: const Color(0xFF00E5FF)
+                  .withValues(alpha: isDarkBackground ? 0.7 : 0.5),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF00E5FF).withValues(alpha: isDarkBackground ? 0.35 : 0.2),
+                color: const Color(0xFF00E5FF)
+                    .withValues(alpha: isDarkBackground ? 0.35 : 0.2),
                 blurRadius: 12,
                 offset: const Offset(0, 2),
               ),
@@ -1097,12 +1136,13 @@ class _LoginPageState extends State<LoginPage> {
           ),
           child: Center(
             child: Image.asset(
-              'assets/images/taos_t_icon.png',
+              'assets/images/logo_.png',
               width: 26,
               height: 26,
               color: const Color(0xFF00E5FF),
               colorBlendMode: BlendMode.srcIn,
-              errorBuilder: (_, __, ___) => const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 26),
+              errorBuilder: (_, __, ___) => const Icon(Icons.bolt_rounded,
+                  color: Color(0xFF00E5FF), size: 26),
             ),
           ),
         ),
@@ -1158,7 +1198,8 @@ class _LoginPageState extends State<LoginPage> {
         duration: const Duration(milliseconds: 250),
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,
-          child: ScaleTransition(scale: animation, alignment: Alignment.bottomLeft, child: child),
+          child: ScaleTransition(
+              scale: animation, alignment: Alignment.bottomLeft, child: child),
         ),
         child: _isDevToolsExpanded
             ? _buildExpandedDevWindow()
@@ -1191,7 +1232,8 @@ class _LoginPageState extends State<LoginPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.bug_report_rounded, color: Color(0xFFF59E0B), size: 16),
+              const Icon(Icons.bug_report_rounded,
+                  color: Color(0xFFF59E0B), size: 16),
               const SizedBox(width: 8),
               Text(
                 'DEV TOOLS',
@@ -1203,7 +1245,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.keyboard_arrow_up_rounded, color: Color(0xFFFCD34D), size: 18),
+              const Icon(Icons.keyboard_arrow_up_rounded,
+                  color: Color(0xFFFCD34D), size: 18),
             ],
           ),
         ),
@@ -1242,7 +1285,8 @@ class _LoginPageState extends State<LoginPage> {
             // Header da Janela Flutuante com Minimizar
             Row(
               children: [
-                const Icon(Icons.terminal_rounded, size: 18, color: Color(0xFFF59E0B)),
+                const Icon(Icons.terminal_rounded,
+                    size: 18, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1256,7 +1300,8 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF94A3B8)),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 18, color: Color(0xFF94A3B8)),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   tooltip: 'Minimizar janela',
@@ -1273,18 +1318,21 @@ class _LoginPageState extends State<LoginPage> {
                   ? const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.rocket_launch_rounded, size: 15),
               label: Text(
                 '⚡ TESTAR ONBOARDING (CNPJ 31)',
-                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(
+                    fontSize: 11, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
               ),
             ),
@@ -1297,18 +1345,21 @@ class _LoginPageState extends State<LoginPage> {
                   ? const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.flash_on_rounded, size: 15),
               label: Text(
                 '⚡ CRIAR CADASTRO TESTE ALEATÓRIO',
-                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(
+                    fontSize: 11, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD97706),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
               ),
             ),
@@ -1317,7 +1368,8 @@ class _LoginPageState extends State<LoginPage> {
             // Botão 3: Login Teste 2
             OutlinedButton.icon(
               onPressed: _isQuickLoading ? null : _handleQuickLoginTeste2,
-              icon: const Icon(Icons.key_rounded, size: 15, color: Color(0xFF38BDF8)),
+              icon: const Icon(Icons.key_rounded,
+                  size: 15, color: Color(0xFF38BDF8)),
               label: Text(
                 '🔑 ENTRAR COMO TESTE 2',
                 style: GoogleFonts.inter(
@@ -1329,7 +1381,8 @@ class _LoginPageState extends State<LoginPage> {
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 side: const BorderSide(color: Color(0xFF0284C7), width: 1.2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
@@ -1436,10 +1489,18 @@ class _GoogleLogoPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
 
-    final paintBlue = Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.fill;
-    final paintRed = Paint()..color = const Color(0xFFEA4335)..style = PaintingStyle.fill;
-    final paintYellow = Paint()..color = const Color(0xFFFBBC05)..style = PaintingStyle.fill;
-    final paintGreen = Paint()..color = const Color(0xFF34A853)..style = PaintingStyle.fill;
+    final paintBlue = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    final paintRed = Paint()
+      ..color = const Color(0xFFEA4335)
+      ..style = PaintingStyle.fill;
+    final paintYellow = Paint()
+      ..color = const Color(0xFFFBBC05)
+      ..style = PaintingStyle.fill;
+    final paintGreen = Paint()
+      ..color = const Color(0xFF34A853)
+      ..style = PaintingStyle.fill;
 
     // Segmento Vermelho (Topo)
     canvas.drawArc(
@@ -1548,10 +1609,12 @@ class _HolographicPortalPainter extends CustomPainter {
           Colors.transparent,
           const Color(0xFF00E5FF).withValues(alpha: 0.35),
         ],
-      ).createShader(Rect.fromCircle(center: Offset(originX, originY), radius: 240));
+      ).createShader(
+          Rect.fromCircle(center: Offset(originX, originY), radius: 240));
 
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(originX - 40, originY), width: 140, height: 420),
+      Rect.fromCenter(
+          center: Offset(originX - 40, originY), width: 140, height: 420),
       math.pi * 0.5,
       math.pi,
       false,
@@ -1564,7 +1627,8 @@ class _HolographicPortalPainter extends CustomPainter {
       ..color = const Color(0xFF00E5FF).withValues(alpha: 0.20);
 
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(originX - 120, originY), width: 220, height: 500),
+      Rect.fromCenter(
+          center: Offset(originX - 120, originY), width: 220, height: 500),
       math.pi * 0.55,
       math.pi * 0.9,
       false,
@@ -1580,12 +1644,14 @@ class _HolographicPortalPainter extends CustomPainter {
           Colors.transparent,
         ],
         stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(originX, originY), radius: 180));
+      ).createShader(
+          Rect.fromCircle(center: Offset(originX, originY), radius: 180));
 
     canvas.drawCircle(Offset(originX, originY), 180, glowPaint);
 
     // 4. Partículas / pontos flutuantes de dados no ar
-    final particlePaint = Paint()..color = const Color(0xFF00E5FF).withValues(alpha: 0.65);
+    final particlePaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.65);
     final points = [
       Offset(originX - 60, originY - 140),
       Offset(originX - 110, originY + 90),
@@ -1608,6 +1674,3 @@ class _HolographicPortalPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
-
-

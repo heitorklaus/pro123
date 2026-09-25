@@ -7,6 +7,7 @@ import '../data/services/company_service.dart';
 import '../data/services/settings_service.dart';
 import '../domain/models/company_model.dart';
 import 'ai_agent_settings_view.dart';
+import 'automation_settings_view.dart';
 import 'solar_settings_view.dart';
 import 'widgets/company_setup_dialog.dart';
 
@@ -29,6 +30,7 @@ class _SettingsViewState extends State<SettingsView> {
   bool _isFixedMode = true;
   bool _isLoading = true;
   bool _editingSolarSettings = false;
+  bool _editingAutomationSettings = false;
   bool _editingAiSettings = false;
   String _searchFilter = '';
 
@@ -95,6 +97,8 @@ class _SettingsViewState extends State<SettingsView> {
   void _openSectorSettings(ProductSector sector) {
     if (sector == ProductSector.solarPlant) {
       setState(() => _editingSolarSettings = true);
+    } else if (sector == ProductSector.homeAutomation) {
+      setState(() => _editingAutomationSettings = true);
     } else {
       showDialog(
         context: context,
@@ -143,6 +147,12 @@ class _SettingsViewState extends State<SettingsView> {
     if (_editingSolarSettings) {
       return SolarSettingsView(
         onBack: () => setState(() => _editingSolarSettings = false),
+      );
+    }
+
+    if (_editingAutomationSettings) {
+      return AutomationSettingsView(
+        onBack: () => setState(() => _editingAutomationSettings = false),
       );
     }
 
