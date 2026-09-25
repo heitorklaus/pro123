@@ -660,96 +660,6 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     }
   }
 
-  void _showPostSavePreviewDialog(ProductModel savedProduct) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF00E5FF), width: 1.5),
-        ),
-        child: Container(
-          width: 480,
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.4)),
-                ),
-                child: const Icon(Icons.language_rounded, color: Color(0xFF00E5FF), size: 38),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Estudo Salvo com Sucesso!',
-                style: GoogleFonts.outfit(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Deseja ver um preview interativo do estudo na web proposta comercial?',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xFF94A3B8),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        widget.onSuccess();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF94A3B8),
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: Text('Concluir e Voltar', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _openProposalPreview(savedProduct);
-                      },
-                      icon: const Icon(Icons.visibility_rounded, size: 18),
-                      label: Text(
-                        'Ver Preview Agora',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00E5FF),
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // SALVAR NO FIRESTORE COM RETORNO DO PRODUTO (REUTILIZÁVEL)
@@ -915,7 +825,24 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     }
 
     if (mounted) {
-      _showPostSavePreviewDialog(savedProduct);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                'Estudo salvo com sucesso!',
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -1211,6 +1138,63 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // ── LINHA 3: SALVAR ESTUDO (AÇÃO PRINCIPAL) ──
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _isSaving ? null : () => _handleSave(proceedToProposal: false),
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_rounded, size: 16, color: Colors.white),
+                  label: Text(
+                    isEditing ? 'SALVAR ALTERAÇÕES' : 'SALVAR ESTUDO',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 3,
+                  ),
+                ),
+                if (widget.onProceedToProposal != null) ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _isSaving ? null : () => _handleSave(proceedToProposal: true),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 15, color: Colors.white),
+                    label: Text(
+                      'AVANÇAR P/ PROPOSTA',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
