@@ -23,6 +23,7 @@ import '../../proposals/presentation/proposals_view.dart';
 import '../../contracts/data/repositories/contract_repository.dart';
 import '../../contracts/domain/models/contract_model.dart';
 import '../../contracts/presentation/contracts_view.dart';
+import '../../solar_credits/presentation/solar_credits_view.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
 import '../../users/presentation/users_view.dart';
 import '../../users/presentation/widgets/ai_usage_badge.dart';
@@ -268,7 +269,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final productsTitle = isSolar
         ? 'Usinas Solares'
         : isHomeAutomation
-            ? 'Estudo de Proposta'
+            ? 'Estudo de Solução'
             : 'Produtos';
     final productsIcon = isSolar
         ? Icons.solar_power_rounded
@@ -580,6 +581,16 @@ class _DashboardPageState extends State<DashboardPage> {
           );
         }
         return ContractsView(currentUser: _currentUser);
+      case AppSidebarItem.solarCredits:
+        if (_currentUser?.email.toLowerCase().trim() != 'admin@admin.com.br') {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
+        return SolarCreditsView(currentUser: _currentUser);
       case AppSidebarItem.users:
         if (!canManageUsers) {
           return const Center(

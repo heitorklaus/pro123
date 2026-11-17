@@ -213,6 +213,48 @@ class SolarSettingsService {
     return list;
   }
 
+  /// Lista dos 40 modelos de capas no estilo "Corporate Wave" para Energia Solar
+  static List<Map<String, dynamic>> getDefaultCorporateWaveList() {
+    final list = <Map<String, dynamic>>[];
+    final titles = [
+      'Residencial Premium Solar', 'Usina Comercial Empresarial', 'Galpão Industrial Fotovoltaico',
+      'Condomínio Solar Sustentável', 'Agro Solar Irrigação & Fazenda', 'Carport Solar Estacionamento',
+      'Microinversores de Alta Eficiência', 'Telhado Cerâmico Tradicional', 'Telhado Metálico Trapezoidal',
+      'Laje Plana Corporativa', 'Estrutura de Solo Biposte', 'Geração Compartilhada Mercado Livre',
+      'Posto de Combustíveis & Conectividade', 'Shopping & Centro Comercial', 'Hotel Resort Eco-Friendly',
+      'Hospital & Clínica Sustentável', 'Supermercado Grande Porte', 'Indústria Química & Plásticos',
+      'Fazenda de Café & Grãos', 'Centro Logístico & Armazém',
+    ];
+    final colors = [
+      '#0284C7', // Azul Corporativo
+      '#2563EB', // Azul Royal
+      '#0D9488', // Verde Teal
+      '#10B981', // Verde Esmeralda
+      '#F59E0B', // Âmbar Solar
+      '#F97316', // Laranja Energia
+      '#6366F1', // Índigo Moderno
+      '#0F172A', // Grafite Nobre
+    ];
+
+    for (int i = 1; i <= 40; i++) {
+      final img = 'modelo_proposta_${((i - 1) % 100) + 1}.jpg';
+      final title = titles[(i - 1) % titles.length];
+      final color = colors[(i - 1) % colors.length];
+
+      list.add({
+        'id': 'solar_wave_$i',
+        'title': 'Corporate Wave #$i — $title',
+        'subtitle': 'Design Ondulado A4 com Janela e Pontilhados',
+        'imageName': img,
+        'primaryColor': color,
+        'tag': 'PROPOSTA COMERCIAL',
+        'headline': 'ENERGIA SOLAR FOTOVOLTAICA',
+        'subheadline': 'Redução de até 95% na conta de luz e sustentabilidade para o seu negócio.',
+      });
+    }
+    return list;
+  }
+
   /// Lista dos 34 wallpapers em alta resolução para a proposta web
   static List<String> getDefaultWebBackgroundList() {
     return const [

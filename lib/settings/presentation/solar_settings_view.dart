@@ -14,6 +14,7 @@ import '../domain/models/solar_settings_model.dart';
 import 'widgets/solar_cover_divider_painter.dart';
 import 'widgets/solar_vertical_split_painter.dart';
 import 'widgets/solar_cover_customizer_dialog.dart';
+import 'widgets/corporate_wave_cover_view.dart';
 
 class SolarSettingsView extends StatefulWidget {
   final VoidCallback? onBack;
@@ -300,7 +301,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         creditCardRates: _cardRates,
         selectedCoverTemplate: _selectedCover,
         selectedSvgTheme: _selectedSvgTheme,
-        webBackgroundTemplate: _selectedWebBg,
+        webBackgroundTemplate: (!_isCustomCoverMode && _selectedCover.isNotEmpty) ? _selectedCover : _selectedWebBg,
         coverTitle: _coverTitleCtrl.text.trim().isNotEmpty ? _coverTitleCtrl.text.trim() : 'PROPOSTA COMERCIAL',
         coverSubtitle: _coverSubtitleCtrl.text.trim().isNotEmpty ? _coverSubtitleCtrl.text.trim() : 'ENERGIA SOLAR FOTOVOLTAICA',
         coverShowBadge: _coverShowBadge,
@@ -1838,7 +1839,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       verticalSplitRightFooter: _verticalSplitRightFooterCtrl.text,
       verticalSplitAccentColor: _verticalSplitAccentColor,
       verticalSplitFooterBadges: _verticalSplitFooterBadges,
-      webBackgroundTemplate: _selectedWebBg,
+      webBackgroundTemplate: (!_isCustomCoverMode && _selectedCover.isNotEmpty) ? _selectedCover : _selectedWebBg,
       companyLogoBase64: _companyLogoBase64,
       coverShowLogo: _coverShowLogo,
       coverLogoPositionX: _coverLogoPosX,
@@ -2035,16 +2036,33 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           ),
           child: ClipRRect(
             borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(14), bottomRight: Radius.circular(14)),
-            child: _proposalStyle == 'verticalSplit'
-                ? SolarVerticalSplitCoverView(
+            child: _proposalStyle == 'corporateWave'
+                ? CorporateWaveCoverView(
                     width: previewW,
                     height: previewH,
-                    settings: _buildCurrentLiveSettings(),
+                    title: 'PROPOSTA\nCOMERCIAL',
+                    subtitle: 'ENERGIA SOLAR FOTOVOLTAICA',
                     clientName: 'João da Silva Santos',
-                    proposalNumber: 'PROP-2026/001',
-                    kwp: '8.61',
+                    locationAndDate: 'Brasil • 2026',
+                    companyName: _companyNameCtrl.text.isNotEmpty ? _companyNameCtrl.text : 'SUA EMPRESA SOLAR',
+                    companyPhone: _companyPhoneCtrl.text.isNotEmpty ? _companyPhoneCtrl.text : '(11) 98765-4321',
+                    companyEmail: 'contato@empresa.com.br',
+                    companyWebsite: _companyWebsiteCtrl.text.isNotEmpty ? _companyWebsiteCtrl.text : 'www.empresa.com.br',
+                    companyLogoBase64: _companyLogoBase64,
+                    photoUrl: SolarSettingsService.getBigCoverUrl(_selectedCover),
+                    customPhotoBase64: _customCoverImageBase64,
+                    primaryColor: const Color(0xFF0284C7),
                   )
-                : Stack(
+                : (_proposalStyle == 'verticalSplit'
+                    ? SolarVerticalSplitCoverView(
+                        width: previewW,
+                        height: previewH,
+                        settings: _buildCurrentLiveSettings(),
+                        clientName: 'João da Silva Santos',
+                        proposalNumber: 'PROP-2026/001',
+                        kwp: '8.61',
+                      )
+                    : Stack(
                     fit: StackFit.expand,
                     children: [
                       // 1. Imagem de Fundo da Capa
@@ -2332,7 +2350,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   ),
                 ),
               ],
-            ),
+            )),
           ),
         ),
 
@@ -2590,6 +2608,112 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   Widget _build100CoversPicker() {
     const pageSize = 50;
 
+    // Se for Estilo Corporate Wave (40 Novos Modelos)
+    if (_proposalStyle == 'corporateWave') {
+      final allWave = SolarSettingsService.getDefaultCorporateWaveList();
+      final filteredWave = _coverSearchQuery.trim().isEmpty
+          ? allWave
+          : allWave.where((m) =>
+              (m['title'] as String).toLowerCase().contains(_coverSearchQuery.toLowerCase().trim()) ||
+              (m['headline'] as String).toLowerCase().contains(_coverSearchQuery.toLowerCase().trim())).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildProposalStyleDropdown(),
+          const SizedBox(height: 14),
+
+          _buildSearchAndPaginationBar(1, 1, 'Buscar modelo corporate wave...'),
+          const SizedBox(height: 14),
+
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.72,
+            ),
+            itemCount: filteredWave.length,
+            itemBuilder: (context, idx) {
+              final model = filteredWave[idx];
+              final imgName = model['imageName'] as String;
+              final isSelected = !_isCustomCoverMode &&
+                  _proposalStyle == 'corporateWave' &&
+                  _selectedCover == imgName;
+
+              return InkWell(
+                onTap: () => setState(() {
+                  _proposalStyle = 'corporateWave';
+                  _selectedCover = imgName;
+                  _isCustomCoverMode = false;
+                  _customCoverImageBase64 = null;
+                  _settings = _settings.copyWith(
+                    selectedCoverTemplate: imgName,
+                    webBackgroundTemplate: imgName,
+                    customCoverImageBase64: null,
+                    proposalStyle: 'corporateWave',
+                  );
+                }),
+                borderRadius: BorderRadius.circular(10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFCBD5E1),
+                      width: isSelected ? 3 : 1,
+                    ),
+                    boxShadow: isSelected
+                        ? [BoxShadow(color: const Color(0xFF0284C7).withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3))]
+                        : null,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(isSelected ? 7 : 9),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CorporateWaveCoverView(
+                          width: 200,
+                          height: 280,
+                          title: 'PROPOSTA\nCOMERCIAL',
+                          subtitle: 'ENERGIA SOLAR',
+                          locationAndDate: '2026',
+                          photoUrl: SolarSettingsService.getSmallCoverUrl(imgName),
+                          primaryColor: Color(_hexToInt(model['primaryColor'] as String)),
+                        ),
+                        if (isSelected)
+                          Positioned(
+                            top: 5,
+                            right: 5,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0284C7),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.check_circle_rounded, size: 11, color: Colors.white),
+                                  SizedBox(width: 3),
+                                  Text('ATIVO', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      );
+    }
+
     // Se for Estilo Vertical Split (100 Novos Modelos)
     if (_proposalStyle == 'verticalSplit') {
       final allVertical = SolarSettingsService.getDefaultVerticalSplitList();
@@ -2831,6 +2955,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   _selectedCover = coverName;
                   _proposalStyle = 'modern';
                   _isCustomCoverMode = false;
+                  _customCoverImageBase64 = null;
+                  _settings = _settings.copyWith(
+                    selectedCoverTemplate: coverName,
+                    webBackgroundTemplate: coverName,
+                    customCoverImageBase64: null,
+                    proposalStyle: 'modern',
+                  );
                 }),
                 borderRadius: BorderRadius.circular(10),
                 child: AnimatedContainer(
@@ -2985,6 +3116,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                         value: 'verticalSplit',
                         child: Text('Estilo Vertical Split (100 Novos Modelos com Divisores)'),
                       ),
+                      DropdownMenuItem(
+                        value: 'corporateWave',
+                        child: Text('Estilo Corporate Wave (40 Modelos com Ondas & Janela Fluida)'),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -3003,15 +3138,21 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: _proposalStyle == 'verticalSplit' ? const Color(0xFFFEF08A) : const Color(0xFFE0F2FE),
+              color: _proposalStyle == 'corporateWave'
+                  ? const Color(0xFFE0F2FE)
+                  : (_proposalStyle == 'verticalSplit' ? const Color(0xFFFEF08A) : const Color(0xFFE0F2FE)),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              _proposalStyle == 'verticalSplit' ? '100 Modelos Verticais' : '100 Capas Modern',
+              _proposalStyle == 'corporateWave'
+                  ? '40 Modelos Ondas'
+                  : (_proposalStyle == 'verticalSplit' ? '100 Modelos Verticais' : '100 Capas Modern'),
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: _proposalStyle == 'verticalSplit' ? const Color(0xFF854D0E) : const Color(0xFF0369A1),
+                color: _proposalStyle == 'corporateWave'
+                    ? const Color(0xFF0369A1)
+                    : (_proposalStyle == 'verticalSplit' ? const Color(0xFF854D0E) : const Color(0xFF0369A1)),
               ),
             ),
           ),

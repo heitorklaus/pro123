@@ -168,9 +168,45 @@ class SolarProposalPdfService {
 
     // Carrega a imagem da capa (Custom Base64 / Firebase Storage / Web Background)
     Uint8List? coverImageBytes;
-    if (settings.proposalStyle == 'verticalSplit') {
+
+    // 1. Foto customizada da empresa (upload)
+    if (settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
       try {
-        coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(settings.webBackgroundTemplate);
+        final clean = settings.customCoverImageBase64!.contains(',')
+            ? settings.customCoverImageBase64!.split(',').last
+            : settings.customCoverImageBase64!;
+        coverImageBytes = base64Decode(clean);
+      } catch (_) {}
+    }
+
+    // 2. Capa oficial selecionada no catálogo (selectedCoverTemplate)
+    if (coverImageBytes == null && settings.selectedCoverTemplate.isNotEmpty) {
+      try {
+        coverImageBytes = await SolarSettingsService.fetchCoverBytes(settings.selectedCoverTemplate);
+      } catch (_) {}
+      if (coverImageBytes == null) {
+        try {
+          coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(settings.selectedCoverTemplate);
+        } catch (_) {}
+      }
+    }
+
+    // 3. Template de Wallpaper Web configurado (webBackgroundTemplate)
+    if (coverImageBytes == null && settings.webBackgroundTemplate.isNotEmpty) {
+      try {
+        coverImageBytes = await SolarSettingsService.fetchCoverBytes(settings.webBackgroundTemplate);
+      } catch (_) {}
+      if (coverImageBytes == null) {
+        try {
+          coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(settings.webBackgroundTemplate);
+        } catch (_) {}
+      }
+    }
+
+    // 4. Fallback padrão garantido
+    if (coverImageBytes == null) {
+      try {
+        coverImageBytes = await SolarSettingsService.fetchCoverBytes('modelo_proposta_1.jpg');
       } catch (_) {}
       if (coverImageBytes == null) {
         final bgs = SolarSettingsService.getDefaultWebBackgroundList();
@@ -180,19 +216,6 @@ class SolarProposalPdfService {
           } catch (_) {}
         }
       }
-    } else if (settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
-      try {
-        final clean = settings.customCoverImageBase64!.contains(',')
-            ? settings.customCoverImageBase64!.split(',').last
-            : settings.customCoverImageBase64!;
-        coverImageBytes = base64Decode(clean);
-      } catch (_) {}
-    }
-
-    if (coverImageBytes == null && settings.proposalStyle != 'verticalSplit') {
-      try {
-        coverImageBytes = await SolarSettingsService.fetchCoverBytes(settings.selectedCoverTemplate);
-      } catch (_) {}
     }
 
     // Extrai dados da usina da proposta
@@ -502,6 +525,202 @@ class SolarProposalPdfService {
   // ───────────────────────────────────────────────────────────────────────────
   // CONSTRUÇÃO DA CAPA (PÁGINA 1)
   // ───────────────────────────────────────────────────────────────────────────
+  /// Constrói a Capa Corporate Wave no padrão editorial A4 com ondas, pontilhados e janela fluida para Energia Solar
+  static pw.Widget _buildCorporateWavePdfCover({
+    required Uint8List? coverBytes,
+    required ProposalModel proposal,
+    required SolarSettingsModel settings,
+    required double generationMonthly,
+    required double kwp,
+    pw.Font? fontMontserratBlack,
+    pw.Font? fontMontserratBold,
+    pw.Font? fontMontserratSemiBold,
+  }) {
+    final primaryHex = (settings.verticalSplitAccentColor.isNotEmpty ? settings.verticalSplitAccentColor : '#0284C7')
+        .replaceAll('#', '')
+        .trim();
+    final primarySvgColor = '#$primaryHex';
+    final primaryPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
+
+    final secondaryHex = (settings.coverTitleColor.isNotEmpty ? settings.coverTitleColor : '#38BDF8')
+        .replaceAll('#', '')
+        .trim();
+    final secondarySvgColor = '#$secondaryHex';
+
+    Uint8List? logoBytes;
+    if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
+      try {
+        final cleanLogo = settings.companyLogoBase64!.contains(',')
+            ? settings.companyLogoBase64!.split(',').last
+            : settings.companyLogoBase64!;
+        logoBytes = base64Decode(cleanLogo);
+      } catch (_) {}
+    }
+
+    final svgOverlay = '''
+<svg viewBox="0 0 595.28 841.89" width="595.28" height="841.89" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 0 0 L 310 0 C 275 100 190 185 215 270 C 225 300 120 320 0 350 Z" fill="$secondarySvgColor" opacity="0.40" />
+  <path d="M 0 0 L 260 0 C 225 85 140 170 165 240 C 180 270 85 285 0 310 Z" fill="$primarySvgColor" />
+  <circle cx="28" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="140" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="168" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="196" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="140" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="168" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="140" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="140" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="140" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="140" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="168" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="168" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="196" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <path d="M 595.28 220 C 385 390 355 520 310 620 C 240 700 105 710 0 730 L 0 841.89 L 595.28 841.89 Z" fill="$secondarySvgColor" opacity="0.35" />
+  <path d="M 595.28 270 C 430 405 405 540 345 640 C 275 710 130 715 0 755 L 0 841.89 L 595.28 841.89 Z" fill="$primarySvgColor" />
+  <path d="M 595.28 270 C 430 405 405 540 345 640 C 275 710 130 715 0 755" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity="0.40" />
+</svg>
+''';
+
+    return pw.Stack(
+      fit: pw.StackFit.expand,
+      children: [
+        pw.Container(color: PdfColors.white),
+        if (coverBytes != null)
+          pw.Positioned(
+            top: 275,
+            left: 0,
+            right: 120,
+            bottom: 85,
+            child: pw.ClipRRect(
+              horizontalRadius: 18,
+              verticalRadius: 18,
+              child: pw.Image(
+                pw.MemoryImage(coverBytes),
+                fit: pw.BoxFit.cover,
+              ),
+            ),
+          ),
+        pw.SvgImage(svg: svgOverlay),
+        pw.Positioned(
+          top: 48,
+          right: 42,
+          left: 240,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              if (logoBytes != null)
+                pw.Image(pw.MemoryImage(logoBytes), height: 48, fit: pw.BoxFit.contain)
+              else
+                pw.Text(
+                  (settings.companyName != null && settings.companyName!.isNotEmpty)
+                    ? settings.companyName!.toUpperCase()
+                    : 'SUA EMPRESA',
+                  style: pw.TextStyle(
+                    font: fontMontserratBlack,
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(0xFF0F172A),
+                  ),
+                ),
+              pw.SizedBox(height: 32),
+              pw.Text(
+                settings.coverTitle.isNotEmpty ? settings.coverTitle.toUpperCase() : 'PROPOSTA\nCOMERCIAL',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratBlack,
+                  fontSize: 26,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColor.fromInt(0xFF0F172A),
+                  lineSpacing: 2,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                settings.coverSubtitle.isNotEmpty ? settings.coverSubtitle.toUpperCase() : 'ENERGIA SOLAR FOTOVOLTAICA',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratBold,
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                  color: primaryPdfColor,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Cliente: ${proposal.clientName}',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratSemiBold,
+                  fontSize: 11,
+                  color: PdfColor.fromInt(0xFF475569),
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                '${kwp.toStringAsFixed(2)} kWp • ${generationMonthly.toStringAsFixed(0)} kWh/mês',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratBold,
+                  fontSize: 10,
+                  color: primaryPdfColor,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Brasil • 2026',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratSemiBold,
+                  fontSize: 10,
+                  color: PdfColor.fromInt(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        pw.Positioned(
+          bottom: 24,
+          left: 36,
+          right: 36,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              if (settings.companyPhone != null && settings.companyPhone!.isNotEmpty)
+                pw.Text(
+                  'Tel: ${settings.companyPhone!}',
+                  style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                ),
+              pw.Text(
+                'Email: contato@empresa.com.br',
+                style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+              ),
+              if (settings.companyWebsite != null && settings.companyWebsite!.isNotEmpty)
+                pw.Text(
+                  'Site: ${settings.companyWebsite!}',
+                  style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   static pw.Widget _buildVerticalSplitPdfCover({
     required Uint8List? coverBytes,
     required ProposalModel proposal,
@@ -569,6 +788,17 @@ class SolarProposalPdfService {
     final double effectiveRightFooterRight = settings.verticalSplitRightFooterRight * a4W;
     final double effectiveRightFooterBottom = settings.verticalSplitRightFooterBottom * a4H;
 
+    final String resolvedTitle = settings.verticalSplitRightTitle
+        .replaceAll('{cliente}', proposal.clientName)
+        .replaceAll('{nome}', proposal.clientName);
+    String resolvedSubtitle = settings.verticalSplitRightSubtitle
+        .replaceAll('{cliente}', proposal.clientName)
+        .replaceAll('{nome}', proposal.clientName);
+    if (proposal.clientName.trim().isNotEmpty && resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA') {
+      final cNameUpper = proposal.clientName.trim().toUpperCase();
+      resolvedSubtitle = cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
+    }
+
     Uint8List? logoBytes;
     if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
       try {
@@ -605,7 +835,7 @@ class SolarProposalPdfService {
                     settings.verticalSplitHeadline,
                     style: pw.TextStyle(
                       font: headlineFontBlack ?? fontMontserratBlack,
-                      fontSize: 24,
+                      fontSize: settings.verticalSplitHeadlineFontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(settings.coverHeadlineColorValue),
                       lineSpacing: 2,
@@ -766,10 +996,10 @@ class SolarProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    settings.verticalSplitRightTitle,
+                    resolvedTitle,
                     style: pw.TextStyle(
                       font: rightBlockFontBold ?? fontMontserratBold,
-                      fontSize: 18,
+                      fontSize: settings.verticalSplitRightTitleFontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(settings.coverRightTitleColorValue),
                       letterSpacing: 5.5,
@@ -777,10 +1007,10 @@ class SolarProposalPdfService {
                   ),
                   pw.SizedBox(height: 3),
                   pw.Text(
-                    settings.verticalSplitRightSubtitle,
+                    resolvedSubtitle,
                     style: pw.TextStyle(
                       font: rightBlockFontBlack ?? fontMontserratBlack,
-                      fontSize: 46,
+                      fontSize: settings.verticalSplitRightSubtitleFontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(settings.coverRightSubtitleColorValue),
                       letterSpacing: 2.0,
@@ -1619,6 +1849,19 @@ class SolarProposalPdfService {
     pw.Font? rightBlockFontBlack,
     pw.Font? footerFontBold,
   }) {
+    if (settings.proposalStyle == 'corporateWave') {
+      return _buildCorporateWavePdfCover(
+        coverBytes: coverBytes,
+        proposal: proposal,
+        settings: settings,
+        generationMonthly: generationMonthly,
+        kwp: kwp,
+        fontMontserratBlack: fontMontserratBlack,
+        fontMontserratBold: fontMontserratBold,
+        fontMontserratSemiBold: fontMontserratSemiBold,
+      );
+    }
+
     if (settings.proposalStyle == 'verticalSplit') {
       return _buildVerticalSplitPdfCover(
         coverBytes: coverBytes,
@@ -1653,6 +1896,17 @@ class SolarProposalPdfService {
         .replaceAll('#', '')
         .trim();
     final bottomAreaSvgColor = '#${bottomAreaHex.isNotEmpty ? bottomAreaHex : 'FFFFFF'}';
+
+    final String resolvedTitle = settings.verticalSplitRightTitle
+        .replaceAll('{cliente}', proposal.clientName)
+        .replaceAll('{nome}', proposal.clientName);
+    String resolvedSubtitle = settings.verticalSplitRightSubtitle
+        .replaceAll('{cliente}', proposal.clientName)
+        .replaceAll('{nome}', proposal.clientName);
+    if (proposal.clientName.trim().isNotEmpty && resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA') {
+      final cNameUpper = proposal.clientName.trim().toUpperCase();
+      resolvedSubtitle = cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
+    }
 
     return pw.Stack(
       fit: pw.StackFit.expand,
@@ -1692,7 +1946,7 @@ class SolarProposalPdfService {
                     settings.verticalSplitHeadline,
                     style: pw.TextStyle(
                       font: headlineFontBlack ?? fontMontserratBlack,
-                      fontSize: 22,
+                      fontSize: settings.verticalSplitHeadlineFontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(settings.coverHeadlineColorValue),
                       lineSpacing: 2,
@@ -1780,10 +2034,10 @@ class SolarProposalPdfService {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
-                  settings.verticalSplitRightTitle,
+                  resolvedTitle,
                   style: pw.TextStyle(
                     font: rightBlockFontBold ?? fontMontserratBold,
-                    fontSize: 14,
+                    fontSize: settings.verticalSplitRightTitleFontSize,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColor.fromInt(settings.coverRightTitleColorValue),
                     letterSpacing: 4.5,
@@ -1791,10 +2045,10 @@ class SolarProposalPdfService {
                 ),
                 pw.SizedBox(height: 3),
                 pw.Text(
-                  settings.verticalSplitRightSubtitle,
+                  resolvedSubtitle,
                   style: pw.TextStyle(
                     font: rightBlockFontBlack ?? fontMontserratBlack,
-                    fontSize: 34,
+                    fontSize: settings.verticalSplitRightSubtitleFontSize,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColor.fromInt(settings.coverRightSubtitleColorValue),
                     letterSpacing: 1.5,

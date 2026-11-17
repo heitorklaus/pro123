@@ -584,6 +584,7 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                   final p = filtered[idx];
                   final isPlant = p.isSolarPlantKit;
                   final isComponent = p.isSolarComponent;
+                  final isAutomation = p.isAutomationStudy;
 
                   IconData itemIcon = p.sector.icon;
                   Color itemIconColor = p.sector.themeColor;
@@ -593,6 +594,10 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                     itemIcon = Icons.solar_power_rounded;
                     itemIconColor = const Color(0xFFD97706);
                     itemIconBg = const Color(0xFFF59E0B).withValues(alpha: 0.15);
+                  } else if (isAutomation) {
+                    itemIcon = Icons.sensors_rounded;
+                    itemIconColor = const Color(0xFF6366F1);
+                    itemIconBg = const Color(0xFF6366F1).withValues(alpha: 0.15);
                   } else if (isComponent) {
                     final lowerName = p.name.toLowerCase();
                     if (lowerName.contains('modulo') ||
@@ -670,11 +675,17 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                                   Text(
                                     isPlant
                                         ? '☀️ Usina Solar Fotovoltaica${p.solarKilowatts != null ? ' • ⚡ ${p.solarKilowatts!.toStringAsFixed(1)} kWp' : ''} • 📦 ${p.solarKitItems.length} equipamentos no kit'
-                                        : '${p.sector.title}${p.sku != null ? ' • SKU: ${p.sku}' : ''} • Estoque: ${p.stockQuantity.toStringAsFixed(0)} ${p.unit.symbol}',
+                                        : isAutomation
+                                            ? '⚡ Estudo de Solução em Automação${p.specificAttributes['environmentsCount'] != null ? ' • 🏠 ${p.specificAttributes['environmentsCount']} ambientes' : ''}${p.specificAttributes['totalItemsCount'] != null ? ' • 📦 ${p.specificAttributes['totalItemsCount']} itens' : ''}'
+                                            : '${p.sector.title}${p.sku != null ? ' • SKU: ${p.sku}' : ''} • Estoque: ${p.stockQuantity.toStringAsFixed(0)} ${p.unit.symbol}',
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
-                                      fontWeight: isPlant ? FontWeight.w500 : FontWeight.normal,
-                                      color: isPlant ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                                      fontWeight: (isPlant || isAutomation) ? FontWeight.w500 : FontWeight.normal,
+                                      color: isPlant
+                                          ? const Color(0xFFD97706)
+                                          : isAutomation
+                                              ? const Color(0xFF6366F1)
+                                              : const Color(0xFF64748B),
                                     ),
                                   ),
                                 ],

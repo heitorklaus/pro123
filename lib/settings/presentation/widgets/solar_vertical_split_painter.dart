@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -350,10 +351,15 @@ class SolarVerticalSplitCoverView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String targetCover = settings.selectedCoverTemplate.isNotEmpty
+        ? settings.selectedCoverTemplate
+        : (settings.webBackgroundTemplate.isNotEmpty
+            ? settings.webBackgroundTemplate
+            : 'modelo_proposta_1.jpg');
     final bgUrl = customWebBgUrl ??
-        (settings.webBackgroundTemplate.isNotEmpty
-            ? SolarSettingsService.getWebBackgroundUrl(settings.webBackgroundTemplate)
-            : SolarSettingsService.getWebBackgroundUrl('AdobeStock_1030854734.jpg'));
+        (targetCover.startsWith('modelo_') || targetCover.contains('energiasolar')
+            ? SolarSettingsService.getBigCoverUrl(targetCover)
+            : SolarSettingsService.getWebBackgroundUrl(targetCover));
 
     final accentColor = Color(settings.verticalSplitAccentColorValue);
     final divType = settings.verticalSplitDividerType;
@@ -367,6 +373,17 @@ class SolarVerticalSplitCoverView extends StatelessWidget {
     final double effectiveLeftFooterLeft = settings.verticalSplitLeftFooterLeft * baseA4Width;
     final double effectiveRightFooterBottom = settings.verticalSplitRightFooterBottom * baseA4Height;
     final double effectiveRightFooterRight = settings.verticalSplitRightFooterRight * baseA4Width;
+
+    final String resolvedTitle = settings.verticalSplitRightTitle
+        .replaceAll('{cliente}', clientName ?? '')
+        .replaceAll('{nome}', clientName ?? '');
+    String resolvedSubtitle = settings.verticalSplitRightSubtitle
+        .replaceAll('{cliente}', clientName ?? '')
+        .replaceAll('{nome}', clientName ?? '');
+    if (clientName != null && clientName!.trim().isNotEmpty && resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA') {
+      final cNameUpper = clientName!.trim().toUpperCase();
+      resolvedSubtitle = cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
+    }
 
     return SizedBox(
       width: width,
@@ -389,27 +406,37 @@ class SolarVerticalSplitCoverView extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      bgUrl,
-                      fit: BoxFit.cover,
-                      width: baseA4Width,
-                      height: baseA4Height,
-                      loadingBuilder: (ctx, child, progress) {
-                        if (progress == null) return child;
-                        return Container(
+                    if (settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty)
+                      Image.memory(
+                        base64Decode(settings.customCoverImageBase64!.contains(',')
+                            ? settings.customCoverImageBase64!.split(',').last
+                            : settings.customCoverImageBase64!),
+                        fit: BoxFit.cover,
+                        width: baseA4Width,
+                        height: baseA4Height,
+                      )
+                    else
+                      Image.network(
+                        bgUrl,
+                        fit: BoxFit.cover,
+                        width: baseA4Width,
+                        height: baseA4Height,
+                        loadingBuilder: (ctx, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            color: const Color(0xFF0F172A),
+                            child: const Center(
+                              child: CircularProgressIndicator(color: Color(0xFFEAB308), strokeWidth: 3),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => Container(
                           color: const Color(0xFF0F172A),
                           child: const Center(
-                            child: CircularProgressIndicator(color: Color(0xFFEAB308), strokeWidth: 3),
+                            child: Icon(Icons.solar_power_rounded, color: Colors.white38, size: 64),
                           ),
-                        );
-                      },
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFF0F172A),
-                        child: const Center(
-                          child: Icon(Icons.solar_power_rounded, color: Colors.white38, size: 64),
                         ),
                       ),
-                    ),
 
                     // Gradiente escuro para legibilidade perfeita dos textos brancos
                     Container(
@@ -441,7 +468,7 @@ class SolarVerticalSplitCoverView extends StatelessWidget {
                                 settings.verticalSplitHeadline,
                                 style: getCoverTextStyle(
                                   fontFamily: settings.coverHeadlineFont,
-                                  fontSize: 24.0,
+                                  fontSize: settings.verticalSplitHeadlineFontSize,
                                   fontWeight: FontWeight.w900,
                                   color: Color(settings.coverHeadlineColorValue),
                                   height: 1.15,
@@ -641,10 +668,10 @@ class SolarVerticalSplitCoverView extends StatelessWidget {
                       children: [
                         // PROPOSTA (Espaçado em Montserrat)
                         Text(
-                          settings.verticalSplitRightTitle,
+                          resolvedTitle,
                           style: getCoverTextStyle(
                             fontFamily: settings.coverRightBlockFont,
-                            fontSize: 18.0,
+                            fontSize: settings.verticalSplitRightTitleFontSize,
                             fontWeight: FontWeight.w700,
                             color: Color(settings.coverRightTitleColorValue),
                             letterSpacing: 5.5,
@@ -654,10 +681,10 @@ class SolarVerticalSplitCoverView extends StatelessWidget {
 
                         // SOLAR (Bold Grande Escuro em Montserrat)
                         Text(
-                          settings.verticalSplitRightSubtitle,
+                          resolvedSubtitle,
                           style: getCoverTextStyle(
                             fontFamily: settings.coverRightBlockFont,
-                            fontSize: 46.0,
+                            fontSize: settings.verticalSplitRightSubtitleFontSize,
                             fontWeight: FontWeight.w900,
                             color: Color(settings.coverRightSubtitleColorValue),
                             letterSpacing: 2.0,

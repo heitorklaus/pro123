@@ -13,6 +13,7 @@ import '../../domain/models/automation_settings_model.dart';
 import 'solar_cover_divider_painter.dart';
 import 'automation_vertical_split_painter.dart';
 import 'automation_cyber_connector_painter.dart';
+import 'corporate_wave_cover_view.dart';
 import 'cover_header_footer_widgets.dart';
 import '../../domain/models/proposal_pages_models.dart';
 import 'cover_pages_manager_tab.dart';
@@ -615,6 +616,49 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
     } catch (e) {
       debugPrint('[AutomationCoverCustomizerDialog] Erro ao selecionar foto: $e');
     }
+  }
+
+  Widget _buildQuickTitleSuggestionChip({
+    required String label,
+    required String title,
+    required String subtitle,
+    required String tagline,
+  }) {
+    final isCurrent = _current.verticalSplitRightTitle == title && _current.verticalSplitRightSubtitle == subtitle;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _rightTitleCtrl.text = title;
+          _rightSubtitleCtrl.text = subtitle;
+          _rightTaglineCtrl.text = tagline;
+          _current = _current.copyWith(
+            verticalSplitRightTitle: title,
+            verticalSplitRightSubtitle: subtitle,
+            verticalSplitRightTagline: tagline,
+          );
+        });
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: isCurrent ? const Color(0xFF0284C7).withValues(alpha: 0.25) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isCurrent ? const Color(0xFF38BDF8) : const Color(0xFF334155),
+            width: isCurrent ? 1.2 : 0.8,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 10.5,
+            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
+            color: isCurrent ? const Color(0xFF38BDF8) : const Color(0xFFCBD5E1),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildFontFamilySelector({
@@ -1529,8 +1573,28 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                     clipBehavior: Clip.none,
                     fit: StackFit.expand,
                     children: [
-                      // ── 1. RENDERIZAÇÃO DA CAPA BASE (VERTICAL SPLIT OU MODERN) ──
-                      if (_current.proposalStyle == 'verticalSplit') ...[
+                      // ── 1. RENDERIZAÇÃO DA CAPA BASE (CORPORATE WAVE, VERTICAL SPLIT OU MODERN) ──
+                      if (_current.activeCategory == 'Corporate Wave' || _current.customDividerStyle == -2) ...[
+                        CorporateWaveCoverView(
+                          width: canvasW,
+                          height: canvasH,
+                          title: _current.coverTag.isNotEmpty ? _current.coverTag : 'PROPOSTA\nDE SERVIÇO',
+                          subtitle: _current.coverHeadline.isNotEmpty ? _current.coverHeadline : 'AUTOMAÇÃO RESIDENCIAL',
+                          clientName: 'João da Silva Santos',
+                          locationAndDate: 'Brasil • 2026',
+                          companyPhone: '(11) 98765-4321',
+                          companyEmail: 'contato@empresa.com.br',
+                          companyWebsite: 'www.empresa.com.br',
+                          companyLogoBase64: _current.companyLogoBase64,
+                          photoUrl: AutomationSettingsService.getBigCoverUrl(
+                            _current.selectedCoverTemplate.isNotEmpty
+                                ? _current.selectedCoverTemplate
+                                : (_current.coverImageUrl.isNotEmpty ? _current.coverImageUrl : 'modelo_automacao_1.jpg'),
+                          ),
+                          customPhotoBase64: _current.customCoverImageBase64,
+                          primaryColor: Color(_hexToInt(_current.primaryColorHex, fallback: 0xFF0284C7)),
+                        ),
+                      ] else if (_current.proposalStyle == 'verticalSplit') ...[
                         // Capa Vertical Split Renderizada em tempo real
                         AutomationVerticalSplitCoverView(
                           settings: _current,
@@ -1634,7 +1698,7 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                             },
                           ),
 
-                        // Bloco 3: Proposta Solar (Direita)
+                        // Bloco 3: Proposta de Automação (Direita)
                         if (_current.verticalSplitShowRightBlock)
                           _buildDraggableHandle(
                             elementKey: 'rightBlock',
@@ -1699,7 +1763,15 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                           )
                         else
                           Image.network(
-                            AutomationSettingsService.getBigCoverUrl(_current.selectedCoverTemplate),
+                            AutomationSettingsService.getBigCoverUrl(
+                              _current.selectedCoverTemplate.isNotEmpty
+                                  ? _current.selectedCoverTemplate
+                                  : (_current.coverImageUrl.isNotEmpty
+                                      ? _current.coverImageUrl
+                                      : (_current.webBackgroundTemplate.isNotEmpty
+                                          ? _current.webBackgroundTemplate
+                                          : 'modelo_automacao_1.jpg')),
+                            ),
                             fit: BoxFit.cover,
                             width: canvasW,
                             height: canvasH,
@@ -1760,7 +1832,7 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                                       _current.verticalSplitHeadline.trim(),
                                       style: getCoverTextStyle(
                                         fontFamily: _current.coverHeadlineFont,
-                                        fontSize: 20.0 * scale,
+                                        fontSize: _current.verticalSplitHeadlineFontSize * scale,
                                         fontWeight: FontWeight.w900,
                                         color: Color(_current.coverHeadlineColorValue),
                                         height: 1.15,
@@ -2112,7 +2184,7 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                   _current.verticalSplitRightTitle,
                   style: getCoverTextStyle(
                     fontFamily: _current.coverRightBlockFont,
-                    fontSize: 13.0 * scale,
+                    fontSize: (_current.verticalSplitRightTitleFontSize * 0.72) * scale,
                     fontWeight: FontWeight.w700,
                     color: Color(_current.coverRightTitleColorValue),
                     letterSpacing: 4.0,
@@ -2123,7 +2195,7 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                   _current.verticalSplitRightSubtitle,
                   style: getCoverTextStyle(
                     fontFamily: _current.coverRightBlockFont,
-                    fontSize: 32.0 * scale,
+                    fontSize: (_current.verticalSplitRightSubtitleFontSize * 0.70) * scale,
                     fontWeight: FontWeight.w900,
                     color: Color(_current.coverRightSubtitleColorValue),
                     letterSpacing: 1.5,
@@ -3686,9 +3758,19 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
       onSelectImageFromBank: (img) {
         setState(() {
           if (img.localAsset != null && img.localAsset!.isNotEmpty) {
-            _current = _current.copyWith(selectedCoverTemplate: img.localAsset!);
+            _current = _current.copyWith(
+              selectedCoverTemplate: img.localAsset!,
+              coverImageUrl: img.localAsset!,
+              webBackgroundTemplate: img.localAsset!,
+              customCoverImageBase64: null,
+            );
           } else {
-            _current = _current.copyWith(coverImageUrl: img.url);
+            _current = _current.copyWith(
+              selectedCoverTemplate: img.url,
+              coverImageUrl: img.url,
+              webBackgroundTemplate: img.url,
+              customCoverImageBase64: null,
+            );
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -4173,7 +4255,7 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
               focusNode: _headlineFocusNode,
               isHighlighted: _selectedElementKey == 'headline',
               label: 'Título Principal da Imagem',
-              hint: 'ENERGIA QUE MOVE O SEU AMANHÃ',
+              hint: 'A CASA QUE ENTENDE VOCÊ',
             ),
             const SizedBox(height: 10),
             _darkTextField(
@@ -4181,8 +4263,37 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
               focusNode: _subheadlineFocusNode,
               isHighlighted: _selectedElementKey == 'headline',
               label: 'Subtítulo da Imagem',
-              hint: 'MAIS ECONOMIA. MAIS LIBERDADE. UM FUTURO SUSTENTÁVEL.',
+              hint: 'ARQUITETURA, CONFORTO E TECNOLOGIA EM UMA EXPERIÊNCIA ÚNICA.',
               maxLines: 2,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.format_size_rounded, size: 14, color: Color(0xFF38BDF8)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tamanho da Frase da Foto: ${_current.verticalSplitHeadlineFontSize.toInt()}px',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${_current.verticalSplitHeadlineFontSize.toInt()} pt',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF38BDF8)),
+                ),
+              ],
+            ),
+            Slider(
+              value: _current.verticalSplitHeadlineFontSize.clamp(12.0, 48.0),
+              min: 12.0,
+              max: 48.0,
+              divisions: 36,
+              activeColor: const Color(0xFF38BDF8),
+              inactiveColor: const Color(0xFF334155),
+              onChanged: (val) => setState(() => _current = _current.copyWith(verticalSplitHeadlineFontSize: val)),
             ),
             const SizedBox(height: 12),
             Container(
@@ -4586,23 +4697,23 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
             onDelete: _current.verticalSplitShowRightBlock
                 ? () => setState(() => _current = _current.copyWith(verticalSplitShowRightBlock: false))
                 : null,
-            deleteTooltip: 'Ocultar Proposta Solar e Tagline',
+            deleteTooltip: 'Ocultar Proposta de Automação e Tagline',
           ),
           const SizedBox(height: 12),
           if (!_current.verticalSplitShowRightBlock)
             _buildHiddenElementBanner(
-              'Bloco Proposta Solar e Tagline',
+              'Bloco Proposta de Automação e Tagline',
               () => setState(() => _current = _current.copyWith(verticalSplitShowRightBlock: true)),
             )
           else ...[
             _buildFontFamilySelector(
-              label: 'Fonte de Proposta Solar:',
+              label: 'Fonte do Título & Subtítulo:',
               selectedFont: _current.coverRightBlockFont,
               onSelect: (f) => setState(() => _current = _current.copyWith(coverRightBlockFont: f)),
             ),
             const SizedBox(height: 6),
             Text(
-              'Cor do Título ("PROPOSTA"):',
+              'Cor do Título ("${_current.verticalSplitRightTitle.isNotEmpty ? _current.verticalSplitRightTitle : "PROPOSTA"}"):',
               style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
@@ -4612,7 +4723,7 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
             ),
             const SizedBox(height: 8),
             Text(
-              'Cor do Subtítulo ("SOLAR"):',
+              'Cor do Subtítulo ("${_current.verticalSplitRightSubtitle.isNotEmpty ? _current.verticalSplitRightSubtitle : "AUTOMAÇÃO"}"):',
               style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
@@ -4653,6 +4764,102 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Sugestões de Título & Subtítulo (1 clique):',
+              style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildQuickTitleSuggestionChip(
+                  label: '🏡 Família Silva',
+                  title: 'PROPOSTA EXCLUSIVA',
+                  subtitle: 'FAMÍLIA SILVA',
+                  tagline: 'PROJETO DE AUTOMAÇÃO RESIDENCIAL HIGH-END',
+                ),
+                _buildQuickTitleSuggestionChip(
+                  label: '🏛️ Residência Santos',
+                  title: 'PROPOSTA RESIDENCIAL',
+                  subtitle: 'RESIDÊNCIA SANTOS',
+                  tagline: 'CONFORTO, TECNOLOGIA E SOFISTICAÇÃO',
+                ),
+                _buildQuickTitleSuggestionChip(
+                  label: '✨ Proposta Automação',
+                  title: 'PROPOSTA',
+                  subtitle: 'AUTOMAÇÃO',
+                  tagline: 'PROJETO DE AUTOMAÇÃO RESIDENCIAL HIGH-END',
+                ),
+                _buildQuickTitleSuggestionChip(
+                  label: '💎 Smart Living',
+                  title: 'PROJETO EXECUTIVO',
+                  subtitle: 'SMART LIVING',
+                  tagline: 'ARQUITETURA E TECNOLOGIA INTEGRADA',
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // Slider Tamanho da Fonte do Título
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.format_size_rounded, size: 14, color: Color(0xFF38BDF8)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tamanho do Título: ${_current.verticalSplitRightTitleFontSize.toInt()}px',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${_current.verticalSplitRightTitleFontSize.toInt()} pt',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF38BDF8)),
+                ),
+              ],
+            ),
+            Slider(
+              value: _current.verticalSplitRightTitleFontSize.clamp(10.0, 50.0),
+              min: 10.0,
+              max: 50.0,
+              divisions: 40,
+              activeColor: const Color(0xFF38BDF8),
+              inactiveColor: const Color(0xFF334155),
+              onChanged: (v) => setState(() => _current = _current.copyWith(verticalSplitRightTitleFontSize: v)),
+            ),
+            const SizedBox(height: 6),
+            // Slider Tamanho da Fonte do Subtítulo / Destaque
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.text_fields_rounded, size: 14, color: Color(0xFFEAB308)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tamanho do Subtítulo: ${_current.verticalSplitRightSubtitleFontSize.toInt()}px',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${_current.verticalSplitRightSubtitleFontSize.toInt()} pt',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFFEAB308)),
+                ),
+              ],
+            ),
+            Slider(
+              value: _current.verticalSplitRightSubtitleFontSize.clamp(18.0, 72.0),
+              min: 18.0,
+              max: 72.0,
+              divisions: 54,
+              activeColor: const Color(0xFFEAB308),
+              inactiveColor: const Color(0xFF334155),
+              onChanged: (v) => setState(() => _current = _current.copyWith(verticalSplitRightSubtitleFontSize: v)),
             ),
             const SizedBox(height: 12),
             Container(
@@ -5993,6 +6200,7 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                   setState(() {
                     _current = _current.copyWith(
                       selectedCoverTemplate: item,
+                      coverImageUrl: item,
                       webBackgroundTemplate: item,
                       customCoverImageBase64: null,
                     );

@@ -89,22 +89,19 @@ class AutomationProposalPdfService {
       } catch (_) {}
     }
 
-    // 2. Extrai imagem configurada no Tema da Proposta do Produto (se houver)
+    // 2. Extrai imagem da capa: prioridade máxima para a capa configurada pela empresa
     String? preferredImage;
-    final productTheme = effectiveProduct.specificAttributes['proposalTheme'] as Map<String, dynamic>?;
-    final productBg = productTheme?['backgroundImageUrl'] as String?;
-    if (productBg != null && productBg.trim().isNotEmpty) {
-      preferredImage = productBg.trim();
-    }
-
-    // 3. Fallback para selectedCoverTemplate / webBackgroundTemplate / coverImageUrl
-    if (preferredImage == null || preferredImage.isEmpty) {
-      if (settings.selectedCoverTemplate.isNotEmpty) {
-        preferredImage = settings.selectedCoverTemplate;
-      } else if (settings.webBackgroundTemplate.isNotEmpty) {
-        preferredImage = settings.webBackgroundTemplate;
-      } else if (settings.coverImageUrl.isNotEmpty) {
-        preferredImage = settings.coverImageUrl;
+    if (settings.selectedCoverTemplate.isNotEmpty) {
+      preferredImage = settings.selectedCoverTemplate;
+    } else if (settings.coverImageUrl.isNotEmpty) {
+      preferredImage = settings.coverImageUrl;
+    } else if (settings.webBackgroundTemplate.isNotEmpty) {
+      preferredImage = settings.webBackgroundTemplate;
+    } else {
+      final productTheme = effectiveProduct.specificAttributes['proposalTheme'] as Map<String, dynamic>?;
+      final productBg = productTheme?['backgroundImageUrl'] as String?;
+      if (productBg != null && productBg.trim().isNotEmpty) {
+        preferredImage = productBg.trim();
       }
     }
 
@@ -185,9 +182,10 @@ class AutomationProposalPdfService {
     // -------------------------------------------------------------
     Uint8List? smartHomeBannerBytes;
     try {
-      final imgPath = (settings.page2IllustrationType.toLowerCase() == 'isometric')
-          ? 'assets/images/smart_home_isometric.jpg'
-          : 'assets/images/smart_home_banner.jpg';
+      final ilType = settings.page2IllustrationType.toLowerCase();
+      final imgPath = (ilType == 'banner')
+          ? 'assets/images/smart_home_banner.jpg'
+          : 'assets/images/smart_home_isometric.jpg';
       final data = await rootBundle.load(imgPath);
       smartHomeBannerBytes = data.buffer.asUint8List();
     } catch (_) {}
@@ -564,6 +562,17 @@ class AutomationProposalPdfService {
     pw.Font? rightBlockFontBlack,
     pw.Font? footerFontBold,
   }) {
+    if (settings.activeCategory == 'Corporate Wave' || settings.customDividerStyle == -2) {
+      return _buildCorporateWavePdfCover(
+        coverBytes: coverBytes,
+        proposal: proposal,
+        settings: settings,
+        fontMontserratBlack: fontMontserratBlack,
+        fontMontserratBold: fontMontserratBold,
+        fontMontserratSemiBold: fontMontserratSemiBold,
+      );
+    }
+
     if (settings.proposalStyle == 'verticalSplit') {
       return _buildVerticalSplitPdfCover(
         coverBytes: coverBytes,
@@ -969,6 +978,189 @@ class AutomationProposalPdfService {
     );
   }
 
+  /// Constrói a Capa Corporate Wave no padrão editorial A4 com onda, pontilhados e janela fluida
+  static pw.Widget _buildCorporateWavePdfCover({
+    required Uint8List? coverBytes,
+    required ProposalModel proposal,
+    required AutomationSettingsModel settings,
+    pw.Font? fontMontserratBlack,
+    pw.Font? fontMontserratBold,
+    pw.Font? fontMontserratSemiBold,
+  }) {
+    final primaryHex = (settings.primaryColorHex.isNotEmpty ? settings.primaryColorHex : '#0284C7')
+        .replaceAll('#', '')
+        .trim();
+    final primarySvgColor = '#$primaryHex';
+    final primaryPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
+
+    final secondaryHex = (settings.verticalSplitAccentColor.isNotEmpty ? settings.verticalSplitAccentColor : '#38BDF8')
+        .replaceAll('#', '')
+        .trim();
+    final secondarySvgColor = '#$secondaryHex';
+
+    Uint8List? logoBytes;
+    if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
+      try {
+        final cleanLogo = settings.companyLogoBase64!.contains(',')
+            ? settings.companyLogoBase64!.split(',').last
+            : settings.companyLogoBase64!;
+        logoBytes = base64Decode(cleanLogo);
+      } catch (_) {}
+    }
+
+    final svgOverlay = '''
+<svg viewBox="0 0 595.28 841.89" width="595.28" height="841.89" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 0 0 L 310 0 C 275 100 190 185 215 270 C 225 300 120 320 0 350 Z" fill="$secondarySvgColor" opacity="0.40" />
+  <path d="M 0 0 L 260 0 C 225 85 140 170 165 240 C 180 270 85 285 0 310 Z" fill="$primarySvgColor" />
+  <circle cx="28" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="140" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="168" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="196" cy="28" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="140" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="168" cy="56" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="140" cy="84" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="112" cy="112" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="140" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="140" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="84" cy="140" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="168" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="56" cy="168" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <circle cx="28" cy="196" r="2.2" fill="#FFFFFF" opacity="0.35" />
+  <path d="M 595.28 220 C 385 390 355 520 310 620 C 240 700 105 710 0 730 L 0 841.89 L 595.28 841.89 Z" fill="$secondarySvgColor" opacity="0.35" />
+  <path d="M 595.28 270 C 430 405 405 540 345 640 C 275 710 130 715 0 755 L 0 841.89 L 595.28 841.89 Z" fill="$primarySvgColor" />
+  <path d="M 595.28 270 C 430 405 405 540 345 640 C 275 710 130 715 0 755" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity="0.40" />
+</svg>
+''';
+
+    return pw.Stack(
+      fit: pw.StackFit.expand,
+      children: [
+        pw.Container(color: PdfColors.white),
+        if (coverBytes != null)
+          pw.Positioned(
+            top: 275,
+            left: 0,
+            right: 120,
+            bottom: 85,
+            child: pw.ClipRRect(
+              horizontalRadius: 18,
+              verticalRadius: 18,
+              child: pw.Image(
+                pw.MemoryImage(coverBytes),
+                fit: pw.BoxFit.cover,
+              ),
+            ),
+          ),
+        pw.SvgImage(svg: svgOverlay),
+        pw.Positioned(
+          top: 48,
+          right: 42,
+          left: 240,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              if (logoBytes != null)
+                pw.Image(pw.MemoryImage(logoBytes), height: 48, fit: pw.BoxFit.contain)
+              else
+                pw.Text(
+                  settings.companyName.isNotEmpty ? settings.companyName.toUpperCase() : 'SUA EMPRESA',
+                  style: pw.TextStyle(
+                    font: fontMontserratBlack,
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(0xFF0F172A),
+                  ),
+                ),
+              pw.SizedBox(height: 32),
+              pw.Text(
+                settings.coverTag.isNotEmpty ? settings.coverTag.toUpperCase() : 'PROPOSTA\nDE SERVIÇO',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratBlack,
+                  fontSize: 26,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColor.fromInt(0xFF0F172A),
+                  lineSpacing: 2,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                settings.coverHeadline.isNotEmpty ? settings.coverHeadline.toUpperCase() : 'AUTOMAÇÃO RESIDENCIAL DE ALTO PADRÃO',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratBold,
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                  color: primaryPdfColor,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Cliente: ${proposal.clientName}',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratSemiBold,
+                  fontSize: 11,
+                  color: PdfColor.fromInt(0xFF475569),
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                '${settings.cidade.isNotEmpty ? settings.cidade : "Brasil"} • 2026',
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                  font: fontMontserratSemiBold,
+                  fontSize: 10,
+                  color: PdfColor.fromInt(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        pw.Positioned(
+          bottom: 24,
+          left: 36,
+          right: 36,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              if (settings.companyPhone.isNotEmpty)
+                pw.Text(
+                  'Tel: ${settings.companyPhone}',
+                  style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                ),
+              if (settings.companyEmail.isNotEmpty)
+                pw.Text(
+                  'Email: ${settings.companyEmail}',
+                  style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                ),
+              if (settings.companyWebsite.isNotEmpty)
+                pw.Text(
+                  'Site: ${settings.companyWebsite}',
+                  style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   /// Constrói a Capa Vertical Split multipadrão com vetor e layout A4 editorial
   static pw.Widget _buildVerticalSplitPdfCover({
     required Uint8List? coverBytes,
@@ -1041,6 +1233,18 @@ class AutomationProposalPdfService {
     final double effectiveRightFooterRight = settings.verticalSplitRightFooterRight * a4W;
     final double effectiveRightFooterBottom = settings.verticalSplitRightFooterBottom * a4H;
 
+    final String resolvedTitle = settings.verticalSplitRightTitle
+        .replaceAll('{cliente}', proposal.clientName)
+        .replaceAll('{nome}', proposal.clientName);
+    String resolvedSubtitle = settings.verticalSplitRightSubtitle
+        .replaceAll('{cliente}', proposal.clientName)
+        .replaceAll('{nome}', proposal.clientName);
+    if (proposal.clientName.trim().isNotEmpty &&
+        (resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA' || resolvedSubtitle.toUpperCase() == 'AUTOMAÇÃO')) {
+      final cNameUpper = proposal.clientName.trim().toUpperCase();
+      resolvedSubtitle = cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
+    }
+
     Uint8List? logoBytes;
     if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
       try {
@@ -1077,7 +1281,7 @@ class AutomationProposalPdfService {
                     settings.verticalSplitHeadline,
                     style: pw.TextStyle(
                       font: headlineFontBlack ?? fontMontserratBlack,
-                      fontSize: 24,
+                      fontSize: settings.verticalSplitHeadlineFontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(settings.coverHeadlineColorValue),
                       lineSpacing: 2,
@@ -1203,10 +1407,10 @@ class AutomationProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    settings.verticalSplitRightTitle,
+                    resolvedTitle,
                     style: pw.TextStyle(
                       font: rightBlockFontBold ?? fontMontserratBold,
-                      fontSize: 18,
+                      fontSize: settings.verticalSplitRightTitleFontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(settings.coverRightTitleColorValue),
                       letterSpacing: 5.5,
@@ -1214,10 +1418,10 @@ class AutomationProposalPdfService {
                   ),
                   pw.SizedBox(height: 3),
                   pw.Text(
-                    settings.verticalSplitRightSubtitle,
+                    resolvedSubtitle,
                     style: pw.TextStyle(
                       font: rightBlockFontBlack ?? fontMontserratBlack,
-                      fontSize: 46,
+                      fontSize: settings.verticalSplitRightSubtitleFontSize,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(settings.coverRightSubtitleColorValue),
                       letterSpacing: 2.0,
@@ -2301,65 +2505,72 @@ class AutomationProposalPdfService {
   }) {
     final hex = _pdfColorToHex(primaryColor);
 
-    if (customCards != null && customCards.isNotEmpty) {
-      final List<pw.Widget> cardRows = [];
-      for (int i = 0; i < customCards.length; i += 2) {
-        final c1 = customCards[i];
-        final c2 = (i + 1 < customCards.length) ? customCards[i + 1] : null;
+    final effectiveCards = (customCards != null && customCards.isNotEmpty)
+        ? customCards
+        : ProposalPageCard.defaultAutomationCards();
+    final effectiveIllustration = (illustrationType.isNotEmpty && illustrationType != 'banner')
+        ? illustrationType
+        : 'isometric';
 
-        cardRows.add(
-          pw.Row(
-            children: [
-              pw.Expanded(
-                child: _buildInfoCardBadge(
-                  title: c1.title,
-                  description: c1.description,
-                  svgIcon: _resolveAutomationIcon(c1.iconKey, hex),
-                  fontBold: fontBold,
-                  fontRegular: fontRegular,
-                ),
-              ),
-              if (c2 != null) ...[
-                pw.SizedBox(width: 12),
-                pw.Expanded(
-                  child: _buildInfoCardBadge(
-                    title: c2.title,
-                    description: c2.description,
-                    svgIcon: _resolveAutomationIcon(c2.iconKey, hex),
-                    fontBold: fontBold,
-                    fontRegular: fontRegular,
-                  ),
-                ),
-              ] else
-                pw.Expanded(child: pw.SizedBox()),
-            ],
-          ),
-        );
-        cardRows.add(pw.SizedBox(height: 10));
-      }
+    final visibleCards = effectiveCards.where((c) => c.isVisible).toList();
+    final firstGroup = visibleCards.take(4).toList();
+    final secondGroup = visibleCards.skip(4).toList();
 
-      return pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
+    pw.Widget buildCardRow(ProposalPageCard c1, ProposalPageCard? c2) {
+      return pw.Row(
         children: [
-          pw.SizedBox(height: 2),
-          pw.Text(
-            'Diferenciais & Escopo Personalizado',
-            style: pw.TextStyle(font: fontOutfit, fontSize: 15.5, color: PdfColor.fromHex('#0F172A')),
-          ),
-          pw.SizedBox(height: 10),
-          ...cardRows,
-          if (showIllustration)
-            _buildSpecificPage2Illustration(
-              primaryColor,
-              fontOutfit,
-              fontBold,
-              fontRegular,
-              bannerImageBytes: bannerImageBytes,
-              illustrationType: illustrationType,
+          pw.Expanded(
+            child: _buildInfoCardBadge(
+              title: c1.title,
+              description: c1.description,
+              svgIcon: _resolveAutomationIcon(c1.iconKey, hex),
+              fontBold: fontBold,
+              fontRegular: fontRegular,
             ),
+          ),
+          if (c2 != null) ...[
+            pw.SizedBox(width: 12),
+            pw.Expanded(
+              child: _buildInfoCardBadge(
+                title: c2.title,
+                description: c2.description,
+                svgIcon: _resolveAutomationIcon(c2.iconKey, hex),
+                fontBold: fontBold,
+                fontRegular: fontRegular,
+              ),
+            ),
+          ] else
+            pw.Expanded(child: pw.SizedBox()),
         ],
       );
     }
+
+    final List<pw.Widget> firstGroupRows = [];
+    for (int i = 0; i < firstGroup.length; i += 2) {
+      final c1 = firstGroup[i];
+      final c2 = (i + 1 < firstGroup.length) ? firstGroup[i + 1] : null;
+      firstGroupRows.add(buildCardRow(c1, c2));
+      if (i + 2 < firstGroup.length) {
+        firstGroupRows.add(pw.SizedBox(height: 10));
+      }
+    }
+
+    final List<pw.Widget> secondGroupRows = [];
+    for (int i = 0; i < secondGroup.length; i += 2) {
+      final c1 = secondGroup[i];
+      final c2 = (i + 1 < secondGroup.length) ? secondGroup[i + 1] : null;
+      secondGroupRows.add(buildCardRow(c1, c2));
+      if (i + 2 < secondGroup.length) {
+        secondGroupRows.add(pw.SizedBox(height: 10));
+      }
+    }
+
+    final int totalCards = visibleCards.length;
+    final double isometricHeight = (totalCards <= 4)
+        ? 290.0
+        : (totalCards <= 6)
+            ? 235.0
+            : 140.0;
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -2370,111 +2581,16 @@ class AutomationProposalPdfService {
           style: pw.TextStyle(font: fontOutfit, fontSize: 15.5, color: PdfColor.fromHex('#0F172A')),
         ),
         pw.SizedBox(height: 10),
-
-        // 4 Cards de Apresentação (2x2) com Badges de Ícone no Topo
-        pw.Row(
-          children: [
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Conforto & Cenas Inteligentes',
-                description: 'Iluminação, climatização, áudio e cortinas sincronizados em cenas personalizadas para cada momento.',
-                svgIcon: AutomationPdfIcons.sceneComfort(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-            pw.SizedBox(width: 12),
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Segurança Ativa 24h',
-                description: 'Controle biométrico, fechaduras inteligentes, câmeras e sensores com notificações instantâneas no celular.',
-                svgIcon: AutomationPdfIcons.shieldSecurity(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 10),
-        pw.Row(
-          children: [
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Eficiência Energética',
-                description: 'Gestão inteligente de consumo com desligamento programado, climatização otimizada e zero desperdício.',
-                svgIcon: AutomationPdfIcons.ecoEnergy(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-            pw.SizedBox(width: 12),
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Valorização Imobiliária',
-                description: 'Residências modernas com automação de ponta são altamente desejadas e valorizadas pelo mercado.',
-                svgIcon: AutomationPdfIcons.smartHome(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-          ],
-        ),
-
-        pw.SizedBox(height: 18),
-        pw.Text(
-          'Escopo do Projeto & Solução Turn-Key',
-          style: pw.TextStyle(font: fontOutfit, fontSize: 15.5, color: PdfColor.fromHex('#0F172A')),
-        ),
-        pw.SizedBox(height: 10),
-
-        // 4 Cards de Escopo (2x2) com Badges de Ícone no Topo
-        pw.Row(
-          children: [
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Engenharia & Projeto Executivo',
-                description: 'Estudo completo de infraestrutura, cabeamento estruturado, rede Wi-Fi Mesh e posicionamento acústico.',
-                svgIcon: AutomationPdfIcons.projectBlueprint(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-            pw.SizedBox(width: 12),
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Aplicativo Único & Comando de Voz',
-                description: 'Controle toda a residência pela tela do smartphone, tablet, comando de voz (Alexa/Google/Siri) ou keypads.',
-                svgIcon: AutomationPdfIcons.smartphoneApp(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 10),
-        pw.Row(
-          children: [
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Equipamentos Homologados',
-                description: 'Módulos, atuadores e sensores de padrão internacional com homologação Anatel e alta confiabilidade.',
-                svgIcon: AutomationPdfIcons.awardCert(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-            pw.SizedBox(width: 12),
-            pw.Expanded(
-              child: _buildInfoCardBadge(
-                title: 'Instalação, Cenas & Suporte',
-                description: 'Montagem limpa por especialistas certificados, programação sob medida, treinamento e garantia de fábrica.',
-                svgIcon: AutomationPdfIcons.supportHandshake(hex),
-                fontBold: fontBold,
-                fontRegular: fontRegular,
-              ),
-            ),
-          ],
-        ),
+        ...firstGroupRows,
+        if (secondGroup.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          pw.Text(
+            'Escopo do Projeto & Solução Turn-Key',
+            style: pw.TextStyle(font: fontOutfit, fontSize: 15.5, color: PdfColor.fromHex('#0F172A')),
+          ),
+          pw.SizedBox(height: 10),
+          ...secondGroupRows,
+        ],
         if (showIllustration)
           _buildSpecificPage2Illustration(
             primaryColor,
@@ -2482,7 +2598,8 @@ class AutomationProposalPdfService {
             fontBold,
             fontRegular,
             bannerImageBytes: bannerImageBytes,
-            illustrationType: illustrationType,
+            illustrationType: effectiveIllustration,
+            customImageHeight: isometricHeight,
           ),
       ],
     );
@@ -2490,32 +2607,74 @@ class AutomationProposalPdfService {
 
   static String _resolveAutomationIcon(String? iconKey, String hex) {
     switch (iconKey?.toLowerCase()) {
+      case 'music':
+      case 'audio':
+      case 'sound':
+      case 'soundbar':
+      case 'hometheater':
+      case 'som':
+        return AutomationPdfIcons.musicAudio(hex);
+      case 'wifi':
+      case 'network':
+      case 'mesh':
+      case 'internet':
+      case 'rede':
+        return AutomationPdfIcons.wifiNetwork(hex);
+      case 'thermostat':
+      case 'temp':
+      case 'climate':
+      case 'temperature':
+      case 'air':
+      case 'clima':
+      case 'climatizacao':
+        return AutomationPdfIcons.thermostatClimate(hex);
+      case 'lock':
+      case 'biometric':
+      case 'key':
+      case 'fechadura':
+      case 'acesso':
+      case 'cadeado':
+        return AutomationPdfIcons.lockBiometric(hex);
       case 'scene':
       case 'light':
       case 'lightbulb':
+      case 'curtain':
+      case 'persian':
+      case 'persiana':
+      case 'cortina':
         return AutomationPdfIcons.sceneComfort(hex);
       case 'security':
       case 'shield':
-      case 'lock':
+      case 'seguranca':
         return AutomationPdfIcons.shieldSecurity(hex);
       case 'eco':
       case 'energy':
       case 'leaf':
+      case 'pump':
+      case 'pool':
+      case 'garden':
+      case 'paisagismo':
+      case 'bomba':
         return AutomationPdfIcons.ecoEnergy(hex);
       case 'blueprint':
       case 'engineering':
       case 'project':
+      case 'projeto':
         return AutomationPdfIcons.projectBlueprint(hex);
       case 'smartphone':
       case 'phone':
       case 'app':
+      case 'aplicativo':
         return AutomationPdfIcons.smartphoneApp(hex);
       case 'award':
       case 'star':
       case 'cert':
+      case 'homologado':
         return AutomationPdfIcons.awardCert(hex);
       case 'support':
       case 'handshake':
+      case 'suporte':
+      case 'instalacao':
         return AutomationPdfIcons.supportHandshake(hex);
       case 'home':
       case 'smart_home':
@@ -2571,6 +2730,7 @@ class AutomationProposalPdfService {
     pw.Font fontRegular, {
     Uint8List? bannerImageBytes,
     String illustrationType = 'banner',
+    double? customImageHeight,
   }) {
     String headerLabel = 'ECOSSISTEMA RESIDENCIAL INTEGRADO & IOT';
     String headerSub = 'Wi-Fi 6 Mesh • Controle Inteligente • Climatização • Segurança • Áudio Hi-Fi';
@@ -2633,8 +2793,8 @@ class AutomationProposalPdfService {
         borderColor = PdfColor.fromHex('#10B981');
         break;
       case 'isometric':
-        headerLabel = 'CORTE ISOMÉTRICO DOS AMBIENTES RESIDENCIAIS';
-        headerSub = 'Living Integrado • Gourmet • Suítes • Home Cinema • Automação Total';
+        headerLabel = 'ECOSSISTEMA RESIDENCIAL INTEGRADO & IOT';
+        headerSub = 'Wi-Fi 6 Mesh • Automação Total • Cenas Inteligentes';
         break;
     }
 
@@ -2764,6 +2924,30 @@ class AutomationProposalPdfService {
         break;
 
       case 'isometric':
+        if (bannerImageBytes != null && bannerImageBytes.isNotEmpty) {
+          contentWidget = pw.ClipRRect(
+            horizontalRadius: 6,
+            verticalRadius: 6,
+            child: pw.Center(
+              child: pw.Image(
+                pw.MemoryImage(bannerImageBytes),
+                height: customImageHeight ?? 140.0,
+                fit: pw.BoxFit.contain,
+              ),
+            ),
+          );
+        } else {
+          final hex = _pdfColorToHex(primaryColor);
+          contentWidget = pw.Center(
+            child: pw.SvgImage(
+              svg: AutomationPdfIcons.smartHomeTechScene(hex),
+              width: 480,
+              height: 110,
+            ),
+          );
+        }
+        break;
+
       case 'banner':
       default:
         if (bannerImageBytes != null && bannerImageBytes.isNotEmpty) {
@@ -3735,7 +3919,35 @@ class AutomationPdfIcons {
     size: size,
   );
 
-  /// 9. Ilustração Panorâmica Vetorial: Casa Inteligente Arquitetônica & Rede de Tecnologia
+  /// 9. Música / Áudio Hi-Fi / Home Theater
+  static String musicAudio(String color, {int size = 24}) => _svgWrap(
+    '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    color: color,
+    size: size,
+  );
+
+  /// 10. Wi-Fi / Rede Mesh / Conectividade
+  static String wifiNetwork(String color, {int size = 24}) => _svgWrap(
+    '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/>',
+    color: color,
+    size: size,
+  );
+
+  /// 11. Climatização Inteligente / Termostato
+  static String thermostatClimate(String color, {int size = 24}) => _svgWrap(
+    '<path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>',
+    color: color,
+    size: size,
+  );
+
+  /// 12. Acesso Biométrico / Fechadura Digital / Cadeado
+  static String lockBiometric(String color, {int size = 24}) => _svgWrap(
+    '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    color: color,
+    size: size,
+  );
+
+  /// 13. Ilustração Panorâmica Vetorial: Casa Inteligente Arquitetônica & Rede de Tecnologia
   static String smartHomeTechScene(String primaryColor, {String accentColor = '#38BDF8'}) {
     return '''
 <svg width="490" height="78" viewBox="0 0 520 85" xmlns="http://www.w3.org/2000/svg">

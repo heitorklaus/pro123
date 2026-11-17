@@ -17,6 +17,7 @@ import '../../domain/models/proposal_pages_models.dart';
 import 'cover_pages_manager_tab.dart';
 import 'cover_page2_interactive_canvas.dart';
 import 'cover_custom_page_interactive_canvas.dart';
+import 'corporate_wave_cover_view.dart';
 
 /// Modal amplo de estúdio visual para personalização interativa em tempo real da capa da proposta
 class SolarCoverCustomizerDialog extends StatefulWidget {
@@ -591,6 +592,49 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildQuickTitleSuggestionChip({
+    required String label,
+    required String title,
+    required String subtitle,
+    required String tagline,
+  }) {
+    final isCurrent = _current.verticalSplitRightTitle == title && _current.verticalSplitRightSubtitle == subtitle;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _rightTitleCtrl.text = title;
+          _rightSubtitleCtrl.text = subtitle;
+          _rightTaglineCtrl.text = tagline;
+          _current = _current.copyWith(
+            verticalSplitRightTitle: title,
+            verticalSplitRightSubtitle: subtitle,
+            verticalSplitRightTagline: tagline,
+          );
+        });
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: isCurrent ? const Color(0xFFF59E0B).withValues(alpha: 0.25) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isCurrent ? const Color(0xFFF59E0B) : const Color(0xFF334155),
+            width: isCurrent ? 1.2 : 0.8,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 10.5,
+            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
+            color: isCurrent ? Colors.white : const Color(0xFFCBD5E1),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1377,8 +1421,29 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       clipBehavior: Clip.none,
                       fit: StackFit.expand,
                       children: [
-                        // ── 1. RENDERIZAÇÃO DA CAPA BASE (VERTICAL SPLIT OU MODERN) ──
-                        if (_current.proposalStyle == 'verticalSplit') ...[
+                        // ── 1. RENDERIZAÇÃO DA CAPA BASE (CORPORATE WAVE, VERTICAL SPLIT OU MODERN) ──
+                        if (_current.proposalStyle == 'corporateWave') ...[
+                          CorporateWaveCoverView(
+                            width: canvasW,
+                            height: canvasH,
+                            title: _current.coverTitle.isNotEmpty ? _current.coverTitle : 'PROPOSTA\nCOMERCIAL',
+                            subtitle: _current.coverSubtitle.isNotEmpty ? _current.coverSubtitle : 'ENERGIA SOLAR FOTOVOLTAICA',
+                            clientName: 'João da Silva Santos',
+                            locationAndDate: 'Brasil • 2026',
+                            companyName: (_current.companyName != null && _current.companyName!.isNotEmpty) ? _current.companyName! : 'SUA EMPRESA SOLAR',
+                            companyPhone: (_current.companyPhone != null && _current.companyPhone!.isNotEmpty) ? _current.companyPhone! : '(11) 98765-4321',
+                            companyEmail: 'contato@empresa.com.br',
+                            companyWebsite: (_current.companyWebsite != null && _current.companyWebsite!.isNotEmpty) ? _current.companyWebsite! : 'www.empresa.com.br',
+                            companyLogoBase64: _current.companyLogoBase64,
+                            photoUrl: SolarSettingsService.getBigCoverUrl(
+                              _current.selectedCoverTemplate.isNotEmpty
+                                  ? _current.selectedCoverTemplate
+                                  : 'modelo_proposta_1.jpg',
+                            ),
+                            customPhotoBase64: _current.customCoverImageBase64,
+                            primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF0284C7)),
+                          ),
+                        ] else if (_current.proposalStyle == 'verticalSplit') ...[
                           // Capa Vertical Split Renderizada em tempo real
                           SolarVerticalSplitCoverView(
                             settings: _current,
@@ -1534,7 +1599,13 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           )
                         else
                           Image.network(
-                            SolarSettingsService.getBigCoverUrl(_current.selectedCoverTemplate),
+                            SolarSettingsService.getBigCoverUrl(
+                              _current.selectedCoverTemplate.isNotEmpty
+                                  ? _current.selectedCoverTemplate
+                                  : (_current.webBackgroundTemplate.isNotEmpty
+                                      ? _current.webBackgroundTemplate
+                                      : 'modelo_proposta_1.jpg'),
+                            ),
                             fit: BoxFit.cover,
                             width: canvasW,
                             height: canvasH,
@@ -1931,7 +2002,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   _current.verticalSplitRightTitle,
                   style: getCoverTextStyle(
                     fontFamily: _current.coverRightBlockFont,
-                    fontSize: 13.0 * scale,
+                    fontSize: (_current.verticalSplitRightTitleFontSize * 0.72) * scale,
                     fontWeight: FontWeight.w700,
                     color: Color(_current.coverRightTitleColorValue),
                     letterSpacing: 4.0,
@@ -1942,7 +2013,7 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   _current.verticalSplitRightSubtitle,
                   style: getCoverTextStyle(
                     fontFamily: _current.coverRightBlockFont,
-                    fontSize: 32.0 * scale,
+                    fontSize: (_current.verticalSplitRightSubtitleFontSize * 0.72) * scale,
                     fontWeight: FontWeight.w900,
                     color: Color(_current.coverRightSubtitleColorValue),
                     letterSpacing: 1.5,
@@ -2437,9 +2508,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       onSelectImageFromBank: (img) {
         setState(() {
           if (img.localAsset != null && img.localAsset!.isNotEmpty) {
-            _current = _current.copyWith(selectedCoverTemplate: img.localAsset!);
+            _current = _current.copyWith(
+              selectedCoverTemplate: img.localAsset!,
+              webBackgroundTemplate: img.localAsset!,
+              customCoverImageBase64: null,
+            );
           } else {
-            _current = _current.copyWith(selectedCoverTemplate: img.url);
+            _current = _current.copyWith(
+              selectedCoverTemplate: img.url,
+              webBackgroundTemplate: img.url,
+              customCoverImageBase64: null,
+            );
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2883,6 +2962,36 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               label: 'Subtítulo da Imagem',
               hint: 'MAIS ECONOMIA. MAIS LIBERDADE. UM FUTURO SUSTENTÁVEL.',
               maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            // Slider Tamanho da Fonte da Frase de Impacto
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.format_size_rounded, size: 14, color: Color(0xFFEAB308)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tamanho da Frase de Impacto: ${_current.verticalSplitHeadlineFontSize.toInt()}px',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${_current.verticalSplitHeadlineFontSize.toInt()} pt',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFFEAB308)),
+                ),
+              ],
+            ),
+            Slider(
+              value: _current.verticalSplitHeadlineFontSize.clamp(12.0, 48.0),
+              min: 12.0,
+              max: 48.0,
+              divisions: 36,
+              activeColor: const Color(0xFFEAB308),
+              inactiveColor: const Color(0xFF334155),
+              onChanged: (val) => setState(() => _current = _current.copyWith(verticalSplitHeadlineFontSize: val)),
             ),
             const SizedBox(height: 12),
             Container(
@@ -3353,6 +3462,102 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Sugestões de Título & Subtítulo (1 clique):',
+              style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildQuickTitleSuggestionChip(
+                  label: '☀️ Proposta Solar',
+                  title: 'PROPOSTA',
+                  subtitle: 'SOLAR',
+                  tagline: 'SOLUÇÕES EM ENERGIA PARA UM FUTURO MELHOR',
+                ),
+                _buildQuickTitleSuggestionChip(
+                  label: '🏡 Família Silva',
+                  title: 'PROPOSTA SOLAR',
+                  subtitle: 'FAMÍLIA SILVA',
+                  tagline: 'ENERGIA LIMPA E ECONOMIA INTELIGENTE',
+                ),
+                _buildQuickTitleSuggestionChip(
+                  label: '⚡ Sistema Fotovoltaico',
+                  title: 'PROJETO EXECUTIVO',
+                  subtitle: 'SISTEMA SOLAR',
+                  tagline: 'GERAÇÃO PRÓPRIA DE ENERGIA SUSTENTÁVEL',
+                ),
+                _buildQuickTitleSuggestionChip(
+                  label: '🌱 Energia Sustentável',
+                  title: 'ESTUDO TÉCNICO',
+                  subtitle: 'ENERGIA SOLAR',
+                  tagline: 'INDEPENDÊNCIA ENERGÉTICA E SUSTENTABILIDADE',
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // Slider Tamanho da Fonte do Título
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.format_size_rounded, size: 14, color: Color(0xFF38BDF8)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tamanho do Título: ${_current.verticalSplitRightTitleFontSize.toInt()}px',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${_current.verticalSplitRightTitleFontSize.toInt()} pt',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF38BDF8)),
+                ),
+              ],
+            ),
+            Slider(
+              value: _current.verticalSplitRightTitleFontSize.clamp(10.0, 50.0),
+              min: 10.0,
+              max: 50.0,
+              divisions: 40,
+              activeColor: const Color(0xFF38BDF8),
+              inactiveColor: const Color(0xFF334155),
+              onChanged: (v) => setState(() => _current = _current.copyWith(verticalSplitRightTitleFontSize: v)),
+            ),
+            const SizedBox(height: 6),
+            // Slider Tamanho da Fonte do Subtítulo / Destaque
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.text_fields_rounded, size: 14, color: Color(0xFFEAB308)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tamanho do Subtítulo: ${_current.verticalSplitRightSubtitleFontSize.toInt()}px',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${_current.verticalSplitRightSubtitleFontSize.toInt()} pt',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFFEAB308)),
+                ),
+              ],
+            ),
+            Slider(
+              value: _current.verticalSplitRightSubtitleFontSize.clamp(18.0, 72.0),
+              min: 18.0,
+              max: 72.0,
+              divisions: 54,
+              activeColor: const Color(0xFFEAB308),
+              inactiveColor: const Color(0xFF334155),
+              onChanged: (v) => setState(() => _current = _current.copyWith(verticalSplitRightSubtitleFontSize: v)),
             ),
             const SizedBox(height: 12),
             Container(

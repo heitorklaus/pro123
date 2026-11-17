@@ -141,6 +141,53 @@ class AutomationPresetCatalog {
       );
     }
 
+    // -------------------------------------------------------------
+    // 🌊 CATEGORIA 3: CORPORATE WAVE (40 Capas com Ondas, Pontilhado & Janela Fluida)
+    // -------------------------------------------------------------
+    final corporateWaveTitles = [
+      'Residência High-End Corporativa', 'Mansão Alphaville Smart Home', 'Living Integrado & Automação',
+      'Cinema Privativo Dolby Atmos', 'Espaço Gourmet & Áudio Multiroom', 'Cobertura Duplex Inteligente',
+      'Fachada Iluminada Contemporânea', 'Suíte Master Tecnológica', 'Pátio & Piscina Aquecida',
+      'Escritório Corporativo & Automação', 'Penthouse Jardins Luxo', 'Villa Moderna com Painel Touch',
+      'Home Theater 4K Acústico', 'Jardim de Inverno & Cenas Cênicas', 'Hall de Entrada com Biometria',
+      'Quarto Infantil Climatizado IA', 'Cozinha Gourmet Conectada', 'Adega Climatizada Inteligente',
+      'Studio Acústico High-End', 'Varanda Integrada Multi-Zona',
+    ];
+
+    final corporateColors = [
+      '#0284C7', // Azul Corporativo
+      '#2563EB', // Azul Royal Tech
+      '#0D9488', // Verde Azulado Teal
+      '#10B981', // Verde Esmeralda
+      '#6366F1', // Índigo Moderno
+      '#8B5CF6', // Roxo Violeta
+      '#F59E0B', // Âmbar Dourado
+      '#0F172A', // Grafite Noturno
+    ];
+
+    for (int i = 1; i <= 40; i++) {
+      final img = _mansionImages[(i + 5) % _mansionImages.length];
+      final title = corporateWaveTitles[(i - 1) % corporateWaveTitles.length];
+      final color = corporateColors[(i - 1) % corporateColors.length];
+
+      list.add(
+        AutomationPresetItem(
+          id: 'auto_wave_${i < 10 ? '0$i' : i}',
+          title: 'Corporate Wave #$i — $title',
+          subtitle: 'Design Ondulado A4 com Janela e Pontilhados',
+          imageUrl: img,
+          primaryColorHex: color,
+          coverTag: 'PROPOSTA DE SERVIÇO',
+          headline: 'AUTOMAÇÃO RESIDENCIAL DE ALTO PADRÃO',
+          subheadline: 'Engenharia, conforto e tecnologia de ponta integrados ao seu projeto.',
+          category: 'Corporate Wave',
+          isFullPhoto: false,
+          customDividerStyle: -2,
+          defaultNodes: const [],
+        ),
+      );
+    }
+
     _allPresets = list;
     return _allPresets;
   }

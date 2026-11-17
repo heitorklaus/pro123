@@ -34,6 +34,8 @@ class AutomationStudyFormCard extends StatefulWidget {
   final VoidCallback onSuccess;
   final void Function(ProductModel product)? onProductSaved;
   final ValueChanged<ProposalItemModel>? onProceedToProposal;
+  final String? customProceedDescription;
+  final String? customProceedActionLabel;
 
   const AutomationStudyFormCard({
     super.key,
@@ -45,10 +47,13 @@ class AutomationStudyFormCard extends StatefulWidget {
     required this.onSuccess,
     this.onProductSaved,
     this.onProceedToProposal,
+    this.customProceedDescription,
+    this.customProceedActionLabel,
   });
 
   @override
-  State<AutomationStudyFormCard> createState() => _AutomationStudyFormCardState();
+  State<AutomationStudyFormCard> createState() =>
+      _AutomationStudyFormCardState();
 }
 
 class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
@@ -65,7 +70,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   bool _isSaving = false;
   String? _errorMessage;
   ProductModel? _activeProduct;
-  AutomationProposalThemeConfig _proposalThemeConfig = const AutomationProposalThemeConfig();
+  AutomationProposalThemeConfig _proposalThemeConfig =
+      const AutomationProposalThemeConfig();
 
   StreamSubscription<List<AutomationCategoryModel>>? _categorySub;
   List<AutomationCategoryModel> _availableCategories =
@@ -121,10 +127,13 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         }
       });
 
-      _productsSub = _productRepo.getProductsStream(companyId: cid).listen((products) {
+      _productsSub =
+          _productRepo.getProductsStream(companyId: cid).listen((products) {
         if (mounted) {
           final autoProds = products
-              .where((p) => p.sector == ProductSector.homeAutomation && p.isAutomationDevice)
+              .where((p) =>
+                  p.sector == ProductSector.homeAutomation &&
+                  p.isAutomationDevice)
               .toList();
           setState(() {
             _automationProducts = autoProds;
@@ -161,8 +170,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     );
   }
 
-  void _openAutomationEquipmentDialog([int? envIndex, int? itemIndex, bool startInRegister = false]) {
-    final initialName = (envIndex != null && itemIndex != null &&
+  void _openAutomationEquipmentDialog(
+      [int? envIndex, int? itemIndex, bool startInRegister = false]) {
+    final initialName = (envIndex != null &&
+            itemIndex != null &&
             envIndex < _environments.length &&
             itemIndex < _environments[envIndex].items.length)
         ? _environments[envIndex].items[itemIndex].name
@@ -185,7 +196,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   }
 
   void _applyProductToItem(int envIndex, int itemIndex, ProductModel prod) {
-    if (envIndex >= _environments.length || itemIndex >= _environments[envIndex].items.length) return;
+    if (envIndex >= _environments.length ||
+        itemIndex >= _environments[envIndex].items.length) return;
     final currentItem = _environments[envIndex].items[itemIndex];
 
     final catTitle = prod.categoryTitle ??
@@ -199,7 +211,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           : AutomationCategoryModel.defaultCategories.first,
     );
 
-    final unitPrice = prod.salePrice > 0 ? prod.salePrice : currentItem.unitPrice;
+    final unitPrice =
+        prod.salePrice > 0 ? prod.salePrice : currentItem.unitPrice;
     final totalPrice = currentItem.quantity * unitPrice;
 
     _updateItemInEnvironment(
@@ -235,7 +248,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         _laborPriceCtrl.text = CurrencyPtBrInputFormatter.format(labor);
       }
 
-      _environments = List<AutomationEnvironment>.from(p.automationEnvironments);
+      _environments =
+          List<AutomationEnvironment>.from(p.automationEnvironments);
       if (attrs['proposalTheme'] is Map) {
         _proposalThemeConfig = AutomationProposalThemeConfig.fromMap(
           Map<String, dynamic>.from(attrs['proposalTheme'] as Map),
@@ -248,7 +262,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
       _environments.add(const AutomationEnvironment(
         id: 'env_1',
         name: 'Living & Home Theater',
-        description: 'Conforto e entretenimento para a família e visitas com cenas de iluminação e áudio imersivo.',
+        description:
+            'Conforto e entretenimento para a família e visitas com cenas de iluminação e áudio imersivo.',
         items: [],
       ));
     }
@@ -325,7 +340,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     });
   }
 
-  void _updateItemInEnvironment(int envIndex, int itemIndex, AutomationItem updatedItem) {
+  void _updateItemInEnvironment(
+      int envIndex, int itemIndex, AutomationItem updatedItem) {
     setState(() {
       final env = _environments[envIndex];
       final newItems = List<AutomationItem>.from(env.items);
@@ -361,11 +377,14 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         _notesCtrl.text = parsed.notes!;
       }
       if (parsed.laborAmount > 0) {
-        _laborPriceCtrl.text = CurrencyPtBrInputFormatter.format(parsed.laborAmount);
+        _laborPriceCtrl.text =
+            CurrencyPtBrInputFormatter.format(parsed.laborAmount);
       }
 
       if (parsed.environments.isNotEmpty) {
-        _environments = parsed.environments.map((e) => e.toAutomationEnvironment()).toList();
+        _environments = parsed.environments
+            .map((e) => e.toAutomationEnvironment())
+            .toList();
       }
     });
 
@@ -391,7 +410,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         initialConfig: _proposalThemeConfig,
         clientName: _nameCtrl.text.trim().isNotEmpty
             ? _nameCtrl.text.trim()
-            : (_clientNameCtrl.text.trim().isNotEmpty ? _clientNameCtrl.text.trim() : 'Residência'),
+            : (_clientNameCtrl.text.trim().isNotEmpty
+                ? _clientNameCtrl.text.trim()
+                : 'Residência'),
         onLiveChange: (liveConfig) {
           setState(() => _proposalThemeConfig = liveConfig);
         },
@@ -399,7 +420,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           setState(() => _proposalThemeConfig = newConfig);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Configurações visuais da proposta web atualizadas!'),
+              content:
+                  Text('Configurações visuais da proposta web atualizadas!'),
               backgroundColor: Color(0xFF10B981),
             ),
           );
@@ -417,7 +439,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           : (baseProduct?.name ?? 'Residência Inteligente'),
       sector: ProductSector.homeAutomation,
       categoryTitle: 'Automação Residencial',
-      description: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : baseProduct?.description,
+      description: _notesCtrl.text.trim().isNotEmpty
+          ? _notesCtrl.text.trim()
+          : baseProduct?.description,
       salePrice: _grandTotal > 0 ? _grandTotal : _equipmentTotal,
       costPrice: _equipmentTotal,
       unit: ProductUnit.un,
@@ -432,14 +456,16 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         'grandTotal': _grandTotal,
         // Injeta sempre a configuração visual completa e o modelo 3D real da tela!
         'proposalTheme': _proposalThemeConfig.toMap(),
-        if (_clientNameCtrl.text.trim().isNotEmpty) 'clientName': _clientNameCtrl.text.trim(),
+        if (_clientNameCtrl.text.trim().isNotEmpty)
+          'clientName': _clientNameCtrl.text.trim(),
       },
     );
 
     final baseUri = Uri.base.origin;
-    final targetPath = (previewProduct.id.isNotEmpty && previewProduct.id != 'preview_mode')
-        ? '/automacao-proposta/${previewProduct.id}'
-        : '/preview-automacao';
+    final targetPath =
+        (previewProduct.id.isNotEmpty && previewProduct.id != 'preview_mode')
+            ? '/automacao-proposta/${previewProduct.id}'
+            : '/preview-automacao';
     final fullUrl = '$baseUri/#$targetPath';
 
     // Abre estritamente em uma nova aba (_blank) no navegador e sincroniza via IndexedDB sem limite de 5MB
@@ -466,14 +492,16 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFF334155), width: 1.5),
             boxShadow: const [
-              BoxShadow(color: Colors.black54, blurRadius: 24, offset: Offset(0, 8)),
+              BoxShadow(
+                  color: Colors.black54, blurRadius: 24, offset: Offset(0, 8)),
             ],
           ),
           child: Column(
             children: [
               // Header do Modal
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFF334155))),
                 ),
@@ -485,7 +513,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                         color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFEF4444), size: 20),
+                      child: const Icon(Icons.picture_as_pdf_rounded,
+                          color: Color(0xFFEF4444), size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -501,15 +530,19 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                             ),
                           ),
                           Text(
-                            product.name.isNotEmpty ? product.name : 'Estudo de Automação Residencial',
-                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                            product.name.isNotEmpty
+                                ? product.name
+                                : 'Estudo de Automação Residencial',
+                            style: GoogleFonts.inter(
+                                fontSize: 12, color: const Color(0xFF94A3B8)),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white70),
                       onPressed: () => Navigator.pop(ctx),
                       tooltip: 'Fechar',
                     ),
@@ -529,19 +562,27 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     builder: (context, snapshot) {
                       if (!snapshot.hasData) {
                         return const Center(
-                          child: CircularProgressIndicator(color: Color(0xFF00E5FF)),
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF00E5FF)),
                         );
                       }
                       final settings = snapshot.data!;
                       final proposal = ProposalModel(
                         id: product.id,
-                        proposalNumber: 'PROP-${DateTime.now().year}/${product.id.length >= 4 ? product.id.substring(0, 4).toUpperCase() : "AUTO"}',
-                        title: product.name.isNotEmpty ? product.name : 'Estudo de Automação Residencial',
+                        proposalNumber:
+                            'PROP-${DateTime.now().year}/${product.id.length >= 4 ? product.id.substring(0, 4).toUpperCase() : "AUTO"}',
+                        title: product.name.isNotEmpty
+                            ? product.name
+                            : 'Estudo de Automação Residencial',
                         clientName: _clientNameCtrl.text.trim().isNotEmpty
                             ? _clientNameCtrl.text.trim()
-                            : (settings.clientName.isNotEmpty ? settings.clientName : 'Cliente / Local do Projeto'),
-                        subtotal: _grandTotal > 0 ? _grandTotal : _equipmentTotal,
-                        totalAmount: _grandTotal > 0 ? _grandTotal : _equipmentTotal,
+                            : (settings.clientName.isNotEmpty
+                                ? settings.clientName
+                                : 'Cliente / Local do Projeto'),
+                        subtotal:
+                            _grandTotal > 0 ? _grandTotal : _equipmentTotal,
+                        totalAmount:
+                            _grandTotal > 0 ? _grandTotal : _equipmentTotal,
                         validityDays: 15,
                         createdAt: DateTime.now(),
                         updatedAt: DateTime.now(),
@@ -551,7 +592,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                       );
 
                       return PdfPreview(
-                        build: (format) => AutomationProposalPdfService.generateProposalPdf(
+                        build: (format) =>
+                            AutomationProposalPdfService.generateProposalPdf(
                           studyProduct: product,
                           settings: settings,
                           proposal: proposal,
@@ -559,7 +601,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                         allowPrinting: true,
                         allowSharing: true,
                         canChangePageFormat: false,
-                        pdfFileName: 'Proposta_${product.name.replaceAll(' ', '_')}.pdf',
+                        pdfFileName:
+                            'Proposta_${product.name.replaceAll(' ', '_')}.pdf',
                       );
                     },
                   ),
@@ -622,7 +665,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
             children: [
               Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
               SizedBox(width: 10),
-              Text('Estudo salvo com sucesso! Abrindo Estúdio e Configurador do PDF...'),
+              Text(
+                  'Estudo salvo com sucesso! Abrindo Estúdio e Configurador do PDF...'),
             ],
           ),
           backgroundColor: Color(0xFF0284C7),
@@ -645,9 +689,11 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               const SnackBar(
                 content: Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                    Icon(Icons.check_circle_rounded,
+                        color: Colors.white, size: 20),
                     SizedBox(width: 10),
-                    Text('Configurações do PDF da proposta salvas com sucesso!'),
+                    Text(
+                        'Configurações do PDF da proposta salvas com sucesso!'),
                   ],
                 ),
                 backgroundColor: Color(0xFF10B981),
@@ -660,16 +706,17 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     }
   }
 
-
   // ─────────────────────────────────────────────────────────────────────────
   // SALVAR NO FIRESTORE COM RETORNO DO PRODUTO (REUTILIZÁVEL)
   // ─────────────────────────────────────────────────────────────────────────
-  Future<ProductModel?> _saveStudyInternal({bool isPreviewTrigger = false}) async {
+  Future<ProductModel?> _saveStudyInternal(
+      {bool isPreviewTrigger = false}) async {
     if (!_formKey.currentState!.validate()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Por favor, preencha o nome do estudo para continuar.'),
+            content:
+                Text('Por favor, preencha o nome do estudo para continuar.'),
             backgroundColor: Color(0xFFEF4444),
           ),
         );
@@ -681,7 +728,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Adicione ao menos um ambiente no estudo antes de visualizar.'),
+            content: Text(
+                'Adicione ao menos um ambiente no estudo antes de visualizar.'),
             backgroundColor: Color(0xFFEF4444),
           ),
         );
@@ -720,7 +768,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
 
       final bgUrl = themeMap['backgroundImageUrl']?.toString() ?? '';
       if (bgUrl.startsWith('data:') || bgUrl.length > 200000) {
-        themeMap['backgroundImageUrl'] = kDefaultProposalBackgrounds.first.imageUrl;
+        themeMap['backgroundImageUrl'] =
+            kDefaultProposalBackgrounds.first.imageUrl;
       }
 
       final glbUrl = themeMap['glbModelUrl']?.toString() ?? '';
@@ -739,7 +788,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         'laborPrice': _laborTotal,
         'grandTotal': _grandTotal,
         'proposalTheme': themeMap,
-        if (_clientNameCtrl.text.trim().isNotEmpty) 'clientName': _clientNameCtrl.text.trim(),
+        if (_clientNameCtrl.text.trim().isNotEmpty)
+          'clientName': _clientNameCtrl.text.trim(),
         if (_notesCtrl.text.trim().isNotEmpty) 'notes': _notesCtrl.text.trim(),
       };
 
@@ -749,9 +799,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           name: _nameCtrl.text.trim(),
           sector: ProductSector.homeAutomation,
           categoryTitle: 'Automação Residencial',
-          description: _notesCtrl.text.trim().isNotEmpty
-              ? _notesCtrl.text.trim()
-              : null,
+          description:
+              _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           salePrice: _grandTotal > 0 ? _grandTotal : _equipmentTotal,
           costPrice: _equipmentTotal,
           unit: ProductUnit.un,
@@ -765,9 +814,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           name: _nameCtrl.text.trim(),
           sector: ProductSector.homeAutomation,
           categoryTitle: 'Automação Residencial',
-          description: _notesCtrl.text.trim().isNotEmpty
-              ? _notesCtrl.text.trim()
-              : null,
+          description:
+              _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           salePrice: _grandTotal > 0 ? _grandTotal : _equipmentTotal,
           costPrice: _equipmentTotal,
           stockQuantity: 1,
@@ -818,9 +866,13 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     final savedProduct = await _saveStudyInternal(isPreviewTrigger: false);
     if (savedProduct == null) return;
 
-    if (proceedToProposal && widget.onProceedToProposal != null) {
+    if (widget.onProceedToProposal != null) {
       final proposalItem = ProposalItemModel.fromProduct(savedProduct);
-      widget.onProceedToProposal!(proposalItem);
+      if (proceedToProposal) {
+        widget.onProceedToProposal!(proposalItem);
+        return;
+      }
+      _showProceedToProposalDialog(proposalItem);
       return;
     }
 
@@ -829,21 +881,195 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const Icon(Icons.check_circle_rounded,
+                  color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Text(
-                'Estudo salvo com sucesso!',
-                style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                'Estudo de Solução salvo com sucesso!',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 13),
               ),
             ],
           ),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 3),
         ),
       );
     }
+  }
+
+  void _showProceedToProposalDialog(ProposalItemModel proposalItem) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF334155)),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.check_circle_rounded,
+                  color: Color(0xFF10B981), size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Estudo Salvo!',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.customProceedDescription ??
+                  'O Estudo de Solução em Automação foi salvo com sucesso no catálogo. Deseja adicionar este estudo à proposta comercial agora?',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF94A3B8),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    proposalItem.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: const Color(0xFF818CF8),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (proposalItem.automationEnvironmentsCount != null &&
+                          proposalItem.automationEnvironmentsCount! > 0)
+                        Text(
+                          '⚡ ${proposalItem.automationEnvironmentsCount} ambientes • ${proposalItem.automationTotalItemsCount ?? 0} itens',
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF38BDF8)),
+                        ),
+                      Text(
+                        'R\$ ${proposalItem.totalPrice.toStringAsFixed(2).replaceAll('.', ',')}',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    widget.onSuccess();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    side: const BorderSide(color: Color(0xFF475569)),
+                  ),
+                  child: Text(
+                    'VOLTAR',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11.5,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    widget.onProceedToProposal?.call(proposalItem);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    elevation: 3,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add_task_rounded,
+                          size: 16, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          widget.customProceedActionLabel ??
+                              'ADICIONAR À PROPOSTA',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11.5,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -888,12 +1114,14 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                    const Icon(Icons.error_outline_rounded,
+                        color: Color(0xFFEF4444), size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         _errorMessage!,
-                        style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFFFCA5A5)),
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: const Color(0xFFFCA5A5)),
                       ),
                     ),
                   ],
@@ -933,7 +1161,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           children: [
             IconButton(
               onPressed: widget.onBack,
-              icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF94A3B8)),
+              icon: const Icon(Icons.arrow_back_rounded,
+                  color: Color(0xFF94A3B8)),
               tooltip: 'Voltar para a listagem',
             ),
             const SizedBox(width: 8),
@@ -953,7 +1182,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 24),
+              child: const Icon(Icons.sensors_rounded,
+                  color: Colors.white, size: 24),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -962,7 +1192,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isEditing ? 'Editar Estudo de Proposta' : 'Novo Estudo de Proposta',
+                    isEditing
+                        ? 'Editar Estudo de Solução em Automação'
+                        : 'Novo Estudo de Solução',
                     style: GoogleFonts.outfit(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -988,7 +1220,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         );
 
         final buttonsBlock = Column(
-          crossAxisAlignment: isCompact ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+          crossAxisAlignment:
+              isCompact ? CrossAxisAlignment.start : CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
             // ── LINHA 1: AÇÕES DE PDF (PRÉVIA + PERSONALIZAR) ──
@@ -1002,9 +1235,11 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                       ? const SizedBox(
                           width: 13,
                           height: 13,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
                         )
-                      : const Icon(Icons.picture_as_pdf_rounded, size: 15, color: Colors.white),
+                      : const Icon(Icons.picture_as_pdf_rounded,
+                          size: 15, color: Colors.white),
                   label: Text(
                     'PRÉVIA PDF',
                     style: GoogleFonts.inter(
@@ -1017,8 +1252,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFEF4444),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     elevation: 2,
                   ),
                 ),
@@ -1027,7 +1264,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 // BOTÃO 2: PERSONALIZAR PDF (CONFIGURADOR A4 & PÁGINA 4)
                 ElevatedButton.icon(
                   onPressed: _isSaving ? null : _handleCustomizePdf,
-                  icon: const Icon(Icons.tune_rounded, size: 15, color: Color(0xFF00E5FF)),
+                  icon: const Icon(Icons.tune_rounded,
+                      size: 15, color: Color(0xFF00E5FF)),
                   label: Text(
                     'PERSONALIZAR PDF',
                     style: GoogleFonts.inter(
@@ -1040,9 +1278,12 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1E293B),
                     foregroundColor: const Color(0xFF00E5FF),
-                    side: const BorderSide(color: Color(0xFF00E5FF), width: 1.1),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    side:
+                        const BorderSide(color: Color(0xFF00E5FF), width: 1.1),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     elevation: 2,
                   ),
                 ),
@@ -1061,9 +1302,11 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                       ? const SizedBox(
                           width: 13,
                           height: 13,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
                         )
-                      : const Icon(Icons.laptop_chromebook_rounded, size: 15, color: Colors.white),
+                      : const Icon(Icons.laptop_chromebook_rounded,
+                          size: 15, color: Colors.white),
                   label: Text(
                     'PRÉVIA PROPOSTA WEB',
                     style: GoogleFonts.inter(
@@ -1076,8 +1319,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     elevation: 2,
                   ),
                 ),
@@ -1086,7 +1331,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 // BOTÃO 4: PERSONALIZAR PROPOSTA WEB
                 OutlinedButton.icon(
                   onPressed: _openThemeCustomizer,
-                  icon: const Icon(Icons.palette_rounded, size: 15, color: Color(0xFF00E5FF)),
+                  icon: const Icon(Icons.palette_rounded,
+                      size: 15, color: Color(0xFF00E5FF)),
                   label: Text(
                     'PERSONALIZAR PROPOSTA WEB',
                     style: GoogleFonts.inter(
@@ -1096,9 +1342,12 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF00E5FF), width: 1.1),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    side:
+                        const BorderSide(color: Color(0xFF00E5FF), width: 1.1),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1120,7 +1369,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   ),
                   child: ElevatedButton.icon(
                     onPressed: _isSaving ? null : _handleImportWithAi,
-                    icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
+                    icon: const Icon(Icons.auto_awesome_rounded,
+                        color: Colors.white, size: 16),
                     label: Text(
                       'IMPORTAR COM IA (PDF/IMG)',
                       style: GoogleFonts.inter(
@@ -1133,8 +1383,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ),
@@ -1147,14 +1399,18 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ElevatedButton.icon(
-                  onPressed: _isSaving ? null : () => _handleSave(proceedToProposal: false),
+                  onPressed: _isSaving
+                      ? null
+                      : () => _handleSave(proceedToProposal: false),
                   icon: _isSaving
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
                         )
-                      : const Icon(Icons.check_circle_rounded, size: 16, color: Colors.white),
+                      : const Icon(Icons.check_circle_rounded,
+                          size: 16, color: Colors.white),
                   label: Text(
                     isEditing ? 'SALVAR ALTERAÇÕES' : 'SALVAR ESTUDO',
                     style: GoogleFonts.inter(
@@ -1167,18 +1423,23 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF10B981),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     elevation: 3,
                   ),
                 ),
                 if (widget.onProceedToProposal != null) ...[
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
-                    onPressed: _isSaving ? null : () => _handleSave(proceedToProposal: true),
-                    icon: const Icon(Icons.arrow_forward_rounded, size: 15, color: Colors.white),
+                    onPressed: _isSaving
+                        ? null
+                        : () => _handleSave(proceedToProposal: true),
+                    icon: const Icon(Icons.arrow_forward_rounded,
+                        size: 15, color: Colors.white),
                     label: Text(
-                      'AVANÇAR P/ PROPOSTA',
+                      widget.customProceedActionLabel ?? 'AVANÇAR P/ PROPOSTA',
                       style: GoogleFonts.inter(
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
@@ -1189,8 +1450,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6366F1),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                       elevation: 2,
                     ),
                   ),
@@ -1255,33 +1518,45 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   children: [
                     Text(
                       'Nome do Estudo / Projeto *',
-                      style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFCBD5E1)),
                     ),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _nameCtrl,
-                      style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5),
+                      style: GoogleFonts.inter(
+                          color: Colors.white, fontSize: 13.5),
                       decoration: InputDecoration(
                         hintText: 'Ex: Projeto Automação Residência Silva',
-                        hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+                        hintStyle: GoogleFonts.inter(
+                            color: const Color(0xFF64748B), fontSize: 13),
                         filled: true,
                         fillColor: const Color(0xFF0F172A),
-                        prefixIcon: const Icon(Icons.description_outlined, color: Color(0xFF818CF8), size: 18),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        prefixIcon: const Icon(Icons.description_outlined,
+                            color: Color(0xFF818CF8), size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF334155)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF334155)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF334155)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF334155)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF6366F1), width: 1.5),
                         ),
                       ),
-                      validator: (val) => (val == null || val.trim().isEmpty) ? 'Informe o nome do estudo' : null,
+                      validator: (val) => (val == null || val.trim().isEmpty)
+                          ? 'Informe o nome do estudo'
+                          : null,
                     ),
                   ],
                 ),
@@ -1296,30 +1571,40 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   children: [
                     Text(
                       'Cliente / Local (Opcional)',
-                      style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFCBD5E1)),
                     ),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _clientNameCtrl,
-                      style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5),
+                      style: GoogleFonts.inter(
+                          color: Colors.white, fontSize: 13.5),
                       decoration: InputDecoration(
                         hintText: 'Ex: Dr. Roberto - Condomínio Alphaville',
-                        hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+                        hintStyle: GoogleFonts.inter(
+                            color: const Color(0xFF64748B), fontSize: 13),
                         filled: true,
                         fillColor: const Color(0xFF0F172A),
-                        prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF818CF8), size: 18),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        prefixIcon: const Icon(Icons.person_outline_rounded,
+                            color: Color(0xFF818CF8), size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF334155)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF334155)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF334155)),
+                          borderSide:
+                              const BorderSide(color: Color(0xFF334155)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF6366F1), width: 1.5),
                         ),
                       ),
                     ),
@@ -1333,7 +1618,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           // Observações Gerais
           Text(
             'Observações Gerais / Escopo Técnico',
-            style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+            style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFCBD5E1)),
           ),
           const SizedBox(height: 6),
           TextFormField(
@@ -1341,11 +1629,14 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
             maxLines: 2,
             style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
             decoration: InputDecoration(
-              hintText: 'Ex: Projeto prevê automação de iluminação dimerizável, cortinas motorizadas e sonorização multiroom.',
-              hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12.5),
+              hintText:
+                  'Ex: Projeto prevê automação de iluminação dimerizável, cortinas motorizadas e sonorização multiroom.',
+              hintStyle: GoogleFonts.inter(
+                  color: const Color(0xFF64748B), fontSize: 12.5),
               filled: true,
               fillColor: const Color(0xFF0F172A),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFF334155)),
@@ -1356,7 +1647,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xFF6366F1), width: 1.5),
               ),
             ),
           ),
@@ -1387,7 +1679,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 const SizedBox(height: 2),
                 Text(
                   'Cadastre os cômodos e adicione as soluções inteligentes pertencentes a cada um',
-                  style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8)),
+                  style: GoogleFonts.inter(
+                      fontSize: 12.5, color: const Color(0xFF94A3B8)),
                 ),
               ],
             ),
@@ -1396,14 +1689,19 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               icon: const Icon(Icons.add_home_work_rounded, size: 17),
               label: Text(
                 'ADICIONAR AMBIENTE',
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.4),
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.4),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E293B),
                 foregroundColor: const Color(0xFF818CF8),
                 side: const BorderSide(color: Color(0xFF6366F1), width: 1.2),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -1436,17 +1734,23 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: BoxDecoration(
               color: const Color(0xFF0F172A),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: const Border(bottom: BorderSide(color: Color(0xFF334155))),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              border:
+                  const Border(bottom: BorderSide(color: Color(0xFF334155))),
             ),
             child: Row(
               children: [
-                const Icon(Icons.meeting_room_rounded, color: Color(0xFF818CF8), size: 20),
+                const Icon(Icons.meeting_room_rounded,
+                    color: Color(0xFF818CF8), size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextFormField(
                     initialValue: env.name,
-                    style: GoogleFonts.inter(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: GoogleFonts.inter(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                     decoration: const InputDecoration(
                       hintText: 'Nome do Ambiente (ex: Suíte Master)',
                       hintStyle: TextStyle(color: Color(0xFF64748B)),
@@ -1460,20 +1764,26 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                    border: Border.all(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     '${env.totalItemsCount} dispositivos • ${CurrencyPtBrInputFormatter.format(env.subtotal)}',
-                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF818CF8)),
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF818CF8)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                  icon: const Icon(Icons.delete_outline_rounded,
+                      color: Color(0xFFEF4444), size: 20),
                   tooltip: 'Remover este ambiente',
                   onPressed: () => _removeEnvironment(envIndex),
                 ),
@@ -1490,7 +1800,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 // ── CAMPO MINISEXPLICAÇÃO DO AMBIENTE (PROPOSTA WEB) ──
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F172A).withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(12),
@@ -1498,7 +1809,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.auto_stories_rounded, size: 18, color: Color(0xFF00E5FF)),
+                      const Icon(Icons.auto_stories_rounded,
+                          size: 18, color: Color(0xFF00E5FF)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -1516,16 +1828,19 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                             const SizedBox(height: 4),
                             TextFormField(
                               initialValue: env.description ?? '',
-                              style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, color: Colors.white),
                               decoration: InputDecoration(
                                 hintText: 'Ex: ${env.miniexplanation}',
-                                hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                hintStyle: const TextStyle(
+                                    fontSize: 12, color: Color(0xFF64748B)),
                                 isDense: true,
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.zero,
                               ),
                               onChanged: (val) {
-                                _environments[envIndex] = env.copyWith(description: val);
+                                _environments[envIndex] =
+                                    env.copyWith(description: val);
                               },
                             ),
                           ],
@@ -1544,14 +1859,16 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     child: Center(
                       child: Text(
                         'Nenhum equipamento cadastrado neste ambiente ainda.',
-                        style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B)),
+                        style: GoogleFonts.inter(
+                            fontSize: 12.5, color: const Color(0xFF64748B)),
                       ),
                     ),
                   ),
                 ] else ...[
                   // Cabeçalho da Tabela
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0F172A).withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(8),
@@ -1562,20 +1879,28 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                           flex: 5,
                           child: Row(
                             children: [
-                              Text('EQUIPAMENTO / SOLUÇÃO', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8))),
+                              Text('EQUIPAMENTO / SOLUÇÃO',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF94A3B8))),
                               const SizedBox(width: 6),
                               Tooltip(
-                                message: 'Catálogo de Equipamentos de Automação',
+                                message:
+                                    'Catálogo de Equipamentos de Automação',
                                 child: InkWell(
-                                  onTap: () => _openAutomationEquipmentDialog(null, null, false),
+                                  onTap: () => _openAutomationEquipmentDialog(
+                                      null, null, false),
                                   borderRadius: BorderRadius.circular(4),
                                   child: Container(
                                     padding: const EdgeInsets.all(2),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                                      color: const Color(0xFF6366F1)
+                                          .withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Icon(Icons.add_rounded, size: 13, color: Color(0xFF818CF8)),
+                                    child: const Icon(Icons.add_rounded,
+                                        size: 13, color: Color(0xFF818CF8)),
                                   ),
                                 ),
                               ),
@@ -1617,15 +1942,30 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                         ),
                         SizedBox(
                           width: 80,
-                          child: Text('QTD', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8))),
+                          child: Text('QTD',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF94A3B8))),
                         ),
                         SizedBox(
                           width: 120,
-                          child: Text('UNITÁRIO (R\$)', textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8))),
+                          child: Text('UNITÁRIO (R\$)',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF94A3B8))),
                         ),
                         SizedBox(
                           width: 130,
-                          child: Text('TOTAL (R\$)', textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8))),
+                          child: Text('TOTAL (R\$)',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF94A3B8))),
                         ),
                         const SizedBox(width: 40),
                       ],
@@ -1647,10 +1987,14 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
                     onPressed: () => _addNewItemToEnvironment(envIndex),
-                    icon: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF818CF8)),
+                    icon: const Icon(Icons.add_rounded,
+                        size: 18, color: Color(0xFF818CF8)),
                     label: Text(
                       '+ Adicionar Equipamento a este Ambiente',
-                      style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF818CF8)),
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF818CF8)),
                     ),
                   ),
                 ),
@@ -1664,7 +2008,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
 
   Widget _buildItemRow(int envIndex, int itemIndex, AutomationItem item) {
     final unitPriceCtrl = TextEditingController(
-      text: item.unitPrice > 0 ? CurrencyPtBrInputFormatter.format(item.unitPrice) : '',
+      text: item.unitPrice > 0
+          ? CurrencyPtBrInputFormatter.format(item.unitPrice)
+          : '',
     );
 
     return Container(
@@ -1673,7 +2019,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF334155).withValues(alpha: 0.5)),
+        border:
+            Border.all(color: const Color(0xFF334155).withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
@@ -1684,12 +2031,14 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               children: [
                 Expanded(
                   child: AutomationEquipmentAutocompleteField(
-                    key: ValueKey('auto_item_${envIndex}_${itemIndex}_${item.id}_${item.name}'),
+                    key: ValueKey(
+                        'auto_item_${envIndex}_${itemIndex}_${item.id}_${item.name}'),
                     initialValue: item.name,
                     automationProducts: _automationProducts,
                     categories: _availableCategories,
                     onChanged: (val) {
-                      _updateItemInEnvironment(envIndex, itemIndex, item.copyWith(name: val));
+                      _updateItemInEnvironment(
+                          envIndex, itemIndex, item.copyWith(name: val));
                     },
                     onProductSelected: (prod) {
                       _applyProductToItem(envIndex, itemIndex, prod);
@@ -1703,7 +2052,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 Tooltip(
                   message: 'Cadastrar Equipamento / Ver Catálogo',
                   child: InkWell(
-                    onTap: () => _openAutomationEquipmentDialog(envIndex, itemIndex, false),
+                    onTap: () => _openAutomationEquipmentDialog(
+                        envIndex, itemIndex, false),
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
                       padding: const EdgeInsets.all(4),
@@ -1711,10 +2061,12 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                         color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                          color:
+                              const Color(0xFF6366F1).withValues(alpha: 0.35),
                         ),
                       ),
-                      child: const Icon(Icons.add_rounded, size: 15, color: Color(0xFF818CF8)),
+                      child: const Icon(Icons.add_rounded,
+                          size: 15, color: Color(0xFF818CF8)),
                     ),
                   ),
                 ),
@@ -1814,7 +2166,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                 InkWell(
                   onTap: item.quantity > 1
                       ? () {
-                          _updateItemInEnvironment(envIndex, itemIndex, item.copyWith(quantity: item.quantity - 1));
+                          _updateItemInEnvironment(envIndex, itemIndex,
+                              item.copyWith(quantity: item.quantity - 1));
                         }
                       : null,
                   child: Container(
@@ -1823,19 +2176,24 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                       color: const Color(0xFF334155),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Icon(Icons.remove, size: 14, color: Colors.white),
+                    child:
+                        const Icon(Icons.remove, size: 14, color: Colors.white),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
                     '${item.quantity}',
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
                 ),
                 InkWell(
                   onTap: () {
-                    _updateItemInEnvironment(envIndex, itemIndex, item.copyWith(quantity: item.quantity + 1));
+                    _updateItemInEnvironment(envIndex, itemIndex,
+                        item.copyWith(quantity: item.quantity + 1));
                   },
                   child: Container(
                     padding: const EdgeInsets.all(2),
@@ -1869,10 +2227,13 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               ),
               onChanged: (val) {
                 final price = CurrencyPtBrInputFormatter.parse(val);
-                _updateItemInEnvironment(envIndex, itemIndex, item.copyWith(
-                  unitPrice: price,
-                  totalPrice: price * item.quantity,
-                ));
+                _updateItemInEnvironment(
+                    envIndex,
+                    itemIndex,
+                    item.copyWith(
+                      unitPrice: price,
+                      totalPrice: price * item.quantity,
+                    ));
               },
             ),
           ),
@@ -1884,7 +2245,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
             child: Text(
               CurrencyPtBrInputFormatter.format(item.calculatedTotal),
               textAlign: TextAlign.right,
-              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF34D399)),
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF34D399)),
             ),
           ),
 
@@ -1892,7 +2256,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
           SizedBox(
             width: 40,
             child: IconButton(
-              icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF94A3B8)),
+              icon: const Icon(Icons.close_rounded,
+                  size: 16, color: Color(0xFF94A3B8)),
               onPressed: () => _removeItemFromEnvironment(envIndex, itemIndex),
             ),
           ),
@@ -1954,7 +2319,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               // Campo de Mão de Obra / Instalação
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F172A),
                     borderRadius: BorderRadius.circular(14),
@@ -1965,14 +2331,20 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     children: [
                       Text(
                         'Mão de Obra / Programação (R\$)',
-                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF94A3B8)),
                       ),
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: _laborPriceCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [CurrencyPtBrInputFormatter()],
-                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
                         decoration: const InputDecoration(
                           hintText: 'R\$ 0,00',
                           hintStyle: TextStyle(color: Color(0xFF64748B)),
@@ -2042,9 +2414,15 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8))),
+                  Text(label,
+                      style: GoogleFonts.inter(
+                          fontSize: 10.5, color: const Color(0xFF94A3B8))),
                   const SizedBox(height: 2),
-                  Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text(value,
+                      style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
                 ],
               ),
             ),
@@ -2065,30 +2443,35 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
             foregroundColor: const Color(0xFF94A3B8),
             side: const BorderSide(color: Color(0xFF334155)),
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           child: Text(
             'CANCELAR',
-            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+            style: GoogleFonts.inter(
+                fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
         ),
         const SizedBox(width: 14),
 
         // Botão Salvar Estudo
         ElevatedButton(
-          onPressed: _isSaving ? null : () => _handleSave(proceedToProposal: false),
+          onPressed:
+              _isSaving ? null : () => _handleSave(proceedToProposal: false),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF6366F1),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 4,
           ),
           child: _isSaving
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2),
                 )
               : Row(
                   mainAxisSize: MainAxisSize.min,
@@ -2097,7 +2480,10 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     const SizedBox(width: 8),
                     Text(
                       isEditing ? 'SALVAR ALTERAÇÕES' : 'SALVAR ESTUDO',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                      style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5),
                     ),
                   ],
                 ),
@@ -2107,20 +2493,25 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         if (widget.onProceedToProposal != null) ...[
           const SizedBox(width: 14),
           ElevatedButton(
-            onPressed: _isSaving ? null : () => _handleSave(proceedToProposal: true),
+            onPressed:
+                _isSaving ? null : () => _handleSave(proceedToProposal: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               elevation: 4,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'AVANÇAR PARA PROPOSTA',
-                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  widget.customProceedActionLabel ?? 'AVANÇAR PARA PROPOSTA',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5),
                 ),
                 const SizedBox(width: 8),
                 const Icon(Icons.arrow_forward_rounded, size: 18),
@@ -2137,35 +2528,62 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
   // ---------------------------------------------------------------------------
   String _getDefaultRoomPhotoUrl(String roomName) {
     final lower = roomName.toLowerCase();
-    if (lower.contains('quarto') || lower.contains('suite') || lower.contains('suíte') || lower.contains('dormitório') || lower.contains('closet')) {
+    if (lower.contains('quarto') ||
+        lower.contains('suite') ||
+        lower.contains('suíte') ||
+        lower.contains('dormitório') ||
+        lower.contains('closet')) {
       return 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80';
     }
-    if (lower.contains('cozinha') || lower.contains('gourmet') || lower.contains('jantar') || lower.contains('copa')) {
+    if (lower.contains('cozinha') ||
+        lower.contains('gourmet') ||
+        lower.contains('jantar') ||
+        lower.contains('copa')) {
       return 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&w=800&q=80';
     }
-    if (lower.contains('serviço') || lower.contains('servico') || lower.contains('lavanderia') || lower.contains('despensa')) {
+    if (lower.contains('serviço') ||
+        lower.contains('servico') ||
+        lower.contains('lavanderia') ||
+        lower.contains('despensa')) {
       return 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80';
     }
-    if (lower.contains('garagem') || lower.contains('estacionamento') || lower.contains('portão') || lower.contains('perímetro')) {
+    if (lower.contains('garagem') ||
+        lower.contains('estacionamento') ||
+        lower.contains('portão') ||
+        lower.contains('perímetro')) {
       return 'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=800&q=80';
     }
-    if (lower.contains('banheiro') || lower.contains('lavabo') || lower.contains('bwc') || lower.contains('spa')) {
+    if (lower.contains('banheiro') ||
+        lower.contains('lavabo') ||
+        lower.contains('bwc') ||
+        lower.contains('spa')) {
       return 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80';
     }
-    if (lower.contains('piscina') || lower.contains('jardim') || lower.contains('lazer') || lower.contains('varanda') || lower.contains('deck')) {
+    if (lower.contains('piscina') ||
+        lower.contains('jardim') ||
+        lower.contains('lazer') ||
+        lower.contains('varanda') ||
+        lower.contains('deck')) {
       return 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80';
     }
-    if (lower.contains('cinema') || lower.contains('theater') || lower.contains('som') || lower.contains('áudio')) {
+    if (lower.contains('cinema') ||
+        lower.contains('theater') ||
+        lower.contains('som') ||
+        lower.contains('áudio')) {
       return 'https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=800&q=80';
     }
-    if (lower.contains('escritório') || lower.contains('office') || lower.contains('estudo')) {
+    if (lower.contains('escritório') ||
+        lower.contains('office') ||
+        lower.contains('estudo')) {
       return 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80';
     }
     return 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80';
   }
 
-  Widget _buildEnvironmentImagePickerRow(int envIndex, AutomationEnvironment env) {
-    final hasCustomImage = env.imageUrl != null && env.imageUrl!.trim().isNotEmpty;
+  Widget _buildEnvironmentImagePickerRow(
+      int envIndex, AutomationEnvironment env) {
+    final hasCustomImage =
+        env.imageUrl != null && env.imageUrl!.trim().isNotEmpty;
     final currentPhotoUrl = hasCustomImage
         ? env.imageUrl!.trim()
         : _getDefaultRoomPhotoUrl(env.name);
@@ -2177,7 +2595,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         color: const Color(0xFF0F172A).withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasCustomImage ? const Color(0xFF6366F1) : const Color(0xFF334155),
+          color: hasCustomImage
+              ? const Color(0xFF6366F1)
+              : const Color(0xFF334155),
           width: hasCustomImage ? 1.5 : 1.0,
         ),
       ),
@@ -2197,7 +2617,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                     width: 96,
                     height: 64,
                     color: const Color(0xFF1E293B),
-                    child: const Icon(Icons.meeting_room_rounded, color: Colors.white38),
+                    child: const Icon(Icons.meeting_room_rounded,
+                        color: Colors.white38),
                   ),
                 ),
                 Positioned(
@@ -2205,7 +2626,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   left: 2,
                   right: 2,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(4),
@@ -2216,7 +2638,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                       style: GoogleFonts.inter(
                         fontSize: 7.5,
                         fontWeight: FontWeight.bold,
-                        color: hasCustomImage ? const Color(0xFF818CF8) : const Color(0xFF94A3B8),
+                        color: hasCustomImage
+                            ? const Color(0xFF818CF8)
+                            : const Color(0xFF94A3B8),
                       ),
                     ),
                   ),
@@ -2233,7 +2657,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.photo_camera_rounded, size: 14, color: Color(0xFF818CF8)),
+                    const Icon(Icons.photo_camera_rounded,
+                        size: 14, color: Color(0xFF818CF8)),
                     const SizedBox(width: 6),
                     Text(
                       'IMAGEM / RENDER DO CÔMODO (PROPOSTA WEB)',
@@ -2251,7 +2676,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   hasCustomImage
                       ? 'Render 3D personalizado configurado para a visualização web deste cômodo.'
                       : 'Imagem padrão selecionada. Escolha do banco de imagens ou faça o upload do render 3D.',
-                  style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11.5, color: const Color(0xFF94A3B8)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2262,26 +2688,39 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                   children: [
                     // Botão Escolher no Banco
                     OutlinedButton.icon(
-                      onPressed: () => _openRoomImagePickerDialog(envIndex, env),
-                      icon: const Icon(Icons.collections_rounded, size: 14, color: Colors.white),
-                      label: Text('Banco de Renders', style: GoogleFonts.inter(fontSize: 11, color: Colors.white)),
+                      onPressed: () =>
+                          _openRoomImagePickerDialog(envIndex, env),
+                      icon: const Icon(Icons.collections_rounded,
+                          size: 14, color: Colors.white),
+                      label: Text('Banco de Renders',
+                          style: GoogleFonts.inter(
+                              fontSize: 11, color: Colors.white)),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         side: const BorderSide(color: Color(0xFF475569)),
                         backgroundColor: const Color(0xFF1E293B),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
 
                     // Botão Upload de Render
                     ElevatedButton.icon(
                       onPressed: () => _pickCustomRoomImage(envIndex, env),
-                      icon: const Icon(Icons.upload_file_rounded, size: 14, color: Colors.white),
-                      label: Text('Upload Render 3D', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                      icon: const Icon(Icons.upload_file_rounded,
+                          size: 14, color: Colors.white),
+                      label: Text('Upload Render 3D',
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         backgroundColor: const Color(0xFF6366F1),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
 
@@ -2290,11 +2729,15 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                       TextButton.icon(
                         onPressed: () {
                           setState(() {
-                            _environments[envIndex] = env.copyWith(imageUrl: '');
+                            _environments[envIndex] =
+                                env.copyWith(imageUrl: '');
                           });
                         },
-                        icon: const Icon(Icons.undo_rounded, size: 14, color: Color(0xFFEF4444)),
-                        label: Text('Restaurar Padrão', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFEF4444))),
+                        icon: const Icon(Icons.undo_rounded,
+                            size: 14, color: Color(0xFFEF4444)),
+                        label: Text('Restaurar Padrão',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: const Color(0xFFEF4444))),
                       ),
                   ],
                 ),
@@ -2330,7 +2773,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
 
             final filteredPresets = selectedCategoryFilter == 'TODOS'
                 ? kDefaultRoomRenderPresets
-                : kDefaultRoomRenderPresets.where((p) => p.category == selectedCategoryFilter).toList();
+                : kDefaultRoomRenderPresets
+                    .where((p) => p.category == selectedCategoryFilter)
+                    .toList();
 
             return Dialog(
               backgroundColor: const Color(0xFF0F172A),
@@ -2351,10 +2796,12 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                            color:
+                                const Color(0xFF6366F1).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.collections_rounded, color: Color(0xFF818CF8), size: 22),
+                          child: const Icon(Icons.collections_rounded,
+                              color: Color(0xFF818CF8), size: 22),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -2363,17 +2810,23 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                             children: [
                               Text(
                                 'Banco de Imagens & Renders de Cômodos',
-                                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
                               ),
                               Text(
                                 'Selecione uma imagem HD da biblioteca por categoria ou informe a URL do render 3D.',
-                                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xFF94A3B8)),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                          icon: const Icon(Icons.close_rounded,
+                              color: Colors.white70),
                           onPressed: () => Navigator.pop(dialogCtx),
                         ),
                       ],
@@ -2396,16 +2849,23 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                                 cat,
                                 style: GoogleFonts.inter(
                                   fontSize: 11.5,
-                                  fontWeight: isCatSelected ? FontWeight.bold : FontWeight.w500,
-                                  color: isCatSelected ? Colors.white : const Color(0xFF94A3B8),
+                                  fontWeight: isCatSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: isCatSelected
+                                      ? Colors.white
+                                      : const Color(0xFF94A3B8),
                                 ),
                               ),
                               selectedColor: const Color(0xFF6366F1),
                               backgroundColor: const Color(0xFF1E293B),
                               side: BorderSide(
-                                color: isCatSelected ? const Color(0xFF818CF8) : const Color(0xFF334155),
+                                color: isCatSelected
+                                    ? const Color(0xFF818CF8)
+                                    : const Color(0xFF334155),
                               ),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
                               onSelected: (_) {
                                 setDialogState(() {
                                   selectedCategoryFilter = cat;
@@ -2424,16 +2884,27 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                         Expanded(
                           child: TextField(
                             controller: urlController,
-                            style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: Colors.white),
                             decoration: InputDecoration(
-                              hintText: 'Cole aqui a URL da imagem ou render 3D (http://... ou https://...)',
-                              hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                              hintText:
+                                  'Cole aqui a URL da imagem ou render 3D (http://... ou https://...)',
+                              hintStyle: const TextStyle(
+                                  color: Color(0xFF64748B), fontSize: 12),
                               filled: true,
                               fillColor: const Color(0xFF1E293B),
-                              prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFF818CF8), size: 18),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF334155))),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF334155))),
+                              prefixIcon: const Icon(Icons.link_rounded,
+                                  color: Color(0xFF818CF8), size: 18),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFF334155))),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFF334155))),
                             ),
                           ),
                         ),
@@ -2443,17 +2914,22 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                             final val = urlController.text.trim();
                             if (val.isNotEmpty) {
                               setState(() {
-                                _environments[envIndex] = env.copyWith(imageUrl: val);
+                                _environments[envIndex] =
+                                    env.copyWith(imageUrl: val);
                               });
                               Navigator.pop(dialogCtx);
                             }
                           },
                           icon: const Icon(Icons.check_rounded, size: 16),
-                          label: Text('Aplicar URL', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12)),
+                          label: Text('Aplicar URL',
+                              style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold, fontSize: 12)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF6366F1),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ],
@@ -2466,7 +2942,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                           ? Center(
                               child: Text(
                                 'Nenhuma imagem cadastrada para esta categoria.',
-                                style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+                                style: GoogleFonts.inter(
+                                    color: const Color(0xFF64748B),
+                                    fontSize: 13),
                               ),
                             )
                           : SingleChildScrollView(
@@ -2474,11 +2952,13 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                                 spacing: 12,
                                 runSpacing: 12,
                                 children: filteredPresets.map((preset) {
-                                  final isSelected = env.imageUrl == preset.imageUrl;
+                                  final isSelected =
+                                      env.imageUrl == preset.imageUrl;
                                   return InkWell(
                                     onTap: () {
                                       setState(() {
-                                        _environments[envIndex] = env.copyWith(imageUrl: preset.imageUrl);
+                                        _environments[envIndex] = env.copyWith(
+                                            imageUrl: preset.imageUrl);
                                       });
                                       Navigator.pop(dialogCtx);
                                     },
@@ -2489,15 +2969,20 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                                         color: const Color(0xFF1E293B),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: isSelected ? const Color(0xFF818CF8) : const Color(0xFF334155),
+                                          color: isSelected
+                                              ? const Color(0xFF818CF8)
+                                              : const Color(0xFF334155),
                                           width: isSelected ? 2 : 1,
                                         ),
                                       ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
                                         children: [
                                           ClipRRect(
-                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                                            borderRadius:
+                                                const BorderRadius.vertical(
+                                                    top: Radius.circular(11)),
                                             child: Stack(
                                               children: [
                                                 Image.network(
@@ -2505,10 +2990,15 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                                                   height: 130,
                                                   width: double.infinity,
                                                   fit: BoxFit.cover,
-                                                  errorBuilder: (_, __, ___) => Container(
+                                                  errorBuilder: (_, __, ___) =>
+                                                      Container(
                                                     height: 130,
-                                                    color: const Color(0xFF0F172A),
-                                                    child: const Icon(Icons.broken_image_rounded, color: Colors.white24),
+                                                    color:
+                                                        const Color(0xFF0F172A),
+                                                    child: const Icon(
+                                                        Icons
+                                                            .broken_image_rounded,
+                                                        color: Colors.white24),
                                                   ),
                                                 ),
                                                 if (isSelected)
@@ -2516,12 +3006,19 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                                                     top: 8,
                                                     right: 8,
                                                     child: Container(
-                                                      padding: const EdgeInsets.all(4),
-                                                      decoration: const BoxDecoration(
-                                                        color: Color(0xFF6366F1),
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              4),
+                                                      decoration:
+                                                          const BoxDecoration(
+                                                        color:
+                                                            Color(0xFF6366F1),
                                                         shape: BoxShape.circle,
                                                       ),
-                                                      child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                                                      child: const Icon(
+                                                          Icons.check_rounded,
+                                                          color: Colors.white,
+                                                          size: 14),
                                                     ),
                                                   ),
                                               ],
@@ -2530,18 +3027,30 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
                                           Padding(
                                             padding: const EdgeInsets.all(10),
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   preset.category.toUpperCase(),
-                                                  style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF818CF8), letterSpacing: 0.5),
+                                                  style: GoogleFonts.inter(
+                                                      fontSize: 9,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: const Color(
+                                                          0xFF818CF8),
+                                                      letterSpacing: 0.5),
                                                 ),
                                                 const SizedBox(height: 2),
                                                 Text(
                                                   preset.title,
-                                                  style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white),
+                                                  style: GoogleFonts.inter(
+                                                      fontSize: 11.5,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Colors.white),
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ],
                                             ),
@@ -2564,7 +3073,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     );
   }
 
-  Future<void> _pickCustomRoomImage(int envIndex, AutomationEnvironment env) async {
+  Future<void> _pickCustomRoomImage(
+      int envIndex, AutomationEnvironment env) async {
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -2576,7 +3086,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         final bytes = await file.readAsBytes();
         final base64String = base64Encode(bytes);
         final ext = file.extension?.toLowerCase() ?? 'jpeg';
-        final mime = ext == 'png' ? 'image/png' : (ext == 'webp' ? 'image/webp' : 'image/jpeg');
+        final mime = ext == 'png'
+            ? 'image/png'
+            : (ext == 'webp' ? 'image/webp' : 'image/jpeg');
         final dataUrl = 'data:$mime;base64,$base64String';
 
         setState(() {
@@ -2586,7 +3098,8 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✓ Render do cômodo "${env.name}" (${file.name}) carregado com sucesso!'),
+              content: Text(
+                  '✓ Render do cômodo "${env.name}" (${file.name}) carregado com sucesso!'),
               backgroundColor: const Color(0xFF10B981),
             ),
           );
@@ -2595,7 +3108,9 @@ class _AutomationStudyFormCardState extends State<AutomationStudyFormCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar render: $e'), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(
+              content: Text('Erro ao carregar render: $e'),
+              backgroundColor: const Color(0xFFEF4444)),
         );
       }
     }
@@ -2624,37 +3139,43 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'living_luxury',
     category: 'Salas & Living',
     title: 'Living Sofisticado & Integrado',
-    imageUrl: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'living_modern',
     category: 'Salas & Living',
     title: 'Sala Modernista com Cenas de Luz',
-    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'living_minimalist',
     category: 'Salas & Living',
     title: 'Living Minimalista Clean',
-    imageUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'living_high_ceiling',
     category: 'Salas & Living',
     title: 'Sala de Estar Pé-Direito Duplo',
-    imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'living_open_concept',
     category: 'Salas & Living',
     title: 'Living Conceito Aberto & Lareira',
-    imageUrl: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'dining_room_luxury',
     category: 'Salas & Living',
     title: 'Sala de Jantar Elegante',
-    imageUrl: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── QUARTOS & SUÍTES ──
@@ -2662,31 +3183,36 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'bedroom_suite_master',
     category: 'Quartos & Suítes',
     title: 'Suíte Master de Alto Padrão',
-    imageUrl: 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'bedroom_cozy',
     category: 'Quartos & Suítes',
     title: 'Quarto Aconchegante com Dimerização',
-    imageUrl: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'bedroom_modern_led',
     category: 'Quartos & Suítes',
     title: 'Quarto Casal Moderno com Fita LED',
-    imageUrl: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'bedroom_gamer',
     category: 'Quartos & Suítes',
     title: 'Quarto Solteiro / Gamer Cênico',
-    imageUrl: 'https://images.unsplash.com/photo-1598550476439-6847785fcea6?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1598550476439-6847785fcea6?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'closet_luxury',
     category: 'Quartos & Suítes',
     title: 'Closet Planejado com LED',
-    imageUrl: 'https://images.unsplash.com/photo-1558997519-83ea9252edf8?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1558997519-83ea9252edf8?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── ÁREA DE SERVIÇO & LAVANDERIA ──
@@ -2694,19 +3220,22 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'laundry_modern',
     category: 'Área de Serviço',
     title: 'Lavanderia Moderna & Planejada',
-    imageUrl: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'laundry_clean',
     category: 'Área de Serviço',
     title: 'Área de Serviço Clean Automatizada',
-    imageUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'laundry_minimal',
     category: 'Área de Serviço',
     title: 'Lavanderia Técnica Integrada',
-    imageUrl: 'https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── GARAGEM & ACESSO ──
@@ -2714,19 +3243,22 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'garage_luxury',
     category: 'Garagem',
     title: 'Garagem Residencial de Luxo',
-    imageUrl: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'garage_smart_ev',
     category: 'Garagem',
     title: 'Garagem Inteligente & Carregador EV',
-    imageUrl: 'https://images.unsplash.com/photo-1558442074-3c19857bc1dc?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1558442074-3c19857bc1dc?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'garage_perimeter',
     category: 'Garagem',
     title: 'Acesso Garagem & Fachada Noturna',
-    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── COZINHAS & GOURMET ──
@@ -2734,25 +3266,29 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'kitchen_gourmet',
     category: 'Cozinhas & Gourmet',
     title: 'Cozinha Gourmet com Ilha',
-    imageUrl: 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'gourmet_balcony',
     category: 'Cozinhas & Gourmet',
     title: 'Espaço Gourmet & Churrasqueira',
-    imageUrl: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'kitchen_modern_dark',
     category: 'Cozinhas & Gourmet',
     title: 'Cozinha Contemporânea Dark',
-    imageUrl: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'kitchen_american',
     category: 'Cozinhas & Gourmet',
     title: 'Cozinha Americana Conceito Aberto',
-    imageUrl: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── HOME CINEMA & SOM ──
@@ -2760,19 +3296,22 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'cinema_home_theater',
     category: 'Home Cinema',
     title: 'Home Cinema Hi-Fi Premium',
-    imageUrl: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'cinema_dark_room',
     category: 'Home Cinema',
     title: 'Sala de Projeção & Acústica Dark',
-    imageUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'audio_lounge',
     category: 'Home Cinema',
     title: 'Lounge de Som Ambiente & Áudio',
-    imageUrl: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── BANHEIROS & SPA ──
@@ -2780,19 +3319,22 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'bathroom_spa',
     category: 'Banheiros & SPA',
     title: 'Banheiro SPA & Hidromassagem',
-    imageUrl: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'bathroom_master_led',
     category: 'Banheiros & SPA',
     title: 'Suíte Master Banheiro com Espelho LED',
-    imageUrl: 'https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'powder_room_luxury',
     category: 'Banheiros & SPA',
     title: 'Lavabo Social Elegante',
-    imageUrl: 'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── ESCRITÓRIOS & HOME OFFICE ──
@@ -2800,13 +3342,15 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'office_executive',
     category: 'Escritórios',
     title: 'Escritório Executive & Produtividade',
-    imageUrl: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'home_office_modern',
     category: 'Escritórios',
     title: 'Home Office Moderno com Automação',
-    imageUrl: 'https://images.unsplash.com/photo-1593062096033-9a26b09da705?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1593062096033-9a26b09da705?auto=format&fit=crop&w=800&q=80',
   ),
 
   // ── LAZER, PISCINA & EXTERNO ──
@@ -2814,18 +3358,21 @@ const List<RoomRenderPreset> kDefaultRoomRenderPresets = [
     id: 'outdoor_pool_lounge',
     category: 'Lazer & Externo',
     title: 'Varanda, Deck & Piscina Iluminada',
-    imageUrl: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'outdoor_garden_lighting',
     category: 'Lazer & Externo',
     title: 'Jardim & Paisagismo Noturno',
-    imageUrl: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80',
   ),
   RoomRenderPreset(
     id: 'firepit_lounge',
     category: 'Lazer & Externo',
     title: 'Espaço Fogo & Firepit Cênico',
-    imageUrl: 'https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=800&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=800&q=80',
   ),
 ];

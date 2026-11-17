@@ -439,6 +439,8 @@ class AutomationSettingsService {
       coverSubheadline: preset.subheadline,
       coverImageUrl: preset.imageUrl,
       selectedCoverTemplate: preset.imageUrl,
+      webBackgroundTemplate: preset.imageUrl,
+      customCoverImageBase64: null,
       primaryColorHex: preset.primaryColorHex,
       nodes: preset.defaultNodes.isNotEmpty ? preset.defaultNodes : current.nodes,
     );

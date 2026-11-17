@@ -19,6 +19,14 @@ class ProposalItemModel {
   final double? moduleWatts; // Potência em Watts se for módulo solar (ex: 550W)
   final String? roofStudyId; // Vínculo com o Estudo Fotovoltaico de origem
 
+  // ⚡ Propriedades exclusivas para Estudos de Solução em Automação
+  final bool isAutomationStudy;
+  final List<String>? automationEnvironments;
+  final double? automationEquipmentTotal;
+  final double? automationLaborTotal;
+  final int? automationEnvironmentsCount;
+  final int? automationTotalItemsCount;
+
   const ProposalItemModel({
     this.productId,
     required this.name,
@@ -34,6 +42,12 @@ class ProposalItemModel {
     this.solarComponents,
     this.moduleWatts,
     this.roofStudyId,
+    this.isAutomationStudy = false,
+    this.automationEnvironments,
+    this.automationEquipmentTotal,
+    this.automationLaborTotal,
+    this.automationEnvironmentsCount,
+    this.automationTotalItemsCount,
   });
 
   /// Alias de conveniência para a potência da usina em kWp
@@ -112,6 +126,12 @@ class ProposalItemModel {
     List<String>? solarComponents,
     double? moduleWatts,
     String? roofStudyId,
+    bool? isAutomationStudy,
+    List<String>? automationEnvironments,
+    double? automationEquipmentTotal,
+    double? automationLaborTotal,
+    int? automationEnvironmentsCount,
+    int? automationTotalItemsCount,
   }) {
     final newQty = quantity ?? this.quantity;
     final newPrice = unitPrice ?? this.unitPrice;
@@ -131,6 +151,12 @@ class ProposalItemModel {
       solarComponents: solarComponents ?? this.solarComponents,
       moduleWatts: moduleWatts ?? this.moduleWatts,
       roofStudyId: roofStudyId ?? this.roofStudyId,
+      isAutomationStudy: isAutomationStudy ?? this.isAutomationStudy,
+      automationEnvironments: automationEnvironments ?? this.automationEnvironments,
+      automationEquipmentTotal: automationEquipmentTotal ?? this.automationEquipmentTotal,
+      automationLaborTotal: automationLaborTotal ?? this.automationLaborTotal,
+      automationEnvironmentsCount: automationEnvironmentsCount ?? this.automationEnvironmentsCount,
+      automationTotalItemsCount: automationTotalItemsCount ?? this.automationTotalItemsCount,
     );
   }
 
@@ -150,12 +176,19 @@ class ProposalItemModel {
       'solarComponents': solarComponents,
       'moduleWatts': moduleWatts,
       if (roofStudyId != null) 'roofStudyId': roofStudyId,
+      'isAutomationStudy': isAutomationStudy,
+      if (automationEnvironments != null) 'automationEnvironments': automationEnvironments,
+      if (automationEquipmentTotal != null) 'automationEquipmentTotal': automationEquipmentTotal,
+      if (automationLaborTotal != null) 'automationLaborTotal': automationLaborTotal,
+      if (automationEnvironmentsCount != null) 'automationEnvironmentsCount': automationEnvironmentsCount,
+      if (automationTotalItemsCount != null) 'automationTotalItemsCount': automationTotalItemsCount,
     };
   }
 
   factory ProposalItemModel.fromProduct(ProductModel p) {
     final isSolar = p.sector == ProductSector.solarPlant ||
         p.specificAttributes['isSolarPlantKit'] == true;
+    final isAutomation = p.isAutomationStudy;
 
     List<String> components = [];
     String? roofType;
@@ -201,6 +234,41 @@ class ProposalItemModel {
       }
     }
 
+    List<String>? envNames;
+    double? equipTotal;
+    double? laborTotal;
+    int? envCount;
+    int? totalItems;
+
+    if (isAutomation) {
+      if (attrs['environments'] is List) {
+        final rawEnvs = attrs['environments'] as List;
+        envNames = [];
+        for (final raw in rawEnvs) {
+          if (raw is Map) {
+            final envName = raw['name']?.toString() ?? 'Ambiente';
+            final itemsList = raw['items'] as List? ?? [];
+            envNames.add('$envName (${itemsList.length} ${itemsList.length == 1 ? 'item' : 'itens'})');
+            components.add('Ambiente: $envName (${itemsList.length} itens)');
+          }
+        }
+      }
+      if (attrs['equipmentTotal'] != null) {
+        equipTotal = (attrs['equipmentTotal'] as num).toDouble();
+      }
+      if (attrs['laborPrice'] != null) {
+        laborTotal = (attrs['laborPrice'] as num).toDouble();
+      }
+      if (attrs['environmentsCount'] != null) {
+        envCount = (attrs['environmentsCount'] as num).toInt();
+      } else if (envNames != null) {
+        envCount = envNames.length;
+      }
+      if (attrs['totalItemsCount'] != null) {
+        totalItems = (attrs['totalItemsCount'] as num).toInt();
+      }
+    }
+
     return ProposalItemModel(
       productId: p.id,
       name: p.name,
@@ -215,6 +283,12 @@ class ProposalItemModel {
       solarComponents: components.isNotEmpty ? components : null,
       moduleWatts: modWatts,
       roofStudyId: studyId,
+      isAutomationStudy: isAutomation,
+      automationEnvironments: envNames,
+      automationEquipmentTotal: equipTotal,
+      automationLaborTotal: laborTotal,
+      automationEnvironmentsCount: envCount,
+      automationTotalItemsCount: totalItems,
     );
   }
 
@@ -227,6 +301,11 @@ class ProposalItemModel {
     List<String>? components;
     if (map['solarComponents'] is List) {
       components = (map['solarComponents'] as List).map((e) => e.toString()).toList();
+    }
+
+    List<String>? envs;
+    if (map['automationEnvironments'] is List) {
+      envs = (map['automationEnvironments'] as List).map((e) => e.toString()).toList();
     }
 
     return ProposalItemModel(
@@ -244,6 +323,12 @@ class ProposalItemModel {
       solarComponents: components,
       moduleWatts: (map['moduleWatts'] as num?)?.toDouble(),
       roofStudyId: map['roofStudyId'] as String?,
+      isAutomationStudy: map['isAutomationStudy'] as bool? ?? false,
+      automationEnvironments: envs,
+      automationEquipmentTotal: (map['automationEquipmentTotal'] as num?)?.toDouble(),
+      automationLaborTotal: (map['automationLaborTotal'] as num?)?.toDouble(),
+      automationEnvironmentsCount: (map['automationEnvironmentsCount'] as num?)?.toInt(),
+      automationTotalItemsCount: (map['automationTotalItemsCount'] as num?)?.toInt(),
     );
   }
 }

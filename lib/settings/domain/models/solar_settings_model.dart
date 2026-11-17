@@ -392,6 +392,9 @@ class SolarSettingsModel {
   final String verticalSplitRightTitle; // ex: 'PROPOSTA'
   final String verticalSplitRightSubtitle; // ex: 'SOLAR'
   final String verticalSplitRightTagline; // ex: 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR'
+  final double verticalSplitRightTitleFontSize; // default: 18.0
+  final double verticalSplitRightSubtitleFontSize; // default: 46.0
+  final double verticalSplitHeadlineFontSize; // default: 24.0
   final String verticalSplitRightFooter; // ex: 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.'
   final bool verticalSplitShowRightDivider; // Exibir barra sob o título Proposta Solar (default: true)
   final String verticalSplitRightDividerColor; // Cor da barra (default: '', fallback accent)
@@ -703,6 +706,9 @@ class SolarSettingsModel {
     this.verticalSplitRightTitle = 'PROPOSTA',
     this.verticalSplitRightSubtitle = 'SOLAR',
     this.verticalSplitRightTagline = 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR',
+    this.verticalSplitRightTitleFontSize = 18.0,
+    this.verticalSplitRightSubtitleFontSize = 46.0,
+    this.verticalSplitHeadlineFontSize = 24.0,
     this.verticalSplitRightFooter = 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.',
     this.verticalSplitShowRightDivider = true,
     this.verticalSplitRightDividerColor = '',
@@ -865,6 +871,9 @@ class SolarSettingsModel {
     String? verticalSplitRightTitle,
     String? verticalSplitRightSubtitle,
     String? verticalSplitRightTagline,
+    double? verticalSplitRightTitleFontSize,
+    double? verticalSplitRightSubtitleFontSize,
+    double? verticalSplitHeadlineFontSize,
     String? verticalSplitRightFooter,
     bool? verticalSplitShowRightDivider,
     String? verticalSplitRightDividerColor,
@@ -983,6 +992,9 @@ class SolarSettingsModel {
       verticalSplitRightTitle: verticalSplitRightTitle ?? this.verticalSplitRightTitle,
       verticalSplitRightSubtitle: verticalSplitRightSubtitle ?? this.verticalSplitRightSubtitle,
       verticalSplitRightTagline: verticalSplitRightTagline ?? this.verticalSplitRightTagline,
+      verticalSplitRightTitleFontSize: verticalSplitRightTitleFontSize ?? this.verticalSplitRightTitleFontSize,
+      verticalSplitRightSubtitleFontSize: verticalSplitRightSubtitleFontSize ?? this.verticalSplitRightSubtitleFontSize,
+      verticalSplitHeadlineFontSize: verticalSplitHeadlineFontSize ?? this.verticalSplitHeadlineFontSize,
       verticalSplitRightFooter: verticalSplitRightFooter ?? this.verticalSplitRightFooter,
       verticalSplitShowRightDivider: verticalSplitShowRightDivider ?? this.verticalSplitShowRightDivider,
       verticalSplitRightDividerColor: verticalSplitRightDividerColor ?? this.verticalSplitRightDividerColor,
@@ -1110,6 +1122,9 @@ class SolarSettingsModel {
       'verticalSplitRightTitle': verticalSplitRightTitle,
       'verticalSplitRightSubtitle': verticalSplitRightSubtitle,
       'verticalSplitRightTagline': verticalSplitRightTagline,
+      'verticalSplitRightTitleFontSize': verticalSplitRightTitleFontSize,
+      'verticalSplitRightSubtitleFontSize': verticalSplitRightSubtitleFontSize,
+      'verticalSplitHeadlineFontSize': verticalSplitHeadlineFontSize,
       'verticalSplitRightFooter': verticalSplitRightFooter,
       'verticalSplitShowRightDivider': verticalSplitShowRightDivider,
       'verticalSplitRightDividerColor': verticalSplitRightDividerColor,
@@ -1234,6 +1249,9 @@ class SolarSettingsModel {
       verticalSplitRightTitle: map['verticalSplitRightTitle'] as String? ?? 'PROPOSTA',
       verticalSplitRightSubtitle: map['verticalSplitRightSubtitle'] as String? ?? 'SOLAR',
       verticalSplitRightTagline: map['verticalSplitRightTagline'] as String? ?? 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR',
+      verticalSplitRightTitleFontSize: (map['verticalSplitRightTitleFontSize'] as num?)?.toDouble() ?? 18.0,
+      verticalSplitRightSubtitleFontSize: (map['verticalSplitRightSubtitleFontSize'] as num?)?.toDouble() ?? 46.0,
+      verticalSplitHeadlineFontSize: (map['verticalSplitHeadlineFontSize'] as num?)?.toDouble() ?? 24.0,
       verticalSplitRightFooter: map['verticalSplitRightFooter'] as String? ?? 'ENERGIA HOJE.\nMAIS POSSIBILIDADES\nAMANHÃ.',
       verticalSplitShowRightDivider: map['verticalSplitShowRightDivider'] as bool? ?? true,
       verticalSplitRightDividerColor: map['verticalSplitRightDividerColor'] as String? ?? '',

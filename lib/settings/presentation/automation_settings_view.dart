@@ -15,6 +15,7 @@ import '../domain/models/automation_settings_model.dart';
 import '../domain/models/company_model.dart';
 import 'widgets/automation_cover_customizer_dialog.dart';
 import 'widgets/automation_cyber_connector_painter.dart';
+import 'widgets/corporate_wave_cover_view.dart';
 import 'widgets/solar_cover_divider_painter.dart';
 
 /// Tela Principal do Configurador do Nicho de Automação Residencial (2 Abas: Dados da Empresa & Modelo Visual de Proposta PDF)
@@ -850,6 +851,29 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
                               final w = constraints.maxWidth;
                               final h = constraints.maxHeight;
 
+                              if (_settings.activeCategory == 'Corporate Wave' || _settings.customDividerStyle == -2) {
+                                return CorporateWaveCoverView(
+                                  width: w,
+                                  height: h,
+                                  title: _settings.coverTag.isNotEmpty ? _settings.coverTag : 'PROPOSTA\nDE SERVIÇO',
+                                  subtitle: _settings.coverHeadline.isNotEmpty ? _settings.coverHeadline : 'AUTOMAÇÃO RESIDENCIAL',
+                                  clientName: 'João da Silva Santos',
+                                  locationAndDate: '${_settings.cidade.isNotEmpty ? _settings.cidade : "São Paulo"} / ${_settings.uf.isNotEmpty ? _settings.uf : "SP"} • 2026',
+                                  companyName: _nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'SUA EMPRESA',
+                                  companyPhone: _phoneCtrl.text.isNotEmpty ? _phoneCtrl.text : '(11) 98765-4321',
+                                  companyEmail: _emailCtrl.text.isNotEmpty ? _emailCtrl.text : 'contato@empresa.com.br',
+                                  companyWebsite: _websiteCtrl.text.isNotEmpty ? _websiteCtrl.text : 'www.empresa.com.br',
+                                  companyLogoBase64: _settings.companyLogoBase64,
+                                  photoUrl: AutomationSettingsService.getBigCoverUrl(
+                                    _settings.selectedCoverTemplate.isNotEmpty
+                                        ? _settings.selectedCoverTemplate
+                                        : (_settings.coverImageUrl.isNotEmpty ? _settings.coverImageUrl : 'modelo_automacao_1.jpg'),
+                                  ),
+                                  customPhotoBase64: _settings.customCoverImageBase64,
+                                  primaryColor: _parseColor(_settings.primaryColorHex),
+                                );
+                              }
+
                               return Stack(
                                 children: [
                                   Positioned.fill(
@@ -1064,7 +1088,9 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
                       Text(
                         _selectedCategory == 'Cyber Mansion'
                             ? 'Cyber Mansion (100 Capas Noturnas com Nós Cibernéticos)'
-                            : 'Cyber Divider (100 Capas com Separadores & Decalque)',
+                            : (_selectedCategory == 'Corporate Wave'
+                                ? 'Corporate Wave (40 Capas com Ondas & Janela Fluida)'
+                                : 'Cyber Divider (100 Capas com Separadores & Decalque)'),
                         style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                     ],
@@ -1091,6 +1117,10 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
                       DropdownMenuItem(
                         value: 'Cyber Divider',
                         child: Text('Cyber Divider (100 Capas)', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Corporate Wave',
+                        child: Text('Corporate Wave (40 Capas)', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                     ],
                     onChanged: (val) {
@@ -1196,8 +1226,22 @@ class _AutomationSettingsViewState extends State<AutomationSettingsView> with Si
                         ),
                       ),
 
-                      // Separador se for Cyber Divider
-                      if (preset.category == 'Cyber Divider' && preset.customDividerStyle >= 0)
+                      // Decalque se for Corporate Wave ou Cyber Divider
+                      if (preset.category == 'Corporate Wave')
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CorporateWaveCoverView(
+                              width: 200,
+                              height: 280,
+                              title: 'PROPOSTA\nDE SERVIÇO',
+                              subtitle: 'AUTOMAÇÃO',
+                              locationAndDate: '2026',
+                              photoUrl: AutomationSettingsService.getSmallCoverUrl(preset.imageUrl),
+                              primaryColor: _parseColor(preset.primaryColorHex),
+                            ),
+                          ),
+                        )
+                      else if (preset.category == 'Cyber Divider' && preset.customDividerStyle >= 0)
                         CustomPaint(
                           size: const Size(200, 200),
                           painter: SolarCoverDividerPainter(

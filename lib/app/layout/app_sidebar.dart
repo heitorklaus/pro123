@@ -10,6 +10,7 @@ enum AppSidebarItem {
   proposals,
   roofStudies,
   contracts,
+  solarCredits,
   users,
   settings,
 }
@@ -41,6 +42,8 @@ class AppSidebar extends StatelessWidget {
     final canViewSuppliers = currentUser?.canViewSuppliers ?? false;
     final canViewProposals = currentUser?.canViewProposals ?? false;
     final canViewContracts = currentUser?.canViewContracts ?? false;
+    final canViewSolarCredits =
+        currentUser?.email.toLowerCase().trim() == 'admin@admin.com.br';
     final canManageUsers = currentUser?.canManageUsers ?? false;
     final canManageSettings = currentUser?.canManageSettings ?? false;
 
@@ -167,6 +170,16 @@ class AppSidebar extends StatelessWidget {
                     isCollapsed: isCollapsed,
                     isSelected: activeItem == AppSidebarItem.contracts,
                     onTap: () => onItemSelected(AppSidebarItem.contracts),
+                  ),
+                ],
+                if (canViewSolarCredits) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.energy_savings_leaf_rounded,
+                    title: 'Créditos Solar (GD)',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.solarCredits,
+                    onTap: () => onItemSelected(AppSidebarItem.solarCredits),
                   ),
                 ],
                 if (canManageUsers) ...[

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -276,10 +277,17 @@ class AutomationVerticalSplitCoverView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String targetCover = settings.selectedCoverTemplate.isNotEmpty
+        ? settings.selectedCoverTemplate
+        : (settings.coverImageUrl.isNotEmpty
+            ? settings.coverImageUrl
+            : (settings.webBackgroundTemplate.isNotEmpty
+                ? settings.webBackgroundTemplate
+                : 'modelo_automacao_1.jpg'));
     final bgUrl = customWebBgUrl ??
-        (settings.webBackgroundTemplate.isNotEmpty
-            ? AutomationSettingsService.getWebBackgroundUrl(settings.webBackgroundTemplate)
-            : AutomationSettingsService.getWebBackgroundUrl('AdobeStock_1030854734.jpg'));
+        (targetCover.startsWith('modelo_') || targetCover.contains('automacao')
+            ? AutomationSettingsService.getBigCoverUrl(targetCover)
+            : AutomationSettingsService.getWebBackgroundUrl(targetCover));
 
     final accentColor = Color(settings.verticalSplitAccentColorValue);
     final divType = settings.verticalSplitDividerType;
@@ -293,6 +301,18 @@ class AutomationVerticalSplitCoverView extends StatelessWidget {
     final double effectiveLeftFooterLeft = settings.verticalSplitLeftFooterLeft * baseA4Width;
     final double effectiveRightFooterBottom = settings.verticalSplitRightFooterBottom * baseA4Height;
     final double effectiveRightFooterRight = settings.verticalSplitRightFooterRight * baseA4Width;
+
+    final String resolvedTitle = settings.verticalSplitRightTitle
+        .replaceAll('{cliente}', clientName ?? '')
+        .replaceAll('{nome}', clientName ?? '');
+    String resolvedSubtitle = settings.verticalSplitRightSubtitle
+        .replaceAll('{cliente}', clientName ?? '')
+        .replaceAll('{nome}', clientName ?? '');
+    if (clientName != null && clientName!.trim().isNotEmpty &&
+        (resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA' || resolvedSubtitle.toUpperCase() == 'AUTOMAÇÃO')) {
+      final cNameUpper = clientName!.trim().toUpperCase();
+      resolvedSubtitle = cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
+    }
 
     return SizedBox(
       width: width,
@@ -315,27 +335,37 @@ class AutomationVerticalSplitCoverView extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      bgUrl,
-                      fit: BoxFit.cover,
-                      width: baseA4Width,
-                      height: baseA4Height,
-                      loadingBuilder: (ctx, child, progress) {
-                        if (progress == null) return child;
-                        return Container(
+                    if (settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty)
+                      Image.memory(
+                        base64Decode(settings.customCoverImageBase64!.contains(',')
+                            ? settings.customCoverImageBase64!.split(',').last
+                            : settings.customCoverImageBase64!),
+                        fit: BoxFit.cover,
+                        width: baseA4Width,
+                        height: baseA4Height,
+                      )
+                    else
+                      Image.network(
+                        bgUrl,
+                        fit: BoxFit.cover,
+                        width: baseA4Width,
+                        height: baseA4Height,
+                        loadingBuilder: (ctx, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            color: const Color(0xFF0F172A),
+                            child: const Center(
+                              child: CircularProgressIndicator(color: Color(0xFF38BDF8), strokeWidth: 3),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => Container(
                           color: const Color(0xFF0F172A),
                           child: const Center(
-                            child: CircularProgressIndicator(color: Color(0xFF38BDF8), strokeWidth: 3),
+                            child: Icon(Icons.home_outlined, color: Colors.white38, size: 64),
                           ),
-                        );
-                      },
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFF0F172A),
-                        child: const Center(
-                          child: Icon(Icons.home_outlined, color: Colors.white38, size: 64),
                         ),
                       ),
-                    ),
 
                     // Gradiente escuro para legibilidade perfeita dos textos brancos
                     Container(
@@ -366,7 +396,7 @@ class AutomationVerticalSplitCoverView extends StatelessWidget {
                                 settings.verticalSplitHeadline,
                                 style: getCoverTextStyle(
                                   fontFamily: settings.coverHeadlineFont,
-                                  fontSize: 24.0,
+                                  fontSize: settings.verticalSplitHeadlineFontSize,
                                   fontWeight: FontWeight.w900,
                                   color: Color(settings.coverHeadlineColorValue),
                                   height: 1.15,
@@ -525,10 +555,10 @@ class AutomationVerticalSplitCoverView extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          settings.verticalSplitRightTitle,
+                          resolvedTitle,
                           style: getCoverTextStyle(
                             fontFamily: settings.coverRightBlockFont,
-                            fontSize: 18.0,
+                            fontSize: settings.verticalSplitRightTitleFontSize,
                             fontWeight: FontWeight.w700,
                             color: Color(settings.coverRightTitleColorValue),
                             letterSpacing: 5.5,
@@ -536,10 +566,10 @@ class AutomationVerticalSplitCoverView extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          settings.verticalSplitRightSubtitle,
+                          resolvedSubtitle,
                           style: getCoverTextStyle(
                             fontFamily: settings.coverRightBlockFont,
-                            fontSize: 46.0,
+                            fontSize: settings.verticalSplitRightSubtitleFontSize,
                             fontWeight: FontWeight.w900,
                             color: Color(settings.coverRightSubtitleColorValue),
                             letterSpacing: 2.0,
@@ -614,13 +644,24 @@ class AutomationVerticalSplitCoverView extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${settings.companyName} • Soluções em Automação & Conforto',
+                          '${settings.companyName.isNotEmpty ? settings.companyName : "Soluções Exclusivas"} • Conforto & Tecnologia',
                           style: GoogleFonts.inter(
                             fontSize: 8.5,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF94A3B8),
                           ),
                         ),
+                        if (clientName != null && clientName!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Cliente: $clientName',
+                            style: GoogleFonts.inter(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

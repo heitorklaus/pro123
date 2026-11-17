@@ -18,6 +18,8 @@ import '../domain/models/proposal_model.dart';
 import '../../products/domain/models/category_model.dart';
 import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/solar_plant_form_card.dart';
+import '../../products/presentation/automation_study_form_card.dart';
+import '../../settings/data/services/settings_service.dart';
 import '../../clients/presentation/widgets/client_form_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'web_proposal_page.dart';
@@ -1877,6 +1879,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _companyId;
+  ProductSector? _preferredSector;
 
   static const _cleanProposalStorageKey = 'mavis_proposal_clean_mode';
 
@@ -2118,10 +2121,15 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       }
       final user = await auth.getCurrentUser();
       final cid = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
+      final sector = await SettingsService.getPreferredSector(
+        companyId: cid,
+        userId: user?.uid,
+      );
       if (mounted) {
         setState(() {
           _currentUser = user;
           _companyId = cid;
+          _preferredSector = sector;
         });
       }
     } catch (_) {}
@@ -2271,6 +2279,54 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   SnackBar(
                     content: Text(
                         'Usina "${solarItem.name}" adicionada à proposta com sucesso!'),
+                    backgroundColor: const Color(0xFF10B981),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openAutomationStudyDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 1080,
+            maxHeight: MediaQuery.of(context).size.height * 0.92,
+          ),
+          child: SingleChildScrollView(
+            child: AutomationStudyFormCard(
+              category: CategoryModel.fromSector(ProductSector.homeAutomation),
+              product: null,
+              currentUser: widget.currentUser ?? _currentUser,
+              onBack: () => Navigator.pop(dialogCtx),
+              onSuccess: () => Navigator.pop(dialogCtx),
+              customProceedDescription:
+                  'Deseja adicionar este Estudo de Solução em Automação à sua proposta comercial atual?',
+              customProceedActionLabel: 'ADICIONAR À PROPOSTA',
+              onProceedToProposal: (automationItem) {
+                Navigator.pop(dialogCtx);
+                setState(() {
+                  _items.add(automationItem);
+                  if (_titleCtrl.text.isEmpty ||
+                      _titleCtrl.text == 'Proposta Comercial de Fornecimento') {
+                    _titleCtrl.text =
+                        'Proposta de Automação - ${automationItem.name}';
+                  }
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Estudo "${automationItem.name}" adicionado à proposta com sucesso!'),
                     backgroundColor: const Color(0xFF10B981),
                     behavior: SnackBarBehavior.floating,
                   ),
@@ -3475,12 +3531,46 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                 _sectionHeader(
                     Icons.inventory_2_outlined,
                     'Itens da Proposta',
-                    'Adicione produtos ou monte usinas sob medida'),
+                    (_preferredSector == ProductSector.homeAutomation || _items.any((it) => it.isAutomationStudy))
+                        ? 'Adicione produtos ou monte estudos de solução em automação sob medida'
+                        : 'Adicione produtos ou monte usinas sob medida'),
                 const SizedBox(height: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
+                    // Botão Criar Estudo de Solução em Automação (Se setor for Automação ou houver estudo)
+                    if ((widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) &&
+                        (_preferredSector == ProductSector.homeAutomation || _items.any((it) => it.isAutomationStudy))) ...[
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openAutomationStudyDialog,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.sensors_rounded, color: Colors.white, size: 16),
+                                SizedBox(width: 6),
+                                Text('MONTAR ESTUDO DE SOLUÇÃO EM AUTOMAÇÃO', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Botão Criar Usina Solar (Se NÃO for exclusivamente automação)
+                    if ((widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) &&
+                        _preferredSector != ProductSector.homeAutomation) ...[
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -3507,32 +3597,36 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                       ),
                       const SizedBox(height: 8),
                     ],
+
                     // Botão Vincular Estudo Solar 3D (Mobile)
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _openRoofStudyPicker,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
+                    if (_preferredSector != ProductSector.homeAutomation) ...[
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openRoofStudyPicker,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.roofing_rounded, color: Colors.white, size: 16),
-                              SizedBox(width: 6),
-                              Text('VINCULAR ESTUDO SOLAR (3D)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                            ],
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.roofing_rounded, color: Colors.white, size: 16),
+                                SizedBox(width: 6),
+                                Text('VINCULAR ESTUDO SOLAR (3D)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
+                      const SizedBox(height: 8),
+                    ],
+
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -3546,10 +3640,15 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
-                              SizedBox(width: 6),
-                              Text('ADICIONAR PRODUTO / USINA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                            children: [
+                              const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                (_preferredSector == ProductSector.homeAutomation || _items.any((it) => it.isAutomationStudy))
+                                    ? 'ADICIONAR ESTUDO / PRODUTO'
+                                    : 'ADICIONAR PRODUTO / USINA',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
                             ],
                           ),
                         ),
@@ -3569,7 +3668,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           child: _sectionHeader(
                             Icons.inventory_2_outlined,
                             'Itens & Produtos da Proposta',
-                            'Adicione quantos produtos do catálogo desejar ou crie sob medida',
+                            (_preferredSector == ProductSector.homeAutomation || _items.any((it) => it.isAutomationStudy))
+                                ? 'Adicione produtos do catálogo ou monte estudos de solução em automação sob medida'
+                                : 'Adicione quantos produtos do catálogo desejar ou crie sob medida',
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -3579,8 +3680,54 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                           alignment: WrapAlignment.end,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            // Botão Criar Usina Solar (Apenas se tiver permissão)
-                            if (widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) ...[
+                            // Botão Criar Estudo de Solução em Automação (Desktop)
+                            if ((widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) &&
+                                (_preferredSector == ProductSector.homeAutomation || _items.any((it) => it.isAutomationStudy))) ...[
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _openAutomationStudyDialog,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Ink(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.sensors_rounded, color: Colors.white, size: 16),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'MONTAR ESTUDO DE SOLUÇÃO EM AUTOMAÇÃO',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+
+                            // Botão Criar Usina Solar (Apenas se tiver permissão e não for estritamente automação)
+                            if ((widget.currentUser?.canCreateProducts ?? _currentUser?.canCreateProducts ?? false) &&
+                                _preferredSector != ProductSector.homeAutomation) ...[
                               Material(
                                 color: Colors.transparent,
                                 child: InkWell(
@@ -3626,54 +3773,56 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                             ],
 
                             // Botão Vincular Estudo Solar 3D (Desktop)
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _openRoofStudyPicker,
-                                borderRadius: BorderRadius.circular(10),
-                                child: Ink(
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
+                            if (_preferredSector != ProductSector.homeAutomation) ...[
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _openRoofStudyPicker,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Ink(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF0284C7)
+                                              .withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF0284C7)
-                                            .withValues(alpha: 0.25),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 10),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.roofing_rounded,
-                                          color: Colors.white, size: 16),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'VINCULAR ESTUDO SOLAR (3D)',
-                                        style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white),
-                                      ),
-                                    ],
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 10),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.roofing_rounded,
+                                            color: Colors.white, size: 16),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'VINCULAR ESTUDO SOLAR (3D)',
+                                          style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // Linha de baixo: Botão Adicionar Usina Existente / Produto
+                    // Linha de baixo: Botão Adicionar Usina Existente / Estudo / Produto
                     Align(
                       alignment: Alignment.centerRight,
                       child: Material(
@@ -3702,7 +3851,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                     color: Colors.white, size: 16),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'ADICIONAR USINA EXISTENTE / PRODUTO',
+                                  (_preferredSector == ProductSector.homeAutomation || _items.any((it) => it.isAutomationStudy))
+                                      ? 'ADICIONAR ESTUDO / PRODUTO'
+                                      : 'ADICIONAR USINA EXISTENTE / PRODUTO',
                                   style: GoogleFonts.inter(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -3886,7 +4037,44 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                   ),
                                                 ),
                                               ],
+                                              if (item.isAutomationStudy) ...[
+                                                Container(
+                                                  margin: const EdgeInsets.only(bottom: 4),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.sensors_rounded, size: 12, color: Color(0xFF818CF8)),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'ESTUDO DE AUTOMAÇÃO ${item.automationEnvironmentsCount != null ? "• ${item.automationEnvironmentsCount} ambientes" : ""}',
+                                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF818CF8)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                               Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: isDark ? Colors.white : const Color(0xFF0F172A))),
+                                              if (item.isAutomationStudy &&
+                                                  item.automationEnvironments != null &&
+                                                  item.automationEnvironments!.isNotEmpty) ...[
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  'Ambientes: ${item.automationEnvironments!.join(", ")}',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 10.5,
+                                                    color: const Color(0xFF818CF8),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
@@ -3983,6 +4171,77 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
+                                        if (item.isAutomationStudy) ...[
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                                                  borderRadius:
+                                                      BorderRadius.circular(5),
+                                                  border: Border.all(
+                                                      color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: const [
+                                                    Icon(
+                                                        Icons.sensors_rounded,
+                                                        size: 13,
+                                                        color:
+                                                            Color(0xFF818CF8)),
+                                                    SizedBox(width: 4),
+                                                    Text(
+                                                      'ESTUDO DE SOLUÇÃO EM AUTOMAÇÃO',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color:
+                                                            Color(0xFF818CF8),
+                                                        letterSpacing: 0.3,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              if (item.automationEnvironmentsCount != null &&
+                                                  item.automationEnvironmentsCount! > 0) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: isDark
+                                                        ? const Color(0xFF0F172A)
+                                                        : const Color(0xFFF1F5F9),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            5),
+                                                  ),
+                                                  child: Text(
+                                                    '${item.automationEnvironmentsCount} ambientes',
+                                                    style: GoogleFonts.inter(
+                                                        fontSize: 10.5,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: isDark
+                                                            ? const Color(0xFFCBD5E1)
+                                                            : const Color(0xFF334155)),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                        ],
                                         if (item.isSolarPlant) ...[
                                           Row(
                                             children: [
@@ -4177,6 +4436,77 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                                     ),
                                                   );
                                                 })(),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+
+                                        // Lista de ambientes do Estudo de Solução em Automação
+                                        if (item.isAutomationStudy &&
+                                            item.automationEnvironments != null &&
+                                            item.automationEnvironments!.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                  color: const Color(0xFF6366F1).withValues(alpha: 0.25)),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: const [
+                                                    Icon(
+                                                        Icons.home_work_rounded,
+                                                        size: 13,
+                                                        color: Color(0xFF6366F1)),
+                                                    SizedBox(width: 5),
+                                                    Text(
+                                                      'Ambientes & Escopo do Estudo de Automação:',
+                                                      style: TextStyle(
+                                                          fontSize: 10.5,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Color(0xFF6366F1)),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 4,
+                                                  children: item.automationEnvironments!.map((env) {
+                                                    return Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                                      decoration: BoxDecoration(
+                                                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.check_circle_outline_rounded, size: 11, color: Color(0xFF10B981)),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            env,
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 10.5,
+                                                              fontWeight: FontWeight.w500,
+                                                              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  }).toList(),
+                                                ),
                                               ],
                                             ),
                                           ),
