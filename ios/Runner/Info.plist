@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mavis</string>
+	<string>Mavis CRM</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -65,6 +65,40 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>O Mavis CRM precisa acessar a câmera para capturar fotos de contas de energia, produtos e documentos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O Mavis CRM precisa acessar sua galeria para importar contas de energia, logotipos e imagens de produtos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>O Mavis CRM precisa de permissão para salvar propostas, contratos e PDFs no seu dispositivo.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>O Mavis CRM precisa acessar o microfone para recursos de mídia quando solicitado.</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>whatsapp</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.mavis.mavis</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.mavis.mavis</string>
+				<string>app-1-440920170749-ios-3a74f3bb32f3a69bdd1e94</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

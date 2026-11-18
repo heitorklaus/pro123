@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '440920170749',
     projectId: 'mavis-crm-80885',
     storageBucket: 'mavis-crm-80885.firebasestorage.app',
-    iosBundleId: 'com.mavis.mavis',
+    iosBundleId: 'com.heitorklaus.solardino1',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '440920170749',
     projectId: 'mavis-crm-80885',
     storageBucket: 'mavis-crm-80885.firebasestorage.app',
-    iosBundleId: 'com.mavis.mavis',
+    iosBundleId: 'com.heitorklaus.solardino1',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

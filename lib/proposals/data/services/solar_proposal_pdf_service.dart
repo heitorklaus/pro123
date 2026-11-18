@@ -3766,7 +3766,7 @@ class SolarProposalPdfService {
                         child: pw.Text(
                           'ANO',
                           textAlign: pw.TextAlign.center,
-                          style: const pw.TextStyle(color: PdfColors.white, fontSize: 7, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(color: PdfColors.white, fontSize: 7, fontWeight: pw.FontWeight.bold),
                         ),
                       ),
                       pw.Expanded(
@@ -3776,7 +3776,7 @@ class SolarProposalPdfService {
                           child: pw.Text(
                             'COM SOLAR (VARIAÇÃO)',
                             textAlign: pw.TextAlign.center,
-                            style: const pw.TextStyle(color: PdfColor.fromInt(0xFF86EFAC), fontSize: 7, fontWeight: pw.FontWeight.bold),
+                            style: pw.TextStyle(color: const PdfColor.fromInt(0xFF86EFAC), fontSize: 7, fontWeight: pw.FontWeight.bold),
                           ),
                         ),
                       ),
@@ -3787,7 +3787,7 @@ class SolarProposalPdfService {
                           child: pw.Text(
                             'SEM SOLAR',
                             textAlign: pw.TextAlign.center,
-                            style: const pw.TextStyle(color: PdfColors.white, fontSize: 7, fontWeight: pw.FontWeight.bold),
+                            style: pw.TextStyle(color: PdfColors.white, fontSize: 7, fontWeight: pw.FontWeight.bold),
                           ),
                         ),
                       ),
@@ -3807,7 +3807,7 @@ class SolarProposalPdfService {
                         pw.Container(
                           width: 38,
                           padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
-                          child: pw.Text('${item.year}', textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
+                          child: pw.Text('${item.year}', textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
                         ),
                         pw.Expanded(
                           child: pw.Container(
@@ -3816,7 +3816,7 @@ class SolarProposalPdfService {
                             child: pw.Text(
                               '${_currencyFormat.format(item.withSolarMin)} à ${_currencyFormat.format(item.withSolarMax)}',
                               textAlign: pw.TextAlign.center,
-                              style: const pw.TextStyle(fontSize: 7.5, color: PdfColor.fromInt(0xFF15803D), fontWeight: pw.FontWeight.bold),
+                              style: pw.TextStyle(fontSize: 7.5, color: const PdfColor.fromInt(0xFF15803D), fontWeight: pw.FontWeight.bold),
                             ),
                           ),
                         ),
@@ -3854,7 +3854,7 @@ class SolarProposalPdfService {
       child: pw.Text(
         title,
         textAlign: pw.TextAlign.center,
-        style: const pw.TextStyle(color: PdfColors.white, fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+        style: pw.TextStyle(color: PdfColors.white, fontSize: 8.5, fontWeight: pw.FontWeight.bold),
       ),
     );
   }
@@ -3873,7 +3873,7 @@ class SolarProposalPdfService {
           ),
           pw.Expanded(
             flex: 6,
-            child: pw.Text(value, textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 7.5, color: PdfColor.fromInt(0xFF0F172A), fontWeight: pw.FontWeight.bold)),
+            child: pw.Text(value, textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 7.5, color: const PdfColor.fromInt(0xFF0F172A), fontWeight: pw.FontWeight.bold)),
           ),
         ],
       ),
@@ -3966,7 +3966,7 @@ class SolarProposalPdfService {
                             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                             border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
                           ),
-                          child: pw.Text(b, style: const pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                          child: pw.Text(b, style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
                         );
                       }).toList(),
                     ),

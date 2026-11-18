@@ -431,7 +431,7 @@ class SolarStudyPdfService {
                   ),
                   pw.Text(
                     'MODELAGEM FOTOGRAMÉTRICA TRIDIMENSIONAL & SOMBREAMENTO COMPUTACIONAL',
-                    style: const pw.TextStyle(
+                    style: pw.TextStyle(
                       fontSize: 6.5,
                       fontWeight: pw.FontWeight.bold,
                       color: textMuted,
