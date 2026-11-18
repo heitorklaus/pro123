@@ -553,10 +553,11 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     builder: (context, billsSnap) {
                       final bills = billsSnap.data ?? [];
 
+                      final isMobileScreen = constraints.maxWidth < 680;
                       return Container(
                         color: const Color(0xFF0F172A),
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
+                          padding: EdgeInsets.all(isMobileScreen ? 12 : 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -662,53 +663,57 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Gestão de Créditos de Energia Solar (GD I & GD II)',
-                            style: GoogleFonts.outfit(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981)
-                                  .withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: const Color(0xFF10B981),
-                              ),
-                            ),
-                            child: Text(
-                              'EXCLUSIVO MASTER',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              'Gestão de Créditos de Energia Solar (GD I & GD II)',
+                              style: GoogleFonts.outfit(
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF10B981),
+                                color: Colors.white,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Explosão de faturas Energisa com IA, cálculo automático de deságio/Ajuste GD, emissão de Boleto Solar 7 e controle de % de rateio por Usina',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.5,
-                          color: const Color(0xFF94A3B8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981)
+                                    .withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                              child: Text(
+                                'EXCLUSIVO MASTER',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 3),
+                        Text(
+                          'Explosão de faturas Energisa com IA, cálculo automático de deságio/Ajuste GD, emissão de Boleto Solar 7 e controle de % de rateio por Usina',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            color: const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -978,32 +983,34 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                           ),
                   ),
                   const SizedBox(width: 16),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 640),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isAnalyzingPdf
-                              ? 'Explodindo Fatura com IA Gemini Vision...'
-                              : 'Acesso Rápido: Envie a Conta da Energisa em PDF ou Imagem',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 640),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isAnalyzingPdf
+                                ? 'Explodindo Fatura com IA Gemini Vision...'
+                                : 'Acesso Rápido: Envie a Conta da Energisa em PDF ou Imagem',
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _uploadedFileName != null
-                              ? 'Arquivo lido: $_uploadedFileName • A IA extraiu Consumo, todas as linhas de Energia Injetada (GDI/GDII), Ajuste GDII e o Saldo Acumulado do rodapé!'
-                              : 'A IA identifica a UC e o endereço, soma todas as linhas de Energia Injetada (GDI e GDII), separa o Ajuste GDII, captura o Saldo Acumulado de créditos na Página 2 e já monta o Boleto Solar 7.',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.5,
-                            color: const Color(0xFFCBD5E1),
+                          const SizedBox(height: 4),
+                          Text(
+                            _uploadedFileName != null
+                                ? 'Arquivo lido: $_uploadedFileName • A IA extraiu Consumo, todas as linhas de Energia Injetada (GDI/GDII), Ajuste GDII e o Saldo Acumulado do rodapé!'
+                                : 'A IA identifica a UC e o endereço, soma todas as linhas de Energia Injetada (GDI e GDII), separa o Ajuste GDII, captura o Saldo Acumulado de créditos na Página 2 e já monta o Boleto Solar 7.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              color: const Color(0xFFCBD5E1),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1049,31 +1056,32 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFF59E0B)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
-                        color: Color(0xFFF59E0B),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'A UC "${_explodedBill!.ucNumber}" (${_explodedBill!.addressStreet}) ainda não está cadastrada na sua lista de clientes. Cadastre-a agora em 1 clique já com os dados preenchidos!',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.5,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: Color(0xFFF59E0B),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        'A UC "${_explodedBill!.ucNumber}" (${_explodedBill!.addressStreet}) ainda não está cadastrada na sua lista de clientes. Cadastre-a agora em 1 clique já com os dados preenchidos!',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed: () async {
                     final created = await BeneficiaryFormDialog.show(
@@ -1301,8 +1309,11 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
           const SizedBox(height: 20),
 
           // ── 2. EXPLOSÃO DAS LINHAS DE ENERGIA INJETADA (GDI e GDII) ──────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 '2. Explosão da Fatura (Consumo, Injetada GDI/GDII e Ajuste GD)',
@@ -1444,84 +1455,186 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactField(
-                  controller: _injectedGdiKwhCtrl,
-                  label: 'Soma Injetada GD I (kWh)',
-                  suffix: 'kWh',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildCompactField(
-                  controller: _injectedGdiRsCtrl,
-                  label: 'Soma Injetada GD I (R\$)',
-                  prefix: 'R\$ ',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildCompactField(
-                  controller: _injectedGdiiKwhCtrl,
-                  label: 'Soma Injetada GD II (kWh)',
-                  suffix: 'kWh',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildCompactField(
-                  controller: _injectedGdiiRsCtrl,
-                  label: 'Soma Injetada GD II (R\$)',
-                  prefix: 'R\$ ',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactField(
-                  controller: _gdAdjustmentKwhCtrl,
-                  label: 'Ajuste GD II (kWh)',
-                  suffix: 'kWh',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildCompactField(
-                  controller: _gdAdjustmentRsCtrl,
-                  label: 'Valor Ajuste GD II (R\$)',
-                  prefix: 'R\$ ',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildCompactField(
-                  controller: _publicLightingRsCtrl,
-                  label: 'Ilum. Pública CIP (R\$)',
-                  prefix: 'R\$ ',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildCompactField(
-                  controller: _finesAndInterestRsCtrl,
-                  label: 'Multa / Juros (R\$)',
-                  prefix: 'R\$ ',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, fieldsBox) {
+              final isNarrowForm = fieldsBox.maxWidth < 540;
+              if (isNarrowForm) {
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _injectedGdiKwhCtrl,
+                            label: 'Soma Injetada GD I (kWh)',
+                            suffix: 'kWh',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _injectedGdiRsCtrl,
+                            label: 'Soma Injetada GD I (R\$)',
+                            prefix: 'R\$ ',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _injectedGdiiKwhCtrl,
+                            label: 'Soma Injetada GD II (kWh)',
+                            suffix: 'kWh',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _injectedGdiiRsCtrl,
+                            label: 'Soma Injetada GD II (R\$)',
+                            prefix: 'R\$ ',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _gdAdjustmentKwhCtrl,
+                            label: 'Ajuste GD II (kWh)',
+                            suffix: 'kWh',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _gdAdjustmentRsCtrl,
+                            label: 'Valor Ajuste GD II (R\$)',
+                            prefix: 'R\$ ',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _publicLightingRsCtrl,
+                            label: 'Ilum. Pública CIP (R\$)',
+                            prefix: 'R\$ ',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildCompactField(
+                            controller: _finesAndInterestRsCtrl,
+                            label: 'Multa / Juros (R\$)',
+                            prefix: 'R\$ ',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _injectedGdiKwhCtrl,
+                          label: 'Soma Injetada GD I (kWh)',
+                          suffix: 'kWh',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _injectedGdiRsCtrl,
+                          label: 'Soma Injetada GD I (R\$)',
+                          prefix: 'R\$ ',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _injectedGdiiKwhCtrl,
+                          label: 'Soma Injetada GD II (kWh)',
+                          suffix: 'kWh',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _injectedGdiiRsCtrl,
+                          label: 'Soma Injetada GD II (R\$)',
+                          prefix: 'R\$ ',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _gdAdjustmentKwhCtrl,
+                          label: 'Ajuste GD II (kWh)',
+                          suffix: 'kWh',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _gdAdjustmentRsCtrl,
+                          label: 'Valor Ajuste GD II (R\$)',
+                          prefix: 'R\$ ',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _publicLightingRsCtrl,
+                          label: 'Ilum. Pública CIP (R\$)',
+                          prefix: 'R\$ ',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactField(
+                          controller: _finesAndInterestRsCtrl,
+                          label: 'Multa / Juros (R\$)',
+                          prefix: 'R\$ ',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 10),
           Row(
@@ -1797,14 +1910,17 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '💳 QR Code & Link de Pagamento no Boleto (Opcional)',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF38BDF8),
+                    Expanded(
+                      child: Text(
+                        '💳 QR Code & Link de Pagamento no Boleto (Opcional)',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF38BDF8),
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       'Opcional',
                       style: GoogleFonts.inter(
@@ -1880,65 +1996,80 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
           const SizedBox(height: 18),
 
           // ── BOTÕES DE GERAR PDF E SALVAR LANÇAMENTO ──────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    final previewBill = _buildCurrentBillModel();
-                    SolarCreditBoletoPreviewDialog.show(context, previewBill);
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFF38BDF8)),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-                  label: Text(
-                    'VER BOLETO PDF',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.5,
-                    ),
+          LayoutBuilder(
+            builder: (context, btnBox) {
+              final stackButtons = btnBox.maxWidth < 460;
+              final previewBtn = OutlinedButton.icon(
+                onPressed: () {
+                  final previewBill = _buildCurrentBillModel();
+                  SolarCreditBoletoPreviewDialog.show(context, previewBill);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFF38BDF8)),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton.icon(
-                  onPressed: _isSavingBill ? null : _saveBillAndOpenPdf,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: _isSavingBill
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.check_circle_rounded, size: 19),
-                  label: Text(
-                    'LANÇAR CONTA & GERAR BOLETO PDF',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
+                icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                label: Text(
+                  'VER BOLETO PDF',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
                   ),
                 ),
-              ),
-            ],
+              );
+
+              final saveBtn = ElevatedButton.icon(
+                onPressed: _isSavingBill ? null : _saveBillAndOpenPdf,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: _isSavingBill
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_rounded, size: 19),
+                label: Text(
+                  'LANÇAR CONTA & GERAR BOLETO PDF',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              );
+
+              if (stackButtons) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    previewBtn,
+                    const SizedBox(height: 10),
+                    saveBtn,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: previewBtn),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: saveBtn),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -2385,88 +2516,93 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          plantName.toUpperCase(),
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: regime == GdRegime.gd1
-                                                ? const Color(0xFF10B981)
-                                                    .withValues(alpha: 0.2)
-                                                : const Color(0xFF38BDF8)
-                                                    .withValues(alpha: 0.2),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: regime == GdRegime.gd1
-                                                  ? const Color(0xFF10B981)
-                                                  : const Color(0xFF38BDF8),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            regime.shortLabel,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 10.5,
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                            plantName.toUpperCase(),
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: regime == GdRegime.gd1
-                                                  ? const Color(0xFF10B981)
-                                                  : const Color(0xFF38BDF8),
+                                              color: Colors.white,
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: regime == GdRegime.gd1
+                                                  ? const Color(0xFF10B981)
+                                                      .withValues(alpha: 0.2)
+                                                  : const Color(0xFF38BDF8)
+                                                      .withValues(alpha: 0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: regime == GdRegime.gd1
+                                                    ? const Color(0xFF10B981)
+                                                    : const Color(0xFF38BDF8),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              regime.shortLabel,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: regime == GdRegime.gd1
+                                                    ? const Color(0xFF10B981)
+                                                    : const Color(0xFF38BDF8),
+                                              ),
+                                            ),
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF0F172A),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF0F172A),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              '${groupClients.length} ${groupClients.length == 1 ? "cliente" : "clientes"}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFFCBD5E1),
+                                              ),
+                                            ),
                                           ),
+                                        ],
+                                      ),
+                                      if (matchedPlant != null &&
+                                          matchedPlant
+                                                  .estimatedMonthlyGenerationKwh >
+                                              0)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
                                           child: Text(
-                                            '${groupClients.length} ${groupClients.length == 1 ? "cliente" : "clientes"}',
+                                            'Geração Estimada: ${_numFmt.format(matchedPlant.estimatedMonthlyGenerationKwh)} kWh/mês • Titular: ${matchedPlant.accountHolderName}',
                                             style: GoogleFonts.inter(
                                               fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: const Color(0xFFCBD5E1),
+                                              color: const Color(0xFF94A3B8),
                                             ),
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    if (matchedPlant != null &&
-                                        matchedPlant
-                                                .estimatedMonthlyGenerationKwh >
-                                            0)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Text(
-                                          'Geração Estimada: ${_numFmt.format(matchedPlant.estimatedMonthlyGenerationKwh)} kWh/mês • Titular: ${matchedPlant.accountHolderName}',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 11,
-                                            color: const Color(0xFF94A3B8),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -3285,14 +3421,17 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12.5,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: isBold ? Colors.white : const Color(0xFFCBD5E1),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                color: isBold ? Colors.white : const Color(0xFFCBD5E1),
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           Text(
             value,
             style: GoogleFonts.inter(

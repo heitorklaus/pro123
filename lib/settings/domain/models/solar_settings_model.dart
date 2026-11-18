@@ -7,6 +7,7 @@ class SolarFinancingBank {
   final String id;
   final String name;
   final String? logoUrl;
+  final String? logoBase64;
   final double monthlyInterestRate; // Taxa ao mês em % (ex: 1.19)
   final List<int> enabledInstallments; // Prazos habilitados (ex: [12, 24, 36, 48, 60, 72, 84, 90])
   final bool isActive;
@@ -15,6 +16,7 @@ class SolarFinancingBank {
     required this.id,
     required this.name,
     this.logoUrl,
+    this.logoBase64,
     required this.monthlyInterestRate,
     required this.enabledInstallments,
     this.isActive = true,
@@ -33,6 +35,8 @@ class SolarFinancingBank {
     String? id,
     String? name,
     String? logoUrl,
+    String? logoBase64,
+    bool clearLogoBase64 = false,
     double? monthlyInterestRate,
     List<int>? enabledInstallments,
     bool? isActive,
@@ -41,6 +45,7 @@ class SolarFinancingBank {
       id: id ?? this.id,
       name: name ?? this.name,
       logoUrl: logoUrl ?? this.logoUrl,
+      logoBase64: clearLogoBase64 ? null : (logoBase64 ?? this.logoBase64),
       monthlyInterestRate: monthlyInterestRate ?? this.monthlyInterestRate,
       enabledInstallments: enabledInstallments ?? this.enabledInstallments,
       isActive: isActive ?? this.isActive,
@@ -52,6 +57,7 @@ class SolarFinancingBank {
       'id': id,
       'name': name,
       'logoUrl': logoUrl,
+      if (logoBase64 != null) 'logoBase64': logoBase64,
       'monthlyInterestRate': monthlyInterestRate,
       'enabledInstallments': enabledInstallments,
       'isActive': isActive,
@@ -63,6 +69,7 @@ class SolarFinancingBank {
       id: map['id'] as String? ?? '',
       name: map['name'] as String? ?? 'Banco',
       logoUrl: map['logoUrl'] as String?,
+      logoBase64: map['logoBase64'] as String?,
       monthlyInterestRate: (map['monthlyInterestRate'] as num?)?.toDouble() ?? 1.29,
       enabledInstallments: (map['enabledInstallments'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
@@ -344,6 +351,7 @@ class SolarSettingsModel {
   final double energyTariff; // Tarifa R$/kWh (ex: 1.125)
   final double fioBTariff; // Fio B / Taxa de rede R$/kWh (ex: 0.28)
   final double simultaneityRate; // % de simultaneidade (ex: 13.0)
+  final double generationFactor; // Fator de geração regional em kWh/kWp (padrão 118.0)
   final double annualInflation; // % de inflação anual da energia (ex: 5.0)
   final int projectionYears; // Anos de projeção (ex: 20 ou 25 anos)
   final double defaultSunHours; // HSP médio diário (ex: 4.8)
@@ -351,6 +359,7 @@ class SolarSettingsModel {
   final List<CreditCardInstallmentRate> creditCardRates;
   final String selectedCoverTemplate; // ex: 'modelo_proposta_1.jpg'
   final String selectedSvgTheme; // Armazena a cor/tema (ex: '#2563EB' ou 'azul_royal')
+  final String secondaryThemeColor; // Cor secundária escura dos banners e blocos hero (default: '#102C49')
   final String webBackgroundTemplate; // ex: 'AdobeStock_1030854734.jpg'
   final String? companyName;
   final String? companyDocument;
@@ -657,11 +666,15 @@ class SolarSettingsModel {
     return '#${val.toRadixString(16).substring(2).toUpperCase()}';
   }
 
+  /// Retorna o valor numérico inteiro (0xFFRRGGBB) da cor secundária escura (banners e blocos hero)
+  int get secondaryThemeColorValue => _hexToColor(secondaryThemeColor, fallback: 0xFF102C49);
+
   const SolarSettingsModel({
     this.utilityCompany = 'Amazonas Energia',
     this.energyTariff = 1.125,
     this.fioBTariff = 0.28,
     this.simultaneityRate = 13.0,
+    this.generationFactor = 118.0,
     this.annualInflation = 5.0,
     this.projectionYears = 21,
     this.defaultSunHours = 4.8,
@@ -669,6 +682,7 @@ class SolarSettingsModel {
     this.creditCardRates = const [],
     this.selectedCoverTemplate = 'modelo_proposta_1.jpg',
     this.selectedSvgTheme = '#2563EB',
+    this.secondaryThemeColor = '#102C49',
     this.webBackgroundTemplate = 'AdobeStock_1030854734.jpg',
     this.companyName,
     this.companyDocument,
@@ -827,6 +841,7 @@ class SolarSettingsModel {
     double? energyTariff,
     double? fioBTariff,
     double? simultaneityRate,
+    double? generationFactor,
     double? annualInflation,
     int? projectionYears,
     double? defaultSunHours,
@@ -834,6 +849,7 @@ class SolarSettingsModel {
     List<CreditCardInstallmentRate>? creditCardRates,
     String? selectedCoverTemplate,
     String? selectedSvgTheme,
+    String? secondaryThemeColor,
     String? webBackgroundTemplate,
     String? companyName,
     String? companyDocument,
@@ -948,6 +964,7 @@ class SolarSettingsModel {
       energyTariff: energyTariff ?? this.energyTariff,
       fioBTariff: fioBTariff ?? this.fioBTariff,
       simultaneityRate: simultaneityRate ?? this.simultaneityRate,
+      generationFactor: generationFactor ?? this.generationFactor,
       annualInflation: annualInflation ?? this.annualInflation,
       projectionYears: projectionYears ?? this.projectionYears,
       defaultSunHours: defaultSunHours ?? this.defaultSunHours,
@@ -955,6 +972,7 @@ class SolarSettingsModel {
       creditCardRates: creditCardRates ?? this.creditCardRates,
       selectedCoverTemplate: selectedCoverTemplate ?? this.selectedCoverTemplate,
       selectedSvgTheme: selectedSvgTheme ?? this.selectedSvgTheme,
+      secondaryThemeColor: secondaryThemeColor ?? this.secondaryThemeColor,
       webBackgroundTemplate: webBackgroundTemplate ?? this.webBackgroundTemplate,
       companyName: companyName ?? this.companyName,
       companyDocument: companyDocument ?? this.companyDocument,
@@ -1078,6 +1096,7 @@ class SolarSettingsModel {
       'energyTariff': energyTariff,
       'fioBTariff': fioBTariff,
       'simultaneityRate': simultaneityRate,
+      'generationFactor': generationFactor,
       'annualInflation': annualInflation,
       'projectionYears': projectionYears,
       'defaultSunHours': defaultSunHours,
@@ -1085,6 +1104,7 @@ class SolarSettingsModel {
       'creditCardRates': creditCardRates.map((c) => c.toMap()).toList(),
       'selectedCoverTemplate': selectedCoverTemplate,
       'selectedSvgTheme': selectedSvgTheme,
+      'secondaryThemeColor': secondaryThemeColor,
       'webBackgroundTemplate': webBackgroundTemplate,
       'companyName': companyName,
       'companyDocument': companyDocument,
@@ -1195,6 +1215,7 @@ class SolarSettingsModel {
       energyTariff: (map['energyTariff'] as num?)?.toDouble() ?? 1.125,
       fioBTariff: (map['fioBTariff'] as num?)?.toDouble() ?? 0.28,
       simultaneityRate: (map['simultaneityRate'] as num?)?.toDouble() ?? 13.0,
+      generationFactor: (map['generationFactor'] as num?)?.toDouble() ?? 118.0,
       annualInflation: (map['annualInflation'] as num?)?.toDouble() ?? 5.0,
       projectionYears: (map['projectionYears'] as num?)?.toInt() ?? 21,
       defaultSunHours: (map['defaultSunHours'] as num?)?.toDouble() ?? 4.8,
@@ -1212,6 +1233,7 @@ class SolarSettingsModel {
           : CreditCardInstallmentRate.defaultRates(),
       selectedCoverTemplate: map['selectedCoverTemplate'] as String? ?? 'modelo_proposta_1.jpg',
       selectedSvgTheme: (map['selectedSvgTheme'] ?? map['selectedSvgFooter'] ?? map['selectedSvgHeader']) as String? ?? '#2563EB',
+      secondaryThemeColor: map['secondaryThemeColor'] as String? ?? '#102C49',
       webBackgroundTemplate: map['webBackgroundTemplate'] as String? ?? 'AdobeStock_1030854734.jpg',
       companyName: map['companyName'] as String?,
       companyDocument: map['companyDocument'] as String?,

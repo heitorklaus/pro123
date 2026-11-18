@@ -9,6 +9,7 @@ import '../../proposals/data/services/solar_proposal_pdf_service.dart';
 import '../../proposals/domain/models/proposal_item_model.dart';
 import '../../proposals/domain/models/proposal_model.dart';
 import '../../proposals/presentation/web_proposal_page.dart';
+import '../data/services/ai_agent_settings_service.dart';
 import '../data/services/solar_settings_service.dart';
 import '../domain/models/solar_settings_model.dart';
 import 'widgets/solar_cover_divider_painter.dart';
@@ -41,6 +42,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   final _fioBCtrl = TextEditingController();
   final _inflationCtrl = TextEditingController();
   final _simultaneityCtrl = TextEditingController();
+  final _generationFactorCtrl = TextEditingController();
   final _sunHoursCtrl = TextEditingController();
   final _projectionYearsCtrl = TextEditingController();
 
@@ -98,6 +100,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   late List<CreditCardInstallmentRate> _cardRates;
   String _selectedCover = 'modelo_proposta_1.jpg';
   String _selectedSvgTheme = '#2563EB';
+  String _secondaryThemeColor = '#102C49';
   String _selectedWebBg = 'AdobeStock_1030854734.jpg';
 
   // Simulação ao vivo
@@ -167,6 +170,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       _fioBCtrl.text = loaded.fioBTariff.toStringAsFixed(3).replaceAll('.', ',');
       _inflationCtrl.text = loaded.annualInflation.toStringAsFixed(1).replaceAll('.', ',');
       _simultaneityCtrl.text = loaded.simultaneityRate.toStringAsFixed(1).replaceAll('.', ',');
+      _generationFactorCtrl.text = loaded.generationFactor.toStringAsFixed(1).replaceAll('.', ',');
       _sunHoursCtrl.text = loaded.defaultSunHours.toStringAsFixed(1).replaceAll('.', ',');
       _projectionYearsCtrl.text = loaded.projectionYears.toString();
 
@@ -206,6 +210,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
 
       _selectedCover = loaded.selectedCoverTemplate;
       _selectedSvgTheme = loaded.selectedSvgTheme;
+      _secondaryThemeColor = loaded.secondaryThemeColor;
       _selectedWebBg = loaded.webBackgroundTemplate;
 
       _proposalStyle = loaded.proposalStyle;
@@ -252,6 +257,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     _fioBCtrl.dispose();
     _inflationCtrl.dispose();
     _simultaneityCtrl.dispose();
+    _generationFactorCtrl.dispose();
     _sunHoursCtrl.dispose();
     _projectionYearsCtrl.dispose();
     _companyNameCtrl.dispose();
@@ -289,6 +295,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         fioBTariff: parseD(_fioBCtrl.text, 0.28),
         annualInflation: parseD(_inflationCtrl.text, 5.0),
         simultaneityRate: parseD(_simultaneityCtrl.text, 13.0),
+        generationFactor: parseD(_generationFactorCtrl.text, 118.0),
         defaultSunHours: parseD(_sunHoursCtrl.text, 4.8),
         projectionYears: parseI(_projectionYearsCtrl.text, 21),
         companyName: _companyNameCtrl.text.trim(),
@@ -301,6 +308,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         creditCardRates: _cardRates,
         selectedCoverTemplate: _selectedCover,
         selectedSvgTheme: _selectedSvgTheme,
+        secondaryThemeColor: _secondaryThemeColor,
         webBackgroundTemplate: (!_isCustomCoverMode && _selectedCover.isNotEmpty) ? _selectedCover : _selectedWebBg,
         coverTitle: _coverTitleCtrl.text.trim().isNotEmpty ? _coverTitleCtrl.text.trim() : 'PROPOSTA COMERCIAL',
         coverSubtitle: _coverSubtitleCtrl.text.trim().isNotEmpty ? _coverSubtitleCtrl.text.trim() : 'ENERGIA SOLAR FOTOVOLTAICA',
@@ -338,6 +346,14 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
 
       await SolarSettingsService.saveSettings(updated);
       _settings = updated;
+
+      // Sincroniza também o Fator de Geração com as configurações do Agente de IA
+      try {
+        final aiSettings = await AiAgentSettingsService.getSettings();
+        await AiAgentSettingsService.saveSettings(
+          aiSettings.copyWith(defaultGenerationFactor: updated.generationFactor),
+        );
+      } catch (_) {}
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -507,6 +523,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                     solarSettings: _buildCurrentLiveSettings().copyWith(
                       selectedCoverTemplate: _selectedCover,
                       selectedSvgTheme: _selectedSvgTheme,
+                      secondaryThemeColor: _secondaryThemeColor,
                       webBackgroundTemplate: _selectedWebBg,
                       coverTitle: _coverTitleCtrl.text.trim().isNotEmpty ? _coverTitleCtrl.text.trim() : 'PROPOSTA COMERCIAL',
                       coverSubtitle: _coverSubtitleCtrl.text.trim().isNotEmpty ? _coverSubtitleCtrl.text.trim() : 'ENERGIA SOLAR FOTOVOLTAICA',
@@ -696,7 +713,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   unselectedLabelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
                   tabs: const [
                     Tab(icon: Icon(Icons.bolt_rounded), text: '1. Concessionária & Tarifas'),
-                    Tab(icon: Icon(Icons.wb_sunny_outlined), text: '2. Simultaneidade & Consumo'),
+                    Tab(icon: Icon(Icons.wb_sunny_outlined), text: '2. Simultaneidade & Fator de Geração'),
                     Tab(icon: Icon(Icons.account_balance_outlined), text: '3. Financiamentos Bancários'),
                     Tab(icon: Icon(Icons.credit_card_rounded), text: '4. Cartão de Crédito'),
                     Tab(icon: Icon(Icons.picture_as_pdf_outlined), text: '5. Modelo de Proposta'),
@@ -1060,6 +1077,68 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 ),
               ),
             ),
+
+            const SizedBox(height: 24),
+            const Divider(color: AppColors.divider),
+            const SizedBox(height: 20),
+
+            // Fator de Geração Regional (Sincronizado com o Agente de IA)
+            _label('Fator de Geração Regional (kWh/kWp) — Sincronizado com a IA'),
+            const SizedBox(height: 6),
+            Text(
+              'Define o multiplicador usado pelo sistema e pelo Agente de IA no WhatsApp (opção 4) para calcular a geração estimada da usina. Alterar aqui atualiza automaticamente a IA.',
+              style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B), height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 260,
+                  child: TextFormField(
+                    controller: _generationFactorCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'Ex: 118,0',
+                      prefixIcon: Icon(Icons.bolt_rounded, color: Color(0xFF10B981)),
+                      suffixText: 'kWh/kWp',
+                    ),
+                  ),
+                ),
+                Builder(
+                  builder: (_) {
+                    final factor = double.tryParse(_generationFactorCtrl.text.replaceAll(',', '.').trim()) ?? 118.0;
+                    final sampleGen = (8.25 * factor).round();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.auto_awesome_rounded, color: Color(0xFF059669), size: 20),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Simulação: caso o sistema seja 8,25 kWp, a geração sugerida será $sampleGen kWh/mês',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF065F46),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1124,13 +1203,41 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(10),
+                        InkWell(
+                          onTap: () async {
+                            final b64 = await _pickBankLogoBase64();
+                            if (b64 != null) {
+                              setState(() {
+                                _banks[idx] = bank.copyWith(logoBase64: b64);
+                              });
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 68,
+                            height: 44,
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: (bank.logoBase64 != null && bank.logoBase64!.isNotEmpty)
+                                  ? Colors.white
+                                  : const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: (bank.logoBase64 != null && bank.logoBase64!.isNotEmpty)
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.memory(
+                                      base64Decode(
+                                        bank.logoBase64!.contains(',')
+                                            ? bank.logoBase64!.split(',').last
+                                            : bank.logoBase64!,
+                                      ),
+                                      fit: BoxFit.contain,
+                                    ),
+                                  )
+                                : const Icon(Icons.account_balance_rounded, color: AppColors.primary, size: 22),
                           ),
-                          child: const Icon(Icons.account_balance_rounded, color: AppColors.primary, size: 20),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1141,9 +1248,50 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                                 bank.name,
                                 style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                               ),
-                              Text(
-                                'Taxa: ${bank.monthlyInterestRate.toStringAsFixed(2)}% ao mês',
-                                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Taxa: ${bank.monthlyInterestRate.toStringAsFixed(2)}% ao mês',
+                                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  InkWell(
+                                    onTap: () async {
+                                      final b64 = await _pickBankLogoBase64();
+                                      if (b64 != null) {
+                                        setState(() {
+                                          _banks[idx] = bank.copyWith(logoBase64: b64);
+                                        });
+                                      }
+                                    },
+                                    child: Text(
+                                      (bank.logoBase64 != null && bank.logoBase64!.isNotEmpty)
+                                          ? 'Alterar logo'
+                                          : '+ Enviar logo',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (bank.logoBase64 != null && bank.logoBase64!.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    InkWell(
+                                      onTap: () => setState(() {
+                                        _banks[idx] = bank.copyWith(clearLogoBase64: true);
+                                      }),
+                                      child: Text(
+                                        'Remover',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFFEF4444),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ],
                           ),
@@ -1239,53 +1387,121 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     );
   }
 
+  Future<String?> _pickBankLogoBase64() async {
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
+      );
+      if (files.isNotEmpty) {
+        final bytes = await files.first.readAsBytes();
+        return base64Encode(bytes);
+      }
+    } catch (e) {
+      debugPrint('[SolarSettingsView] Erro ao selecionar logo do banco: $e');
+    }
+    return null;
+  }
+
   void _openAddBankDialog() {
     final nameCtrl = TextEditingController();
     final rateCtrl = TextEditingController(text: '1,25');
+    String? pickedLogoBase64;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Adicionar Banco / Financeira', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(hintText: 'Nome da Instituição (ex: Banco do Brasil)'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: rateCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: 'Taxa ao mês em %', suffixText: '% a.m.'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Adicionar Banco / Financeira', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(hintText: 'Nome da Instituição (ex: Banco do Brasil)'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: rateCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(hintText: 'Taxa ao mês em %', suffixText: '% a.m.'),
+              ),
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: () async {
+                  final b64 = await _pickBankLogoBase64();
+                  if (b64 != null) {
+                    setDialogState(() => pickedLogoBase64 = b64);
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      if (pickedLogoBase64 != null)
+                        Container(
+                          width: 48,
+                          height: 32,
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Image.memory(base64Decode(pickedLogoBase64!), fit: BoxFit.contain),
+                        )
+                      else
+                        const Padding(
+                          padding: EdgeInsets.only(right: 10),
+                          child: Icon(Icons.add_photo_alternate_outlined, color: AppColors.primary, size: 22),
+                        ),
+                      Expanded(
+                        child: Text(
+                          pickedLogoBase64 != null
+                              ? 'Logo selecionada (clique para alterar)'
+                              : 'Logo da financiadora (PNG/JPG - opcional)',
+                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF475569), fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCELAR')),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                final rate = double.tryParse(rateCtrl.text.replaceAll(',', '.')) ?? 1.25;
+                if (name.isNotEmpty) {
+                  setState(() {
+                    _banks.add(SolarFinancingBank(
+                      id: name.toLowerCase().replaceAll(RegExp(r'\s+'), '_'),
+                      name: name,
+                      logoBase64: pickedLogoBase64,
+                      monthlyInterestRate: rate,
+                      enabledInstallments: [12, 24, 36, 48, 60],
+                      isActive: true,
+                    ));
+                  });
+                  Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              child: const Text('ADICIONAR'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCELAR')),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameCtrl.text.trim();
-              final rate = double.tryParse(rateCtrl.text.replaceAll(',', '.')) ?? 1.25;
-              if (name.isNotEmpty) {
-                setState(() {
-                  _banks.add(SolarFinancingBank(
-                    id: name.toLowerCase().replaceAll(RegExp(r'\s+'), '_'),
-                    name: name,
-                    monthlyInterestRate: rate,
-                    enabledInstallments: [12, 24, 36, 48, 60],
-                    isActive: true,
-                  ));
-                });
-                Navigator.pop(ctx);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-            child: const Text('ADICIONAR'),
-          ),
-        ],
       ),
     );
   }
@@ -1648,72 +1864,204 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
             const Divider(color: AppColors.divider),
             const SizedBox(height: 16),
 
-            // ── 3. Seletor de Paleta de Cores Minimalista ─────────────────────
-            _label('3. Cor de Destaque da Proposta (PDF & Web)'),
+            // ── 3. Seletor de Paleta de Cores (Principal + Secundária) + Preview Realtime ──
+            _label('3. Paleta de Cores da Proposta (PDF & Web)'),
             const SizedBox(height: 6),
             Text(
-              'A cor temática é aplicada nos cabeçalhos, destaques e cards da proposta comercial:',
+              'Escolha a cor principal (faixa superior, destaques e ícones) e a cor secundária (banners e blocos escuros) e acompanhe a prévia da página interna em tempo real:',
               style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: availableThemes.map((theme) {
-                final fileName = theme['fileName'] as String;
-                final name = theme['name'] as String;
-                final colorValue = (theme['color'] as num?)?.toInt() ?? 0xFF2563EB;
-                final isSelected = _selectedSvgTheme == fileName;
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 860;
+                final primaryColor = _parseHexColor(_selectedSvgTheme, 0xFF2563EB);
+                final secondaryColor = _parseHexColor(_secondaryThemeColor, 0xFF102C49);
 
-                return ChoiceChip(
-                  avatar: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: Color(colorValue),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+                final controls = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(color: primaryColor, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Cor Principal (Destaques, Faixa & Ícones)',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  label: Text(name),
-                  selected: isSelected,
-                  selectedColor: Color(colorValue).withValues(alpha: 0.2),
-                  side: BorderSide(
-                    color: isSelected ? Color(colorValue) : const Color(0xFFCBD5E1),
-                    width: isSelected ? 2 : 1,
-                  ),
-                  labelStyle: TextStyle(
-                    color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF334155),
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    fontSize: 12.5,
-                  ),
-                  onSelected: (val) {
-                    if (val) setState(() => _selectedSvgTheme = fileName);
-                  },
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: availableThemes.map((theme) {
+                        final fileName = theme['fileName'] as String;
+                        final name = theme['name'] as String;
+                        final colorValue = (theme['color'] as num?)?.toInt() ?? 0xFF2563EB;
+                        final isSelected = _selectedSvgTheme.toUpperCase() == fileName.toUpperCase();
+
+                        return ChoiceChip(
+                          avatar: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Color(colorValue),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                          ),
+                          label: Text(name),
+                          selected: isSelected,
+                          selectedColor: Color(colorValue).withValues(alpha: 0.2),
+                          side: BorderSide(
+                            color: isSelected ? Color(colorValue) : const Color(0xFFCBD5E1),
+                            width: isSelected ? 2 : 1,
+                          ),
+                          labelStyle: TextStyle(
+                            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                          onSelected: (val) {
+                            if (val) setState(() => _selectedSvgTheme = fileName);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(color: secondaryColor, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Cor Secundária (Banners & Blocos Escuros)',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        {'name': 'Azul Marinho (Padrão)', 'hex': '#102C49', 'color': 0xFF102C49},
+                        {'name': 'Azul Noite', 'hex': '#041E42', 'color': 0xFF041E42},
+                        {'name': 'Ardósia Escuro', 'hex': '#0F172A', 'color': 0xFF0F172A},
+                        {'name': 'Petróleo Escuro', 'hex': '#0C4A6E', 'color': 0xFF0C4A6E},
+                        {'name': 'Verde Floresta', 'hex': '#064E3B', 'color': 0xFF064E3B},
+                        {'name': 'Índigo Profundo', 'hex': '#1E1B4B', 'color': 0xFF1E1B4B},
+                        {'name': 'Grafite Solar', 'hex': '#1E293B', 'color': 0xFF1E293B},
+                        {'name': 'Terracota Escuro', 'hex': '#450A0A', 'color': 0xFF450A0A},
+                      ].map((item) {
+                        final hex = item['hex'] as String;
+                        final name = item['name'] as String;
+                        final colorValue = item['color'] as int;
+                        final isSelected = _secondaryThemeColor.toUpperCase() == hex.toUpperCase();
+
+                        return ChoiceChip(
+                          avatar: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Color(colorValue),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                          ),
+                          label: Text(name),
+                          selected: isSelected,
+                          selectedColor: Color(colorValue).withValues(alpha: 0.16),
+                          side: BorderSide(
+                            color: isSelected ? Color(colorValue) : const Color(0xFFCBD5E1),
+                            width: isSelected ? 2 : 1,
+                          ),
+                          labelStyle: TextStyle(
+                            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF334155),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                          onSelected: (val) {
+                            if (val) setState(() => _secondaryThemeColor = hex);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.palette_outlined, size: 16, color: primaryColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Paleta ativa: Principal ${_selectedSvgTheme.toUpperCase()}  •  Secundária ${_secondaryThemeColor.toUpperCase()}',
+                              style: GoogleFonts.inter(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF334155),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 );
-              }).toList(),
+
+                final liveInternalPreview = _buildInternalPageColorPreview(
+                  primaryColor: primaryColor,
+                  secondaryColor: secondaryColor,
+                );
+
+                if (isWide) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 5, child: controls),
+                      const SizedBox(width: 24),
+                      Expanded(flex: 5, child: liveInternalPreview),
+                    ],
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    controls,
+                    const SizedBox(height: 18),
+                    liveInternalPreview,
+                  ],
+                );
+              },
             ),
 
             const SizedBox(height: 20),
 
-            // ── 4. Slogan da Empresa no Rodapé ────────────────────────────────
-            _label('4. Slogan / Frase de Impacto da Empresa'),
-            const SizedBox(height: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
-              child: TextFormField(
-                controller: _companySloganCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'Ex: Energia que Transforma',
-                  prefixIcon: Icon(Icons.wb_incandescent_outlined, color: Color(0xFF64748B)),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ── 5. Live Preview Card ──────────────────────────────────────────
-            _label('5. Prévia Visual da Identidade Minimalista'),
+            // ── 4. Live Preview Card ──────────────────────────────────────────
+            _label('4. Prévia Visual da Identidade Minimalista'),
             const SizedBox(height: 10),
             Container(
               constraints: const BoxConstraints(maxWidth: 700),
@@ -1821,6 +2169,261 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     );
   }
 
+  Color _parseHexColor(String hex, int fallback) {
+    final cleaned = hex.replaceAll('#', '').trim();
+    if (cleaned.length == 6) {
+      return Color(int.tryParse('FF$cleaned', radix: 16) ?? fallback);
+    }
+    if (cleaned.length == 8) {
+      return Color(int.tryParse(cleaned, radix: 16) ?? fallback);
+    }
+    return Color(fallback);
+  }
+
+  Widget _buildInternalPageColorPreview({
+    required Color primaryColor,
+    required Color secondaryColor,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Top Ribbon (Cor Principal)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            color: primaryColor,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'PROPOSTA COMERCIAL',
+                  style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
+                ),
+                Text(
+                  'ENERGIA SOLAR FOTOVOLTAICA',
+                  style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
+                ),
+                Text(
+                  'ALTA PERFORMANCE',
+                  style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Hero Banner (Cor Secundária) + Solar Iconography (Cor Principal)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: secondaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Equipamentos e\ncomponentes inclusos',
+                              style: GoogleFonts.outfit(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                height: 1.15,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'Conheça o conjunto fotovoltaico da sua proposta.',
+                              style: GoogleFonts.inter(fontSize: 9.5, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 78,
+                        height: 54,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned(
+                              top: 0,
+                              right: 2,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: primaryColor.withValues(alpha: 0.25),
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 2,
+                              left: 4,
+                              child: Container(
+                                width: 56,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withValues(alpha: 0.35),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: Colors.white70, width: 1.2),
+                                ),
+                                child: Icon(Icons.solar_power_rounded, color: Colors.white.withValues(alpha: 0.92), size: 20),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Itens inclusos no seu projeto:',
+                  style: GoogleFonts.inter(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Zebra Equipment List
+                _buildPreviewEquipmentRow(
+                  primaryColor: primaryColor,
+                  icon: Icons.solar_power_rounded,
+                  text: '14x Módulo Fotovoltaico 615W Monocristalino',
+                  shaded: false,
+                ),
+                _buildPreviewEquipmentRow(
+                  primaryColor: primaryColor,
+                  icon: Icons.bolt_rounded,
+                  text: '1x Inversor Solar Grid-Tie 8.0 kW Alta Eficiência',
+                  shaded: true,
+                ),
+                _buildPreviewEquipmentRow(
+                  primaryColor: primaryColor,
+                  icon: Icons.roofing_rounded,
+                  text: '1x Estrutura de Fixação + Homologação Completa',
+                  shaded: false,
+                ),
+                const SizedBox(height: 10),
+                // Bottom Summary Bar (Cor Secundária)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: secondaryColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'INVESTIMENTO TOTAL',
+                        style: GoogleFonts.inter(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'R\$ 26.800,00',
+                          style: GoogleFonts.outfit(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewEquipmentRow({
+    required Color primaryColor,
+    required IconData icon,
+    required String text,
+    required bool shaded,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: shaded ? primaryColor.withValues(alpha: 0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 11, color: primaryColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1E293B),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // COMPONENTES DO ESTÚDIO DE CAPAS EM TEMPO REAL
   // ───────────────────────────────────────────────────────────────────────────
@@ -1846,6 +2449,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       coverLogoPositionY: _coverLogoPosY,
       coverLogoWidth: _coverLogoWidth,
       selectedSvgTheme: _selectedSvgTheme,
+      secondaryThemeColor: _secondaryThemeColor,
       verticalSplitHeadlineTop: _settings.verticalSplitHeadlineTop,
       verticalSplitHeadlineLeft: _settings.verticalSplitHeadlineLeft,
       verticalSplitRightBlockTop: _settings.verticalSplitRightBlockTop,

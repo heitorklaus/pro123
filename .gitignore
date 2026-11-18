@@ -46,3 +46,6 @@ app.*.map.json
 
 # Temporary scratch
 LIXO/
+
+# Local Easypanel Dockerfile with runtime secrets
+services/mavis_bot/

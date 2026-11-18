@@ -1134,15 +1134,20 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                 const SizedBox(height: 18),
 
                 // SEÇÃO 3: USINAS ORIGEM (1 OU MAIS), % NA CONCESSIONÁRIA E % DE DESCONTO (DESÁGIO)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _buildSectionHeader(
                       '3. USINAS GERADORAS VINCULADAS, RATEIO (%) E DESCONTO (DESÁGIO %)',
                       Icons.solar_power_rounded,
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         TextButton.icon(
                           onPressed: _createNewPlantInline,
@@ -1158,7 +1163,6 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
                         ElevatedButton.icon(
                           onPressed: _addAnotherPlantRow,
                           style: ElevatedButton.styleFrom(
@@ -1413,16 +1417,19 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
 
   Widget _buildSectionHeader(String title, IconData icon) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 15, color: const Color(0xFF38BDF8)),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF38BDF8),
-            letterSpacing: 0.8,
+        Flexible(
+          child: Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF38BDF8),
+              letterSpacing: 0.8,
+            ),
           ),
         ),
       ],

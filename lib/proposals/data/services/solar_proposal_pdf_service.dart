@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -18,6 +19,7 @@ import 'cover_divider_svg_builder.dart';
 class SolarProposalPdfService {
   static final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   static final _numberFormat = NumberFormat.decimalPattern('pt_BR');
+  static Uint8List? _cachedPage3HouseBytes;
 
   /// Faz upload do PDF da proposta no Firebase Storage na estrutura: propostas_mavis/{companyId}/{userId}/{fileName}
   static Future<String?> uploadProposalPdfToStorage({
@@ -95,6 +97,7 @@ class SolarProposalPdfService {
     final pdf = pw.Document();
     final settings = solarSettings ?? await SolarSettingsService.loadSettings(companyId: proposal.companyId);
     final primaryColor = PdfColor.fromInt(settings.themeColorValue);
+    final secondaryColor = PdfColor.fromInt(settings.secondaryThemeColorValue);
 
     // Resolve Estudo de Telhado & Sombreamento vinculado (se existir)
     RoofStudyModel? effectiveStudy = roofStudy ?? proposal.linkedRoofStudy;
@@ -332,6 +335,13 @@ class SolarProposalPdfService {
     // PÁGINA 3: SUA USINA (FICHA TÉCNICA)
     // ─────────────────────────────────────────────────────────────────────────
     if (!hiddenPages.contains('page_3')) {
+      if (_cachedPage3HouseBytes == null) {
+        try {
+          final bd = await rootBundle.load('assets/images/solar_page3_house.jpg');
+          _cachedPage3HouseBytes = bd.buffer.asUint8List();
+        } catch (_) {}
+      }
+
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -343,6 +353,7 @@ class SolarProposalPdfService {
             primaryColor: primaryColor,
             settings: settings,
             proposal: proposal,
+            fullBleedContent: true,
             content: _buildPage3Content(
               kwp: kwp,
               modulesCount: modulesCount,
@@ -353,6 +364,8 @@ class SolarProposalPdfService {
               generationMonthly: generationMonthly,
               occupiedArea: occupiedArea,
               primaryColor: primaryColor,
+              secondaryColor: secondaryColor,
+              houseImageBytes: _cachedPage3HouseBytes,
             ),
           ),
         ),
@@ -428,10 +441,17 @@ class SolarProposalPdfService {
             primaryColor: primaryColor,
             settings: settings,
             proposal: proposal,
+            fullBleedContent: true,
             content: _buildPage4Content(
               proposal: proposal,
               solarPlantItem: solarPlantItem,
               primaryColor: primaryColor,
+              secondaryColor: secondaryColor,
+              modulesCount: modulesCount,
+              moduleWatts: moduleWatts,
+              inverterModel: inverterModel,
+              inverterKw: inverterKw,
+              roofType: roofType,
             ),
           ),
         ),
@@ -453,6 +473,7 @@ class SolarProposalPdfService {
             primaryColor: primaryColor,
             settings: settings,
             proposal: proposal,
+            fullBleedContent: true,
             content: _buildPage5Content(
               proposal: proposal,
               settings: settings,
@@ -460,6 +481,7 @@ class SolarProposalPdfService {
               generationDaily: generationDaily,
               kwp: kwp,
               primaryColor: primaryColor,
+              secondaryColor: secondaryColor,
             ),
           ),
         ),
@@ -481,10 +503,12 @@ class SolarProposalPdfService {
             primaryColor: primaryColor,
             settings: settings,
             proposal: proposal,
+            fullBleedContent: true,
             content: _buildPage6Content(
               proposal: proposal,
               settings: settings,
               primaryColor: primaryColor,
+              secondaryColor: secondaryColor,
             ),
           ),
         ),
@@ -1619,7 +1643,7 @@ class SolarProposalPdfService {
                 pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: t1Color)),
               if (text2.isNotEmpty || text3.isNotEmpty) ...[
                 pw.SizedBox(height: 3),
-                pw.Text('$text2  •  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+                pw.Text('$text2  -  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
               ],
               if (text4.isNotEmpty) ...[
                 pw.SizedBox(height: 2),
@@ -1745,7 +1769,7 @@ class SolarProposalPdfService {
             children: [
               if (text1.isNotEmpty)
                 pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
-              pw.Text('$text2  ${text3.isNotEmpty ? "• $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+              pw.Text('$text2  ${text3.isNotEmpty ? "- $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
             ],
           ),
         );
@@ -1763,7 +1787,7 @@ class SolarProposalPdfService {
             children: [
               pw.Text(text1.isNotEmpty ? text1 : 'ENERGIA SUSTENTÁVEL PARA O FUTURO', style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
               if (text2.isNotEmpty || text3.isNotEmpty)
-                pw.Text('$text2 ${text3.isNotEmpty ? "• $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t2Color)),
+                pw.Text('$text2 ${text3.isNotEmpty ? "- $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t2Color)),
             ],
           ),
         );
@@ -1777,7 +1801,7 @@ class SolarProposalPdfService {
           color: bg,
           child: pw.Center(
             child: pw.Text(
-              [text1, text2, text3].where((s) => s.isNotEmpty).join('  •  '),
+              [text1, text2, text3].where((s) => s.isNotEmpty).join('  -  '),
               style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: tColor),
             ),
           ),
@@ -1821,7 +1845,7 @@ class SolarProposalPdfService {
                 pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: t1Color, letterSpacing: 0.5)),
               if (text2.isNotEmpty || text3.isNotEmpty) ...[
                 pw.SizedBox(height: 2),
-                pw.Text('$text2  •  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+                pw.Text('$text2  -  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
               ],
               if (text4.isNotEmpty) ...[
                 pw.SizedBox(height: 2),
@@ -2243,6 +2267,7 @@ class SolarProposalPdfService {
     ProposalModel? proposal,
     pw.Font? fontBold,
     pw.Font? fontSemiBold,
+    bool fullBleedContent = false,
   }) {
     final textDark = PdfColor.fromHex('#0F172A');
     final textMuted = PdfColor.fromHex('#64748B');
@@ -2362,10 +2387,10 @@ class SolarProposalPdfService {
     if (settings.coverShowFooter) {
       bottomFooter = _buildPdfCoverFooter(
         styleId: settings.coverFooterStyle,
-        text1: settings.coverFooterText1.isNotEmpty ? settings.coverFooterText1 : slogan,
-        text2: settings.coverFooterText2.isNotEmpty ? settings.coverFooterText2 : (settings.companyPhone ?? ''),
-        text3: settings.coverFooterText3.isNotEmpty ? settings.coverFooterText3 : (settings.companyWebsite ?? ''),
-        text4: settings.coverFooterText4.isNotEmpty ? settings.coverFooterText4 : 'Página $pageNumber de $totalPages',
+        text1: settings.coverFooterText1.trim(),
+        text2: settings.coverFooterText2.trim(),
+        text3: settings.coverFooterText3.trim(),
+        text4: settings.coverFooterText4.trim(),
         accentColor: primaryColor,
         fontBold: fontBold,
         fontSemiBold: fontSemiBold,
@@ -2441,10 +2466,12 @@ class SolarProposalPdfService {
       children: [
         topHeader,
         pw.Expanded(
-          child: pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 12),
-            child: content,
-          ),
+          child: fullBleedContent
+              ? content
+              : pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 12),
+                  child: content,
+                ),
         ),
         bottomFooter,
       ],
@@ -3275,131 +3302,180 @@ class SolarProposalPdfService {
     required double generationMonthly,
     required double occupiedArea,
     required PdfColor primaryColor,
+    required PdfColor secondaryColor,
+    Uint8List? houseImageBytes,
   }) {
+    final hasKwInModel = RegExp(r'\b\d+(?:[\.,]\d+)?\s*kwp?\b', caseSensitive: false)
+        .hasMatch(inverterModel);
+    final inverterDisplay = hasKwInModel
+        ? inverterModel
+        : '$inverterModel • ${inverterKw.toStringAsFixed(0)} kW';
+
     return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        // Ilustração / Mockup Central da Usina
-        pw.Container(
-          height: 140,
-          width: double.infinity,
-          decoration: pw.BoxDecoration(
-            color: PdfColor.fromHex('#F8FAFC'),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(14)),
-            border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
+        // 1. Foto Panorâmica da Residência com Usina Solar (Full-Bleed Horizontal)
+        if (houseImageBytes != null && houseImageBytes.isNotEmpty)
+          pw.SizedBox(
+            height: 242,
+            width: double.infinity,
+            child: pw.Image(
+              pw.MemoryImage(houseImageBytes),
+              fit: pw.BoxFit.cover,
+            ),
+          )
+        else
+          pw.Container(
+            height: 180,
+            width: double.infinity,
+            color: PdfColor.fromHex('#0F172A'),
           ),
-          child: pw.Center(
-            child: pw.Column(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              children: [
-                pw.Container(
-                  width: 48,
-                  height: 48,
-                  decoration: pw.BoxDecoration(
-                    color: primaryColor,
-                    shape: pw.BoxShape.circle,
+
+        // 2. Faixa Azul-Marinho Escura com Ícone, Divisor Vertical e Título (Full-Bleed Horizontal)
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+          color: secondaryColor,
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Container(
+                width: 44,
+                height: 44,
+                decoration: pw.BoxDecoration(
+                  color: primaryColor,
+                  shape: pw.BoxShape.circle,
+                ),
+                child: pw.Center(
+                  child: pw.SvgImage(
+                    svg: SolarPdfIcons.solarTech('#FFFFFF', size: 26),
+                    width: 26,
+                    height: 26,
                   ),
-                  child: pw.Center(
-                    child: pw.SvgImage(
-                      svg: SolarPdfIcons.solarTech('#FFFFFF', size: 28),
-                      width: 28,
-                      height: 28,
+                ),
+              ),
+              pw.SizedBox(width: 16),
+              pw.Container(
+                width: 1.5,
+                height: 38,
+                color: PdfColors.white,
+              ),
+              pw.SizedBox(width: 16),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  children: [
+                    pw.Text(
+                      'Kit Solar Fotovoltaico de Alta Eficiência',
+                      style: pw.TextStyle(
+                        fontSize: 17.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                      ),
                     ),
-                  ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Módulos Monocristalinos & Inversor Grid-Tie com Conexão Wi-Fi Integrada',
+                      style: pw.TextStyle(
+                        fontSize: 9.8,
+                        color: const PdfColor.fromInt(0xFFE2E8F0),
+                      ),
+                    ),
+                  ],
                 ),
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  'Kit Solar Fotovoltaico de Alta Eficiência',
-                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+              ),
+            ],
+          ),
+        ),
+
+        // 3. Especificações Técnicas + 3 Cards Inferiores
+        pw.Expanded(
+          child: pw.Padding(
+            padding: const pw.EdgeInsets.fromLTRB(28, 10, 28, 14),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                _buildTechRow(
+                  label: 'Potência do Sistema:',
+                  value: '${kwp.toStringAsFixed(2)} kWp',
+                  svgIcon: SolarPdfIcons.bolt('#FFFFFF'),
+                  primaryColor: primaryColor,
+                  isBold: true,
                 ),
-                pw.SizedBox(height: 3),
-                pw.Text(
-                  'Módulos Monocristalinos & Inversor Grid-Tie com Conexão Wi-Fi Integrada',
-                  style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#64748B')),
+                _buildTechRow(
+                  label: 'Quantidade de Painéis:',
+                  value: '$modulesCount módulos',
+                  svgIcon: SolarPdfIcons.solarPanel('#FFFFFF'),
+                  primaryColor: primaryColor,
+                ),
+                _buildTechRow(
+                  label: 'Potência do Painel Solar:',
+                  value: '$moduleWatts Watts',
+                  svgIcon: SolarPdfIcons.sunWatt('#FFFFFF'),
+                  primaryColor: primaryColor,
+                ),
+                _buildTechRow(
+                  label: 'Modelo e Potência do Inversor:',
+                  value: inverterDisplay,
+                  svgIcon: SolarPdfIcons.inverter('#FFFFFF'),
+                  primaryColor: primaryColor,
+                ),
+                _buildTechRow(
+                  label: 'Tipo de Estrutura:',
+                  value: roofType,
+                  svgIcon: SolarPdfIcons.roof('#FFFFFF'),
+                  primaryColor: primaryColor,
+                ),
+                _buildTechRow(
+                  label: 'Produção Média de Energia:',
+                  value: '${generationMonthly.toStringAsFixed(2)} kWh/mês',
+                  svgIcon: SolarPdfIcons.trendingUp('#FFFFFF'),
+                  primaryColor: primaryColor,
+                ),
+                _buildTechRow(
+                  label: 'Área Estimada Ocupada:',
+                  value: '${occupiedArea.toStringAsFixed(2)} m²',
+                  svgIcon: SolarPdfIcons.rulerSquare('#FFFFFF'),
+                  primaryColor: primaryColor,
+                ),
+
+                pw.Spacer(),
+
+                // 3 Cards de Destaque Executivo de Garantia & Engenharia
+                pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: _buildPage3MiniCard(
+                        title: '25 Anos de Garantia',
+                        subtitle: 'Módulos Tier 1 com garantia linear.',
+                        iconSvg: SolarPdfIcons.award('#FFFFFF'),
+                        primaryColor: primaryColor,
+                      ),
+                    ),
+                    pw.SizedBox(width: 10),
+                    pw.Expanded(
+                      child: _buildPage3MiniCard(
+                        title: 'Monitoramento Wi-Fi',
+                        subtitle: 'Geração 24h no app do celular.',
+                        iconSvg: SolarPdfIcons.smartphone('#FFFFFF'),
+                        primaryColor: primaryColor,
+                      ),
+                    ),
+                    pw.SizedBox(width: 10),
+                    pw.Expanded(
+                      child: _buildPage3MiniCard(
+                        title: 'Engenharia Turn-Key',
+                        subtitle: 'Projeto executivo e homologação.',
+                        iconSvg: SolarPdfIcons.shieldCheck('#FFFFFF'),
+                        primaryColor: primaryColor,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-        ),
-        pw.SizedBox(height: 14),
-
-        // Tabela de Especificações Técnicas com Ícones em Quadrados Sólidos com SVG Branco
-        _buildTechRow(
-          label: 'Potência do Sistema:',
-          value: '${kwp.toStringAsFixed(2)} kWp',
-          svgIcon: SolarPdfIcons.bolt('#FFFFFF'),
-          primaryColor: primaryColor,
-          isBold: true,
-        ),
-        _buildTechRow(
-          label: 'Quantidade de Painéis:',
-          value: '$modulesCount módulos',
-          svgIcon: SolarPdfIcons.solarPanel('#FFFFFF'),
-          primaryColor: primaryColor,
-        ),
-        _buildTechRow(
-          label: 'Potência do Painel Solar:',
-          value: '$moduleWatts Watts',
-          svgIcon: SolarPdfIcons.sunWatt('#FFFFFF'),
-          primaryColor: primaryColor,
-        ),
-        _buildTechRow(
-          label: 'Modelo e Potência Inversor / Microinversor:',
-          value: '$inverterModel ${inverterKw.toStringAsFixed(0)} kWp',
-          svgIcon: SolarPdfIcons.inverter('#FFFFFF'),
-          primaryColor: primaryColor,
-        ),
-        _buildTechRow(
-          label: 'Tipo de Estrutura:',
-          value: roofType,
-          svgIcon: SolarPdfIcons.roof('#FFFFFF'),
-          primaryColor: primaryColor,
-        ),
-        _buildTechRow(
-          label: 'Produção Média de Energia:',
-          value: '${generationMonthly.toStringAsFixed(2)} kWh/mês',
-          svgIcon: SolarPdfIcons.trendingUp('#FFFFFF'),
-          primaryColor: primaryColor,
-        ),
-        _buildTechRow(
-          label: 'Área Estimada Ocupada:',
-          value: '${occupiedArea.toStringAsFixed(2)} m²',
-          svgIcon: SolarPdfIcons.rulerSquare('#FFFFFF'),
-          primaryColor: primaryColor,
-        ),
-
-        pw.SizedBox(height: 16),
-
-        // 3 Cards de Destaque Executivo de Garantia & Engenharia
-        pw.Row(
-          children: [
-            pw.Expanded(
-              child: _buildPage3MiniCard(
-                title: '25 Anos de Garantia',
-                subtitle: 'Módulos Tier 1 com garantia linear.',
-                iconSvg: SolarPdfIcons.award('#FFFFFF'),
-                primaryColor: primaryColor,
-              ),
-            ),
-            pw.SizedBox(width: 10),
-            pw.Expanded(
-              child: _buildPage3MiniCard(
-                title: 'Monitoramento Wi-Fi',
-                subtitle: 'Geração 24h no app do celular.',
-                iconSvg: SolarPdfIcons.smartphone('#FFFFFF'),
-                primaryColor: primaryColor,
-              ),
-            ),
-            pw.SizedBox(width: 10),
-            pw.Expanded(
-              child: _buildPage3MiniCard(
-                title: 'Engenharia Turn-Key',
-                subtitle: 'Projeto executivo e homologação.',
-                iconSvg: SolarPdfIcons.shieldCheck('#FFFFFF'),
-                primaryColor: primaryColor,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -3412,19 +3488,19 @@ class SolarProposalPdfService {
     required PdfColor primaryColor,
   }) {
     return pw.Container(
-      height: 64,
+      height: 70,
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: pw.BoxDecoration(
-        color: PdfColor.fromHex('#F8FAFC'),
+        color: PdfColor.fromHex('#F1F5F9'),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-        border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.8),
+        border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.9),
       ),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.Container(
-            width: 24,
-            height: 24,
+            width: 30,
+            height: 30,
             decoration: pw.BoxDecoration(
               color: primaryColor,
               shape: pw.BoxShape.circle,
@@ -3432,8 +3508,8 @@ class SolarProposalPdfService {
             child: pw.Center(
               child: pw.SvgImage(
                 svg: iconSvg,
-                width: 13,
-                height: 13,
+                width: 15,
+                height: 15,
               ),
             ),
           ),
@@ -3445,12 +3521,20 @@ class SolarProposalPdfService {
               children: [
                 pw.Text(
                   title,
-                  style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+                  style: pw.TextStyle(
+                    fontSize: 9.2,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromHex('#0F172A'),
+                  ),
                 ),
                 pw.SizedBox(height: 2),
                 pw.Text(
                   subtitle,
-                  style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('#64748B'), height: 1.15),
+                  style: pw.TextStyle(
+                    fontSize: 7.6,
+                    color: PdfColor.fromHex('#334155'),
+                    height: 1.2,
+                  ),
                 ),
               ],
             ),
@@ -3468,47 +3552,58 @@ class SolarProposalPdfService {
     bool isBold = false,
   }) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 7.5, horizontal: 8),
+      padding: const pw.EdgeInsets.symmetric(vertical: 7.0, horizontal: 6),
       decoration: const pw.BoxDecoration(
-        border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFE2E8F0), width: 0.8)),
+        border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFCBD5E1), width: 0.7)),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          pw.Row(
-            children: [
-              pw.Container(
-                width: 24,
-                height: 24,
-                decoration: pw.BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
-                ),
-                child: pw.Center(
-                  child: pw.SvgImage(
-                    svg: svgIcon,
-                    width: 14,
-                    height: 14,
+          pw.Expanded(
+            flex: 5,
+            child: pw.Row(
+              children: [
+                pw.Container(
+                  width: 26,
+                  height: 26,
+                  decoration: pw.BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
+                  ),
+                  child: pw.Center(
+                    child: pw.SvgImage(
+                      svg: svgIcon,
+                      width: 14,
+                      height: 14,
+                    ),
                   ),
                 ),
-              ),
-              pw.SizedBox(width: 10),
-              pw.Text(
-                label,
-                style: pw.TextStyle(
-                  fontSize: 10.5,
-                  color: PdfColor.fromHex('#334155'),
-                  fontWeight: pw.FontWeight.bold,
+                pw.SizedBox(width: 10),
+                pw.Expanded(
+                  child: pw.Text(
+                    label,
+                    style: pw.TextStyle(
+                      fontSize: 10.8,
+                      color: PdfColor.fromHex('#0F172A'),
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          pw.Text(
-            value,
-            style: pw.TextStyle(
-              fontSize: 11,
-              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.bold,
-              color: PdfColor.fromHex('#0F172A'),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            flex: 5,
+            child: pw.Text(
+              value,
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(
+                fontSize: 11.2,
+                fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.bold,
+                color: PdfColor.fromHex('#0F172A'),
+              ),
             ),
           ),
         ],
@@ -3523,127 +3618,392 @@ class SolarProposalPdfService {
     required ProposalModel proposal,
     required ProposalItemModel solarPlantItem,
     required PdfColor primaryColor,
+    required PdfColor secondaryColor,
+    int modulesCount = 12,
+    int moduleWatts = 620,
+    String inverterModel = 'Inversor Solar Grid-Tie',
+    double inverterKw = 6.0,
+    String roofType = 'Fibrocimento',
   }) {
-    final components = solarPlantItem.solarComponents ?? [];
+    final rawComponents = solarPlantItem.solarComponents ?? [];
+    final List<String> equipmentItems = [];
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // Lista dos Itens
-        pw.Text(
-          'Equipamentos & Componentes Inclusos no Conjunto',
-          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
-        ),
-        pw.SizedBox(height: 10),
+    if (rawComponents.isNotEmpty) {
+      equipmentItems.addAll(rawComponents);
+      final joinedLower = rawComponents.join(' ').toLowerCase();
 
-        pw.Container(
-          width: double.infinity,
-          padding: const pw.EdgeInsets.all(14),
-          decoration: pw.BoxDecoration(
-            color: PdfColor.fromHex('#F8FAFC'),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
-            border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
+      if (!joinedLower.contains('estrutura') &&
+          !joinedLower.contains('perfil') &&
+          !joinedLower.contains('fixa')) {
+        equipmentItems.add('Estrutura de fixação para telha ${roofType.toLowerCase()}');
+      }
+      if (!joinedLower.contains('string') &&
+          !joinedLower.contains('dps') &&
+          !joinedLower.contains('proteção') &&
+          !joinedLower.contains('protecao')) {
+        equipmentItems.add('Quadro string box CC/CA com DPS e proteção');
+      }
+      if (!joinedLower.contains('cabo') && !joinedLower.contains('mc4')) {
+        equipmentItems.add('Cabos solares 1,8 kV com proteção UV e conectores MC4');
+      }
+      if (!joinedLower.contains('homolog') &&
+          !joinedLower.contains('engenharia') &&
+          !joinedLower.contains('projeto')) {
+        equipmentItems.add('Engenharia, projeto executivo, ART e homologação');
+      }
+    } else {
+      equipmentItems.addAll([
+        '$modulesCount× módulo fotovoltaico monocristalino $moduleWatts W Tier 1',
+        '$inverterModel (${inverterKw.toStringAsFixed(0)} kW) com monitoramento Wi-Fi',
+        'Estrutura de fixação para telha ${roofType.toLowerCase()}',
+        'Quadro string box CC/CA com DPS e proteção',
+        'Cabos solares 1,8 kV com proteção UV e conectores MC4',
+        'Engenharia, projeto executivo, ART e homologação',
+      ]);
+    }
+
+    final primaryHex = _pdfColorToHex(primaryColor);
+    final heroIllustrationSvg = '''
+<svg viewBox="0 0 330 200" width="215" height="130">
+  <circle cx="244" cy="62" r="43" fill="#164263"/>
+  <circle cx="244" cy="62" r="28" fill="$primaryHex"/>
+  <path d="M37 172h260M153 150v22m-37 0h75M218 123h31v25h15" fill="none" stroke="#71c4e5" stroke-width="3" stroke-linecap="round"/>
+  <polygon points="59.1,72 243.1,72 216.1,155 32.1,155" fill="#0a6f9e" stroke="#82d1ed" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M50.3 99 L234.3 99 M41.2 127 L225.2 127 M105.1 72 L78.1 155 M151.1 72 L124.1 155 M197.1 72 L170.1 155" fill="none" stroke="#82d1ed" stroke-width="2"/>
+  <rect x="264" y="111" width="43" height="54" rx="8" fill="#e1f5fc"/>
+  <rect x="274" y="122" width="23" height="12" rx="3" fill="$primaryHex"/>
+  <path d="M284 141l-5 7h6l-3 7 10-11h-7l3-3" fill="$primaryHex"/>
+</svg>
+''';
+
+    final isCompactList = equipmentItems.length > 6;
+    final rowVerticalPad = isCompactList ? 6.0 : 8.5;
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 26, vertical: 12),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // 1. Hero Banner Escuro com Ilustração Vetorial
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+            decoration: pw.BoxDecoration(
+              color: secondaryColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(14)),
+            ),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Expanded(
+                  flex: 55,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
+                    children: [
+                      pw.Text(
+                        'Equipamentos e\ncomponentes inclusos',
+                        style: pw.TextStyle(
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                          lineSpacing: 2,
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Conheça o conjunto fotovoltaico da sua proposta.',
+                        style: const pw.TextStyle(
+                          fontSize: 10.5,
+                          color: PdfColor.fromInt(0xFFC3E6F4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(width: 10),
+                pw.Expanded(
+                  flex: 45,
+                  child: pw.Center(
+                    child: pw.SvgImage(
+                      svg: heroIllustrationSvg,
+                      width: 205,
+                      height: 124,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              if (components.isNotEmpty)
-                ...components.map((item) {
-                  return pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 8),
+
+          pw.SizedBox(height: 14),
+
+          // 2. Seção: Itens inclusos no conjunto
+          pw.Text(
+            'Itens inclusos no conjunto',
+            style: pw.TextStyle(
+              fontSize: 15,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF102C49),
+            ),
+          ),
+          pw.SizedBox(height: 8),
+
+          pw.Container(
+            decoration: pw.BoxDecoration(
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
+              border: pw.Border.all(color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                for (int i = 0; i < equipmentItems.length; i++) ...[
+                  if (i > 0)
+                    pw.Container(
+                      height: 0.8,
+                      color: const PdfColor.fromInt(0xFFD8E5EE),
+                    ),
+                  pw.Container(
+                    padding: pw.EdgeInsets.symmetric(horizontal: 12, vertical: rowVerticalPad),
+                    decoration: pw.BoxDecoration(
+                      color: i.isEven
+                          ? const PdfColor.fromInt(0xFFF5F9FC)
+                          : PdfColors.white,
+                      borderRadius: i == 0
+                          ? const pw.BorderRadius.vertical(top: pw.Radius.circular(10))
+                          : (i == equipmentItems.length - 1
+                              ? const pw.BorderRadius.vertical(bottom: pw.Radius.circular(10))
+                              : null),
+                    ),
                     child: pw.Row(
                       crossAxisAlignment: pw.CrossAxisAlignment.center,
                       children: [
                         pw.Container(
-                          margin: const pw.EdgeInsets.only(right: 10),
-                          width: 22,
-                          height: 22,
+                          width: 26,
+                          height: 26,
                           decoration: pw.BoxDecoration(
                             color: primaryColor,
-                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
                           ),
                           child: pw.Center(
                             child: pw.SvgImage(
-                              svg: _getComponentIcon(item, '#FFFFFF'),
-                              width: 13,
-                              height: 13,
+                              svg: _getComponentIcon(equipmentItems[i], '#FFFFFF'),
+                              width: 15,
+                              height: 15,
                             ),
                           ),
                         ),
+                        pw.SizedBox(width: 11),
                         pw.Expanded(
                           child: pw.Text(
-                            item.toUpperCase(),
-                            style: pw.TextStyle(fontSize: 9.8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1E293B')),
+                            equipmentItems[i],
+                            style: pw.TextStyle(
+                              fontSize: isCompactList ? 9.5 : 10.5,
+                              fontWeight: pw.FontWeight.bold,
+                              color: const PdfColor.fromInt(0xFF102C49),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  );
-                })
-              else ...[
-                _buildDefaultEquipmentRow('1 x INVERSOR SOLAR DE ALTA EFICIÊNCIA GRID-TIE', SolarPdfIcons.inverter('#FFFFFF'), primaryColor),
-                _buildDefaultEquipmentRow('14 x MÓDULOS FOTOVOLTAICOS MONOCRISTALINOS TIER 1', SolarPdfIcons.solarPanel('#FFFFFF'), primaryColor),
-                _buildDefaultEquipmentRow('1 x ESTRUTURA DE FIXAÇÃO COMPLETA EM ALUMÍNIO', SolarPdfIcons.roof('#FFFFFF'), primaryColor),
-                _buildDefaultEquipmentRow('1 x CABOS SOLARES COM PROTEÇÃO UV E CONECTORES MC4', SolarPdfIcons.bolt('#FFFFFF'), primaryColor),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
 
-        pw.SizedBox(height: 24),
+          pw.Spacer(),
 
-        // Forma de Pagamento
-        pw.Text(
-          'Forma de Pagamento',
-          style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
-        ),
-        pw.SizedBox(height: 6),
-        pw.Container(width: double.infinity, height: 1, color: PdfColor.fromHex('#CBD5E1')),
-        pw.SizedBox(height: 8),
-        pw.Text(
-          proposal.paymentTerms.isNotEmpty ? proposal.paymentTerms : 'À Vista, Financiamento Bancário em até 90x ou Cartão de Crédito em até 18x',
-          style: pw.TextStyle(fontSize: 10.5, color: PdfColor.fromHex('#475569')),
-        ),
-
-        pw.Spacer(),
-
-        // Total da Proposta & Prazo de Entrega
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: pw.BoxDecoration(
-            color: PdfColor.fromHex('#F8FAFC'),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-            border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
+          // 3. Seção: Formas de pagamento (2 Cards Lado a Lado)
+          pw.Text(
+            'Formas de pagamento',
+            style: pw.TextStyle(
+              fontSize: 15,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF102C49),
+            ),
           ),
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          pw.SizedBox(height: 8),
+
+          pw.Row(
             children: [
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('Investimento Total da Usina', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#64748B'))),
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    _currencyFormat.format(proposal.totalAmount),
-                    style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#059669')),
+              // Opção 1: À vista via Pix
+              pw.Expanded(
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  decoration: pw.BoxDecoration(
+                    color: const PdfColor.fromInt(0xFFEEF6FA),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
+                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
                   ),
-                ],
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Container(
+                        width: 26,
+                        height: 26,
+                        decoration: pw.BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
+                        ),
+                        child: pw.Center(
+                          child: pw.SvgImage(
+                            svg: SolarPdfIcons.pix('#FFFFFF'),
+                            width: 15,
+                            height: 15,
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(width: 10),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'À vista via Pix',
+                              style: pw.TextStyle(
+                                fontSize: 11.2,
+                                fontWeight: pw.FontWeight.bold,
+                                color: const PdfColor.fromInt(0xFF102C49),
+                              ),
+                            ),
+                            pw.SizedBox(height: 3),
+                            pw.Text(
+                              '5% de desconto',
+                              style: pw.TextStyle(
+                                fontSize: 10.2,
+                                fontWeight: pw.FontWeight.bold,
+                                color: const PdfColor.fromInt(0xFF087344),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Text('Prazo de Entrega', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#64748B'))),
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    (proposal.deliveryTime != null && proposal.deliveryTime!.isNotEmpty) ? proposal.deliveryTime! : '60 dias',
-                    style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+              pw.SizedBox(width: 10),
+
+              // Opção 2: Financiamento solar
+              pw.Expanded(
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  decoration: pw.BoxDecoration(
+                    color: const PdfColor.fromInt(0xFFEEF6FA),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
+                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
                   ),
-                ],
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Container(
+                        width: 26,
+                        height: 26,
+                        decoration: pw.BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
+                        ),
+                        child: pw.Center(
+                          child: pw.SvgImage(
+                            svg: SolarPdfIcons.bank('#FFFFFF'),
+                            width: 15,
+                            height: 15,
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(width: 10),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Financiamento solar',
+                              style: pw.TextStyle(
+                                fontSize: 11.2,
+                                fontWeight: pw.FontWeight.bold,
+                                color: const PdfColor.fromInt(0xFF102C49),
+                              ),
+                            ),
+                            pw.SizedBox(height: 3),
+                            pw.Text(
+                              'Financiamento bancário',
+                              style: const pw.TextStyle(
+                                fontSize: 10.2,
+                                color: PdfColor.fromInt(0xFF48627A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-        ),
-      ],
+
+          pw.SizedBox(height: 14),
+
+          // 4. Barra de Resumo Inferior: Investimento Total & Prazo de Entrega
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            decoration: pw.BoxDecoration(
+              color: secondaryColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Investimento total da usina',
+                      style: const pw.TextStyle(
+                        fontSize: 9.5,
+                        color: PdfColor.fromInt(0xFFC3E6F4),
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      _currencyFormat.format(proposal.totalAmount),
+                      style: pw.TextStyle(
+                        fontSize: 20.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'Prazo de entrega',
+                      style: const pw.TextStyle(
+                        fontSize: 9.5,
+                        color: PdfColor.fromInt(0xFFC3E6F4),
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      (proposal.deliveryTime != null && proposal.deliveryTime!.isNotEmpty)
+                          ? proposal.deliveryTime!
+                          : 'Imediata / 3 a 5 dias úteis',
+                      style: pw.TextStyle(
+                        fontSize: 12.0,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3657,137 +4017,405 @@ class SolarProposalPdfService {
     required double generationDaily,
     required double kwp,
     required PdfColor primaryColor,
+    required PdfColor secondaryColor,
   }) {
     final yearlyData = settings.calculateYearlySimulation(
       monthlyKwh: generationMonthly,
       systemKwp: kwp,
     );
 
+    final rows21 = yearlyData.take(21).toList();
+    final startYear = rows21.isNotEmpty ? rows21.first.year : DateTime.now().year;
+    final endYear = rows21.isNotEmpty ? rows21.last.year : (DateTime.now().year + 20);
+
     final totalWithoutSolar = yearlyData.fold(0.0, (prev, item) => prev + (item.withoutSolar * 12));
-    final totalWithSolar = yearlyData.fold(0.0, (prev, item) => prev + (((item.withSolarMin + item.withSolarMax) / 2) * 12));
-    final firstYearSavings = (yearlyData.first.withoutSolar * 12) - (((yearlyData.first.withSolarMin + yearlyData.first.withSolarMax) / 2) * 12);
+    final totalWithSolar = yearlyData.fold(
+        0.0, (prev, item) => prev + (((item.withSolarMin + item.withSolarMax) / 2) * 12));
+    final firstYearSavings = (yearlyData.first.withoutSolar * 12) -
+        (((yearlyData.first.withSolarMin + yearlyData.first.withSolarMax) / 2) * 12);
     final totalSavings = totalWithoutSolar - totalWithSolar;
-    final paybackMonths = ((proposal.totalAmount / (firstYearSavings / 12)).round()).clamp(12, 60);
+    final paybackMonths =
+        ((proposal.totalAmount / (firstYearSavings / 12)).round()).clamp(12, 60);
 
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // ── Coluna Esquerda: Cards de Parâmetros e Economia ──
-        pw.Expanded(
-          flex: 5,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+    final autoConsumptionDaily = generationDaily * (settings.simultaneityRate / 100.0);
+    final dailyInjection = generationDaily * (1.0 - (settings.simultaneityRate / 100.0));
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // 1. Banner Principal Escuro
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+            decoration: pw.BoxDecoration(
+              color: secondaryColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+            ),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Container(
+                  width: 24,
+                  height: 24,
+                  decoration: pw.BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Center(
+                    child: pw.SvgImage(
+                      svg: SolarPdfIcons.trendingUp('#FFFFFF', size: 14),
+                      width: 14,
+                      height: 14,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 12),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Simulação de economia com energia solar',
+                        style: pw.TextStyle(
+                          fontSize: 17.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                      pw.SizedBox(height: 2.5),
+                      pw.Text(
+                        'Projeção da conta de energia elétrica de $startYear a $endYear',
+                        style: const pw.TextStyle(
+                          fontSize: 9.0,
+                          color: PdfColor.fromInt(0xFFCBD5E1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 8),
+
+          // 2. Linha com os 4 KPI Cards de Indicadores
+          pw.Row(
             children: [
-              // Card 1: Simultaneidade
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-                  border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
-                ),
-                child: pw.Column(
-                  children: [
-                    _buildParamHeader('Simultaneidade', primaryColor),
-                    _buildParamRow('Concessionária', settings.utilityCompany),
-                    _buildParamRow('Simultaneidade', '${settings.simultaneityRate.toStringAsFixed(0)}%'),
-                    _buildParamRow('Inflação Anual', '${settings.annualInflation.toStringAsFixed(0)}%'),
-                    _buildParamRow('Consumo Mensal', '${_numberFormat.format(generationMonthly)} kWh'),
-                    _buildParamRow('Consumo Diário', '${(generationDaily).toStringAsFixed(2)} kWh'),
-                    _buildParamRow('Autoconsumo', '${(generationDaily * (settings.simultaneityRate / 100)).toStringAsFixed(2)} kWh'),
-                    _buildParamRow('Geração Mensal', '${_numberFormat.format(generationMonthly)} kWh'),
-                    _buildParamRow('Geração Diária', '${generationDaily.toStringAsFixed(2)} kWh'),
-                    _buildParamRow('Injeção Diária', '${(generationDaily * (1 - (settings.simultaneityRate / 100))).toStringAsFixed(2)} kWh', isLast: true),
-                  ],
+              pw.Expanded(
+                child: _buildEconomyKpiCard(
+                  label: 'Economia no 1º ano',
+                  value: _currencyFormat.format(firstYearSavings),
+                  svgIcon: SolarPdfIcons.bolt('#FFFFFF'),
+                  primaryColor: primaryColor,
                 ),
               ),
-              pw.SizedBox(height: 10),
-
-              // Card 2: Gasto com Energia até 2046
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-                  border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
-                ),
-                child: pw.Column(
-                  children: [
-                    _buildParamHeader('Gasto Total até ${DateTime.now().year + settings.projectionYears - 1}', primaryColor),
-                    _buildParamRow('Sem Energia Solar', _currencyFormat.format(totalWithoutSolar)),
-                    _buildParamRow('Com Energia Solar', _currencyFormat.format(totalWithSolar), isLast: true),
-                  ],
+              pw.SizedBox(width: 8),
+              pw.Expanded(
+                child: _buildEconomyKpiCard(
+                  label: 'Economia acumulada',
+                  value: _currencyFormat.format(totalSavings),
+                  svgIcon: SolarPdfIcons.trendingUp('#FFFFFF'),
+                  primaryColor: primaryColor,
                 ),
               ),
-              pw.SizedBox(height: 10),
-
-              // Card 3: Simulação média de economia
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-                  border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
+              pw.SizedBox(width: 8),
+              pw.Expanded(
+                child: _buildEconomyKpiCard(
+                  label: 'Investimento',
+                  value: _currencyFormat.format(proposal.totalAmount),
+                  svgIcon: SolarPdfIcons.calendarTable('#FFFFFF'),
+                  primaryColor: primaryColor,
                 ),
-                child: pw.Column(
-                  children: [
-                    _buildParamHeader('Simulação Média de Economia', primaryColor),
-                    _buildParamRow('Economia 1º ano', _currencyFormat.format(firstYearSavings)),
-                    _buildParamRow('Economia acumulada', _currencyFormat.format(totalSavings)),
-                    _buildParamRow('Investimento', _currencyFormat.format(proposal.totalAmount)),
-                    _buildParamRow('Tempo de Payback', '$paybackMonths Meses', isLast: true),
-                  ],
+              ),
+              pw.SizedBox(width: 8),
+              pw.Expanded(
+                child: _buildEconomyKpiCard(
+                  label: 'Tempo de payback',
+                  value: '$paybackMonths meses',
+                  svgIcon: SolarPdfIcons.clock('#FFFFFF'),
+                  primaryColor: primaryColor,
                 ),
               ),
             ],
           ),
-        ),
+          pw.SizedBox(height: 8),
 
-        pw.SizedBox(width: 14),
+          // 3. Bloco Duplo Central: Premissas da Simulação (Esquerda) + Gasto Total (Direita)
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Card Esquerdo: Premissas da simulação (2 colunas internas)
+              pw.Expanded(
+                flex: 65,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.white,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Row(
+                        children: [
+                          pw.Container(
+                            width: 20,
+                            height: 20,
+                            decoration: pw.BoxDecoration(
+                              color: primaryColor,
+                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                            ),
+                            child: pw.Center(
+                              child: pw.SvgImage(
+                                svg: SolarPdfIcons.bolt('#FFFFFF'),
+                                width: 11,
+                                height: 11,
+                              ),
+                            ),
+                          ),
+                          pw.SizedBox(width: 7),
+                          pw.Text(
+                            'Premissas da simulação',
+                            style: pw.TextStyle(
+                              fontSize: 10.0,
+                              fontWeight: pw.FontWeight.bold,
+                              color: const PdfColor.fromInt(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Expanded(
+                            child: pw.Column(
+                              children: [
+                                _buildParamRow('Concessionária', settings.utilityCompany),
+                                _buildParamRow('Simultaneidade',
+                                    '${settings.simultaneityRate.toStringAsFixed(0)}%'),
+                                _buildParamRow('Inflação anual',
+                                    '${settings.annualInflation.toStringAsFixed(0)}%'),
+                                _buildParamRow('Consumo mensal',
+                                    '${_numberFormat.format(generationMonthly)} kWh'),
+                                _buildParamRow(
+                                    'Consumo diário',
+                                    '${generationDaily.toStringAsFixed(2).replaceAll('.', ',')} kWh',
+                                    isLast: true),
+                              ],
+                            ),
+                          ),
+                          pw.SizedBox(width: 14),
+                          pw.Expanded(
+                            child: pw.Column(
+                              children: [
+                                _buildParamRow(
+                                    'Autoconsumo',
+                                    '${autoConsumptionDaily.toStringAsFixed(2).replaceAll('.', ',')} kWh'),
+                                _buildParamRow('Geração mensal',
+                                    '${_numberFormat.format(generationMonthly)} kWh'),
+                                _buildParamRow(
+                                    'Geração diária',
+                                    '${generationDaily.toStringAsFixed(2).replaceAll('.', ',')} kWh'),
+                                _buildParamRow(
+                                    'Injeção diária',
+                                    '${dailyInjection.toStringAsFixed(2).replaceAll('.', ',')} kWh',
+                                    isLast: true),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.SizedBox(width: 8),
 
-        // ── Coluna Direita: Tabela Ano a Ano ──
-        pw.Expanded(
-          flex: 6,
-          child: pw.Container(
+              // Card Direito: Gasto total até 2046
+              pw.Expanded(
+                flex: 35,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.white,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      pw.Row(
+                        children: [
+                          pw.Container(
+                            width: 20,
+                            height: 20,
+                            decoration: pw.BoxDecoration(
+                              color: primaryColor,
+                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                            ),
+                            child: pw.Center(
+                              child: pw.SvgImage(
+                                svg: SolarPdfIcons.trendingUp('#FFFFFF'),
+                                width: 11,
+                                height: 11,
+                              ),
+                            ),
+                          ),
+                          pw.SizedBox(width: 7),
+                          pw.Text(
+                            'Gasto total até $endYear',
+                            style: pw.TextStyle(
+                              fontSize: 10.0,
+                              fontWeight: pw.FontWeight.bold,
+                              color: const PdfColor.fromInt(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6.5),
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColor.fromInt(0xFFEEF2F6),
+                          borderRadius: pw.BorderRadius.all(pw.Radius.circular(6)),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Sem energia solar',
+                              style: const pw.TextStyle(
+                                fontSize: 7.0,
+                                color: PdfColor.fromInt(0xFF64748B),
+                              ),
+                            ),
+                            pw.SizedBox(height: 2),
+                            pw.Text(
+                              _currencyFormat.format(totalWithoutSolar),
+                              style: pw.TextStyle(
+                                fontSize: 11.2,
+                                fontWeight: pw.FontWeight.bold,
+                                color: const PdfColor.fromInt(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6.5),
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColor.fromInt(0xFFE8F8EE),
+                          borderRadius: pw.BorderRadius.all(pw.Radius.circular(6)),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Com energia solar',
+                              style: const pw.TextStyle(
+                                fontSize: 7.0,
+                                color: PdfColor.fromInt(0xFF15803D),
+                              ),
+                            ),
+                            pw.SizedBox(height: 2),
+                            pw.Text(
+                              _currencyFormat.format(totalWithSolar),
+                              style: pw.TextStyle(
+                                fontSize: 11.2,
+                                fontWeight: pw.FontWeight.bold,
+                                color: const PdfColor.fromInt(0xFF15803D),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+
+          // 4. Tabela Principal Full-Width: Simulação da conta de energia elétrica
+          pw.Container(
             decoration: pw.BoxDecoration(
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-              border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
+              border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
             ),
             child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                // Header Principal no padrão dos cards
-                _buildParamHeader('Simulação de Conta de Energia Elétrica', primaryColor),
-
-                // Sub-header das Colunas
+                // Cabeçalho Azul com Ícone
                 pw.Container(
-                  decoration: const pw.BoxDecoration(
-                    color: PdfColor.fromInt(0xFF334155),
-                    border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFCBD5E1), width: 0.5)),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
+                  decoration: pw.BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: const pw.BorderRadius.vertical(top: pw.Radius.circular(7.5)),
                   ),
                   child: pw.Row(
                     children: [
-                      pw.Container(
-                        width: 38,
-                        padding: const pw.EdgeInsets.symmetric(vertical: 3.5),
+                      pw.SvgImage(
+                        svg: SolarPdfIcons.calendarTable('#FFFFFF', size: 13),
+                        width: 13,
+                        height: 13,
+                      ),
+                      pw.SizedBox(width: 8),
+                      pw.Text(
+                        'Simulação da conta de energia elétrica',
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 10.2,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Sub-header Escuro
+                pw.Container(
+                  color: secondaryColor,
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4.5),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(
+                        flex: 18,
                         child: pw.Text(
                           'ANO',
                           textAlign: pw.TextAlign.center,
-                          style: pw.TextStyle(color: PdfColors.white, fontSize: 7, fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Expanded(
-                        child: pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                          alignment: pw.Alignment.center,
-                          child: pw.Text(
-                            'COM SOLAR (VARIAÇÃO)',
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(color: const PdfColor.fromInt(0xFF86EFAC), fontSize: 7, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 7.2,
+                            fontWeight: pw.FontWeight.bold,
                           ),
                         ),
                       ),
                       pw.Expanded(
-                        child: pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 4),
-                          alignment: pw.Alignment.center,
-                          child: pw.Text(
-                            'SEM SOLAR',
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(color: PdfColors.white, fontSize: 7, fontWeight: pw.FontWeight.bold),
+                        flex: 54,
+                        child: pw.Text(
+                          'COM SOLAR (VARIAÇÃO)',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 7.2,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      pw.Expanded(
+                        flex: 28,
+                        child: pw.Text(
+                          'SEM SOLAR',
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 7.2,
+                            fontWeight: pw.FontWeight.bold,
                           ),
                         ),
                       ),
@@ -3795,85 +4423,163 @@ class SolarProposalPdfService {
                   ),
                 ),
 
-                // Linhas da Tabela
-                ...yearlyData.take(21).map((item) {
-                  final isLast = item == yearlyData.take(21).last;
-                  return pw.Container(
+                // 21 Linhas Zebradas
+                for (int idx = 0; idx < rows21.length; idx++)
+                  pw.Container(
                     decoration: pw.BoxDecoration(
-                      border: isLast ? null : const pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFE2E8F0), width: 0.5)),
+                      border: idx == rows21.length - 1
+                          ? null
+                          : const pw.Border(
+                              bottom: pw.BorderSide(
+                                color: PdfColor.fromInt(0xFFE2E8F0),
+                                width: 0.4,
+                              ),
+                            ),
                     ),
                     child: pw.Row(
                       children: [
-                        pw.Container(
-                          width: 38,
-                          padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
-                          child: pw.Text('${item.year}', textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
-                        ),
                         pw.Expanded(
+                          flex: 18,
                           child: pw.Container(
-                            padding: const pw.EdgeInsets.symmetric(vertical: 2.5, horizontal: 4),
-                            color: const PdfColor.fromInt(0xFFF0FDF4),
+                            padding: const pw.EdgeInsets.symmetric(vertical: 3.1),
+                            color: idx.isEven
+                                ? PdfColors.white
+                                : const PdfColor.fromInt(0xFFF8FAFC),
                             child: pw.Text(
-                              '${_currencyFormat.format(item.withSolarMin)} à ${_currencyFormat.format(item.withSolarMax)}',
+                              '${rows21[idx].year}',
                               textAlign: pw.TextAlign.center,
-                              style: pw.TextStyle(fontSize: 7.5, color: const PdfColor.fromInt(0xFF15803D), fontWeight: pw.FontWeight.bold),
+                              style: pw.TextStyle(
+                                fontSize: 7.5,
+                                fontWeight: pw.FontWeight.bold,
+                                color: const PdfColor.fromInt(0xFF0F172A),
+                              ),
                             ),
                           ),
                         ),
                         pw.Expanded(
+                          flex: 54,
                           child: pw.Container(
-                            padding: const pw.EdgeInsets.symmetric(vertical: 2.5, horizontal: 4),
-                            color: const PdfColor.fromInt(0xFFF1F5F9),
+                            padding: const pw.EdgeInsets.symmetric(vertical: 3.1, horizontal: 4),
+                            color: idx.isEven
+                                ? const PdfColor.fromInt(0xFFE2F5EA)
+                                : const PdfColor.fromInt(0xFFEDF9F2),
                             child: pw.Text(
-                              _currencyFormat.format(item.withoutSolar),
+                              '${_currencyFormat.format(rows21[idx].withSolarMin)} a ${_currencyFormat.format(rows21[idx].withSolarMax)}',
                               textAlign: pw.TextAlign.center,
-                              style: const pw.TextStyle(fontSize: 7.5, color: PdfColor.fromInt(0xFF334155)),
+                              style: pw.TextStyle(
+                                fontSize: 7.5,
+                                color: const PdfColor.fromInt(0xFF15803D),
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        pw.Expanded(
+                          flex: 28,
+                          child: pw.Container(
+                            padding: const pw.EdgeInsets.symmetric(vertical: 3.1, horizontal: 4),
+                            color: idx.isEven
+                                ? PdfColors.white
+                                : const PdfColor.fromInt(0xFFF8FAFC),
+                            child: pw.Text(
+                              _currencyFormat.format(rows21[idx].withoutSolar),
+                              textAlign: pw.TextAlign.center,
+                              style: const pw.TextStyle(
+                                fontSize: 7.5,
+                                color: PdfColor.fromInt(0xFF1E293B),
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                  );
-                }),
+                  ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  static pw.Widget _buildParamHeader(String title, PdfColor primaryColor) {
+  static pw.Widget _buildEconomyKpiCard({
+    required String label,
+    required String value,
+    required String svgIcon,
+    required PdfColor primaryColor,
+  }) {
     return pw.Container(
-      width: double.infinity,
-      padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7.5),
       decoration: pw.BoxDecoration(
-        color: primaryColor,
-        borderRadius: const pw.BorderRadius.vertical(top: pw.Radius.circular(6)),
+        color: PdfColors.white,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+        border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
       ),
-      child: pw.Text(
-        title,
-        textAlign: pw.TextAlign.center,
-        style: pw.TextStyle(color: PdfColors.white, fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Container(
+            width: 20,
+            height: 20,
+            decoration: pw.BoxDecoration(
+              color: primaryColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+            ),
+            child: pw.Center(
+              child: pw.SvgImage(
+                svg: svgIcon,
+                width: 11.5,
+                height: 11.5,
+              ),
+            ),
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(
+              fontSize: 7.2,
+              color: PdfColor.fromInt(0xFF64748B),
+            ),
+          ),
+          pw.SizedBox(height: 1.5),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 11.8,
+              fontWeight: pw.FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   static pw.Widget _buildParamRow(String label, String value, {bool isLast = false}) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2.5, horizontal: 6),
+      padding: const pw.EdgeInsets.symmetric(vertical: 2.8, horizontal: 2),
       decoration: pw.BoxDecoration(
-        border: isLast ? null : const pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFE2E8F0), width: 0.5)),
+        border: isLast
+            ? null
+            : const pw.Border(
+                bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF1F5F9), width: 0.6),
+              ),
       ),
       child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Expanded(
-            flex: 6,
-            child: pw.Text(label, style: const pw.TextStyle(fontSize: 7.5, color: PdfColor.fromInt(0xFF475569))),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 7.4, color: PdfColor.fromInt(0xFF64748B)),
           ),
-          pw.Expanded(
-            flex: 6,
-            child: pw.Text(value, textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 7.5, color: const PdfColor.fromInt(0xFF0F172A), fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            value,
+            textAlign: pw.TextAlign.right,
+            style: pw.TextStyle(
+              fontSize: 7.4,
+              color: const PdfColor.fromInt(0xFF0F172A),
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -3887,183 +4593,508 @@ class SolarProposalPdfService {
     required ProposalModel proposal,
     required SolarSettingsModel settings,
     required PdfColor primaryColor,
+    required PdfColor secondaryColor,
   }) {
     final activeBanks = settings.financingBanks.where((b) => b.isActive).toList();
+    final banksToRender = <SolarFinancingBank>[
+      activeBanks.isNotEmpty
+          ? activeBanks[0]
+          : const SolarFinancingBank(
+              id: 'solfacil',
+              name: 'SolFácil',
+              monthlyInterestRate: 1.25,
+              enabledInstallments: [12, 24, 36, 48, 60],
+            ),
+      activeBanks.length > 1
+          ? activeBanks[1]
+          : const SolarFinancingBank(
+              id: 'santander',
+              name: 'Santander',
+              monthlyInterestRate: 1.19,
+              enabledInstallments: [12, 24, 36, 48, 60],
+            ),
+      activeBanks.length > 2
+          ? activeBanks[2]
+          : const SolarFinancingBank(
+              id: 'sicredi',
+              name: 'Sicredi',
+              monthlyInterestRate: 1.15,
+              enabledInstallments: [12, 24, 36, 60, 90],
+            ),
+      activeBanks.length > 3
+          ? activeBanks[3]
+          : const SolarFinancingBank(
+              id: 'bv',
+              name: 'BV Financeira',
+              monthlyInterestRate: 1.09,
+              enabledInstallments: [12, 24, 36, 48, 60],
+            ),
+    ];
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Simulação de Financiamento Solar Bancário',
-          style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
-        ),
-        pw.SizedBox(height: 12),
+    final primaryHex = _pdfColorToHex(primaryColor);
 
-        // Grid dos Bancos (2x2)
-        pw.Row(
-          children: [
-            if (activeBanks.isNotEmpty)
-              pw.Expanded(child: _buildBankCard(activeBanks[0], proposal.totalAmount, primaryColor))
-            else
-              pw.Expanded(child: _buildBankCard(const SolarFinancingBank(id: 'solfacil', name: 'SolFácil', monthlyInterestRate: 1.25, enabledInstallments: [12, 24, 36, 48, 60]), proposal.totalAmount, primaryColor)),
-            pw.SizedBox(width: 14),
-            if (activeBanks.length > 1)
-              pw.Expanded(child: _buildBankCard(activeBanks[1], proposal.totalAmount, primaryColor))
-            else
-              pw.Expanded(child: _buildBankCard(const SolarFinancingBank(id: 'santander', name: 'Santander', monthlyInterestRate: 1.19, enabledInstallments: [12, 24, 36, 48, 60]), proposal.totalAmount, primaryColor)),
-          ],
-        ),
-        pw.SizedBox(height: 12),
+    final heroPanelSvg = '''
+<svg viewBox="0 0 210 120" width="170" height="96">
+  <circle cx="152" cy="36" r="30" fill="#164263"/>
+  <circle cx="152" cy="36" r="20" fill="#205E83"/>
+  <circle cx="152" cy="36" r="11" fill="#FBBF24"/>
+  <circle cx="98" cy="24" r="1.8" fill="#58C4F6"/>
+  <circle cx="192" cy="70" r="1.8" fill="#58C4F6"/>
+  <path d="M55 110 L155 110 M82 96 L76 110 M128 96 L134 110" stroke="#7DD3FC" stroke-width="2" stroke-linecap="round"/>
+  <polygon points="62,48 148,48 136,96 50,96" fill="#0A6F9E" stroke="#7DD3FC" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M58 64 L144 64 M54 80 L140 80 M83 48 L71 96 M105 48 L93 96 M127 48 L115 96" stroke="#7DD3FC" stroke-width="1.4"/>
+</svg>
+''';
 
-        pw.Row(
-          children: [
-            if (activeBanks.length > 2)
-              pw.Expanded(child: _buildBankCard(activeBanks[2], proposal.totalAmount, primaryColor))
-            else
-              pw.Expanded(child: _buildBankCard(const SolarFinancingBank(id: 'sicredi', name: 'Sicredi', monthlyInterestRate: 1.15, enabledInstallments: [12, 24, 36, 60, 90]), proposal.totalAmount, primaryColor)),
-            pw.SizedBox(width: 14),
-            if (activeBanks.length > 3)
-              pw.Expanded(child: _buildBankCard(activeBanks[3], proposal.totalAmount, primaryColor))
-            else
-              pw.Expanded(child: _buildBankCard(const SolarFinancingBank(id: 'bv', name: 'BV Financeira', monthlyInterestRate: 1.09, enabledInstallments: [12, 24, 36, 48, 60]), proposal.totalAmount, primaryColor)),
-          ],
-        ),
+    final cardIllustrationSvg = '''
+<svg viewBox="0 0 110 68" width="90" height="56">
+  <g transform="rotate(-10 55 34)">
+    <rect x="10" y="10" width="84" height="50" rx="8" fill="#1E73BE" stroke="#38BDF8" stroke-width="1.2"/>
+    <rect x="20" y="25" width="12" height="9" rx="2" fill="#FBBF24"/>
+    <circle cx="72" cy="24" r="3.5" fill="#7DD3FC" opacity="0.85"/>
+    <circle cx="77" cy="24" r="3.5" fill="#38BDF8" opacity="0.85"/>
+  </g>
+</svg>
+''';
 
-        pw.SizedBox(height: 22),
-
-        // Seção Cartão de Crédito
-        pw.Text(
-          'Parcelamento no Cartão de Crédito',
-          style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
-        ),
-        pw.SizedBox(height: 10),
-
-        pw.Container(
-          padding: const pw.EdgeInsets.all(14),
-          decoration: pw.BoxDecoration(
-            color: PdfColor.fromHex('#F8FAFC'),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-            border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
-          ),
-          child: pw.Row(
-            children: [
-              // Bandeiras Aceitas
-              pw.Expanded(
-                flex: 5,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('Bandeiras Aceitas:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#334155'))),
-                    pw.SizedBox(height: 6),
-                    pw.Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      children: ['VISA', 'MASTERCARD', 'ELO', 'AMEX', 'HIPERCARD', 'DINERS CLUB'].map((b) {
-                        return pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.white,
-                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                            border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
-                          ),
-                          child: pw.Text(b, style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-
-              pw.Container(width: 1, height: 75, color: PdfColor.fromHex('#CBD5E1')),
-              pw.SizedBox(width: 14),
-
-              // Parcelas
-              pw.Expanded(
-                flex: 5,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    ...[3, 6, 9, 12].map((installments) {
-                      final rateItem = settings.creditCardRates.firstWhere(
-                        (r) => r.installment == installments,
-                        orElse: () => CreditCardInstallmentRate(installment: installments, feePercentage: installments * 1.05),
-                      );
-                      final val = rateItem.calculateInstallmentValue(proposal.totalAmount);
-
-                      return pw.Padding(
-                        padding: const pw.EdgeInsets.only(bottom: 3),
-                        child: pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text('$installments' 'x no Cartão:', style: const pw.TextStyle(fontSize: 9, color: PdfColors.black)),
-                            pw.Text(
-                              _currencyFormat.format(val),
-                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildBankCard(SolarFinancingBank bank, double totalAmount, PdfColor primaryColor) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.white,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-        border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.8),
-      ),
-      child: pw.Row(
+      color: const PdfColor.fromInt(0xFFF3F7FA),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          // Logo / Nome do Banco
-          pw.Expanded(
-            flex: 4,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              mainAxisAlignment: pw.MainAxisAlignment.center,
+          // 1. Hero Banner Escuro
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+            decoration: pw.BoxDecoration(
+              color: secondaryColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(14)),
+            ),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Text(
-                  bank.name,
-                  style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold, color: primaryColor),
+                pw.Expanded(
+                  flex: 62,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'OPÇÕES DE PAGAMENTO',
+                        style: pw.TextStyle(
+                          fontSize: 7.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: const PdfColor.fromInt(0xFF38BDF8),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        'Simulação e\nparcelamento solar',
+                        style: pw.TextStyle(
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                          lineSpacing: 1.5,
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Compare o financiamento e as parcelas no cartão.',
+                        style: const pw.TextStyle(
+                          fontSize: 9.5,
+                          color: PdfColor.fromInt(0xFFCBD5E1),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                pw.SizedBox(height: 2),
-                pw.Text(
-                  'Taxa: ${bank.monthlyInterestRate.toStringAsFixed(2)}% a.m.',
-                  style: pw.TextStyle(fontSize: 7.5, color: PdfColor.fromHex('#64748B')),
+                pw.Expanded(
+                  flex: 38,
+                  child: pw.Align(
+                    alignment: pw.Alignment.centerRight,
+                    child: pw.SvgImage(
+                      svg: heroPanelSvg,
+                      width: 170,
+                      height: 96,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
 
-          pw.SizedBox(width: 8),
+          pw.SizedBox(height: 14),
 
-          // Prazos e Parcelas
-          pw.Expanded(
-            flex: 6,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
-              children: bank.enabledInstallments.take(5).map((months) {
-                final installmentVal = bank.calculateInstallment(totalAmount, months);
-                return pw.Padding(
-                  padding: const pw.EdgeInsets.only(bottom: 1.5),
-                  child: pw.Text(
-                    '$months' 'x de ${_currencyFormat.format(installmentVal)}',
-                    style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+          // 2. Seção Financiamento bancário
+          pw.Text(
+            'Financiamento bancário',
+            style: pw.TextStyle(
+              fontSize: 14.5,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF102C49),
+            ),
+          ),
+          pw.SizedBox(height: 10),
+
+          // Grid 2x2 dos Bancos
+          pw.Row(
+            children: [
+              pw.Expanded(child: _buildBankCard(banksToRender[0], proposal.totalAmount, primaryColor, primaryHex)),
+              pw.SizedBox(width: 12),
+              pw.Expanded(child: _buildBankCard(banksToRender[1], proposal.totalAmount, primaryColor, primaryHex)),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          pw.Row(
+            children: [
+              pw.Expanded(child: _buildBankCard(banksToRender[2], proposal.totalAmount, primaryColor, primaryHex)),
+              pw.SizedBox(width: 12),
+              pw.Expanded(child: _buildBankCard(banksToRender[3], proposal.totalAmount, primaryColor, primaryHex)),
+            ],
+          ),
+
+          pw.Spacer(),
+
+          // 3. Seção Parcelamento no cartão de crédito
+          pw.Text(
+            'Parcelamento no cartão de crédito',
+            style: pw.TextStyle(
+              fontSize: 14.5,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF102C49),
+            ),
+          ),
+          pw.SizedBox(height: 10),
+
+          pw.Container(
+            padding: const pw.EdgeInsets.all(16),
+            decoration: pw.BoxDecoration(
+              color: secondaryColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(14)),
+            ),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                // Lado Esquerdo: Ilustração + Bandeiras Aceitas
+                pw.Expanded(
+                  flex: 46,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.SvgImage(
+                        svg: cardIllustrationSvg,
+                        width: 90,
+                        height: 56,
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'BANDEIRAS ACEITAS',
+                        style: pw.TextStyle(
+                          fontSize: 7.2,
+                          fontWeight: pw.FontWeight.bold,
+                          color: const PdfColor.fromInt(0xFF38BDF8),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      pw.SizedBox(height: 7),
+                      pw.Row(
+                        children: ['VISA', 'MASTERCARD', 'ELO'].map((b) => _buildCardBrandBadge(b)).toList(),
+                      ),
+                      pw.SizedBox(height: 5),
+                      pw.Row(
+                        children: ['AMEX', 'HIPERCARD', 'DINERS CLUB'].map((b) => _buildCardBrandBadge(b)).toList(),
+                      ),
+                    ],
                   ),
-                );
-              }).toList(),
+                ),
+
+                pw.SizedBox(width: 14),
+
+                // Lado Direito: 4 Parcelas em Caixas Arredondadas
+                pw.Expanded(
+                  flex: 54,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      ...[3, 6, 9, 12].map((installments) {
+                        final rateItem = settings.creditCardRates.firstWhere(
+                          (r) => r.installment == installments,
+                          orElse: () => CreditCardInstallmentRate(
+                              installment: installments, feePercentage: installments * 1.05),
+                        );
+                        final val = rateItem.calculateInstallmentValue(proposal.totalAmount);
+
+                        return pw.Container(
+                          margin: pw.EdgeInsets.only(bottom: installments == 12 ? 0 : 6),
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
+                          decoration: pw.BoxDecoration(
+                            color: const PdfColor.fromInt(0xFF183B5E),
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                            border: pw.Border.all(
+                              color: const PdfColor.fromInt(0xFF284F78),
+                              width: 0.7,
+                            ),
+                          ),
+                          child: pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text(
+                                '$installments' 'x no cartão',
+                                style: const pw.TextStyle(
+                                  fontSize: 9.2,
+                                  color: PdfColor.fromInt(0xFFCBD5E1),
+                                ),
+                              ),
+                              pw.Text(
+                                _currencyFormat.format(val),
+                                style: pw.TextStyle(
+                                  fontSize: 12.0,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildCardBrandBadge(String brand) {
+    return pw.Expanded(
+      child: pw.Container(
+        margin: const pw.EdgeInsets.only(right: 5),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.5),
+        decoration: const pw.BoxDecoration(
+          color: PdfColors.white,
+          borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+        ),
+        child: pw.Center(
+          child: pw.Text(
+            brand,
+            style: pw.TextStyle(
+              fontSize: 6.5,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF102C49),
+            ),
+            maxLines: 1,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildBankCard(
+    SolarFinancingBank bank,
+    double totalAmount,
+    PdfColor primaryColor,
+    String primaryHex,
+  ) {
+    final lowerName = '${bank.id} ${bank.name}'.toLowerCase();
+    PdfColor ratePillBg = const PdfColor.fromInt(0xFFEFF6FF);
+    PdfColor ratePillText = const PdfColor.fromInt(0xFF0284C7);
+    if (lowerName.contains('solfacil') || lowerName.contains('solfácil') || lowerName.contains('sicredi')) {
+      ratePillBg = const PdfColor.fromInt(0xFFEAF7EE);
+      ratePillText = const PdfColor.fromInt(0xFF15803D);
+    } else if (lowerName.contains('santander')) {
+      ratePillBg = const PdfColor.fromInt(0xFFFEF2F2);
+      ratePillText = const PdfColor.fromInt(0xFFDC2626);
+    }
+
+    final installments = bank.enabledInstallments.take(5).toList();
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.white,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+        border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.9),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // Cabeçalho do Card: Logo à esquerda + Pílula da Taxa à direita
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              _buildBankLogoWidget(bank, primaryColor),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                decoration: pw.BoxDecoration(
+                  color: ratePillBg,
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                ),
+                child: pw.Text(
+                  '${bank.monthlyInterestRate.toStringAsFixed(2).replaceAll('.', ',')}% a.m.',
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: ratePillText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+
+          // Tabela de Parcelas (12x .. 60x/90x)
+          for (int i = 0; i < installments.length; i++)
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
+              decoration: pw.BoxDecoration(
+                color: i.isEven ? const PdfColor.fromInt(0xFFF4F8FB) : PdfColors.white,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    '${installments[i]}x',
+                    style: pw.TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: const PdfColor.fromInt(0xFF475569),
+                    ),
+                  ),
+                  pw.Text(
+                    _currencyFormat.format(bank.calculateInstallment(totalAmount, installments[i])),
+                    style: pw.TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: const PdfColor.fromInt(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildBankLogoWidget(SolarFinancingBank bank, PdfColor primaryColor) {
+    // 1. Se o usuário enviou logo customizada nas configurações, renderiza a imagem
+    if (bank.logoBase64 != null && bank.logoBase64!.trim().isNotEmpty) {
+      try {
+        final clean = bank.logoBase64!.contains(',')
+            ? bank.logoBase64!.split(',').last
+            : bank.logoBase64!;
+        final bytes = base64Decode(clean.trim());
+        if (bytes.isNotEmpty) {
+          return pw.SizedBox(
+            height: 22,
+            child: pw.Image(pw.MemoryImage(bytes), height: 22, fit: pw.BoxFit.contain),
+          );
+        }
+      } catch (_) {}
+    }
+
+    // 2. Logos vetoriais oficiais padrão para SolFácil, Santander, Sicredi e BV Financeira
+    final key = '${bank.id} ${bank.name}'.toLowerCase();
+
+    if (key.contains('solfacil') || key.contains('solfácil')) {
+      return pw.Row(
+        mainAxisSize: pw.MainAxisSize.min,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Text('s', style: const pw.TextStyle(fontSize: 17, color: PdfColor.fromInt(0xFF111827))),
+          pw.SizedBox(width: 1),
+          pw.SvgImage(
+            svg: '<svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="5" fill="#FACC15"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="#FACC15" stroke-width="2.4" stroke-linecap="round"/></svg>',
+            width: 15,
+            height: 15,
+          ),
+          pw.SizedBox(width: 1),
+          pw.Text('lfácil', style: const pw.TextStyle(fontSize: 17, color: PdfColor.fromInt(0xFF111827))),
+        ],
+      );
+    }
+
+    if (key.contains('santander')) {
+      return pw.Row(
+        mainAxisSize: pw.MainAxisSize.min,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.SvgImage(
+            svg: '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2c-.4 3.1-3.4 4.5-3.4 7.7 0 1.4.8 2.6 1.7 3.4-.5-1.3-.1-2.8 1-3.9.4 1.6 1.8 2.3 1.8 4.2 0 1.3-.7 2.4-1.7 3.2 2.9-.4 5.1-2.6 5.1-5.6 0-3.2-3.4-4.7-4.5-9zM7 11.2c-2.6.9-4.5 2.7-4.5 4.8 0 2.8 4.2 5 9.5 5s9.5-2.2 9.5-5c0-2-1.8-3.8-4.3-4.7.6 1.1.8 2.3.5 3.6-1.1 1.6-3.4 2.5-5.7 2.5-2.6 0-4.9-1.1-5.8-2.9-.2-1.1.1-2.2.8-3.3z" fill="#EC0000"/></svg>',
+            width: 16,
+            height: 16,
+          ),
+          pw.SizedBox(width: 5),
+          pw.Text(
+            'Santander',
+            style: pw.TextStyle(
+              fontSize: 14.5,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFFEC0000),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (key.contains('sicredi')) {
+      return pw.Row(
+        mainAxisSize: pw.MainAxisSize.min,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.SvgImage(
+            svg: '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none"/><path d="M12 2c2 3 2 6 0 8-2-2-2-5 0-8zM22 12c-3 2-6 2-8 0 2-2 5-2 8 0zM12 22c-2-3-2-6 0-8 2 2 2 5 0 8zM2 12c3-2 6-2 8 0-2 2-5 2-8 0zM19.1 4.9c-.7 3.5-2.8 5.6-5.6 5.6 0-2.8 2.1-4.9 5.6-5.6zM19.1 19.1c-3.5-.7-5.6-2.8-5.6-5.6 2.8 0 4.9 2.1 5.6 5.6zM4.9 19.1c.7-3.5 2.8-5.6 5.6-5.6 0 2.8-2.1 4.9-5.6 5.6zM4.9 4.9c3.5.7 5.6 2.8 5.6 5.6-2.8 0-4.9-2.1-5.6-5.6z" fill="#3FA110"/></svg>',
+            width: 16,
+            height: 16,
+          ),
+          pw.SizedBox(width: 5),
+          pw.Text(
+            'Sicredi',
+            style: pw.TextStyle(
+              fontSize: 15.5,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF3FA110),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (key.contains('bv')) {
+      return pw.Row(
+        mainAxisSize: pw.MainAxisSize.min,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.SvgImage(
+            svg: '<svg viewBox="0 0 28 24" width="22" height="18"><path d="M2 2h7c3 0 5 1.5 5 4.2 0 1.8-1 3.1-2.5 3.6 1.9.5 3 2 3 4.1 0 3-2.3 5.1-5.8 5.1H2V2zm4.2 6.4h2.4c1.2 0 1.9-.6 1.9-1.6s-.7-1.6-1.9-1.6H6.2v3.2zm0 7.2h2.8c1.4 0 2.2-.7 2.2-1.8 0-1.1-.8-1.8-2.2-1.8H6.2v3.6z" fill="#1D4ED8"/><path d="M13 6h4.2l3.1 9.5L23.4 6H27.5l-5.3 15h-4L13 6z" fill="#06B6D4"/></svg>',
+            width: 22,
+            height: 18,
+          ),
+          pw.SizedBox(width: 5),
+          pw.Text(
+            bank.name,
+            style: pw.TextStyle(
+              fontSize: 11.5,
+              fontWeight: pw.FontWeight.bold,
+              color: const PdfColor.fromInt(0xFF102C49),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 3. Fallback elegante para outras financeiras sem logo enviada
+    return pw.Text(
+      bank.name,
+      style: pw.TextStyle(
+        fontSize: 12.5,
+        fontWeight: pw.FontWeight.bold,
+        color: primaryColor,
       ),
     );
   }
@@ -4078,53 +5109,20 @@ class SolarProposalPdfService {
   static String _getComponentIcon(String item, String hex) {
     final upper = item.toUpperCase();
     if (upper.contains('INVERSOR') || upper.contains('MICRO')) {
-      return SolarPdfIcons.inverter(hex);
+      return SolarPdfIcons.inverterBox(hex);
     } else if (upper.contains('MÓDULO') || upper.contains('MODULO') || upper.contains('PAINEL') || upper.contains('PLACA') || upper.contains('FOTOVOLTAICO')) {
-      return SolarPdfIcons.solarPanel(hex);
-    } else if (upper.contains('ESTRUTURA') || upper.contains('PERFIL') || upper.contains('FIXAÇÃO') || upper.contains('FIXACAO') || upper.contains('TELHADO')) {
+      return SolarPdfIcons.panelGrid(hex);
+    } else if (upper.contains('ESTRUTURA') || upper.contains('PERFIL') || upper.contains('FIXAÇÃO') || upper.contains('FIXACAO') || upper.contains('TELHADO') || upper.contains('TELHA')) {
       return SolarPdfIcons.roof(hex);
     } else if (upper.contains('STRING') || upper.contains('DPS') || upper.contains('CHAVE') || upper.contains('QUADRO') || upper.contains('PROTEÇÃO') || upper.contains('PROTECAO')) {
       return SolarPdfIcons.shieldCheck(hex);
     } else if (upper.contains('CABO') || upper.contains('CONECTOR') || upper.contains('MC4')) {
-      return SolarPdfIcons.bolt(hex);
+      return SolarPdfIcons.cablePlug(hex);
     } else if (upper.contains('HOMOLOGAÇÃO') || upper.contains('HOMOLOGACAO') || upper.contains('ENGENHARIA') || upper.contains('PROJETO') || upper.contains('ART')) {
-      return SolarPdfIcons.award(hex);
+      return SolarPdfIcons.documentFile(hex);
     } else {
       return SolarPdfIcons.solarTech(hex);
     }
-  }
-
-  static pw.Widget _buildDefaultEquipmentRow(String text, String svg, PdfColor primaryColor) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 8),
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Container(
-            margin: const pw.EdgeInsets.only(right: 10),
-            width: 22,
-            height: 22,
-            decoration: pw.BoxDecoration(
-              color: primaryColor,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Center(
-              child: pw.SvgImage(
-                svg: svg,
-                width: 13,
-                height: 13,
-              ),
-            ),
-          ),
-          pw.Expanded(
-            child: pw.Text(
-              text,
-              style: pw.TextStyle(fontSize: 9.8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1E293B')),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -4237,6 +5235,68 @@ class SolarPdfIcons {
     '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
     color: color,
     size: size,
+  );
+
+  /// 16. Tabela / Calendário Financeiro
+  static String calendarTable(String color, {int size = 24}) => _svgWrap(
+    '<rect width="18" height="16" x="3" y="4" rx="2"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="16" x2="16" y1="2" y2="6"/>',
+    color: color,
+    size: size,
+  );
+
+  /// 17. Relógio / Payback
+  static String clock(String color, {int size = 24}) => _svgWrap(
+    '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+    color: color,
+    size: size,
+  );
+
+  /// 18. Painel Solar 3x2 (Lista de Equipamentos)
+  static String panelGrid(String color, {int size = 24}) => _svgWrap(
+    '<path d="M3 5h18v14H3zM3 12h18M9 5v14m6-14v14"/>',
+    color: color,
+    size: size,
+    strokeWidth: 1.65,
+  );
+
+  /// 19. Inversor com Raio (Lista de Equipamentos)
+  static String inverterBox(String color, {int size = 24}) => _svgWrap(
+    '<path d="M6 3h12v18H6zM9 7h6m-3 3-3 5h4l-1 3"/>',
+    color: color,
+    size: size,
+    strokeWidth: 1.65,
+  );
+
+  /// 20. Cabo Solar / Conector MC4 (Lista de Equipamentos)
+  static String cablePlug(String color, {int size = 24}) => _svgWrap(
+    '<path d="M7 3v5m4-5v5M5 8h8v3a4 4 0 0 1-8 0zm4 7v2a3 3 0 0 0 6 0v-3a3 3 0 0 1 6 0v5"/>',
+    color: color,
+    size: size,
+    strokeWidth: 1.65,
+  );
+
+  /// 21. Documento / Projeto Executivo & ART
+  static String documentFile(String color, {int size = 24}) => _svgWrap(
+    '<path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6"/>',
+    color: color,
+    size: size,
+    strokeWidth: 1.65,
+  );
+
+  /// 22. Ícone Pix
+  static String pix(String color, {int size = 24}) => _svgWrap(
+    '<path d="M12 3l9 9-9 9-9-9zm-5 9 5 5 5-5m-10 0 5-5 5 5"/>',
+    color: color,
+    size: size,
+    strokeWidth: 1.65,
+  );
+
+  /// 23. Ícone Banco / Financiamento
+  static String bank(String color, {int size = 24}) => _svgWrap(
+    '<path d="M3 9l9-5 9 5H3zm3 3v6m6-6v6m6-6v6M3 21h18"/>',
+    color: color,
+    size: size,
+    strokeWidth: 1.65,
   );
 }
 

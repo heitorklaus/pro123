@@ -5,6 +5,35 @@ import '../models/proposal_dto.dart';
 class FirebaseStorageService {
   static const String bucketName = 'solardino-aea02.appspot.com';
 
+  /// Faz upload genérico de um arquivo PDF (ex: Boletos GD) para o Firebase Storage
+  static Future<String?> uploadPdf({
+    required Uint8List pdfBytes,
+    required String fileName,
+  }) async {
+    try {
+      final encodedPath = Uri.encodeComponent(fileName);
+      final uploadUrl = Uri.parse(
+        'https://firebasestorage.googleapis.com/v0/b/$bucketName/o?uploadType=media&name=$encodedPath',
+      );
+
+      final response = await http
+          .post(
+            uploadUrl,
+            headers: {'Content-Type': 'application/pdf'},
+            body: pdfBytes,
+          )
+          .timeout(const Duration(seconds: 25));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return 'https://firebasestorage.googleapis.com/v0/b/$bucketName/o/$encodedPath?alt=media';
+      }
+      return null;
+    } catch (e) {
+      print('⚠️ [FirebaseStorageService] Erro uploadPdf: $e');
+      return null;
+    }
+  }
+
   /// Faz upload do arquivo PDF gerado para o Firebase Storage
   static Future<Map<String, String>?> uploadProposalPdf({
     required Uint8List pdfBytes,

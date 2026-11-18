@@ -275,10 +275,14 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 16,
+                runSpacing: 10,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 620),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -302,6 +306,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                   ),
                   Wrap(
                     spacing: 14,
+                    runSpacing: 6,
                     children: [
                       _buildLegendDot(
                         'Consumo Mensal (kWh)',
@@ -675,52 +680,108 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
     required Color color,
   }) {
     final ratio = (valueKwh / maxKwh).clamp(0.02, 1.0);
-    return Row(
-      children: [
-        SizedBox(
-          width: 210,
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: const Color(0xFFCBD5E1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobileBar = constraints.maxWidth < 480;
+        if (isMobileBar) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        color: const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_numFmt.format(valueKwh)} kWh',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  height: 10,
+                  color: const Color(0xFF1E293B),
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: ratio,
+                    child: Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            SizedBox(
+              width: 210,
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFFCBD5E1),
+                ),
+              ),
             ),
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              height: 12,
-              color: const Color(0xFF1E293B),
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: ratio,
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
                 child: Container(
                   height: 12,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(6),
+                  color: const Color(0xFF1E293B),
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: ratio,
+                    child: Container(
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 95,
-          child: Text(
-            '${_numFmt.format(valueKwh)} kWh',
-            textAlign: TextAlign.right,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 95,
+              child: Text(
+                '${_numFmt.format(valueKwh)} kWh',
+                textAlign: TextAlign.right,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
