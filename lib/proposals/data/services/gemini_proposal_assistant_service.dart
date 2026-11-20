@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import '../../../clients/domain/models/client_model.dart';
 import '../../../products/data/services/gemini_solar_vision_service.dart';
 import '../../../products/data/services/solar_proposal_parser_service.dart';
 import '../../../settings/data/services/ai_agent_settings_service.dart';
+import '../../../settings/data/services/ai_usage_telemetry_service.dart';
 import '../../../settings/domain/models/ai_agent_settings_model.dart';
 import '../../domain/models/proposal_item_model.dart';
 
@@ -48,6 +50,8 @@ class ParsedUnifiedProposal {
   final String? ucNumber;
   final String? utilityCompany;
   final double? averageMonthlyConsumptionKwh;
+  final String? connectionType; // 'Monofásico' | 'Bifásico' | 'Trifásico'
+  final double? publicLightingValueRs; // Iluminação Pública (CIP/COSIP) em R$
 
   // ── Dados da Usina Solar / Kit Fotovoltaico ─────────────────────────────────
   final String? proposalNumber;
@@ -92,6 +96,8 @@ class ParsedUnifiedProposal {
     this.ucNumber,
     this.utilityCompany,
     this.averageMonthlyConsumptionKwh,
+    this.connectionType,
+    this.publicLightingValueRs,
     this.proposalNumber,
     this.distributorName,
     required this.plantName,
@@ -184,6 +190,8 @@ class ParsedUnifiedProposal {
     String? ucNumber,
     String? utilityCompany,
     double? averageMonthlyConsumptionKwh,
+    String? connectionType,
+    double? publicLightingValueRs,
     String? proposalNumber,
     String? distributorName,
     String? plantName,
@@ -223,6 +231,8 @@ class ParsedUnifiedProposal {
       utilityCompany: utilityCompany ?? this.utilityCompany,
       averageMonthlyConsumptionKwh:
           averageMonthlyConsumptionKwh ?? this.averageMonthlyConsumptionKwh,
+      connectionType: connectionType ?? this.connectionType,
+      publicLightingValueRs: publicLightingValueRs ?? this.publicLightingValueRs,
       proposalNumber: proposalNumber ?? this.proposalNumber,
       distributorName: distributorName ?? this.distributorName,
       plantName: plantName ?? this.plantName,
@@ -334,6 +344,15 @@ class GeminiProposalAssistantService {
       userInstructions.writeln('"""\n$textPrompt\n"""');
     }
 
+    userInstructions.writeln(
+      '\nSe houver Conta de Energia, extraia também dentro de "client": '
+      '"connectionType" ("Monofásico", "Bifásico" ou "Trifásico") e '
+      '"publicLightingValueRs" (valor numérico em R\$ da Contribuição de Iluminação Pública CIP/COSIP).\n'
+      'Se houver Cotação de Kit Solar, em "solarPlant.productsPrice" coloque SEMPRE o VALOR TOTAL FINAL do orçamento '
+      'JÁ COM FRETE, seguro e impostos inclusos (ex: "Valor Total: R\$ 18.990,92"), NUNCA apenas o subtotal sem frete. '
+      'Se houver dúvida, considere sempre o MAIOR valor total do orçamento.',
+    );
+
     parts.add({
       'text': userInstructions.toString(),
     });
@@ -357,6 +376,7 @@ class GeminiProposalAssistantService {
     ];
 
     http.Response? response;
+    String usedModel = candidateModels.first;
     String lastError = '';
 
     for (final model in candidateModels) {
@@ -377,8 +397,16 @@ class GeminiProposalAssistantService {
             .timeout(const Duration(seconds: 45));
 
         if (response.statusCode == 200) {
+          usedModel = model;
           break;
         } else {
+          if (response.statusCode == 429) {
+            unawaited(AiUsageTelemetryService.recordGeminiResponse(
+              source: 'web_proposal_ai',
+              model: model,
+              isQuotaError429: true,
+            ));
+          }
           lastError = 'Status ${response.statusCode}: ${response.body}';
         }
       } catch (e) {
@@ -391,6 +419,11 @@ class GeminiProposalAssistantService {
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
+    unawaited(AiUsageTelemetryService.recordGeminiResponse(
+      source: 'web_proposal_ai',
+      model: usedModel,
+      responseJson: data,
+    ));
     final candidates = data['candidates'] as List?;
     if (candidates == null || candidates.isEmpty) {
       throw Exception('Nenhuma resposta retornada pela IA.');
@@ -510,10 +543,13 @@ class GeminiProposalAssistantService {
         (clientDoc != null && clientDoc.trim().isNotEmpty);
 
     final genKwh = (solarMap?['generationKwh'] ?? map['generationKwh'] as num?)?.toDouble();
-    final prodPrice = (solarMap?['productsPrice'] ?? map['productsPrice'] as num?)?.toDouble() ?? 0.0;
+    final rawProdPrice = (solarMap?['productsPrice'] ?? map['productsPrice'] as num?)?.toDouble() ?? 0.0;
     final servPrice = (solarMap?['servicePrice'] ?? map['servicePrice'] as num?)?.toDouble() ?? 0.0;
     final shipFee = (solarMap?['shippingFee'] ?? map['shippingFee'] as num?)?.toDouble() ?? 0.0;
-    final totAmount = (solarMap?['totalAmount'] ?? map['totalAmount'] as num?)?.toDouble() ?? (prodPrice + servPrice + shipFee);
+    final quoteTotal = (solarMap?['totalQuotePrice'] ?? map['totalQuotePrice'] as num?)?.toDouble() ?? 0.0;
+    final prodPrice = [rawProdPrice, quoteTotal, rawProdPrice + shipFee].reduce((a, b) => a > b ? a : b);
+    final effectiveShipFee = (prodPrice >= rawProdPrice + shipFee && shipFee > 0) ? 0.0 : shipFee;
+    final totAmount = (solarMap?['totalAmount'] ?? map['totalAmount'] as num?)?.toDouble() ?? (prodPrice + servPrice + effectiveShipFee);
 
     final proposalNum = (solarMap?['proposalNumber'] ?? map['proposalNumber']) as String?;
     final distributorName = (solarMap?['distributorName'] ?? map['distributorName']) as String?;
@@ -543,6 +579,9 @@ class GeminiProposalAssistantService {
       utilityCompany: (clientMap?['utilityCompany'] ?? map['utilityCompany']) as String?,
       averageMonthlyConsumptionKwh:
           (clientMap?['averageMonthlyConsumptionKwh'] ?? map['averageMonthlyConsumptionKwh'] as num?)?.toDouble(),
+      connectionType: (clientMap?['connectionType'] ?? map['connectionType'])?.toString(),
+      publicLightingValueRs:
+          ((clientMap?['publicLightingValueRs'] ?? map['publicLightingValueRs']) as num?)?.toDouble(),
       proposalNumber: proposalNum,
       distributorName: distributorName,
       plantName: plantTitle,
@@ -551,7 +590,7 @@ class GeminiProposalAssistantService {
       roofType: roofType,
       productsPrice: prodPrice,
       servicePrice: servPrice,
-      shippingFee: shipFee,
+      shippingFee: effectiveShipFee,
       totalAmount: totAmount,
       items: itemsList,
       paymentTerms: paymentTerms,

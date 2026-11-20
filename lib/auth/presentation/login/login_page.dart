@@ -6,6 +6,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app/widgets/taos_logo.dart';
 import '../../../settings/data/services/company_service.dart';
 import '../../../settings/data/services/settings_service.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -1109,68 +1110,9 @@ class _LoginPageState extends State<LoginPage> {
   // LOGO DO TAOS CRM
   // ─────────────────────────────────────────────────────────────────────────
   Widget _buildBrandLogo({required bool isDarkBackground}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Ícone quadrado escuro com o "T" em ciano
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A152B),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF00E5FF)
-                  .withValues(alpha: isDarkBackground ? 0.7 : 0.5),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00E5FF)
-                    .withValues(alpha: isDarkBackground ? 0.35 : 0.2),
-                blurRadius: 12,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Image.asset(
-              'assets/images/logo_.png',
-              width: 26,
-              height: 26,
-              color: const Color(0xFF00E5FF),
-              colorBlendMode: BlendMode.srcIn,
-              errorBuilder: (_, __, ___) => const Icon(Icons.bolt_rounded,
-                  color: Color(0xFF00E5FF), size: 26),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-
-        // Palavra T Λ O S
-        Text(
-          'T Λ O S',
-          style: GoogleFonts.outfit(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.6,
-            color: isDarkBackground ? Colors.white : const Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // Sigla CRM em Ciano Neon
-        Text(
-          'CRM',
-          style: GoogleFonts.outfit(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-            color: const Color(0xFF00B4D8),
-          ),
-        ),
-      ],
+    return TaosLogo(
+      height: isDarkBackground ? 150 : 90,
+      isDarkBackground: isDarkBackground,
     );
   }
 

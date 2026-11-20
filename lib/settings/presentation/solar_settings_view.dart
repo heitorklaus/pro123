@@ -43,6 +43,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   final _inflationCtrl = TextEditingController();
   final _simultaneityCtrl = TextEditingController();
   final _generationFactorCtrl = TextEditingController();
+  final _monoAvailCtrl = TextEditingController();
+  final _biAvailCtrl = TextEditingController();
+  final _triAvailCtrl = TextEditingController();
+  final _defaultCipCtrl = TextEditingController();
+  bool _useDetailedBillingCalc = false;
+  String _defaultConnectionType = 'Bifásico';
   final _sunHoursCtrl = TextEditingController();
   final _projectionYearsCtrl = TextEditingController();
 
@@ -171,6 +177,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       _inflationCtrl.text = loaded.annualInflation.toStringAsFixed(1).replaceAll('.', ',');
       _simultaneityCtrl.text = loaded.simultaneityRate.toStringAsFixed(1).replaceAll('.', ',');
       _generationFactorCtrl.text = loaded.generationFactor.toStringAsFixed(1).replaceAll('.', ',');
+      _useDetailedBillingCalc = loaded.useDetailedBillingCalc;
+      _defaultConnectionType = loaded.defaultConnectionType;
+      _monoAvailCtrl.text = loaded.monoAvailabilityKwh.toStringAsFixed(0);
+      _biAvailCtrl.text = loaded.biAvailabilityKwh.toStringAsFixed(0);
+      _triAvailCtrl.text = loaded.triAvailabilityKwh.toStringAsFixed(0);
+      _defaultCipCtrl.text = loaded.defaultPublicLightingRs.toStringAsFixed(2).replaceAll('.', ',');
       _sunHoursCtrl.text = loaded.defaultSunHours.toStringAsFixed(1).replaceAll('.', ',');
       _projectionYearsCtrl.text = loaded.projectionYears.toString();
 
@@ -258,6 +270,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     _inflationCtrl.dispose();
     _simultaneityCtrl.dispose();
     _generationFactorCtrl.dispose();
+    _monoAvailCtrl.dispose();
+    _biAvailCtrl.dispose();
+    _triAvailCtrl.dispose();
+    _defaultCipCtrl.dispose();
     _sunHoursCtrl.dispose();
     _projectionYearsCtrl.dispose();
     _companyNameCtrl.dispose();
@@ -296,6 +312,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         annualInflation: parseD(_inflationCtrl.text, 5.0),
         simultaneityRate: parseD(_simultaneityCtrl.text, 13.0),
         generationFactor: parseD(_generationFactorCtrl.text, 118.0),
+        useDetailedBillingCalc: _useDetailedBillingCalc,
+        defaultConnectionType: _defaultConnectionType,
+        monoAvailabilityKwh: parseD(_monoAvailCtrl.text, 30.0),
+        biAvailabilityKwh: parseD(_biAvailCtrl.text, 50.0),
+        triAvailabilityKwh: parseD(_triAvailCtrl.text, 100.0),
+        defaultPublicLightingRs: parseD(_defaultCipCtrl.text, 45.0),
         defaultSunHours: parseD(_sunHoursCtrl.text, 4.8),
         projectionYears: parseI(_projectionYearsCtrl.text, 21),
         companyName: _companyNameCtrl.text.trim(),
@@ -866,6 +888,125 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 ],
               ),
             ],
+
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _useDetailedBillingCalc ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _useDetailedBillingCalc ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeThumbColor: const Color(0xFF10B981),
+                    title: Text(
+                      'Cálculo Detalhado: Padrão (Mono / Bi / Tri) + Iluminação Pública',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    subtitle: Text(
+                      _useDetailedBillingCalc
+                          ? 'LIGADO — A proposta usa a taxa de disponibilidade (Mono/Bi/Tri) + Iluminação Pública nos cálculos Com e Sem Solar.'
+                          : 'DESLIGADO — Mantém o cálculo padrão simplificado (Fio B + R\$ 65 a R\$ 95 estimados).',
+                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                    ),
+                    value: _useDetailedBillingCalc,
+                    onChanged: (val) => setState(() => _useDetailedBillingCalc = val),
+                  ),
+                  if (_useDetailedBillingCalc) ...[
+                    const SizedBox(height: 12),
+                    const Divider(color: Color(0xFFDCFCE7)),
+                    const SizedBox(height: 12),
+                    _label('Padrão de Ligação Padrão (Presets)'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: ['Monofásico', 'Bifásico', 'Trifásico'].map((type) {
+                        final selected = _defaultConnectionType == type;
+                        return ChoiceChip(
+                          label: Text(type),
+                          selected: selected,
+                          selectedColor: const Color(0xFF10B981).withValues(alpha: 0.18),
+                          side: BorderSide(
+                            color: selected ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+                            width: selected ? 1.8 : 1,
+                          ),
+                          labelStyle: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                            color: const Color(0xFF0F172A),
+                          ),
+                          onSelected: (v) {
+                            if (v) setState(() => _defaultConnectionType = type);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        SizedBox(
+                          width: 170,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Monofásico (kWh)'),
+                              const SizedBox(height: 6),
+                              _tariffField(_monoAvailCtrl, '30'),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          width: 170,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Bifásico (kWh)'),
+                              const SizedBox(height: 6),
+                              _tariffField(_biAvailCtrl, '50'),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          width: 170,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Trifásico (kWh)'),
+                              const SizedBox(height: 6),
+                              _tariffField(_triAvailCtrl, '100'),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          width: 210,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Iluminação Pública (R\$)'),
+                              const SizedBox(height: 6),
+                              _tariffField(_defaultCipCtrl, '45,00'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
 
             const SizedBox(height: 24),
             const Divider(color: AppColors.divider),

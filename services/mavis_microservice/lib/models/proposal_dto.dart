@@ -109,6 +109,9 @@ class ProposalDTO {
   final String? createdByUserName;
   final String? pdfUrl;
   final String? pdfPath;
+  final String? connectionType;
+  final double? availabilityKwh;
+  final double? publicLightingValueRs;
   final DateTime createdAt;
 
   const ProposalDTO({
@@ -126,7 +129,7 @@ class ProposalDTO {
     this.discount = 0.0,
     this.shippingFee = 0.0,
     required this.totalAmount,
-    this.paymentTerms = 'À vista via PIX',
+    this.paymentTerms = '',
     this.validityDays = 15,
     this.deliveryTime,
     this.notes,
@@ -137,6 +140,9 @@ class ProposalDTO {
     this.createdByUserName,
     this.pdfUrl,
     this.pdfPath,
+    this.connectionType,
+    this.availabilityKwh,
+    this.publicLightingValueRs,
     required this.createdAt,
   });
 
@@ -169,7 +175,7 @@ class ProposalDTO {
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
       shippingFee: (map['shippingFee'] as num?)?.toDouble() ?? 0.0,
       totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0.0,
-      paymentTerms: map['paymentTerms']?.toString() ?? 'À vista via PIX (5% desc) ou Financiamento Solar',
+      paymentTerms: map['paymentTerms']?.toString() ?? '',
       validityDays: (map['validityDays'] as num?)?.toInt() ?? 15,
       deliveryTime: map['deliveryTime']?.toString() ?? 'Imediata / 3 a 5 dias úteis',
       notes: map['notes']?.toString(),
@@ -180,6 +186,9 @@ class ProposalDTO {
       createdByUserName: map['createdByUserName']?.toString(),
       pdfUrl: map['pdfUrl']?.toString(),
       pdfPath: map['pdfPath']?.toString(),
+      connectionType: map['connectionType']?.toString(),
+      availabilityKwh: (map['availabilityKwh'] as num?)?.toDouble(),
+      publicLightingValueRs: (map['publicLightingValueRs'] as num?)?.toDouble(),
       createdAt: parseDate(map['createdAt']),
     );
   }

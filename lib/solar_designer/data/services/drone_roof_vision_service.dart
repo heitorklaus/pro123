@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../products/data/services/gemini_solar_vision_service.dart';
+import '../../../settings/data/services/ai_usage_telemetry_service.dart';
 
 /// Resultado estruturado da análise de foto aérea / drone via IA Google Gemini
 class DroneRoofAnalysisResult {
@@ -172,6 +174,11 @@ Responda ESTRITAMENTE em formato JSON puro, sem blocos markdown adicionais, no f
 
         if (response.statusCode == 200) {
           final resJson = jsonDecode(response.body) as Map<String, dynamic>;
+          unawaited(AiUsageTelemetryService.recordGeminiResponse(
+            source: 'web_drone_roof',
+            model: model,
+            responseJson: resJson,
+          ));
           final candidates = resJson['candidates'] as List<dynamic>?;
           if (candidates != null && candidates.isNotEmpty) {
             final content = candidates.first['content'] as Map<String, dynamic>?;

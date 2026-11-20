@@ -11,6 +11,7 @@ enum AppSidebarItem {
   roofStudies,
   contracts,
   solarCredits,
+  masterAiQuotas,
   users,
   settings,
 }
@@ -180,6 +181,16 @@ class AppSidebar extends StatelessWidget {
                     isCollapsed: isCollapsed,
                     isSelected: activeItem == AppSidebarItem.solarCredits,
                     onTap: () => onItemSelected(AppSidebarItem.solarCredits),
+                  ),
+                ],
+                if (canViewSolarCredits) ...[
+                  const SizedBox(height: 6),
+                  _SidebarMenuItem(
+                    icon: Icons.auto_graph_rounded,
+                    title: 'Cotas & Custos IA',
+                    isCollapsed: isCollapsed,
+                    isSelected: activeItem == AppSidebarItem.masterAiQuotas,
+                    onTap: () => onItemSelected(AppSidebarItem.masterAiQuotas),
                   ),
                 ],
                 if (canManageUsers) ...[

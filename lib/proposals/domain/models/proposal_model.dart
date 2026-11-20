@@ -185,6 +185,9 @@ class ProposalModel {
   final String? createdByUserName;
   final String? pdfUrl;
   final String? pdfPath;
+  final String? connectionType; // 'Monofásico' | 'Bifásico' | 'Trifásico'
+  final double? availabilityKwh; // Override de disponibilidade (30 / 50 / 100 kWh)
+  final double? publicLightingValueRs; // Override de Iluminação Pública (R$)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -216,6 +219,9 @@ class ProposalModel {
     this.createdByUserName,
     this.pdfUrl,
     this.pdfPath,
+    this.connectionType,
+    this.availabilityKwh,
+    this.publicLightingValueRs,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -254,6 +260,9 @@ class ProposalModel {
     String? createdByUserName,
     String? pdfUrl,
     String? pdfPath,
+    String? connectionType,
+    double? availabilityKwh,
+    double? publicLightingValueRs,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -285,6 +294,9 @@ class ProposalModel {
       createdByUserName: createdByUserName ?? this.createdByUserName,
       pdfUrl: pdfUrl ?? this.pdfUrl,
       pdfPath: pdfPath ?? this.pdfPath,
+      connectionType: connectionType ?? this.connectionType,
+      availabilityKwh: availabilityKwh ?? this.availabilityKwh,
+      publicLightingValueRs: publicLightingValueRs ?? this.publicLightingValueRs,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -317,6 +329,9 @@ class ProposalModel {
       'createdByUserName': createdByUserName,
       'pdfUrl': pdfUrl,
       'pdfPath': pdfPath,
+      if (connectionType != null) 'connectionType': connectionType,
+      if (availabilityKwh != null) 'availabilityKwh': availabilityKwh,
+      if (publicLightingValueRs != null) 'publicLightingValueRs': publicLightingValueRs,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -361,6 +376,9 @@ class ProposalModel {
       createdByUserName: map['createdByUserName'] as String?,
       pdfUrl: map['pdfUrl'] as String?,
       pdfPath: map['pdfPath'] as String?,
+      connectionType: map['connectionType'] as String?,
+      availabilityKwh: (map['availabilityKwh'] as num?)?.toDouble(),
+      publicLightingValueRs: (map['publicLightingValueRs'] as num?)?.toDouble(),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
     );

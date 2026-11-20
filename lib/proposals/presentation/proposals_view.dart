@@ -20,6 +20,8 @@ import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/solar_plant_form_card.dart';
 import '../../products/presentation/automation_study_form_card.dart';
 import '../../settings/data/services/settings_service.dart';
+import '../../settings/data/services/solar_settings_service.dart';
+import '../../settings/domain/models/solar_settings_model.dart';
 import '../../clients/presentation/widgets/client_form_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'web_proposal_page.dart';
@@ -1860,8 +1862,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   final List<ProposalItemModel> _items = [];
 
   // Condições Comerciais & Financeiras
-  final _paymentTermsCtrl =
-      TextEditingController(text: 'À vista via PIX (5% desc) ou Boleto 30DD');
+  final _paymentTermsCtrl = TextEditingController();
   final _validityDaysCtrl = TextEditingController(text: '15');
   final _deliveryTimeCtrl =
       TextEditingController(text: 'Imediata / 3 a 5 dias úteis');
@@ -1880,6 +1881,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   String? _errorMessage;
   String? _companyId;
   ProductSector? _preferredSector;
+  SolarSettingsModel? _solarSettings;
+  String? _connectionType;
+  double? _availabilityKwh;
+  double? _publicLightingValueRs;
 
   static const _cleanProposalStorageKey = 'mavis_proposal_clean_mode';
 
@@ -1998,6 +2003,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _notesCtrl.text = p.notes ?? '';
       _themeColorValue = p.themeColorValue;
       _selectedStatus = p.status;
+      _connectionType = p.connectionType;
+      _availabilityKwh = p.availabilityKwh;
+      _publicLightingValueRs = p.publicLightingValueRs;
       if (p.roofStudyId != null && p.roofStudyId!.isNotEmpty) {
         RoofStudyRepository().getStudyById(p.roofStudyId!).then((study) {
           if (study != null && mounted) {
@@ -2097,6 +2105,13 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
             if (parsed.notes != null && parsed.notes!.isNotEmpty) {
               _notesCtrl.text = parsed.notes!;
             }
+            if (parsed.connectionType != null && parsed.connectionType!.isNotEmpty) {
+              _connectionType = parsed.connectionType;
+              _availabilityKwh = _solarSettings?.availabilityKwhForType(parsed.connectionType);
+            }
+            if (parsed.publicLightingValueRs != null && parsed.publicLightingValueRs! > 0) {
+              _publicLightingValueRs = parsed.publicLightingValueRs;
+            }
             _items.add(solarItem);
           });
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2125,11 +2140,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
         companyId: cid,
         userId: user?.uid,
       );
+      final solarCfg = await SolarSettingsService.loadSettings(companyId: cid);
       if (mounted) {
         setState(() {
           _currentUser = user;
           _companyId = cid;
           _preferredSector = sector;
+          _solarSettings = solarCfg;
+          _connectionType ??= solarCfg.defaultConnectionType;
+          _availabilityKwh ??= solarCfg.availabilityKwhForType(_connectionType);
+          _publicLightingValueRs ??= solarCfg.defaultPublicLightingRs;
         });
       }
     } catch (_) {}
@@ -2704,9 +2724,208 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       roofStudyId: _linkedRoofStudy?.id ?? widget.proposal?.roofStudyId,
       linkedRoofStudy: _linkedRoofStudy ?? widget.proposal?.linkedRoofStudy,
       status: _selectedStatus,
+      connectionType: _connectionType,
+      availabilityKwh: _availabilityKwh,
+      publicLightingValueRs: _publicLightingValueRs,
       createdAt: widget.proposal?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
+  }
+
+  Widget _buildBillingParamsCard(bool isDark) {
+    final conn = _connectionType ?? _solarSettings?.defaultConnectionType ?? 'Bifásico';
+    final avail = _availabilityKwh ?? _solarSettings?.availabilityKwhForType(conn) ?? 50.0;
+    final cip = _publicLightingValueRs ?? _solarSettings?.defaultPublicLightingRs ?? 45.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFF86EFAC)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.electric_meter_outlined, color: Color(0xFF10B981), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cálculo Detalhado (Mono/Bi/Tri + Iluminação Pública)',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Padrão: $conn (${avail.toStringAsFixed(0)} kWh)  •  Ilum. Pública: R\$ ${cip.toStringAsFixed(2).replaceAll('.', ',')}',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.5,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _openBillingParamsDialog,
+            icon: const Icon(Icons.tune_rounded, size: 16),
+            label: const Text('Editar'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF059669),
+              textStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openBillingParamsDialog() async {
+    final cfg = _solarSettings ?? const SolarSettingsModel();
+    String selectedType = _connectionType ?? cfg.defaultConnectionType;
+    final availCtrl = TextEditingController(
+      text: (_availabilityKwh ?? cfg.availabilityKwhForType(selectedType)).toStringAsFixed(0),
+    );
+    final cipCtrl = TextEditingController(
+      text: (_publicLightingValueRs ?? cfg.defaultPublicLightingRs).toStringAsFixed(2).replaceAll('.', ','),
+    );
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.electric_meter_outlined, color: Color(0xFF10B981)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Padrão & Iluminação Pública',
+                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Padrão de Ligação',
+                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: ['Monofásico', 'Bifásico', 'Trifásico'].map((type) {
+                    final sel = selectedType == type;
+                    return ChoiceChip(
+                      label: Text(type),
+                      selected: sel,
+                      selectedColor: const Color(0xFF10B981).withValues(alpha: 0.2),
+                      onSelected: (v) {
+                        if (v) {
+                          setDlgState(() {
+                            selectedType = type;
+                            availCtrl.text = cfg.availabilityKwhForType(type).toStringAsFixed(0);
+                          });
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: availCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Taxa de Disponibilidade (kWh)',
+                    suffixText: 'kWh',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: cipCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Iluminação Pública / CIP (R\$)',
+                    prefixText: 'R\$ ',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, 'this_only'),
+              child: const Text('Somente nesta proposta'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 'all'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Salvar para todas'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null) {
+      availCtrl.dispose();
+      cipCtrl.dispose();
+      return;
+    }
+
+    final newAvail = double.tryParse(availCtrl.text.replaceAll(',', '.').trim()) ??
+        cfg.availabilityKwhForType(selectedType);
+    final newCip = double.tryParse(cipCtrl.text.replaceAll(',', '.').trim()) ??
+        cfg.defaultPublicLightingRs;
+
+    availCtrl.dispose();
+    cipCtrl.dispose();
+
+    setState(() {
+      _connectionType = selectedType;
+      _availabilityKwh = newAvail;
+      _publicLightingValueRs = newCip;
+    });
+
+    if (result == 'all') {
+      final updatedCfg = cfg.copyWith(
+        defaultConnectionType: selectedType,
+        monoAvailabilityKwh: selectedType == 'Monofásico' ? newAvail : cfg.monoAvailabilityKwh,
+        biAvailabilityKwh: selectedType == 'Bifásico' ? newAvail : cfg.biAvailabilityKwh,
+        triAvailabilityKwh: selectedType == 'Trifásico' ? newAvail : cfg.triAvailabilityKwh,
+        defaultPublicLightingRs: newCip,
+      );
+      await SolarSettingsService.saveSettings(updatedCfg);
+      if (mounted) {
+        setState(() => _solarSettings = updatedCfg);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Presets salvos para todas as próximas propostas!'),
+            backgroundColor: Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _previewPdf() {
@@ -2808,6 +3027,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           roofStudyId: roofStudyIdToSave,
           linkedRoofStudy: _linkedRoofStudy ?? widget.proposal?.linkedRoofStudy,
           status: _selectedStatus,
+          connectionType: _connectionType,
+          availabilityKwh: _availabilityKwh,
+          publicLightingValueRs: _publicLightingValueRs,
         );
         await _proposalRepo.updateProposal(updated);
         savedProposalId = updated.id;
@@ -2834,6 +3056,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           roofStudyId: roofStudyIdToSave,
           status: _selectedStatus,
           companyId: _companyId,
+          connectionType: _connectionType,
+          availabilityKwh: _availabilityKwh,
+          publicLightingValueRs: _publicLightingValueRs,
         );
         savedProposalId = created.id;
         savedProposalCode = created.proposalNumber;
@@ -4753,6 +4978,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                     prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
                   ),
                 ),
+                if (_solarSettings?.useDetailedBillingCalc == true) ...[
+                  const SizedBox(height: 12),
+                  _buildBillingParamsCard(isDark),
+                ],
                 const SizedBox(height: 16),
                 // Quadro financeiro mobile
                 Container(
@@ -4916,6 +5145,10 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                                   color: Color(0xFF64748B)),
                             ),
                           ),
+                          if (_solarSettings?.useDetailedBillingCalc == true) ...[
+                            const SizedBox(height: 14),
+                            _buildBillingParamsCard(isDark),
+                          ],
                         ],
                       ),
                     ),

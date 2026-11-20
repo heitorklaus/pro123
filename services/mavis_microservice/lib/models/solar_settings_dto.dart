@@ -302,6 +302,12 @@ class SolarSettingsDTO {
   final double energyTariff;
   final double fioBTariff;
   final double simultaneityRate;
+  final bool useDetailedBillingCalc;
+  final String defaultConnectionType;
+  final double monoAvailabilityKwh;
+  final double biAvailabilityKwh;
+  final double triAvailabilityKwh;
+  final double defaultPublicLightingRs;
   final double annualInflation;
   final int projectionYears;
   final double defaultSunHours;
@@ -443,6 +449,12 @@ class SolarSettingsDTO {
     this.energyTariff = 1.125,
     this.fioBTariff = 0.28,
     this.simultaneityRate = 13.0,
+    this.useDetailedBillingCalc = false,
+    this.defaultConnectionType = 'Bifásico',
+    this.monoAvailabilityKwh = 30.0,
+    this.biAvailabilityKwh = 50.0,
+    this.triAvailabilityKwh = 100.0,
+    this.defaultPublicLightingRs = 45.0,
     this.annualInflation = 5.0,
     this.projectionYears = 21,
     this.defaultSunHours = 4.8,
@@ -709,9 +721,19 @@ class SolarSettingsDTO {
     return fallback;
   }
 
+  double availabilityKwhForType(String? type) {
+    final clean = (type ?? defaultConnectionType).toLowerCase();
+    if (clean.contains('mono')) return monoAvailabilityKwh;
+    if (clean.contains('tri')) return triAvailabilityKwh;
+    return biAvailabilityKwh;
+  }
+
   List<YearlySimulationItemDTO> calculateYearlySimulation({
     required double monthlyKwh,
     required double systemKwp,
+    String? connectionTypeOverride,
+    double? availabilityKwhOverride,
+    double? publicLightingOverride,
   }) {
     final list = <YearlySimulationItemDTO>[];
     final currentYear = DateTime.now().year;
@@ -721,22 +743,42 @@ class SolarSettingsDTO {
     final infl = (annualInflation > 0 ? annualInflation : 5.0) / 100.0;
     final simRate = (simultaneityRate > 0 ? simultaneityRate : 13.0) / 100.0;
 
+    final availKwh = availabilityKwhOverride ?? availabilityKwhForType(connectionTypeOverride);
+    final baseCipRs = publicLightingOverride ?? defaultPublicLightingRs;
+
     for (int i = 0; i < totalYears; i++) {
       final year = currentYear + i;
-      final baseWithoutSolar = monthlyKwh * currentTariff;
 
       final directSelfConsumption = monthlyKwh * simRate;
       final gridInjectedKwh = monthlyKwh - directSelfConsumption;
 
-      final minBill = (gridInjectedKwh * fioBTariff * 0.55) + 65.0;
-      final maxBill = (gridInjectedKwh * fioBTariff * 0.85) + 95.0;
+      if (useDetailedBillingCalc) {
+        final cipThisYear = baseCipRs * math.pow(1 + infl, i);
+        final availThisYear = availKwh * currentTariff;
+        final baseWithoutSolar = (monthlyKwh * currentTariff) + cipThisYear;
+        final fioBGrowth = math.pow(1 + (infl * 0.7), i);
+        final minBill = (gridInjectedKwh * fioBTariff * 0.55 * fioBGrowth) + availThisYear + cipThisYear;
+        final maxBill = (gridInjectedKwh * fioBTariff * 0.85 * fioBGrowth) + availThisYear + cipThisYear;
 
-      list.add(YearlySimulationItemDTO(
-        year: year,
-        withSolarMin: minBill * math.pow(1 + (infl * 0.7), i),
-        withSolarMax: maxBill * math.pow(1 + (infl * 0.7), i),
-        withoutSolar: baseWithoutSolar,
-      ));
+        list.add(YearlySimulationItemDTO(
+          year: year,
+          withSolarMin: minBill,
+          withSolarMax: maxBill,
+          withoutSolar: baseWithoutSolar,
+        ));
+      } else {
+        final baseWithoutSolar = monthlyKwh * currentTariff;
+
+        final minBill = (gridInjectedKwh * fioBTariff * 0.55) + 65.0;
+        final maxBill = (gridInjectedKwh * fioBTariff * 0.85) + 95.0;
+
+        list.add(YearlySimulationItemDTO(
+          year: year,
+          withSolarMin: minBill * math.pow(1 + (infl * 0.7), i),
+          withSolarMax: maxBill * math.pow(1 + (infl * 0.7), i),
+          withoutSolar: baseWithoutSolar,
+        ));
+      }
 
       currentTariff *= (1 + infl);
     }
@@ -753,6 +795,12 @@ class SolarSettingsDTO {
       energyTariff: (map['energyTariff'] as num?)?.toDouble() ?? (map['kwhTariffRate'] as num?)?.toDouble() ?? 1.125,
       fioBTariff: (map['fioBTariff'] as num?)?.toDouble() ?? 0.28,
       simultaneityRate: (map['simultaneityRate'] as num?)?.toDouble() ?? (map['simultaneityFactor'] as num?)?.toDouble() ?? 13.0,
+      useDetailedBillingCalc: map['useDetailedBillingCalc'] as bool? ?? false,
+      defaultConnectionType: map['defaultConnectionType']?.toString() ?? 'Bifásico',
+      monoAvailabilityKwh: (map['monoAvailabilityKwh'] as num?)?.toDouble() ?? 30.0,
+      biAvailabilityKwh: (map['biAvailabilityKwh'] as num?)?.toDouble() ?? 50.0,
+      triAvailabilityKwh: (map['triAvailabilityKwh'] as num?)?.toDouble() ?? 100.0,
+      defaultPublicLightingRs: (map['defaultPublicLightingRs'] as num?)?.toDouble() ?? 45.0,
       annualInflation: (map['annualInflation'] as num?)?.toDouble() ?? (map['annualTariffInflation'] as num?)?.toDouble() ?? 5.0,
       projectionYears: (map['projectionYears'] as num?)?.toInt() ?? 21,
       defaultSunHours: (map['defaultSunHours'] as num?)?.toDouble() ?? 4.8,

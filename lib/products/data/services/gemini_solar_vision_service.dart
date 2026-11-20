@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../settings/data/services/ai_usage_telemetry_service.dart';
 import 'solar_proposal_parser_service.dart';
 
 class GeminiSolarVisionService {
@@ -136,6 +138,7 @@ Regras de classificação dos componentes ("componentType"):
       'gemini-flash-latest',
     ];
     http.Response? response;
+    String usedModel = candidateModels.first;
     String lastError = '';
 
     for (final model in candidateModels) {
@@ -155,8 +158,16 @@ Regras de classificação dos componentes ("componentType"):
 
         if (res.statusCode == 200) {
           response = res;
+          usedModel = model;
           break;
         } else {
+          if (res.statusCode == 429) {
+            unawaited(AiUsageTelemetryService.recordGeminiResponse(
+              source: 'web_solar_pdf',
+              model: model,
+              isQuotaError429: true,
+            ));
+          }
           lastError = 'Erro ($model - ${res.statusCode}): ${res.body}';
           try {
             final errJson = jsonDecode(res.body);
@@ -173,6 +184,15 @@ Regras de classificação dos componentes ("componentType"):
     if (response == null || response.statusCode != 200) {
       throw Exception('Erro na API do Google Gemini: $lastError');
     }
+
+    try {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      unawaited(AiUsageTelemetryService.recordGeminiResponse(
+        source: 'web_solar_pdf',
+        model: usedModel,
+        responseJson: decoded,
+      ));
+    } catch (_) {}
 
     final responseJson = jsonDecode(response.body);
     final candidates = responseJson['candidates'] as List?;

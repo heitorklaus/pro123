@@ -7,6 +7,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app/widgets/taos_logo.dart';
 import '../../../settings/data/services/company_service.dart';
 import '../../../settings/data/services/settings_service.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -53,7 +54,8 @@ class _RegisterPageState extends State<RegisterPage> {
   // ─────────────────────────────────────────────────────────────────────────
   // ENVIO DE INFORMAÇÕES DE CADASTRO E DIALOG DE CONFIRMAÇÃO
   // ─────────────────────────────────────────────────────────────────────────
-  Future<void> _handleRegisterSuccess(String registeredName, String registeredEmail) async {
+  Future<void> _handleRegisterSuccess(
+      String registeredName, String registeredEmail) async {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     // 1. Enviar e-mail de verificação oficial pelo Firebase Auth
@@ -66,10 +68,12 @@ class _RegisterPageState extends State<RegisterPage> {
     // 2. Registrar notificação de boas-vindas no Firestore (sem senha)
     if (currentUser != null) {
       try {
-        final userRef = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
+        final userRef =
+            FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
         await userRef.collection('notifications').add({
           'title': 'Bem-vindo ao TAOS CRM! 🚀',
-          'body': 'Sua conta foi criada com sucesso com o e-mail $registeredEmail. Acesse a plataforma sempre com suas credenciais.',
+          'body':
+              'Sua conta foi criada com sucesso com o e-mail $registeredEmail. Acesse a plataforma sempre com suas credenciais.',
           'type': 'welcome',
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
@@ -114,7 +118,8 @@ class _RegisterPageState extends State<RegisterPage> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           backgroundColor: Colors.white,
           title: Row(
             children: [
@@ -134,7 +139,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 24),
+                child: const Icon(Icons.check_circle_rounded,
+                    color: Colors.white, size: 24),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -167,7 +173,8 @@ class _RegisterPageState extends State<RegisterPage> {
             children: [
               Text(
                 'Enviamos as orientações de boas-vindas para seu e-mail. Guarde seus dados de acesso:',
-                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF334155), height: 1.4),
+                style: GoogleFonts.inter(
+                    fontSize: 13, color: const Color(0xFF334155), height: 1.4),
               ),
               const SizedBox(height: 16),
               Container(
@@ -182,17 +189,24 @@ class _RegisterPageState extends State<RegisterPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF00B4D8)),
+                        const Icon(Icons.person_outline_rounded,
+                            size: 16, color: Color(0xFF00B4D8)),
                         const SizedBox(width: 8),
                         Text(
                           'Nome:',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF64748B)),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             registeredName,
-                            style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                            style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F172A)),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -201,17 +215,24 @@ class _RegisterPageState extends State<RegisterPage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.mail_outline_rounded, size: 16, color: Color(0xFF00B4D8)),
+                        const Icon(Icons.mail_outline_rounded,
+                            size: 16, color: Color(0xFF00B4D8)),
                         const SizedBox(width: 8),
                         Text(
                           'Login / E-mail:',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF64748B)),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             registeredEmail,
-                            style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                            style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F172A)),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -220,16 +241,23 @@ class _RegisterPageState extends State<RegisterPage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.lock_outline_rounded, size: 16, color: Color(0xFF10B981)),
+                        const Icon(Icons.lock_outline_rounded,
+                            size: 16, color: Color(0xFF10B981)),
                         const SizedBox(width: 8),
                         Text(
                           'Senha:',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF64748B)),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           '••••••••  (Criptografada e Segura)',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF10B981)),
                         ),
                       ],
                     ),
@@ -240,12 +268,16 @@ class _RegisterPageState extends State<RegisterPage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.security_rounded, size: 16, color: Color(0xFF64748B)),
+                  const Icon(Icons.security_rounded,
+                      size: 16, color: Color(0xFF64748B)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Por motivos estritos de segurança, senhas nunca são enviadas por mensagem ou e-mail.',
-                      style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B), height: 1.3),
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          color: const Color(0xFF64748B),
+                          height: 1.3),
                     ),
                   ),
                 ],
@@ -273,7 +305,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
                   Navigator.of(ctx).pop();
@@ -292,7 +325,8 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                    const Icon(Icons.arrow_forward_rounded,
+                        color: Colors.white, size: 16),
                   ],
                 ),
               ),
@@ -500,7 +534,8 @@ class _RegisterPageState extends State<RegisterPage> {
             top: 50,
             bottom: 50,
             left: 0,
-            right: 220, // Passa por trás do card de registro (largura 440), criando a sobreposição 3D
+            right:
+                220, // Passa por trás do card de registro (largura 440), criando a sobreposição 3D
             child: Image.asset(
               'assets/images/login/crm_screen_transparent.png',
               fit: BoxFit.contain,
@@ -593,7 +628,8 @@ class _RegisterPageState extends State<RegisterPage> {
       decoration: BoxDecoration(
         color: const Color(0xFF0A152B).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: glowColor.withValues(alpha: 0.55), width: 1.2),
+        border:
+            Border.all(color: glowColor.withValues(alpha: 0.55), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -786,19 +822,22 @@ class _RegisterPageState extends State<RegisterPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildFeatureItem(
-          imagePath: 'assets/images/login/1c8a4419-fd65-4c57-8cb3-eef633a90ebc.png',
+          imagePath:
+              'assets/images/login/1c8a4419-fd65-4c57-8cb3-eef633a90ebc.png',
           fallbackIcon: Icons.description_rounded,
           title: 'Propostas\nprofissionais',
         ),
         const SizedBox(width: 24),
         _buildFeatureItem(
-          imagePath: 'assets/images/login/2e695fb0-67d2-4269-a8c0-3cd8a94ed006.png',
+          imagePath:
+              'assets/images/login/2e695fb0-67d2-4269-a8c0-3cd8a94ed006.png',
           fallbackIcon: Icons.psychology_rounded,
           title: 'IA \n integrada\n',
         ),
         const SizedBox(width: 24),
         _buildFeatureItem(
-          imagePath: 'assets/images/login/b69f61f1-663b-4cc4-981a-1b4f51844277.png',
+          imagePath:
+              'assets/images/login/b69f61f1-663b-4cc4-981a-1b4f51844277.png',
           fallbackIcon: Icons.bar_chart_rounded,
           title: 'Gestão\ncompleta',
         ),
@@ -826,9 +865,11 @@ class _RegisterPageState extends State<RegisterPage> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0B162C),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.5)),
+                border: Border.all(
+                    color: const Color(0xFF00E5FF).withValues(alpha: 0.5)),
               ),
-              child: Icon(fallbackIcon, color: const Color(0xFF00E5FF), size: 26),
+              child:
+                  Icon(fallbackIcon, color: const Color(0xFF00E5FF), size: 26),
             ),
           ),
         ),
@@ -910,7 +951,8 @@ class _RegisterPageState extends State<RegisterPage> {
               }
               return Container(
                 margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(10),
@@ -918,7 +960,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                    const Icon(Icons.error_outline_rounded,
+                        color: Color(0xFFEF4444), size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -950,14 +993,18 @@ class _RegisterPageState extends State<RegisterPage> {
             controller: _nameCtrl,
             onChanged: controller.setName,
             keyboardType: TextInputType.name,
-            style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13),
+            style:
+                GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Digite seu nome completo',
-              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
-              prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF64748B), size: 18),
+              hintStyle: GoogleFonts.inter(
+                  color: const Color(0xFF94A3B8), fontSize: 12.5),
+              prefixIcon: const Icon(Icons.person_outline_rounded,
+                  color: Color(0xFF64748B), size: 18),
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -968,7 +1015,8 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
+                borderSide:
+                    const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
               ),
             ),
           ),
@@ -988,14 +1036,18 @@ class _RegisterPageState extends State<RegisterPage> {
             controller: _emailCtrl,
             onChanged: controller.setEmail,
             keyboardType: TextInputType.emailAddress,
-            style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13),
+            style:
+                GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13),
             decoration: InputDecoration(
               hintText: 'seuemail@empresa.com.br',
-              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
-              prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF64748B), size: 18),
+              hintStyle: GoogleFonts.inter(
+                  color: const Color(0xFF94A3B8), fontSize: 12.5),
+              prefixIcon: const Icon(Icons.mail_outline_rounded,
+                  color: Color(0xFF64748B), size: 18),
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -1006,7 +1058,8 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
+                borderSide:
+                    const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
               ),
             ),
           ),
@@ -1027,14 +1080,19 @@ class _RegisterPageState extends State<RegisterPage> {
               controller: _passwordCtrl,
               onChanged: controller.setPassword,
               obscureText: controller.obscurePassword,
-              style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13),
+              style: GoogleFonts.inter(
+                  color: const Color(0xFF0F172A), fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Mínimo de 6 caracteres',
-                hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
-                prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF64748B), size: 18),
+                hintStyle: GoogleFonts.inter(
+                    color: const Color(0xFF94A3B8), fontSize: 12.5),
+                prefixIcon: const Icon(Icons.lock_outline_rounded,
+                    color: Color(0xFF64748B), size: 18),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    controller.obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    controller.obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     color: const Color(0xFF64748B),
                     size: 18,
                   ),
@@ -1042,7 +1100,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -1053,7 +1112,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
                 ),
               ),
             ),
@@ -1075,14 +1135,19 @@ class _RegisterPageState extends State<RegisterPage> {
               controller: _confirmPasswordCtrl,
               onChanged: controller.setConfirmPassword,
               obscureText: controller.obscureConfirmPassword,
-              style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 13),
+              style: GoogleFonts.inter(
+                  color: const Color(0xFF0F172A), fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Repita sua senha',
-                hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12.5),
-                prefixIcon: const Icon(Icons.lock_reset_rounded, color: Color(0xFF64748B), size: 18),
+                hintStyle: GoogleFonts.inter(
+                    color: const Color(0xFF94A3B8), fontSize: 12.5),
+                prefixIcon: const Icon(Icons.lock_reset_rounded,
+                    color: Color(0xFF64748B), size: 18),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    controller.obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    controller.obscureConfirmPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     color: const Color(0xFF64748B),
                     size: 18,
                   ),
@@ -1090,7 +1155,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -1101,7 +1167,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF00B4D8), width: 1.8),
                 ),
               ),
             ),
@@ -1134,7 +1201,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: (controller.isLoading || _isQuickLoading)
                     ? null
@@ -1150,7 +1218,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.2),
                       )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1165,7 +1234,8 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                          const Icon(Icons.arrow_forward_rounded,
+                              color: Colors.white, size: 18),
                         ],
                       ),
               ),
@@ -1212,7 +1282,8 @@ class _RegisterPageState extends State<RegisterPage> {
               style: OutlinedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 side: BorderSide.none,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: (controller.isLoading || _isQuickLoading)
                   ? null
@@ -1274,65 +1345,9 @@ class _RegisterPageState extends State<RegisterPage> {
   // LOGO DO TAOS CRM
   // ─────────────────────────────────────────────────────────────────────────
   Widget _buildBrandLogo({required bool isDarkBackground}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Ícone quadrado escuro com o "T" em ciano
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A152B),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF00E5FF).withValues(alpha: isDarkBackground ? 0.7 : 0.5),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00E5FF).withValues(alpha: isDarkBackground ? 0.35 : 0.2),
-                blurRadius: 12,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Image.asset(
-              'assets/images/logo_.png',
-              width: 26,
-              height: 26,
-              color: const Color(0xFF00E5FF),
-              colorBlendMode: BlendMode.srcIn,
-              errorBuilder: (_, __, ___) => const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 26),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-
-        // Palavra T Λ O S
-        Text(
-          'T Λ O S',
-          style: GoogleFonts.outfit(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.6,
-            color: isDarkBackground ? Colors.white : const Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // Sigla CRM em Ciano Neon
-        Text(
-          'CRM',
-          style: GoogleFonts.outfit(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-            color: const Color(0xFF00B4D8),
-          ),
-        ),
-      ],
+    return TaosLogo(
+      height: isDarkBackground ? 150 : 90,
+      isDarkBackground: isDarkBackground,
     );
   }
 
@@ -1360,9 +1375,12 @@ class _RegisterPageState extends State<RegisterPage> {
         duration: const Duration(milliseconds: 250),
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,
-          child: ScaleTransition(scale: animation, alignment: Alignment.bottomLeft, child: child),
+          child: ScaleTransition(
+              scale: animation, alignment: Alignment.bottomLeft, child: child),
         ),
-        child: _isDevToolsExpanded ? _buildExpandedDevWindow() : _buildMinimizedDevButton(),
+        child: _isDevToolsExpanded
+            ? _buildExpandedDevWindow()
+            : _buildMinimizedDevButton(),
       ),
     );
   }
@@ -1391,7 +1409,8 @@ class _RegisterPageState extends State<RegisterPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.bug_report_rounded, color: Color(0xFFF59E0B), size: 16),
+              const Icon(Icons.bug_report_rounded,
+                  color: Color(0xFFF59E0B), size: 16),
               const SizedBox(width: 8),
               Text(
                 'DEV TOOLS',
@@ -1403,7 +1422,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.keyboard_arrow_up_rounded, color: Color(0xFFFCD34D), size: 18),
+              const Icon(Icons.keyboard_arrow_up_rounded,
+                  color: Color(0xFFFCD34D), size: 18),
             ],
           ),
         ),
@@ -1442,7 +1462,8 @@ class _RegisterPageState extends State<RegisterPage> {
             // Header da Janela Flutuante com Minimizar
             Row(
               children: [
-                const Icon(Icons.terminal_rounded, size: 18, color: Color(0xFFF59E0B)),
+                const Icon(Icons.terminal_rounded,
+                    size: 18, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1456,7 +1477,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF94A3B8)),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 18, color: Color(0xFF94A3B8)),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   tooltip: 'Minimizar janela',
@@ -1473,18 +1495,21 @@ class _RegisterPageState extends State<RegisterPage> {
                   ? const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.rocket_launch_rounded, size: 15),
               label: Text(
                 '⚡ TESTAR ONBOARDING (CNPJ 31)',
-                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(
+                    fontSize: 11, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0284C7),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
               ),
             ),
@@ -1497,18 +1522,21 @@ class _RegisterPageState extends State<RegisterPage> {
                   ? const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.flash_on_rounded, size: 15),
               label: Text(
                 '⚡ CRIAR CADASTRO TESTE ALEATÓRIO',
-                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(
+                    fontSize: 11, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD97706),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
               ),
             ),
@@ -1517,7 +1545,8 @@ class _RegisterPageState extends State<RegisterPage> {
             // Botão 3: Ir para Login
             OutlinedButton.icon(
               onPressed: () => Modular.to.navigate('/auth/login'),
-              icon: const Icon(Icons.login_rounded, size: 15, color: Color(0xFF38BDF8)),
+              icon: const Icon(Icons.login_rounded,
+                  size: 15, color: Color(0xFF38BDF8)),
               label: Text(
                 '🔑 IR PARA TELA DE LOGIN',
                 style: GoogleFonts.inter(
@@ -1529,7 +1558,8 @@ class _RegisterPageState extends State<RegisterPage> {
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 side: const BorderSide(color: Color(0xFF0284C7), width: 1.2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
@@ -1756,10 +1786,12 @@ class _RegisterHolographicPortalPainter extends CustomPainter {
           Colors.transparent,
           const Color(0xFF00E5FF).withValues(alpha: 0.35),
         ],
-      ).createShader(Rect.fromCircle(center: Offset(originX, originY), radius: 240));
+      ).createShader(
+          Rect.fromCircle(center: Offset(originX, originY), radius: 240));
 
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(originX - 40, originY), width: 140, height: 420),
+      Rect.fromCenter(
+          center: Offset(originX - 40, originY), width: 140, height: 420),
       math.pi * 0.5,
       math.pi,
       false,
@@ -1772,7 +1804,8 @@ class _RegisterHolographicPortalPainter extends CustomPainter {
       ..color = const Color(0xFF00E5FF).withValues(alpha: 0.20);
 
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(originX - 120, originY), width: 220, height: 500),
+      Rect.fromCenter(
+          center: Offset(originX - 120, originY), width: 220, height: 500),
       math.pi * 0.55,
       math.pi * 0.9,
       false,
@@ -1788,12 +1821,14 @@ class _RegisterHolographicPortalPainter extends CustomPainter {
           Colors.transparent,
         ],
         stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(originX, originY), radius: 180));
+      ).createShader(
+          Rect.fromCircle(center: Offset(originX, originY), radius: 180));
 
     canvas.drawCircle(Offset(originX, originY), 180, glowPaint);
 
     // 4. Partículas / pontos flutuantes de dados no ar
-    final particlePaint = Paint()..color = const Color(0xFF00E5FF).withValues(alpha: 0.65);
+    final particlePaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.65);
     final points = [
       Offset(originX - 60, originY - 140),
       Offset(originX - 110, originY + 90),

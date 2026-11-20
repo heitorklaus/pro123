@@ -139,6 +139,9 @@ class ProposalDTO {
   final String? createdByUserName;
   final String? pdfUrl;
   final String? pdfPath;
+  final String? connectionType;
+  final double? availabilityKwh;
+  final double? publicLightingValueRs;
   final DateTime createdAt;
 
   const ProposalDTO({
@@ -156,7 +159,7 @@ class ProposalDTO {
     this.discount = 0.0,
     this.shippingFee = 0.0,
     required this.totalAmount,
-    this.paymentTerms = 'À vista via PIX',
+    this.paymentTerms = '',
     this.validityDays = 15,
     this.deliveryTime,
     this.notes,
@@ -167,6 +170,9 @@ class ProposalDTO {
     this.createdByUserName,
     this.pdfUrl,
     this.pdfPath,
+    this.connectionType,
+    this.availabilityKwh,
+    this.publicLightingValueRs,
     required this.createdAt,
   });
 
@@ -199,7 +205,7 @@ class ProposalDTO {
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
       shippingFee: (map['shippingFee'] as num?)?.toDouble() ?? 0.0,
       totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0.0,
-      paymentTerms: map['paymentTerms']?.toString() ?? 'À vista via PIX (5% desc) ou Financiamento Solar',
+      paymentTerms: map['paymentTerms']?.toString() ?? '',
       validityDays: (map['validityDays'] as num?)?.toInt() ?? 15,
       deliveryTime: map['deliveryTime']?.toString() ?? 'Imediata / 3 a 5 dias úteis',
       notes: map['notes']?.toString(),
@@ -210,6 +216,9 @@ class ProposalDTO {
       createdByUserName: map['createdByUserName']?.toString(),
       pdfUrl: map['pdfUrl']?.toString(),
       pdfPath: map['pdfPath']?.toString(),
+      connectionType: map['connectionType']?.toString(),
+      availabilityKwh: (map['availabilityKwh'] as num?)?.toDouble(),
+      publicLightingValueRs: (map['publicLightingValueRs'] as num?)?.toDouble(),
       createdAt: parseDate(map['createdAt']),
     );
   }
@@ -521,6 +530,12 @@ class SolarSettingsDTO {
   final double energyTariff;
   final double fioBTariff;
   final double simultaneityRate;
+  final bool useDetailedBillingCalc;
+  final String defaultConnectionType;
+  final double monoAvailabilityKwh;
+  final double biAvailabilityKwh;
+  final double triAvailabilityKwh;
+  final double defaultPublicLightingRs;
   final double annualInflation;
   final int projectionYears;
   final double defaultSunHours;
@@ -662,6 +677,12 @@ class SolarSettingsDTO {
     this.energyTariff = 1.125,
     this.fioBTariff = 0.28,
     this.simultaneityRate = 13.0,
+    this.useDetailedBillingCalc = false,
+    this.defaultConnectionType = 'Bifásico',
+    this.monoAvailabilityKwh = 30.0,
+    this.biAvailabilityKwh = 50.0,
+    this.triAvailabilityKwh = 100.0,
+    this.defaultPublicLightingRs = 45.0,
     this.annualInflation = 5.0,
     this.projectionYears = 21,
     this.defaultSunHours = 4.8,
@@ -905,6 +926,9 @@ class SolarSettingsDTO {
   int get coverSubtitleColorValue => _hexToColor(coverSubtitleColor, fallback: 0xFF0F172A);
   int get customDividerColorValue => _hexToColor(customDividerColor, fallback: 0xFF0284C7);
   int get customDividerBottomColorValue => _hexToColor(customDividerBottomColor, fallback: 0xFFFFFFFF);
+EOF
+
+RUN cat <<'EOF' >> /app/lib/models/solar_settings_dto.dart
   int get verticalSplitAccentColorValue => _hexToColor(verticalSplitAccentColor, fallback: 0xFFEAB308);
   int get coverHeadlineColorValue => _hexToColor(coverHeadlineColor, fallback: 0xFFFFFFFF);
   int get coverRightTitleColorValue => _hexToColor(coverRightTitleColor, fallback: 0xFF334155);
@@ -917,9 +941,6 @@ class SolarSettingsDTO {
     }
     return coverBadgesTextColorValue;
   }
-EOF
-
-RUN cat <<'EOF' >> /app/lib/models/solar_settings_dto.dart
   int get coverFooterColorValue => _hexToColor(coverFooterColor, fallback: 0xFF64748B);
   int get coverClientInfoColorValue => _hexToColor(coverClientInfoColor, fallback: 0xFF0F172A);
   int get coverClientInfoSecondaryColorValue => _hexToColor(coverClientInfoSecondaryColor, fallback: 0xFF475569);
@@ -931,9 +952,19 @@ RUN cat <<'EOF' >> /app/lib/models/solar_settings_dto.dart
     return fallback;
   }
 
+  double availabilityKwhForType(String? type) {
+    final clean = (type ?? defaultConnectionType).toLowerCase();
+    if (clean.contains('mono')) return monoAvailabilityKwh;
+    if (clean.contains('tri')) return triAvailabilityKwh;
+    return biAvailabilityKwh;
+  }
+
   List<YearlySimulationItemDTO> calculateYearlySimulation({
     required double monthlyKwh,
     required double systemKwp,
+    String? connectionTypeOverride,
+    double? availabilityKwhOverride,
+    double? publicLightingOverride,
   }) {
     final list = <YearlySimulationItemDTO>[];
     final currentYear = DateTime.now().year;
@@ -943,22 +974,42 @@ RUN cat <<'EOF' >> /app/lib/models/solar_settings_dto.dart
     final infl = (annualInflation > 0 ? annualInflation : 5.0) / 100.0;
     final simRate = (simultaneityRate > 0 ? simultaneityRate : 13.0) / 100.0;
 
+    final availKwh = availabilityKwhOverride ?? availabilityKwhForType(connectionTypeOverride);
+    final baseCipRs = publicLightingOverride ?? defaultPublicLightingRs;
+
     for (int i = 0; i < totalYears; i++) {
       final year = currentYear + i;
-      final baseWithoutSolar = monthlyKwh * currentTariff;
 
       final directSelfConsumption = monthlyKwh * simRate;
       final gridInjectedKwh = monthlyKwh - directSelfConsumption;
 
-      final minBill = (gridInjectedKwh * fioBTariff * 0.55) + 65.0;
-      final maxBill = (gridInjectedKwh * fioBTariff * 0.85) + 95.0;
+      if (useDetailedBillingCalc) {
+        final cipThisYear = baseCipRs * math.pow(1 + infl, i);
+        final availThisYear = availKwh * currentTariff;
+        final baseWithoutSolar = (monthlyKwh * currentTariff) + cipThisYear;
+        final fioBGrowth = math.pow(1 + (infl * 0.7), i);
+        final minBill = (gridInjectedKwh * fioBTariff * 0.55 * fioBGrowth) + availThisYear + cipThisYear;
+        final maxBill = (gridInjectedKwh * fioBTariff * 0.85 * fioBGrowth) + availThisYear + cipThisYear;
 
-      list.add(YearlySimulationItemDTO(
-        year: year,
-        withSolarMin: minBill * math.pow(1 + (infl * 0.7), i),
-        withSolarMax: maxBill * math.pow(1 + (infl * 0.7), i),
-        withoutSolar: baseWithoutSolar,
-      ));
+        list.add(YearlySimulationItemDTO(
+          year: year,
+          withSolarMin: minBill,
+          withSolarMax: maxBill,
+          withoutSolar: baseWithoutSolar,
+        ));
+      } else {
+        final baseWithoutSolar = monthlyKwh * currentTariff;
+
+        final minBill = (gridInjectedKwh * fioBTariff * 0.55) + 65.0;
+        final maxBill = (gridInjectedKwh * fioBTariff * 0.85) + 95.0;
+
+        list.add(YearlySimulationItemDTO(
+          year: year,
+          withSolarMin: minBill * math.pow(1 + (infl * 0.7), i),
+          withSolarMax: maxBill * math.pow(1 + (infl * 0.7), i),
+          withoutSolar: baseWithoutSolar,
+        ));
+      }
 
       currentTariff *= (1 + infl);
     }
@@ -975,6 +1026,12 @@ RUN cat <<'EOF' >> /app/lib/models/solar_settings_dto.dart
       energyTariff: (map['energyTariff'] as num?)?.toDouble() ?? (map['kwhTariffRate'] as num?)?.toDouble() ?? 1.125,
       fioBTariff: (map['fioBTariff'] as num?)?.toDouble() ?? 0.28,
       simultaneityRate: (map['simultaneityRate'] as num?)?.toDouble() ?? (map['simultaneityFactor'] as num?)?.toDouble() ?? 13.0,
+      useDetailedBillingCalc: map['useDetailedBillingCalc'] as bool? ?? false,
+      defaultConnectionType: map['defaultConnectionType']?.toString() ?? 'Bifásico',
+      monoAvailabilityKwh: (map['monoAvailabilityKwh'] as num?)?.toDouble() ?? 30.0,
+      biAvailabilityKwh: (map['biAvailabilityKwh'] as num?)?.toDouble() ?? 50.0,
+      triAvailabilityKwh: (map['triAvailabilityKwh'] as num?)?.toDouble() ?? 100.0,
+      defaultPublicLightingRs: (map['defaultPublicLightingRs'] as num?)?.toDouble() ?? 45.0,
       annualInflation: (map['annualInflation'] as num?)?.toDouble() ?? (map['annualTariffInflation'] as num?)?.toDouble() ?? 5.0,
       projectionYears: (map['projectionYears'] as num?)?.toInt() ?? 21,
       defaultSunHours: (map['defaultSunHours'] as num?)?.toDouble() ?? 4.8,
@@ -6409,15 +6466,17 @@ RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
                                 color: const PdfColor.fromInt(0xFF102C49),
                               ),
                             ),
-                            pw.SizedBox(height: 3),
-                            pw.Text(
-                              '5% de desconto',
-                              style: pw.TextStyle(
-                                fontSize: 10.2,
-                                fontWeight: pw.FontWeight.bold,
-                                color: const PdfColor.fromInt(0xFF087344),
+                            if (proposal.paymentTerms.trim().isNotEmpty) ...[
+                              pw.SizedBox(height: 3),
+                              pw.Text(
+                                proposal.paymentTerms.trim(),
+                                style: pw.TextStyle(
+                                  fontSize: 10.2,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: const PdfColor.fromInt(0xFF087344),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -6516,11 +6575,11 @@ RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
                         fontWeight: pw.FontWeight.bold,
                         color: PdfColors.white,
                       ),
-                    ),
-                  ],
 EOF
 
 RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
+                    ),
+                  ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -6568,6 +6627,9 @@ RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
     final yearlyData = settings.calculateYearlySimulation(
       monthlyKwh: generationMonthly,
       systemKwp: kwp,
+      connectionTypeOverride: proposal.connectionType,
+      availabilityKwhOverride: proposal.availabilityKwh,
+      publicLightingOverride: proposal.publicLightingValueRs,
     );
 
     final rows21 = yearlyData.take(21).toList();
@@ -7216,14 +7278,14 @@ RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
             decoration: pw.BoxDecoration(
               color: secondaryColor,
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(14)),
+EOF
+
+RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
             ),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
                 pw.Expanded(
-EOF
-
-RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
                   flex: 62,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,

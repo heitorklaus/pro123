@@ -216,6 +216,9 @@ class UserModel {
   final int aiUsageCount; // Quantidade de análises consumidas hoje
   final String? aiUsageDate; // Data do contador no formato 'yyyy-MM-dd'
   final int? customDailyAiQuota; // Cota personalizada de IA (se null, usa a da empresa ou global)
+  final String aiPlanTier; // Grupo de cota de IA: 'premium' (default) | 'gold' | 'diamond'
+  final int? customDailyTokenQuota; // Sobrescrita opcional de tokens/dia para este dono/usuário
+  final double? customDailyBrlQuota; // Sobrescrita opcional de R$/dia para este dono/usuário
 
   const UserModel({
     required this.uid,
@@ -233,6 +236,9 @@ class UserModel {
     this.aiUsageCount = 0,
     this.aiUsageDate,
     this.customDailyAiQuota,
+    this.aiPlanTier = 'premium',
+    this.customDailyTokenQuota,
+    this.customDailyBrlQuota,
   });
 
   bool get isSuperAdmin =>
@@ -279,6 +285,11 @@ class UserModel {
       aiUsageCount: map['aiUsageCount'] as int? ?? 0,
       aiUsageDate: map['aiUsageDate'] as String?,
       customDailyAiQuota: map['customDailyAiQuota'] as int?,
+      aiPlanTier: (map['aiPlanTier'] as String?)?.toLowerCase().trim().isNotEmpty == true
+          ? (map['aiPlanTier'] as String).toLowerCase().trim()
+          : 'premium',
+      customDailyTokenQuota: (map['customDailyTokenQuota'] as num?)?.toInt(),
+      customDailyBrlQuota: (map['customDailyBrlQuota'] as num?)?.toDouble(),
     );
   }
 
@@ -299,6 +310,9 @@ class UserModel {
       'aiUsageCount': aiUsageCount,
       'aiUsageDate': aiUsageDate,
       'customDailyAiQuota': customDailyAiQuota,
+      'aiPlanTier': aiPlanTier,
+      'customDailyTokenQuota': customDailyTokenQuota,
+      'customDailyBrlQuota': customDailyBrlQuota,
     };
   }
 
@@ -318,6 +332,9 @@ class UserModel {
     int? aiUsageCount,
     String? aiUsageDate,
     int? customDailyAiQuota,
+    String? aiPlanTier,
+    int? customDailyTokenQuota,
+    double? customDailyBrlQuota,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -335,6 +352,9 @@ class UserModel {
       aiUsageCount: aiUsageCount ?? this.aiUsageCount,
       aiUsageDate: aiUsageDate ?? this.aiUsageDate,
       customDailyAiQuota: customDailyAiQuota ?? this.customDailyAiQuota,
+      aiPlanTier: aiPlanTier ?? this.aiPlanTier,
+      customDailyTokenQuota: customDailyTokenQuota ?? this.customDailyTokenQuota,
+      customDailyBrlQuota: customDailyBrlQuota ?? this.customDailyBrlQuota,
     );
   }
 }

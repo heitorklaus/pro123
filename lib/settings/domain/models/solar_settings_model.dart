@@ -352,6 +352,12 @@ class SolarSettingsModel {
   final double fioBTariff; // Fio B / Taxa de rede R$/kWh (ex: 0.28)
   final double simultaneityRate; // % de simultaneidade (ex: 13.0)
   final double generationFactor; // Fator de geração regional em kWh/kWp (padrão 118.0)
+  final bool useDetailedBillingCalc; // Switch: usa Mono/Bi/Tri + Iluminação Pública
+  final String defaultConnectionType; // 'Monofásico' | 'Bifásico' | 'Trifásico'
+  final double monoAvailabilityKwh; // Disponibilidade Monofásica (padrão 30 kWh)
+  final double biAvailabilityKwh; // Disponibilidade Bifásica (padrão 50 kWh)
+  final double triAvailabilityKwh; // Disponibilidade Trifásica (padrão 100 kWh)
+  final double defaultPublicLightingRs; // Iluminação Pública padrão em R$
   final double annualInflation; // % de inflação anual da energia (ex: 5.0)
   final int projectionYears; // Anos de projeção (ex: 20 ou 25 anos)
   final double defaultSunHours; // HSP médio diário (ex: 4.8)
@@ -675,6 +681,12 @@ class SolarSettingsModel {
     this.fioBTariff = 0.28,
     this.simultaneityRate = 13.0,
     this.generationFactor = 118.0,
+    this.useDetailedBillingCalc = false,
+    this.defaultConnectionType = 'Bifásico',
+    this.monoAvailabilityKwh = 30.0,
+    this.biAvailabilityKwh = 50.0,
+    this.triAvailabilityKwh = 100.0,
+    this.defaultPublicLightingRs = 45.0,
     this.annualInflation = 5.0,
     this.projectionYears = 21,
     this.defaultSunHours = 4.8,
@@ -797,10 +809,20 @@ class SolarSettingsModel {
     this.internalPagesLayoutPreset = 'preset_01',
   });
 
+  double availabilityKwhForType(String? type) {
+    final clean = (type ?? defaultConnectionType).toLowerCase();
+    if (clean.contains('mono')) return monoAvailabilityKwh;
+    if (clean.contains('tri')) return triAvailabilityKwh;
+    return biAvailabilityKwh;
+  }
+
   /// Gera a simulação ano a ano comparando Com Solar vs Sem Solar
   List<EnergyBillYearItem> calculateYearlySimulation({
     required double monthlyKwh,
     required double systemKwp,
+    String? connectionTypeOverride,
+    double? availabilityKwhOverride,
+    double? publicLightingOverride,
   }) {
     final list = <EnergyBillYearItem>[];
     final currentYear = DateTime.now().year;
@@ -810,24 +832,44 @@ class SolarSettingsModel {
     final infl = (annualInflation > 0 ? annualInflation : 5.0) / 100.0;
     final simRate = (simultaneityRate > 0 ? simultaneityRate : 13.0) / 100.0;
 
+    final availKwh = availabilityKwhOverride ?? availabilityKwhForType(connectionTypeOverride);
+    final baseCipRs = publicLightingOverride ?? defaultPublicLightingRs;
+
     for (int i = 0; i < totalYears; i++) {
       final year = currentYear + i;
-      final baseWithoutSolar = monthlyKwh * currentTariff;
 
       // Com solar: paga taxa de disponibilidade/fio B + consumo não simultâneo residual
       final directSelfConsumption = monthlyKwh * simRate;
       final gridInjectedKwh = monthlyKwh - directSelfConsumption;
 
-      // Variação mínima e máxima considerando fio B progressivo e iluminação pública
-      final minBill = (gridInjectedKwh * fioBTariff * 0.55) + 65.0;
-      final maxBill = (gridInjectedKwh * fioBTariff * 0.85) + 95.0;
+      if (useDetailedBillingCalc) {
+        final cipThisYear = baseCipRs * math.pow(1 + infl, i);
+        final availThisYear = availKwh * currentTariff;
+        final baseWithoutSolar = (monthlyKwh * currentTariff) + cipThisYear;
+        final fioBGrowth = math.pow(1 + (infl * 0.7), i);
+        final minBill = (gridInjectedKwh * fioBTariff * 0.55 * fioBGrowth) + availThisYear + cipThisYear;
+        final maxBill = (gridInjectedKwh * fioBTariff * 0.85 * fioBGrowth) + availThisYear + cipThisYear;
 
-      list.add(EnergyBillYearItem(
-        year: year,
-        withSolarMin: minBill * math.pow(1 + (infl * 0.7), i),
-        withSolarMax: maxBill * math.pow(1 + (infl * 0.7), i),
-        withoutSolar: baseWithoutSolar,
-      ));
+        list.add(EnergyBillYearItem(
+          year: year,
+          withSolarMin: minBill,
+          withSolarMax: maxBill,
+          withoutSolar: baseWithoutSolar,
+        ));
+      } else {
+        final baseWithoutSolar = monthlyKwh * currentTariff;
+
+        // Variação mínima e máxima considerando fio B progressivo e iluminação pública
+        final minBill = (gridInjectedKwh * fioBTariff * 0.55) + 65.0;
+        final maxBill = (gridInjectedKwh * fioBTariff * 0.85) + 95.0;
+
+        list.add(EnergyBillYearItem(
+          year: year,
+          withSolarMin: minBill * math.pow(1 + (infl * 0.7), i),
+          withSolarMax: maxBill * math.pow(1 + (infl * 0.7), i),
+          withoutSolar: baseWithoutSolar,
+        ));
+      }
 
       // Atualiza tarifa com inflação anual
       currentTariff *= (1 + infl);
@@ -842,6 +884,12 @@ class SolarSettingsModel {
     double? fioBTariff,
     double? simultaneityRate,
     double? generationFactor,
+    bool? useDetailedBillingCalc,
+    String? defaultConnectionType,
+    double? monoAvailabilityKwh,
+    double? biAvailabilityKwh,
+    double? triAvailabilityKwh,
+    double? defaultPublicLightingRs,
     double? annualInflation,
     int? projectionYears,
     double? defaultSunHours,
@@ -965,6 +1013,12 @@ class SolarSettingsModel {
       fioBTariff: fioBTariff ?? this.fioBTariff,
       simultaneityRate: simultaneityRate ?? this.simultaneityRate,
       generationFactor: generationFactor ?? this.generationFactor,
+      useDetailedBillingCalc: useDetailedBillingCalc ?? this.useDetailedBillingCalc,
+      defaultConnectionType: defaultConnectionType ?? this.defaultConnectionType,
+      monoAvailabilityKwh: monoAvailabilityKwh ?? this.monoAvailabilityKwh,
+      biAvailabilityKwh: biAvailabilityKwh ?? this.biAvailabilityKwh,
+      triAvailabilityKwh: triAvailabilityKwh ?? this.triAvailabilityKwh,
+      defaultPublicLightingRs: defaultPublicLightingRs ?? this.defaultPublicLightingRs,
       annualInflation: annualInflation ?? this.annualInflation,
       projectionYears: projectionYears ?? this.projectionYears,
       defaultSunHours: defaultSunHours ?? this.defaultSunHours,
@@ -1097,6 +1151,12 @@ class SolarSettingsModel {
       'fioBTariff': fioBTariff,
       'simultaneityRate': simultaneityRate,
       'generationFactor': generationFactor,
+      'useDetailedBillingCalc': useDetailedBillingCalc,
+      'defaultConnectionType': defaultConnectionType,
+      'monoAvailabilityKwh': monoAvailabilityKwh,
+      'biAvailabilityKwh': biAvailabilityKwh,
+      'triAvailabilityKwh': triAvailabilityKwh,
+      'defaultPublicLightingRs': defaultPublicLightingRs,
       'annualInflation': annualInflation,
       'projectionYears': projectionYears,
       'defaultSunHours': defaultSunHours,
@@ -1216,6 +1276,12 @@ class SolarSettingsModel {
       fioBTariff: (map['fioBTariff'] as num?)?.toDouble() ?? 0.28,
       simultaneityRate: (map['simultaneityRate'] as num?)?.toDouble() ?? 13.0,
       generationFactor: (map['generationFactor'] as num?)?.toDouble() ?? 118.0,
+      useDetailedBillingCalc: map['useDetailedBillingCalc'] as bool? ?? false,
+      defaultConnectionType: map['defaultConnectionType'] as String? ?? 'Bifásico',
+      monoAvailabilityKwh: (map['monoAvailabilityKwh'] as num?)?.toDouble() ?? 30.0,
+      biAvailabilityKwh: (map['biAvailabilityKwh'] as num?)?.toDouble() ?? 50.0,
+      triAvailabilityKwh: (map['triAvailabilityKwh'] as num?)?.toDouble() ?? 100.0,
+      defaultPublicLightingRs: (map['defaultPublicLightingRs'] as num?)?.toDouble() ?? 45.0,
       annualInflation: (map['annualInflation'] as num?)?.toDouble() ?? 5.0,
       projectionYears: (map['projectionYears'] as num?)?.toInt() ?? 21,
       defaultSunHours: (map['defaultSunHours'] as num?)?.toDouble() ?? 4.8,

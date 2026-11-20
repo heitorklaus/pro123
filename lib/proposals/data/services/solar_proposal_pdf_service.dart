@@ -230,7 +230,17 @@ class SolarProposalPdfService {
     );
 
     final kwp = solarPlantItem.solarPowerKwp ?? (proposal.totalAmount > 0 ? (proposal.totalAmount / 2300.0) : 8.68);
-    final generationMonthly = (kwp * 115.2).clamp(100.0, 50000.0);
+    double generationMonthly = solarPlantItem.estimatedMonthlyKwh ?? 0.0;
+    if (generationMonthly <= 0) {
+      final kwhMatch = RegExp(r'(\d+(?:[\.,]\d+)?)\s*kWh', caseSensitive: false)
+          .firstMatch('${proposal.title} ${solarPlantItem.name}');
+      if (kwhMatch != null) {
+        generationMonthly = double.tryParse(kwhMatch.group(1)!.replaceAll(',', '.')) ?? 0.0;
+      }
+    }
+    if (generationMonthly <= 0) {
+      generationMonthly = (kwp * 115.2).clamp(100.0, 50000.0);
+    }
     final generationDaily = generationMonthly / 30.0;
     final roofType = solarPlantItem.solarRoofType ?? 'Cerâmica';
 
@@ -3662,6 +3672,23 @@ class SolarProposalPdfService {
       ]);
     }
 
+    // Inclui também quaisquer outros itens/produtos adicionados depois da usina principal
+    for (final extraItem in proposal.items) {
+      if (identical(extraItem, solarPlantItem)) continue;
+      if (extraItem.solarComponents != null && extraItem.solarComponents!.isNotEmpty) {
+        for (final comp in extraItem.solarComponents!) {
+          if (!equipmentItems.contains(comp)) {
+            equipmentItems.add(comp);
+          }
+        }
+      } else if (extraItem.name.trim().isNotEmpty && extraItem.name.trim() != 'Item sem descrição') {
+        final qtyStr = extraItem.quantity % 1 == 0
+            ? extraItem.quantity.toInt().toString()
+            : extraItem.quantity.toString();
+        equipmentItems.add('${qtyStr}x ${extraItem.name.trim()}');
+      }
+    }
+
     final primaryHex = _pdfColorToHex(primaryColor);
     final heroIllustrationSvg = '''
 <svg viewBox="0 0 330 200" width="215" height="130">
@@ -3866,15 +3893,17 @@ class SolarProposalPdfService {
                                 color: const PdfColor.fromInt(0xFF102C49),
                               ),
                             ),
-                            pw.SizedBox(height: 3),
-                            pw.Text(
-                              '5% de desconto',
-                              style: pw.TextStyle(
-                                fontSize: 10.2,
-                                fontWeight: pw.FontWeight.bold,
-                                color: const PdfColor.fromInt(0xFF087344),
+                            if (proposal.paymentTerms.trim().isNotEmpty) ...[
+                              pw.SizedBox(height: 3),
+                              pw.Text(
+                                proposal.paymentTerms.trim(),
+                                style: pw.TextStyle(
+                                  fontSize: 10.2,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: const PdfColor.fromInt(0xFF087344),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -4022,6 +4051,9 @@ class SolarProposalPdfService {
     final yearlyData = settings.calculateYearlySimulation(
       monthlyKwh: generationMonthly,
       systemKwp: kwp,
+      connectionTypeOverride: proposal.connectionType,
+      availabilityKwhOverride: proposal.availabilityKwh,
+      publicLightingOverride: proposal.publicLightingValueRs,
     );
 
     final rows21 = yearlyData.take(21).toList();

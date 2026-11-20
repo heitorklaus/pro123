@@ -15,6 +15,7 @@ class ProposalItemModel {
   final bool isSolarPlant;
   final String? solarRoofType;
   final double? solarKilowatts;
+  final double? estimatedMonthlyKwh;
   final List<String>? solarComponents;
   final double? moduleWatts; // Potência em Watts se for módulo solar (ex: 550W)
   final String? roofStudyId; // Vínculo com o Estudo Fotovoltaico de origem
@@ -39,6 +40,7 @@ class ProposalItemModel {
     this.isSolarPlant = false,
     this.solarRoofType,
     this.solarKilowatts,
+    this.estimatedMonthlyKwh,
     this.solarComponents,
     this.moduleWatts,
     this.roofStudyId,
@@ -173,6 +175,7 @@ class ProposalItemModel {
       'isSolarPlant': isSolarPlant,
       'solarRoofType': solarRoofType,
       'solarKilowatts': solarKilowatts,
+      if (estimatedMonthlyKwh != null) 'estimatedMonthlyKwh': estimatedMonthlyKwh,
       'solarComponents': solarComponents,
       'moduleWatts': moduleWatts,
       if (roofStudyId != null) 'roofStudyId': roofStudyId,
@@ -193,6 +196,7 @@ class ProposalItemModel {
     List<String> components = [];
     String? roofType;
     double? kilowatts;
+    double? estMonthlyKwh;
     double? modWatts;
     String? studyId;
 
@@ -208,6 +212,10 @@ class ProposalItemModel {
       roofType = attrs['roofType'] as String?;
       if (attrs['kilowatts'] != null) {
         kilowatts = (attrs['kilowatts'] as num).toDouble();
+      }
+      final rawEstKwh = attrs['estimatedMonthlyKwh'] ?? attrs['generationKwh'];
+      if (rawEstKwh is num && rawEstKwh > 0) {
+        estMonthlyKwh = rawEstKwh.toDouble();
       }
       if (attrs['items'] is List) {
         final rawItems = attrs['items'] as List;
@@ -280,6 +288,7 @@ class ProposalItemModel {
       isSolarPlant: isSolar,
       solarRoofType: roofType,
       solarKilowatts: kilowatts,
+      estimatedMonthlyKwh: estMonthlyKwh,
       solarComponents: components.isNotEmpty ? components : null,
       moduleWatts: modWatts,
       roofStudyId: studyId,
@@ -310,7 +319,7 @@ class ProposalItemModel {
 
     return ProposalItemModel(
       productId: map['productId'] as String?,
-      name: map['name'] as String? ?? 'Item sem descrição',
+      name: map['name'] as String? ?? map['title'] as String? ?? 'Item sem descrição',
       sku: map['sku'] as String?,
       quantity: qty,
       unit: map['unit'] as String? ?? 'UN',
@@ -320,6 +329,7 @@ class ProposalItemModel {
       isSolarPlant: map['isSolarPlant'] as bool? ?? false,
       solarRoofType: map['solarRoofType'] as String?,
       solarKilowatts: (map['solarKilowatts'] as num?)?.toDouble(),
+      estimatedMonthlyKwh: (map['estimatedMonthlyKwh'] as num?)?.toDouble(),
       solarComponents: components,
       moduleWatts: (map['moduleWatts'] as num?)?.toDouble(),
       roofStudyId: map['roofStudyId'] as String?,

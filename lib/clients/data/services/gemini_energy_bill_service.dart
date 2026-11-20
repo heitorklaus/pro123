@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../../../products/data/services/gemini_solar_vision_service.dart';
+import '../../../settings/data/services/ai_usage_telemetry_service.dart';
 import '../../domain/models/parsed_energy_bill.dart';
 
 /// Serviço de Visão Computacional com IA Google Gemini especializado em Contas de Energia Brasileiras
@@ -145,6 +147,7 @@ Retorne ESTRITAMENTE um objeto JSON válido (sem tags markdown de código e sem 
       'gemini-flash-latest',
     ];
     http.Response? response;
+    String usedModel = candidateModels.first;
     String lastError = '';
 
     for (final model in candidateModels) {
@@ -164,8 +167,16 @@ Retorne ESTRITAMENTE um objeto JSON válido (sem tags markdown de código e sem 
 
         if (res.statusCode == 200) {
           response = res;
+          usedModel = model;
           break;
         } else {
+          if (res.statusCode == 429) {
+            unawaited(AiUsageTelemetryService.recordGeminiResponse(
+              source: 'web_energy_bill',
+              model: model,
+              isQuotaError429: true,
+            ));
+          }
           lastError = 'Erro ($model - ${res.statusCode}): ${res.body}';
         }
       } catch (e) {
@@ -181,6 +192,11 @@ Retorne ESTRITAMENTE um objeto JSON válido (sem tags markdown de código e sem 
 
     try {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
+      unawaited(AiUsageTelemetryService.recordGeminiResponse(
+        source: 'web_energy_bill',
+        model: usedModel,
+        responseJson: data,
+      ));
       final candidates = data['candidates'] as List<dynamic>?;
       if (candidates == null || candidates.isEmpty) {
         throw Exception('A IA não retornou conteúdo para esta conta de energia.');

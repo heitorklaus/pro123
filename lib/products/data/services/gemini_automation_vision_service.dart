@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../settings/data/services/ai_usage_telemetry_service.dart';
 import '../../domain/models/automation_study_model.dart';
 
 /// Item extraído pela Inteligência Artificial
@@ -232,7 +234,12 @@ Retorne ESTRITAMENTE um objeto JSON válido (sem tags markdown, sem ```json e se
         final response = await http.post(url, headers: headers, body: body);
 
         if (response.statusCode == 200) {
-          final resJson = jsonDecode(response.body);
+          final resJson = jsonDecode(response.body) as Map<String, dynamic>;
+          unawaited(AiUsageTelemetryService.recordGeminiResponse(
+            source: 'web_automation',
+            model: model,
+            responseJson: resJson,
+          ));
           final candidates = resJson['candidates'] as List?;
           if (candidates == null || candidates.isEmpty) {
             throw Exception('O Gemini não retornou nenhuma resposta.');

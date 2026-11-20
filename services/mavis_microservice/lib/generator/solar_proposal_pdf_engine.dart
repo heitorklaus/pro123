@@ -2689,15 +2689,17 @@ class SolarProposalPdfEngine {
                                 color: const PdfColor.fromInt(0xFF102C49),
                               ),
                             ),
-                            pw.SizedBox(height: 3),
-                            pw.Text(
-                              '5% de desconto',
-                              style: pw.TextStyle(
-                                fontSize: 10.2,
-                                fontWeight: pw.FontWeight.bold,
-                                color: const PdfColor.fromInt(0xFF087344),
+                            if (proposal.paymentTerms.trim().isNotEmpty) ...[
+                              pw.SizedBox(height: 3),
+                              pw.Text(
+                                proposal.paymentTerms.trim(),
+                                style: pw.TextStyle(
+                                  fontSize: 10.2,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: const PdfColor.fromInt(0xFF087344),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -2845,6 +2847,9 @@ class SolarProposalPdfEngine {
     final yearlyData = settings.calculateYearlySimulation(
       monthlyKwh: generationMonthly,
       systemKwp: kwp,
+      connectionTypeOverride: proposal.connectionType,
+      availabilityKwhOverride: proposal.availabilityKwh,
+      publicLightingOverride: proposal.publicLightingValueRs,
     );
 
     final rows21 = yearlyData.take(21).toList();

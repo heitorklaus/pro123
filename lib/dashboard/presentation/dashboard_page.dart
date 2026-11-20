@@ -31,7 +31,7 @@ import '../../users/presentation/widgets/user_dossier_dialog.dart';
 import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
-import 'widgets/master_system_config_card.dart';
+import 'master_ai_quotas_view.dart';
 import '../../solar_designer/presentation/roof_studies_view.dart';
 import '../../solar_designer/domain/models/roof_study_model.dart';
 import '../../onboarding/presentation/onboarding_page.dart';
@@ -591,6 +591,16 @@ class _DashboardPageState extends State<DashboardPage> {
           );
         }
         return SolarCreditsView(currentUser: _currentUser);
+      case AppSidebarItem.masterAiQuotas:
+        if (_currentUser?.email.toLowerCase().trim() != 'admin@admin.com.br') {
+          return const Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(32.0),
+              child: _WelcomeCard(),
+            ),
+          );
+        }
+        return MasterAiQuotasView(currentUser: _currentUser);
       case AppSidebarItem.users:
         if (!canManageUsers) {
           return const Center(
@@ -973,14 +983,6 @@ class _SuperAdminMasterDashboardState
                                         .onNavigate(AppSidebarItem.products),
                                   ),
                                 ],
-                              ),
-
-                              const SizedBox(height: 28),
-
-                              // ── Painel Executivo Master: Cotas de IA & Limite de Vendedores ──
-                              MasterSystemConfigCard(
-                                currentUser: widget.currentUser,
-                                allUsers: users,
                               ),
 
                               const SizedBox(height: 28),

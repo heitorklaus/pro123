@@ -108,6 +108,9 @@ class ProposalRepository {
     String? companyId,
     String? createdByUserId,
     String? createdByUserName,
+    String? connectionType,
+    double? availabilityKwh,
+    double? publicLightingValueRs,
   }) async {
     final now = DateTime.now();
     final docRef = _proposalsRef.doc();
@@ -142,6 +145,9 @@ class ProposalRepository {
       companyId: companyId,
       createdByUserId: effectiveUserId,
       createdByUserName: effectiveUserName,
+      connectionType: connectionType,
+      availabilityKwh: availabilityKwh,
+      publicLightingValueRs: publicLightingValueRs,
       createdAt: now,
       updatedAt: now,
     );

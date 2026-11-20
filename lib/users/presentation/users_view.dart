@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -534,6 +536,74 @@ class _TableViewState extends State<_TableView> {
 // ─────────────────────────────────────────────────────────────────────────────
 // GRUPO DE ADMINISTRADOR COM SANFONA (+) / (-) PARA OPERADORES SUBORDINADOS
 // ─────────────────────────────────────────────────────────────────────────────
+class _AiPlanTierDropdown extends StatelessWidget {
+  final UserModel user;
+  const _AiPlanTierDropdown({required this.user});
+
+  Color _colorFor(String tier) {
+    switch (tier.toLowerCase()) {
+      case 'diamond':
+        return const Color(0xFF06B6D4);
+      case 'gold':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF6366F1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentTier =
+        ['premium', 'gold', 'diamond'].contains(user.aiPlanTier.toLowerCase())
+            ? user.aiPlanTier.toLowerCase()
+            : 'premium';
+    final color = _colorFor(currentTier);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: DropdownButton<String>(
+        value: currentTier,
+        isDense: true,
+        underline: const SizedBox.shrink(),
+        icon: Icon(Icons.arrow_drop_down_rounded, color: color, size: 18),
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+        items: const [
+          DropdownMenuItem(value: 'premium', child: Text('PREMIUM')),
+          DropdownMenuItem(value: 'gold', child: Text('GOLD')),
+          DropdownMenuItem(value: 'diamond', child: Text('DIAMOND')),
+        ],
+        onChanged: (val) async {
+          if (val == null || val == currentTier) return;
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'aiPlanTier': val});
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Plano de IA de ${user.name.isNotEmpty ? user.name : user.email} alterado para ${val.toUpperCase()}',
+                ),
+                backgroundColor: _colorFor(val),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+}
+
 class _AdminTreeGroup extends StatelessWidget {
   final UserModel admin;
   final List<UserModel> subordinates;
@@ -740,6 +810,10 @@ class _AdminTreeGroup extends StatelessWidget {
 
                               // Consumo de IA Hoje
                               AiUsageBadge(user: admin, compact: MediaQuery.of(context).size.width < 1100),
+                              if (FirebaseAuth.instance.currentUser?.email?.toLowerCase().trim() == 'admin@admin.com.br') ...[
+                                const SizedBox(width: 8),
+                                _AiPlanTierDropdown(user: admin),
+                              ],
                               const SizedBox(width: 10),
 
                               // Status Badge

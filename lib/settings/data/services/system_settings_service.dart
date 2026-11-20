@@ -7,6 +7,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../domain/models/global_system_config.dart';
+import 'ai_usage_telemetry_service.dart';
 
 /// Serviço responsável pelo gerenciamento de Cotas de IA, Limites de Vendedores por Integrador e Configurações Master
 class SystemSettingsService {
@@ -166,10 +167,25 @@ class SystemSettingsService {
     final currentCount = (currentUser.aiUsageDate == todayStr) ? currentUser.aiUsageCount : 0;
     final maxQuota = await getEffectiveDailyAiQuota(currentUser);
 
-    // 3. Verificação de Limite Diário
+    // 3. Verificação de Limite Diário (Análises + Tokens/R$ do Grupo)
     if (currentCount >= maxQuota) {
       if (context.mounted) {
         showAiLimitExceededDialog(context, limit: maxQuota);
+      }
+      return false;
+    }
+
+    final tokenCheck =
+        await AiUsageTelemetryService.checkCompanyTokenQuota(currentUser);
+    if (!tokenCheck.allowed) {
+      if (context.mounted) {
+        showAiLimitExceededDialog(
+          context,
+          limit: tokenCheck.maxTokens,
+          isTokenLimit: true,
+          usedTokens: tokenCheck.usedTokens,
+          tier: tokenCheck.tier,
+        );
       }
       return false;
     }
@@ -189,8 +205,19 @@ class SystemSettingsService {
   }
 
   /// Exibe diálogo informativo quando a cota diária de IA é atingida
-  static void showAiLimitExceededDialog(BuildContext context, {required int limit}) {
+  static void showAiLimitExceededDialog(
+    BuildContext context, {
+    required int limit,
+    bool isTokenLimit = false,
+    int usedTokens = 0,
+    String tier = 'PREMIUM',
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final formattedLimit = NumberFormat.decimalPattern('pt_BR').format(limit);
+    final formattedUsed = NumberFormat.decimalPattern('pt_BR').format(usedTokens);
+    final messageText = isTokenLimit
+        ? 'Sua empresa atingiu a cota diária de $formattedLimit tokens ($formattedUsed usados) do plano $tier para o dia de hoje.'
+        : 'Você atingiu a cota diária de $limit análises com Inteligência Artificial para o dia de hoje.';
 
     showDialog(
       context: context,
@@ -235,7 +262,7 @@ class SystemSettingsService {
               ),
               const SizedBox(height: 8),
               Text(
-                'Você atingiu a cota diária de $limit análises com Inteligência Artificial para o dia de hoje.',
+                messageText,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 13.5,
