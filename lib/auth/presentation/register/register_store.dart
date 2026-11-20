@@ -1,5 +1,6 @@
 // ignore_for_file: library_private_types_in_public_api
 import 'package:mobx/mobx.dart';
+import '../../../settings/data/services/system_settings_service.dart';
 import '../../data/repositories/auth_repository.dart';
 
 part 'register_store.g.dart';
@@ -102,6 +103,15 @@ abstract class _RegisterStoreBase with Store {
     errorMessage = null;
 
     try {
+      if (companyId == null) {
+        final cfg = await SystemSettingsService.getGlobalConfig();
+        if (!cfg.allowPublicRegistration) {
+          isLoading = false;
+          errorMessage =
+              'Novos cadastros estão temporariamente desabilitados pelo administrador.';
+          return false;
+        }
+      }
       await _authRepository.registerUser(
         name: name,
         email: email,

@@ -13,6 +13,8 @@ class GlobalSystemConfig {
   final double diamondDailyBrl;
   final double geminiInputUsdPer1M; // Preço USD por 1M tokens de entrada
   final double geminiOutputUsdPer1M; // Preço USD por 1M tokens de saída
+  final bool aiEnabledForUsers; // Liga/Desliga IA para usuários comuns (false = só admin@admin.com.br)
+  final bool allowPublicRegistration; // Liga/Desliga novos cadastros públicos de usuários
   final DateTime updatedAt;
   final String? updatedBy;
 
@@ -28,6 +30,8 @@ class GlobalSystemConfig {
     this.diamondDailyBrl = 0.0,
     this.geminiInputUsdPer1M = 0.30,
     this.geminiOutputUsdPer1M = 2.50,
+    this.aiEnabledForUsers = true,
+    this.allowPublicRegistration = true,
     required this.updatedAt,
     this.updatedBy,
   });
@@ -69,6 +73,8 @@ class GlobalSystemConfig {
       diamondDailyBrl: 0.0,
       geminiInputUsdPer1M: 0.30,
       geminiOutputUsdPer1M: 2.50,
+      aiEnabledForUsers: true,
+      allowPublicRegistration: true,
       updatedAt: DateTime.now(),
       updatedBy: 'system',
     );
@@ -88,6 +94,8 @@ class GlobalSystemConfig {
       diamondDailyBrl: (map['diamondDailyBrl'] as num?)?.toDouble() ?? 0.0,
       geminiInputUsdPer1M: (map['geminiInputUsdPer1M'] as num?)?.toDouble() ?? 0.30,
       geminiOutputUsdPer1M: (map['geminiOutputUsdPer1M'] as num?)?.toDouble() ?? 2.50,
+      aiEnabledForUsers: map['aiEnabledForUsers'] as bool? ?? true,
+      allowPublicRegistration: map['allowPublicRegistration'] as bool? ?? true,
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedBy: map['updatedBy'] as String?,
     );
@@ -106,6 +114,8 @@ class GlobalSystemConfig {
       'diamondDailyBrl': diamondDailyBrl,
       'geminiInputUsdPer1M': geminiInputUsdPer1M,
       'geminiOutputUsdPer1M': geminiOutputUsdPer1M,
+      'aiEnabledForUsers': aiEnabledForUsers,
+      'allowPublicRegistration': allowPublicRegistration,
       'updatedAt': Timestamp.fromDate(updatedAt),
       'updatedBy': updatedBy,
     };
@@ -123,6 +133,8 @@ class GlobalSystemConfig {
     double? diamondDailyBrl,
     double? geminiInputUsdPer1M,
     double? geminiOutputUsdPer1M,
+    bool? aiEnabledForUsers,
+    bool? allowPublicRegistration,
     DateTime? updatedAt,
     String? updatedBy,
   }) {
@@ -138,6 +150,8 @@ class GlobalSystemConfig {
       diamondDailyBrl: diamondDailyBrl ?? this.diamondDailyBrl,
       geminiInputUsdPer1M: geminiInputUsdPer1M ?? this.geminiInputUsdPer1M,
       geminiOutputUsdPer1M: geminiOutputUsdPer1M ?? this.geminiOutputUsdPer1M,
+      aiEnabledForUsers: aiEnabledForUsers ?? this.aiEnabledForUsers,
+      allowPublicRegistration: allowPublicRegistration ?? this.allowPublicRegistration,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
     );

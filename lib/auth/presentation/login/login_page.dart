@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app/widgets/taos_logo.dart';
 import '../../../settings/data/services/company_service.dart';
 import '../../../settings/data/services/settings_service.dart';
+import '../../../settings/data/services/system_settings_service.dart';
+import '../../../settings/domain/models/global_system_config.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'login_store.dart';
 
@@ -1078,28 +1080,44 @@ class _LoginPageState extends State<LoginPage> {
           const SizedBox(height: 24),
 
           // Rodapé do Card: "Ainda não tem uma conta? Criar conta grátis"
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Ainda não tem uma conta? ',
-                style: GoogleFonts.inter(
-                  fontSize: 12.5,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Modular.to.navigate('/auth/register'),
-                child: Text(
-                  'Criar conta grátis',
+          StreamBuilder<GlobalSystemConfig>(
+            stream: SystemSettingsService.getGlobalConfigStream(),
+            builder: (context, cfgSnap) {
+              final allowReg = cfgSnap.data?.allowPublicRegistration ?? true;
+              if (!allowReg) {
+                return Text(
+                  'Novos cadastros temporariamente suspensos pelo administrador.',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF00A3FF),
+                    fontSize: 12,
+                    color: const Color(0xFF94A3B8),
                   ),
-                ),
-              ),
-            ],
+                );
+              }
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Ainda não tem uma conta? ',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Modular.to.navigate('/auth/register'),
+                    child: Text(
+                      'Criar conta grátis',
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF00A3FF),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

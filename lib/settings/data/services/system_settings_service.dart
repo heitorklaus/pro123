@@ -163,6 +163,29 @@ class SystemSettingsService {
       return true;
     }
 
+    // 2.1 Liga/Desliga global da IA pelo Master (quando desligado, só admin@admin.com.br usa IA)
+    final globalCfg = await getGlobalConfig();
+    if (!globalCfg.aiEnabledForUsers) {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('IA Temporariamente Pausada'),
+            content: const Text(
+              'O uso de Inteligência Artificial está temporariamente desabilitado pelo Administrador Master.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Entendi'),
+              ),
+            ],
+          ),
+        );
+      }
+      return false;
+    }
+
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final currentCount = (currentUser.aiUsageDate == todayStr) ? currentUser.aiUsageCount : 0;
     final maxQuota = await getEffectiveDailyAiQuota(currentUser);

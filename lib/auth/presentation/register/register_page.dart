@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app/widgets/taos_logo.dart';
 import '../../../settings/data/services/company_service.dart';
 import '../../../settings/data/services/settings_service.dart';
+import '../../../settings/data/services/system_settings_service.dart';
+import '../../../settings/domain/models/global_system_config.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../login/login_store.dart';
 import 'register_store.dart';
@@ -1176,70 +1178,97 @@ class _RegisterPageState extends State<RegisterPage> {
           const SizedBox(height: 20),
 
           // Botão CRIAR CONTA GRÁTIS com Gradiente Ciano -> Turquesa Esmeralda
-          Observer(
-            builder: (_) => Container(
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF00B4D8),
-                    Color(0xFF00E5A3),
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF00B4D8).withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+          StreamBuilder<GlobalSystemConfig>(
+            stream: SystemSettingsService.getGlobalConfigStream(),
+            builder: (context, cfgSnap) {
+              final allowReg = cfgSnap.data?.allowPublicRegistration ?? true;
+              if (!allowReg) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                   ),
-                ],
-              ),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                ),
-                onPressed: (controller.isLoading || _isQuickLoading)
-                    ? null
-                    : () async {
-                        final name = _nameCtrl.text.trim();
-                        final email = _emailCtrl.text.trim();
-                        final success = await controller.register();
-                        if (success && mounted) {
-                          await _handleRegisterSuccess(name, email);
-                        }
-                      },
-                child: controller.isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2.2),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Criar Conta Grátis',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward_rounded,
-                              color: Colors.white, size: 18),
-                        ],
+                  child: Text(
+                    'Novos cadastros estão temporariamente desabilitados pelo administrador.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFB45309),
+                    ),
+                  ),
+                );
+              }
+              return Observer(
+                builder: (_) => Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF00B4D8),
+                        Color(0xFF00E5A3),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00B4D8).withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
-              ),
-            ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: (controller.isLoading || _isQuickLoading)
+                        ? null
+                        : () async {
+                            final name = _nameCtrl.text.trim();
+                            final email = _emailCtrl.text.trim();
+                            final success = await controller.register();
+                            if (success && mounted) {
+                              await _handleRegisterSuccess(name, email);
+                            }
+                          },
+                    child: controller.isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2.2),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Criar Conta Grátis',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward_rounded,
+                                  color: Colors.white, size: 18),
+                            ],
+                          ),
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
 

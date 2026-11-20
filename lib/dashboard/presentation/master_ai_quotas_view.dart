@@ -443,6 +443,10 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── INTERRUPTORES RÁPIDOS MASTER (LIGA / DESLIGA) ────────────────
+              _buildMasterSwitchesBar(isDark),
+              const SizedBox(height: 20),
+
               // KPIs Globais
               Wrap(
                 spacing: 16,
@@ -498,6 +502,141 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMasterSwitchesBar(bool isDark) {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 16,
+      children: [
+        _buildSwitchCard(
+          isDark: isDark,
+          title: 'IA Global para Usuários',
+          subtitle: _config.aiEnabledForUsers
+              ? 'LIGADA • Todos usam conforme cota do grupo'
+              : 'DESLIGADA • Apenas admin@admin.com.br usa IA',
+          value: _config.aiEnabledForUsers,
+          activeColor: const Color(0xFF10B981),
+          inactiveColor: const Color(0xFFEF4444),
+          icon: Icons.smart_toy_rounded,
+          onChanged: (val) async {
+            final updated = _config.copyWith(aiEnabledForUsers: val);
+            setState(() => _config = updated);
+            await SystemSettingsService.saveGlobalConfig(
+              updated,
+              updatedBy: widget.currentUser?.email ?? 'admin@admin.com.br',
+            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(val
+                      ? 'IA liberada para todos os usuários!'
+                      : 'IA pausada! Apenas admin@admin.com.br pode usar agora.'),
+                  backgroundColor:
+                      val ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          },
+        ),
+        _buildSwitchCard(
+          isDark: isDark,
+          title: 'Cadastros de Novos Usuários',
+          subtitle: _config.allowPublicRegistration
+              ? 'HABILITADO • Novos usuários podem se cadastrar'
+              : 'DESABILITADO • Novos cadastros públicos bloqueados',
+          value: _config.allowPublicRegistration,
+          activeColor: const Color(0xFF6366F1),
+          inactiveColor: const Color(0xFFF59E0B),
+          icon: Icons.person_add_alt_1_rounded,
+          onChanged: (val) async {
+            final updated = _config.copyWith(allowPublicRegistration: val);
+            setState(() => _config = updated);
+            await SystemSettingsService.saveGlobalConfig(
+              updated,
+              updatedBy: widget.currentUser?.email ?? 'admin@admin.com.br',
+            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(val
+                      ? 'Novos cadastros de usuários HABILITADOS!'
+                      : 'Novos cadastros de usuários DESABILITADOS!'),
+                  backgroundColor:
+                      val ? const Color(0xFF6366F1) : const Color(0xFFF59E0B),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSwitchCard({
+    required bool isDark,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required Color activeColor,
+    required Color inactiveColor,
+    required IconData icon,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final color = value ? activeColor : inactiveColor;
+    return Container(
+      width: 420,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 1.4),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            activeThumbColor: activeColor,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
     );
   }
 
