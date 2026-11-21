@@ -19,13 +19,23 @@ import 'audio_bytes_helper_stub.dart'
 
 /// Botão flutuante + Dialog de Chat em Tempo Real com suporte a Texto, Imagem e Áudio
 /// (Vídeos são bloqueados; usuários comuns respeitam a cota diária em MB definida no Painel Master).
-class SupportChatFab extends StatelessWidget {
+class SupportChatFab extends StatefulWidget {
   final UserModel currentUser;
 
   const SupportChatFab({super.key, required this.currentUser});
 
+  @override
+  State<SupportChatFab> createState() => _SupportChatFabState();
+}
+
+class _SupportChatFabState extends State<SupportChatFab> {
+  bool _isDialogOpen = false;
+  int _lastHandledUnread = 0;
+  Timestamp? _lastHandledUpdatedAt;
+
   String get _ticketCode {
-    final clean = currentUser.uid.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    final clean =
+        widget.currentUser.uid.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
     final suffix =
         (clean.length >= 5 ? clean.substring(0, 5) : clean).toUpperCase();
     return '#C$suffix';
@@ -35,13 +45,31 @@ class SupportChatFab extends StatelessWidget {
   Widget build(BuildContext context) {
     final chatDocRef = FirebaseFirestore.instance
         .collection('support_chats')
-        .doc(currentUser.uid);
+        .doc(widget.currentUser.uid);
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: chatDocRef.snapshots(),
       builder: (context, snap) {
-        final unread =
-            (snap.data?.data()?['unreadByUser'] as num?)?.toInt() ?? 0;
+        final data = snap.data?.data();
+        final unread = (data?['unreadByUser'] as num?)?.toInt() ?? 0;
+        final updatedAt = data?['updatedAt'] as Timestamp?;
+
+        if (unread > 0) {
+          if (_isDialogOpen) {
+            chatDocRef.set({'unreadByUser': 0}, SetOptions(merge: true));
+          } else if (updatedAt != _lastHandledUpdatedAt ||
+              unread > _lastHandledUnread) {
+            _lastHandledUpdatedAt = updatedAt;
+            _lastHandledUnread = unread;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && !_isDialogOpen) {
+                _openChatDialog(context);
+              }
+            });
+          }
+        } else {
+          _lastHandledUnread = 0;
+        }
 
         return Material(
           color: Colors.transparent,
@@ -111,18 +139,23 @@ class SupportChatFab extends StatelessWidget {
   }
 
   void _openChatDialog(BuildContext context) {
+    if (_isDialogOpen) return;
+    _isDialogOpen = true;
+
     FirebaseFirestore.instance
         .collection('support_chats')
-        .doc(currentUser.uid)
+        .doc(widget.currentUser.uid)
         .set({'unreadByUser': 0}, SetOptions(merge: true));
 
     showDialog(
       context: context,
       builder: (ctx) => _SupportChatDialog(
-        currentUser: currentUser,
+        currentUser: widget.currentUser,
         ticketCode: _ticketCode,
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) _isDialogOpen = false;
+    });
   }
 }
 
@@ -151,6 +184,8 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
   DateTime? _lastTextSentAt;
   DateTime? _floodBlockedUntil;
   final List<DateTime> _recentTextSentTimestamps = [];
+  String? _lastSeenDocId;
+  int _lastSeenCount = 0;
 
   static const Set<String> _allowedImageExts = {
     'jpg',
@@ -220,14 +255,13 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 180), () {
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-        );
-      }
+    Future.delayed(const Duration(milliseconds: 140), () {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      _scrollCtrl.animateTo(
+        _scrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -712,6 +746,8 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
                   }
                   final docs = snap.data!.docs;
                   if (docs.isEmpty) {
+                    _lastSeenDocId = null;
+                    _lastSeenCount = 0;
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
@@ -727,6 +763,16 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
                         ),
                       ),
                     );
+                  }
+
+                  final latestId = docs.last.id;
+                  if (latestId != _lastSeenDocId ||
+                      docs.length != _lastSeenCount) {
+                    _lastSeenDocId = latestId;
+                    _lastSeenCount = docs.length;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollToBottom();
+                    });
                   }
 
                   return ListView.builder(
