@@ -16,6 +16,7 @@ import '../../../auth/domain/models/user_model.dart';
 import '../../../settings/data/services/system_settings_service.dart';
 import 'audio_bytes_helper_stub.dart'
     if (dart.library.io) 'audio_bytes_helper_io.dart';
+import 'faq_help_dialog.dart';
 
 /// Botão flutuante + Dialog de Chat em Tempo Real com suporte a Texto, Imagem e Áudio
 /// (Vídeos são bloqueados; usuários comuns respeitam a cota diária em MB definida no Painel Master).
@@ -29,6 +30,7 @@ class SupportChatFab extends StatefulWidget {
 }
 
 class _SupportChatFabState extends State<SupportChatFab> {
+  bool _menuExpanded = false;
   bool _isDialogOpen = false;
   OverlayEntry? _floatingEntry;
   Offset? _floatingOffset;
@@ -83,68 +85,103 @@ class _SupportChatFabState extends State<SupportChatFab> {
           _lastHandledUnread = 0;
         }
 
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _openChatDialog(context),
-            borderRadius: BorderRadius.circular(28),
-            child: Ink(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6366F1), Color(0xFF10B981)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (_menuExpanded) ...[
+              _SupportSpeedDialButton(
+                icon: Icons.help_outline_rounded,
+                label: 'Perguntas Frequentes',
+                color: const Color(0xFF6366F1),
+                onTap: () {
+                  setState(() => _menuExpanded = false);
+                  showDialog(
+                    context: context,
+                    builder: (_) => const FaqHelpDialog(),
+                  );
+                },
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.support_agent_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Suporte',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
+              const SizedBox(height: 8),
+              _SupportSpeedDialButton(
+                icon: Icons.chat_rounded,
+                label: 'Chat com Suporte',
+                color: const Color(0xFF10B981),
+                unreadCount: unread,
+                onTap: () {
+                  setState(() => _menuExpanded = false);
+                  _openChatDialog(context);
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() => _menuExpanded = !_menuExpanded),
+                borderRadius: BorderRadius.circular(28),
+                child: Ink(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF10B981)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ),
-                  if (unread > 0) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444),
-                        borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
                       ),
-                      child: Text(
-                        '$unread',
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _menuExpanded
+                            ? Icons.close_rounded
+                            : Icons.support_agent_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Suporte',
                         style: GoogleFonts.inter(
                           color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
                         ),
                       ),
-                    ),
-                  ],
-                ],
+                      if (unread > 0 && !_menuExpanded) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$unread',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         );
       },
     );
@@ -1272,6 +1309,83 @@ class _AudioBubblePlayerState extends State<_AudioBubblePlayer> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SupportSpeedDialButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final int unreadCount;
+  final VoidCallback onTap;
+
+  const _SupportSpeedDialButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.unreadCount = 0,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: color.withValues(alpha: 0.6), width: 1.3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              ),
+              if (unreadCount > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$unreadCount',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

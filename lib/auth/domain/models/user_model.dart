@@ -269,7 +269,6 @@ class UserModel {
   });
 
   static const Set<String> masterEmails = {
-    'admin@admin.com.br',
     'heitorklaus@hotmail.com',
   };
 

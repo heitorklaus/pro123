@@ -13,6 +13,35 @@ class SolarProposalPdfEngine {
   static final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   static final _numberFormat = NumberFormat.decimalPattern('pt_BR');
 
+  static PdfColor _darkenPdfColor(PdfColor c, double amount) {
+    final t = amount.clamp(0.0, 1.0);
+    return PdfColor(
+      (c.red * (1.0 - t) + 0.04 * t).clamp(0.0, 1.0),
+      (c.green * (1.0 - t) + 0.06 * t).clamp(0.0, 1.0),
+      (c.blue * (1.0 - t) + 0.08 * t).clamp(0.0, 1.0),
+    );
+  }
+
+  static PdfColor _lightenPdfColor(PdfColor c, double amount) {
+    final t = amount.clamp(0.0, 1.0);
+    return PdfColor(
+      (c.red + (1.0 - c.red) * t).clamp(0.0, 1.0),
+      (c.green + (1.0 - c.green) * t).clamp(0.0, 1.0),
+      (c.blue + (1.0 - c.blue) * t).clamp(0.0, 1.0),
+    );
+  }
+
+  static String _pdfColorToHex(PdfColor c) {
+    String h(double v) =>
+        (v * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    return '#${h(c.red)}${h(c.green)}${h(c.blue)}';
+  }
+
+  static bool _isDefaultDarkBgHex(String hex) {
+    final norm = hex.replaceAll('#', '').trim().toUpperCase();
+    return norm.isEmpty || norm == '0F172A' || norm == '0B1120';
+  }
+
   static Future<Uint8List> generatePdf({
     required ProposalDTO proposal,
     SolarSettingsDTO? settings,
@@ -20,8 +49,20 @@ class SolarProposalPdfEngine {
   }) async {
     final s = settings ?? const SolarSettingsDTO();
     final pdf = pw.Document();
-    final primaryColor = PdfColor.fromInt(s.themeColorValue);
-    final secondaryColor = PdfColor.fromInt(s.secondaryThemeColorValue);
+    final isCoverThemedStyle = s.proposalStyle == 'corporateWave' ||
+        s.proposalStyle == 'verticalSplit';
+    final themeBase = isCoverThemedStyle
+        ? PdfColor.fromInt(s.verticalSplitAccentColorValue)
+        : PdfColor.fromInt(s.themeColorValue);
+    final hasExplicitIconTheme = s.selectedSvgTheme.trim().startsWith('#');
+    final primaryColor = (hasExplicitIconTheme || !isCoverThemedStyle)
+        ? PdfColor.fromInt(s.themeColorValue)
+        : _darkenPdfColor(themeBase, 0.22);
+    final secNorm = s.secondaryThemeColor.replaceAll('#', '').trim().toUpperCase();
+    final hasDefaultSecondary = secNorm.isEmpty || secNorm == '102C49';
+    final secondaryColor = (isCoverThemedStyle && hasDefaultSecondary)
+        ? themeBase
+        : PdfColor.fromInt(s.secondaryThemeColorValue);
 
     final hiddenPages = s.hiddenPageIds;
     final customPages = s.customPages;
@@ -53,8 +94,26 @@ class SolarProposalPdfEngine {
       } catch (_) {}
     }
 
+    final useCleanBgForDivider = s.proposalStyle == 'verticalSplit' ||
+        (s.proposalStyle == 'modern' &&
+            (s.isCustomCoverMode || s.customDividerStyle >= 0));
+
+    if (coverImageBytes == null && useCleanBgForDivider) {
+      final bg = s.webBackgroundTemplate;
+      final cleanBg = (bg.isNotEmpty &&
+              !bg.startsWith('modelo_') &&
+              !bg.contains('energiasolar'))
+          ? bg
+          : 'AdobeStock_1028630041.jpg';
+      coverImageBytes = await CoverImageCacheService.fetchWebBackgroundBytes(cleanBg);
+      coverImageBytes ??=
+          await CoverImageCacheService.fetchWebBackgroundBytes('AdobeStock_1028630041.jpg');
+    }
+
     // 2. Capa oficial selecionada no catálogo (selectedCoverTemplate)
-    if (coverImageBytes == null && s.selectedCoverTemplate.isNotEmpty) {
+    if (coverImageBytes == null &&
+        !useCleanBgForDivider &&
+        s.selectedCoverTemplate.isNotEmpty) {
       coverImageBytes = await CoverImageCacheService.fetchCoverBytes(s.selectedCoverTemplate);
       coverImageBytes ??= await CoverImageCacheService.fetchWebBackgroundBytes(s.selectedCoverTemplate);
     }
@@ -93,15 +152,17 @@ class SolarProposalPdfEngine {
         monthlyKwh = double.tryParse(match.group(1)!) ?? 0.0;
       }
     }
-    if (monthlyKwh <= 0) {
+    if (monthlyKwh <= 0 && (solarItem?.solarComponents == null || solarItem!.solarComponents!.isEmpty)) {
       monthlyKwh = (kwp * 115.2).clamp(100.0, 50000.0);
     }
     final dailyKwh = monthlyKwh / 30.0;
 
     int modulesCount = 0;
     int moduleWatts = 620;
-    String inverterModel = 'Inversor Solar Grid-Tie';
+    String inverterModel = '';
     double inverterKw = (kwp * 0.75).clamp(3.0, 100.0);
+    final hasExplicitComponents =
+        solarItem?.solarComponents != null && solarItem!.solarComponents!.isNotEmpty;
 
     if (solarItem != null) {
       if (solarItem.effectiveModuleWatts != null) {
@@ -137,12 +198,20 @@ class SolarProposalPdfEngine {
       }
     }
 
-    if (modulesCount == 0) {
-      modulesCount = ((kwp * 1000) / moduleWatts).round();
-      if (modulesCount <= 0) modulesCount = 14;
+    if (!hasExplicitComponents) {
+      if (modulesCount == 0) {
+        modulesCount = ((kwp * 1000) / moduleWatts).round();
+        if (modulesCount <= 0) modulesCount = 14;
+      }
+      if (inverterModel.isEmpty) {
+        inverterModel = 'Inversor Solar Grid-Tie';
+      }
     }
 
-    final occupiedArea = modulesCount * 2.6;
+    final occupiedArea = modulesCount > 0 ? modulesCount * 2.6 : 0.0;
+    if (modulesCount > 0 && monthlyKwh <= 0) {
+      monthlyKwh = (kwp * 115.2).clamp(100.0, 50000.0);
+    }
     final roofType = solarItem?.solarRoofType ?? 'Cerâmica';
 
     // ── PÁGINA 1: CAPA DINÂMICA (100% IDÊNTICA AO SISTEMA) ──
@@ -341,11 +410,12 @@ class SolarProposalPdfEngine {
     final primarySvgColor = '#$primaryHex';
     final primaryPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
 
-    final secondaryHex =
-        (settings.coverTitleColor.isNotEmpty ? settings.coverTitleColor : '#38BDF8')
-            .replaceAll('#', '')
-            .trim();
-    final secondarySvgColor = '#$secondaryHex';
+    String toHex2(double c) =>
+        (c * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    final rL = (primaryPdfColor.red + (1.0 - primaryPdfColor.red) * 0.45).clamp(0.0, 1.0);
+    final gL = (primaryPdfColor.green + (1.0 - primaryPdfColor.green) * 0.45).clamp(0.0, 1.0);
+    final bL = (primaryPdfColor.blue + (1.0 - primaryPdfColor.blue) * 0.45).clamp(0.0, 1.0);
+    final secondarySvgColor = '#${toHex2(rL)}${toHex2(gL)}${toHex2(bL)}';
 
     Uint8List? logoBytes;
     if (settings.coverShowLogo &&
@@ -1106,9 +1176,15 @@ class SolarProposalPdfEngine {
         // 5. Bloco Institucional na Área Branca Preservada
         if (settings.verticalSplitShowRightBlock)
           pw.Positioned(
-            right: (settings.verticalSplitRightBlockRight * a4W).clamp(16.0, a4W * 0.45),
-            top: settings.verticalSplitRightBlockTop * a4H,
-            child: pw.Column(
+            left: (a4W -
+                    (settings.verticalSplitRightBlockRight * a4W) -
+                    (a4W * 0.42))
+                .clamp(-a4W * 0.4, a4W * 0.92),
+            top: (settings.verticalSplitRightBlockTop * a4H)
+                .clamp(-a4H * 0.2, a4H * 0.95),
+            child: pw.SizedBox(
+              width: a4W * 0.42,
+              child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
@@ -1154,6 +1230,7 @@ class SolarProposalPdfEngine {
                   ),
                 ),
               ],
+            ),
             ),
           ),
 
@@ -1241,16 +1318,18 @@ class SolarProposalPdfEngine {
                       maxLines: 1,
                     ),
                   ],
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    'Geração: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
-                    style: pw.TextStyle(
-                      fontSize: settings.coverClientInfoFontSize * 0.9,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColor.fromInt(settings.coverClientInfoSecondaryColorValue),
+                  if (generationMonthly > 0 && kwp > 0) ...[
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      'Geração: ${_numberFormat.format(generationMonthly)} kWh/mês (${kwp.toStringAsFixed(2)} kWp)',
+                      style: pw.TextStyle(
+                        fontSize: settings.coverClientInfoFontSize * 0.9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColor.fromInt(settings.coverClientInfoSecondaryColorValue),
+                      ),
+                      maxLines: 1,
                     ),
-                    maxLines: 1,
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1598,9 +1677,15 @@ class SolarProposalPdfEngine {
 </svg>
 ''';
 
-    final customHeaderBg = settings.coverHeaderBgColor.isNotEmpty
-        ? _parsePdfColor(settings.coverHeaderBgColor)
-        : null;
+    final isCoverThemed = settings.proposalStyle == 'corporateWave' ||
+        settings.proposalStyle == 'verticalSplit';
+    final themedDarkBg = _darkenPdfColor(primaryColor, 0.58);
+    final customHeaderBg =
+        (isCoverThemed && _isDefaultDarkBgHex(settings.coverHeaderBgColor))
+            ? themedDarkBg
+            : (settings.coverHeaderBgColor.isNotEmpty
+                ? _parsePdfColor(settings.coverHeaderBgColor)
+                : themedDarkBg);
     final customHeaderTxt = settings.coverHeaderTextColor.isNotEmpty
         ? _parsePdfColor(settings.coverHeaderTextColor)
         : null;
@@ -1608,9 +1693,12 @@ class SolarProposalPdfEngine {
         ? _parsePdfColor(settings.coverHeaderIconColor)
         : null;
 
-    final customFooterBg = settings.coverFooterBgColor.isNotEmpty
-        ? _parsePdfColor(settings.coverFooterBgColor)
-        : null;
+    final customFooterBg =
+        (isCoverThemed && _isDefaultDarkBgHex(settings.coverFooterBgColor))
+            ? themedDarkBg
+            : (settings.coverFooterBgColor.isNotEmpty
+                ? _parsePdfColor(settings.coverFooterBgColor)
+                : themedDarkBg);
     final customFooterTxt = settings.coverFooterTextColor.isNotEmpty
         ? _parsePdfColor(settings.coverFooterTextColor)
         : null;
@@ -2219,49 +2307,54 @@ class SolarProposalPdfEngine {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                _buildTechRow(
-                  label: 'Potência do Sistema:',
-                  value: '${kwp.toStringAsFixed(2)} kWp',
-                  svgIcon: SolarPdfIcons.bolt('#FFFFFF'),
-                  primaryColor: primaryColor,
-                  isBold: true,
-                ),
-                _buildTechRow(
-                  label: 'Quantidade de Painéis:',
-                  value: '$modulesCount módulos',
-                  svgIcon: SolarPdfIcons.solarPanel('#FFFFFF'),
-                  primaryColor: primaryColor,
-                ),
-                _buildTechRow(
-                  label: 'Potência do Painel Solar:',
-                  value: '$moduleWatts Watts',
-                  svgIcon: SolarPdfIcons.sunWatt('#FFFFFF'),
-                  primaryColor: primaryColor,
-                ),
-                _buildTechRow(
-                  label: 'Modelo e Potência do Inversor:',
-                  value: inverterDisplay,
-                  svgIcon: SolarPdfIcons.inverter('#FFFFFF'),
-                  primaryColor: primaryColor,
-                ),
+                if (modulesCount > 0) ...[
+                  _buildTechRow(
+                    label: 'Potência do Sistema:',
+                    value: '${kwp.toStringAsFixed(2)} kWp',
+                    svgIcon: SolarPdfIcons.bolt('#FFFFFF'),
+                    primaryColor: primaryColor,
+                    isBold: true,
+                  ),
+                  _buildTechRow(
+                    label: 'Quantidade de Painéis:',
+                    value: '$modulesCount módulos',
+                    svgIcon: SolarPdfIcons.solarPanel('#FFFFFF'),
+                    primaryColor: primaryColor,
+                  ),
+                  _buildTechRow(
+                    label: 'Potência do Painel Solar:',
+                    value: '$moduleWatts Watts',
+                    svgIcon: SolarPdfIcons.sunWatt('#FFFFFF'),
+                    primaryColor: primaryColor,
+                  ),
+                ],
+                if (inverterModel.trim().isNotEmpty)
+                  _buildTechRow(
+                    label: 'Modelo e Potência do Inversor:',
+                    value: inverterDisplay,
+                    svgIcon: SolarPdfIcons.inverter('#FFFFFF'),
+                    primaryColor: primaryColor,
+                  ),
                 _buildTechRow(
                   label: 'Tipo de Estrutura:',
                   value: roofType,
                   svgIcon: SolarPdfIcons.roof('#FFFFFF'),
                   primaryColor: primaryColor,
                 ),
-                _buildTechRow(
-                  label: 'Produção Média de Energia:',
-                  value: '${generationMonthly.toStringAsFixed(2)} kWh/mês',
-                  svgIcon: SolarPdfIcons.trendingUp('#FFFFFF'),
-                  primaryColor: primaryColor,
-                ),
-                _buildTechRow(
-                  label: 'Área Estimada Ocupada:',
-                  value: '${occupiedArea.toStringAsFixed(2)} m²',
-                  svgIcon: SolarPdfIcons.rulerSquare('#FFFFFF'),
-                  primaryColor: primaryColor,
-                ),
+                if (generationMonthly > 0)
+                  _buildTechRow(
+                    label: 'Produção Média de Energia:',
+                    value: '${generationMonthly.toStringAsFixed(2)} kWh/mês',
+                    svgIcon: SolarPdfIcons.trendingUp('#FFFFFF'),
+                    primaryColor: primaryColor,
+                  ),
+                if (occupiedArea > 0)
+                  _buildTechRow(
+                    label: 'Área Estimada Ocupada:',
+                    value: '${occupiedArea.toStringAsFixed(2)} m²',
+                    svgIcon: SolarPdfIcons.rulerSquare('#FFFFFF'),
+                    primaryColor: primaryColor,
+                  ),
 
                 pw.Spacer(),
 
@@ -2476,8 +2569,10 @@ class SolarProposalPdfEngine {
       }
     } else {
       equipmentItems.addAll([
-        '$modulesCount× módulo fotovoltaico monocristalino $moduleWatts W Tier 1',
-        '$inverterModel (${inverterKw.toStringAsFixed(0)} kW) com monitoramento Wi-Fi',
+        if (modulesCount > 0)
+          '$modulesCount× módulo fotovoltaico monocristalino $moduleWatts W Tier 1',
+        if (inverterModel.trim().isNotEmpty)
+          '$inverterModel (${inverterKw.toStringAsFixed(0)} kW) com monitoramento Wi-Fi',
         'Estrutura de fixação para telha ${roofType.toLowerCase()}',
         'Quadro string box CC/CA com DPS e proteção',
         'Cabos solares 1,8 kV com proteção UV e conectores MC4',
@@ -2801,29 +2896,29 @@ class SolarProposalPdfEngine {
                     ),
                   ],
                 ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      'Prazo de entrega',
-                      style: const pw.TextStyle(
-                        fontSize: 9.5,
-                        color: PdfColor.fromInt(0xFFC3E6F4),
+                if (proposal.deliveryTime != null &&
+                    proposal.deliveryTime!.trim().isNotEmpty)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'Prazo de entrega',
+                        style: const pw.TextStyle(
+                          fontSize: 9.5,
+                          color: PdfColor.fromInt(0xFFC3E6F4),
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      (proposal.deliveryTime != null && proposal.deliveryTime!.isNotEmpty)
-                          ? proposal.deliveryTime!
-                          : 'Imediata / 3 a 5 dias úteis',
-                      style: pw.TextStyle(
-                        fontSize: 12.0,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        proposal.deliveryTime!.trim(),
+                        style: pw.TextStyle(
+                          fontSize: 12.0,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -3475,13 +3570,18 @@ class SolarProposalPdfEngine {
 </svg>
 ''';
 
+    final cardFillHex = _pdfColorToHex(_darkenPdfColor(secondaryColor, 0.25));
+    final cardStrokeHex = _pdfColorToHex(_lightenPdfColor(secondaryColor, 0.45));
+    final cardDot1Hex = _pdfColorToHex(_lightenPdfColor(secondaryColor, 0.65));
+    final cardDot2Hex = _pdfColorToHex(_lightenPdfColor(secondaryColor, 0.45));
+
     final cardIllustrationSvg = '''
 <svg viewBox="0 0 110 68" width="90" height="56">
   <g transform="rotate(-10 55 34)">
-    <rect x="10" y="10" width="84" height="50" rx="8" fill="#1E73BE" stroke="#38BDF8" stroke-width="1.2"/>
+    <rect x="10" y="10" width="84" height="50" rx="8" fill="$cardFillHex" stroke="$cardStrokeHex" stroke-width="1.2"/>
     <rect x="20" y="25" width="12" height="9" rx="2" fill="#FBBF24"/>
-    <circle cx="72" cy="24" r="3.5" fill="#7DD3FC" opacity="0.85"/>
-    <circle cx="77" cy="24" r="3.5" fill="#38BDF8" opacity="0.85"/>
+    <circle cx="72" cy="24" r="3.5" fill="$cardDot1Hex" opacity="0.85"/>
+    <circle cx="77" cy="24" r="3.5" fill="$cardDot2Hex" opacity="0.85"/>
   </g>
 </svg>
 ''';
@@ -3620,7 +3720,7 @@ class SolarProposalPdfEngine {
                         style: pw.TextStyle(
                           fontSize: 7.2,
                           fontWeight: pw.FontWeight.bold,
-                          color: const PdfColor.fromInt(0xFF38BDF8),
+                          color: _lightenPdfColor(secondaryColor, 0.55),
                           letterSpacing: 0.8,
                         ),
                       ),
@@ -3655,10 +3755,10 @@ class SolarProposalPdfEngine {
                           margin: pw.EdgeInsets.only(bottom: installments == 12 ? 0 : 6),
                           padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
                           decoration: pw.BoxDecoration(
-                            color: const PdfColor.fromInt(0xFF183B5E),
+                            color: _darkenPdfColor(secondaryColor, 0.45),
                             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
                             border: pw.Border.all(
-                              color: const PdfColor.fromInt(0xFF284F78),
+                              color: _darkenPdfColor(secondaryColor, 0.25),
                               width: 0.7,
                             ),
                           ),

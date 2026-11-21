@@ -1896,8 +1896,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   // Condições Comerciais & Financeiras
   final _paymentTermsCtrl = TextEditingController();
   final _validityDaysCtrl = TextEditingController(text: '15');
-  final _deliveryTimeCtrl =
-      TextEditingController(text: 'Imediata / 3 a 5 dias úteis');
+  final _deliveryTimeCtrl = TextEditingController();
   final _discountCtrl = TextEditingController(text: '0');
   final _shippingCtrl = TextEditingController(text: '0');
   final _notesCtrl = TextEditingController();

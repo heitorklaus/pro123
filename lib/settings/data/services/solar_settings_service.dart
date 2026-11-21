@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../domain/models/solar_settings_model.dart';
@@ -450,16 +451,91 @@ class SolarSettingsService {
     return SolarSettingsModel.initial();
   }
 
+  /// Redimensiona e comprime uma imagem para caber com folga no limite de 1 MiB do Firestore.
+  static String compressImageBytesForFirestore(
+    Uint8List bytes, {
+    int maxWidth = 1240,
+    int maxBase64Chars = 650000,
+    bool keepPngTransparency = false,
+  }) {
+    final initialB64 = base64Encode(bytes);
+    if (initialB64.length <= maxBase64Chars) {
+      return initialB64;
+    }
+
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return initialB64;
+
+      var current = decoded.width > maxWidth
+          ? img.copyResize(decoded, width: maxWidth)
+          : decoded;
+
+      if (keepPngTransparency) {
+        final pngBytes = Uint8List.fromList(img.encodePng(current, level: 6));
+        final pngB64 = base64Encode(pngBytes);
+        if (pngB64.length <= maxBase64Chars) return pngB64;
+        // Se ainda grande, reduz largura até caber mantendo transparência PNG
+        for (final w in [420, 300, 220]) {
+          if (current.width > w) {
+            final smaller = img.copyResize(decoded, width: w);
+            final b = base64Encode(Uint8List.fromList(img.encodePng(smaller, level: 6)));
+            if (b.length <= maxBase64Chars) return b;
+          }
+        }
+      }
+
+      for (final targetW in [maxWidth, 960, 760]) {
+        final work = current.width > targetW
+            ? img.copyResize(decoded, width: targetW)
+            : current;
+        for (final q in [82, 70, 56, 42]) {
+          final jpgBytes = Uint8List.fromList(img.encodeJpg(work, quality: q));
+          final b64 = base64Encode(jpgBytes);
+          if (b64.length <= maxBase64Chars) return b64;
+        }
+      }
+      final fallback = img.copyResize(decoded, width: 640);
+      return base64Encode(Uint8List.fromList(img.encodeJpg(fallback, quality: 40)));
+    } catch (e) {
+      debugPrint('[SolarSettingsService] Falha ao comprimir imagem: $e');
+      return initialB64;
+    }
+  }
+
   /// Salva as configurações de Usina Solar no Firestore e no cache local
   static Future<void> saveSettings(SolarSettingsModel settings, {String? companyId}) async {
     try {
+      var safeSettings = settings;
+      if (safeSettings.customCoverImageBase64 != null &&
+          safeSettings.customCoverImageBase64!.length > 650000) {
+        final raw = safeSettings.customCoverImageBase64!.contains(',')
+            ? safeSettings.customCoverImageBase64!.split(',').last
+            : safeSettings.customCoverImageBase64!;
+        final compressed = compressImageBytesForFirestore(base64Decode(raw));
+        safeSettings = safeSettings.copyWith(customCoverImageBase64: compressed);
+      }
+      if (safeSettings.companyLogoBase64 != null &&
+          safeSettings.companyLogoBase64!.length > 350000) {
+        final raw = safeSettings.companyLogoBase64!.contains(',')
+            ? safeSettings.companyLogoBase64!.split(',').last
+            : safeSettings.companyLogoBase64!;
+        final compressed = compressImageBytesForFirestore(
+          base64Decode(raw),
+          maxWidth: 600,
+          maxBase64Chars: 350000,
+          keepPngTransparency: true,
+        );
+        safeSettings = safeSettings.copyWith(companyLogoBase64: compressed);
+      }
+
       String? cid = companyId;
       if (cid == null || cid.isEmpty) {
         final auth = AuthRepository();
         cid = await auth.getCurrentCompanyId();
       }
 
-      await _cacheLocalSettings(settings);
+      await _cacheLocalSettings(safeSettings);
 
       if (cid != null && cid.isNotEmpty) {
         await FirebaseFirestore.instance
@@ -467,7 +543,7 @@ class SolarSettingsService {
             .doc(cid)
             .collection('sector_settings')
             .doc('solarPlant')
-            .set(settings.toMap(), SetOptions(merge: true));
+            .set(safeSettings.toMap(), SetOptions(merge: true));
       }
     } catch (e) {
       debugPrint('[SolarSettingsService] Erro ao salvar configurações: $e');

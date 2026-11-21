@@ -11,6 +11,7 @@ enum AppSidebarItem {
   roofStudies,
   contracts,
   solarCredits,
+  sites,
   masterAiQuotas,
   users,
   settings,
@@ -90,7 +91,9 @@ class AppSidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     hoverColor: const Color(0xFF1E293B),
                     child: Tooltip(
-                      message: isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral',
+                      message: isCollapsed
+                          ? 'Expandir menu lateral'
+                          : 'Recolher menu lateral',
                       waitDuration: const Duration(milliseconds: 300),
                       child: Padding(
                         padding: const EdgeInsets.all(6),
@@ -161,7 +164,6 @@ class AppSidebar extends StatelessWidget {
                     onTap: () => onItemSelected(AppSidebarItem.proposals),
                   ),
                 ],
-
                 if (canViewContracts) ...[
                   const SizedBox(height: 6),
                   _SidebarMenuItem(
@@ -192,6 +194,17 @@ class AppSidebar extends StatelessWidget {
                     onTap: () => onItemSelected(AppSidebarItem.masterAiQuotas),
                   ),
                 ],
+                if (currentUser?.isAdmin == true ||
+                    currentUser?.isSuperAdmin == true) ...[
+                  const SizedBox(height: 6),
+                  // _SidebarMenuItem(
+                  //   icon: Icons.web_rounded,
+                  //   title: 'Meu Site',
+                  //   isCollapsed: isCollapsed,
+                  //   isSelected: activeItem == AppSidebarItem.sites,
+                  //   onTap: () => onItemSelected(AppSidebarItem.sites),
+                  // ),
+                ],
                 if (canManageUsers) ...[
                   const SizedBox(height: 6),
                   _SidebarMenuItem(
@@ -218,7 +231,8 @@ class AppSidebar extends StatelessWidget {
 
           // ── RODAPÉ SUTIL DA SIDEBAR ─────────────────────────────────────────
           Container(
-            padding: EdgeInsets.symmetric(vertical: 12, horizontal: isCollapsed ? 6 : 14),
+            padding: EdgeInsets.symmetric(
+                vertical: 12, horizontal: isCollapsed ? 6 : 14),
             decoration: const BoxDecoration(
               border: Border(
                 top: BorderSide(color: Color(0xFF1E293B), width: 1),
@@ -259,7 +273,6 @@ class AppSidebar extends StatelessWidget {
                       ),
                     ],
                   ),
-
           ),
         ],
       ),
@@ -361,8 +374,10 @@ class _SidebarMenuItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
                       fontSize: 13.5,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.w500,
+                      color:
+                          isSelected ? Colors.white : const Color(0xFFCBD5E1),
                     ),
                   ),
                 ),

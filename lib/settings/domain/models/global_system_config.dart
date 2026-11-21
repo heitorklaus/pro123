@@ -13,7 +13,7 @@ class GlobalSystemConfig {
   final double diamondDailyBrl;
   final double geminiInputUsdPer1M; // Preço USD por 1M tokens de entrada
   final double geminiOutputUsdPer1M; // Preço USD por 1M tokens de saída
-  final bool aiEnabledForUsers; // Liga/Desliga IA para usuários comuns (false = só admin@admin.com.br)
+  final bool aiEnabledForUsers; // Liga/Desliga IA para usuários comuns (false = só heitorklaus@hotmail.com)
   final bool allowPublicRegistration; // Liga/Desliga novos cadastros públicos de usuários
   final double supportDailyMediaLimitMb; // Cota diária de imagem/áudio (MB) no Chat de Suporte por usuário
   final int supportDailyTextQuota; // Cota diária de mensagens de texto no Chat de Suporte por usuário

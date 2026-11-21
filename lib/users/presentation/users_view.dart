@@ -75,6 +75,7 @@ class _TableViewState extends State<_TableView> {
   UserModel? _currentUser;
   final Set<String> _expandedAdminUids = {};
   List<UserModel> _cachedUsersList = [];
+  bool _showAllSystemUsers = true;
 
   @override
   void initState() {
@@ -219,39 +220,81 @@ class _TableViewState extends State<_TableView> {
 
             SizedBox(height: isMobile ? 14 : 20),
 
-            // ── Busca ─────────────────────────────────────────────────────────
-            SizedBox(
-              width: isMobile ? double.infinity : 380,
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (v) =>
-                    setState(() => _query = v.trim().toLowerCase()),
-                decoration: InputDecoration(
-                  hintText: isMobile ? 'Buscar usuário...' : 'Buscar por nome ou e-mail...',
-                  hintStyle: GoogleFonts.inter(
-                      fontSize: 13, color: const Color(0xFF94A3B8)),
-                  prefixIcon: const Icon(Icons.search_rounded,
-                      color: Color(0xFF64748B), size: 20),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border),
+            // ── Busca + Badges de Escopo (Super Admin) ────────────────────────
+            Builder(builder: (context) {
+              final isSuper = widget.currentUser?.isSuperAdmin ??
+                  _currentUser?.isSuperAdmin ??
+                  false;
+              final masterEmail = (widget.currentUser?.email ??
+                      _currentUser?.email ??
+                      'heitorklaus@hotmail.com')
+                  .trim();
+              return Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: isMobile ? double.infinity : 380,
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) =>
+                          setState(() => _query = v.trim().toLowerCase()),
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF0F172A),
+                        fontSize: 13.5,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: isMobile
+                            ? 'Buscar usuário...'
+                            : 'Buscar por nome ou e-mail...',
+                        hintStyle: GoogleFonts.inter(
+                            fontSize: 13, color: const Color(0xFF94A3B8)),
+                        prefixIcon: const Icon(Icons.search_rounded,
+                            color: Color(0xFF64748B), size: 20),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              const BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              const BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 1.5),
+                        ),
+                      ),
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 1.5),
-                  ),
-                ),
-              ),
-            ),
+                  if (isSuper) ...[
+                    _ScopeFilterBadge(
+                      label: 'Todos Usuários do Sistema',
+                      icon: Icons.public_rounded,
+                      selected: _showAllSystemUsers,
+                      activeColor: const Color(0xFF6366F1),
+                      onTap: () =>
+                          setState(() => _showAllSystemUsers = true),
+                    ),
+                    _ScopeFilterBadge(
+                      label: 'Apenas Usuários de $masterEmail',
+                      icon: Icons.person_pin_rounded,
+                      selected: !_showAllSystemUsers,
+                      activeColor: const Color(0xFF10B981),
+                      onTap: () =>
+                          setState(() => _showAllSystemUsers = false),
+                    ),
+                  ],
+                ],
+              );
+            }),
             SizedBox(height: isMobile ? 12 : 16),
 
             // ── Tabela / Mobile Cards ─────────────────────────────────────────
@@ -304,16 +347,22 @@ class _TableViewState extends State<_TableView> {
                       ),
                       const Divider(height: 1, color: AppColors.divider),
                       Expanded(
-                        child: StreamBuilder<List<UserModel>>(
-                          stream: _repo.getUsersStream(
-                            companyId: _companyId,
-                            isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
-                          ),
-                          builder: (ctx, snap) {
-                            final isSuper = widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false;
-                            if ((_companyId == null && !isSuper) ||
-                                snap.connectionState ==
-                                    ConnectionState.waiting) {
+                        child: Builder(builder: (context) {
+                          final isSuper = widget.currentUser?.isSuperAdmin ??
+                              _currentUser?.isSuperAdmin ??
+                              false;
+                          final effectiveStreamCompanyId = isSuper
+                              ? (_showAllSystemUsers ? 'ALL' : _companyId)
+                              : _companyId;
+                          return StreamBuilder<List<UserModel>>(
+                            stream: _repo.getUsersStream(
+                              companyId: effectiveStreamCompanyId,
+                              isSuperAdmin: isSuper,
+                            ),
+                            builder: (ctx, snap) {
+                              if ((effectiveStreamCompanyId == null && !isSuper) ||
+                                  snap.connectionState ==
+                                      ConnectionState.waiting) {
                               return const Center(
                                 child: CircularProgressIndicator(
                                     color: AppColors.primary),
@@ -354,7 +403,11 @@ class _TableViewState extends State<_TableView> {
                             for (final a in admins) {
                               subordinatesByAdmin[a.uid] = filtered.where((u) =>
                                   u.uid != a.uid &&
-                                  (u.companyId == a.uid || u.companyId == a.companyId || (u.companyId == null && !u.isAdmin && !u.isSuperAdmin))).toList();
+                                  (u.companyId == a.uid ||
+                                      (a.companyId != null &&
+                                          a.companyId!.isNotEmpty &&
+                                          u.companyId == a.companyId) ||
+                                      (u.companyId == null && !u.isAdmin && !u.isSuperAdmin))).toList();
                             }
                             final assignedUids = {
                               ...admins.map((a) => a.uid),
@@ -427,7 +480,8 @@ class _TableViewState extends State<_TableView> {
                               ],
                             );
                           },
-                        ),
+                        );
+                        }),
                       ),
                     ],
                   ),
@@ -1728,6 +1782,70 @@ class _RegisterCardState extends State<_RegisterCard> {
 // ─────────────────────────────────────────────────────────────────────────────
 // BADGES
 // ─────────────────────────────────────────────────────────────────────────────
+class _ScopeFilterBadge extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _ScopeFilterBadge({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? activeColor : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? activeColor : AppColors.border,
+            width: selected ? 1.5 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? Colors.white : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                color: selected ? Colors.white : const Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RoleBadge extends StatelessWidget {
   final String role;
 
@@ -1829,8 +1947,14 @@ class _EditUserDialogState extends State<_EditUserDialog> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.user.name);
     _phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
-    _selectedRole = widget.user.role;
-    _selectedStatus = widget.user.status;
+    const knownRoles = {'user', 'manager', 'admin', 'superAdmin', 'master'};
+    _selectedRole = knownRoles.contains(widget.user.role)
+        ? widget.user.role
+        : 'user';
+    const knownStatuses = {'active', 'pending', 'blocked'};
+    _selectedStatus = knownStatuses.contains(widget.user.status)
+        ? widget.user.status
+        : 'active';
   }
 
   @override
@@ -1985,8 +2109,17 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                   TextField(
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF0F172A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                     decoration: InputDecoration(
                       hintText: '(65) 99349-3626',
+                      hintStyle: GoogleFonts.inter(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 13.5,
+                      ),
                       filled: true,
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF16A34A), size: 20),
@@ -2022,10 +2155,14 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              items: const [
-                DropdownMenuItem(value: 'user', child: Text('Operador (Acesso Padrão)')),
-                DropdownMenuItem(value: 'manager', child: Text('Gerente (Relatórios e Leads)')),
-                DropdownMenuItem(value: 'admin', child: Text('Administrador (Acesso Total)')),
+              items: [
+                const DropdownMenuItem(value: 'user', child: Text('Operador (Acesso Padrão)')),
+                const DropdownMenuItem(value: 'manager', child: Text('Gerente (Relatórios e Leads)')),
+                const DropdownMenuItem(value: 'admin', child: Text('Administrador (Acesso Total)')),
+                if (_selectedRole == 'superAdmin')
+                  const DropdownMenuItem(value: 'superAdmin', child: Text('Super Admin (Master Global)')),
+                if (_selectedRole == 'master')
+                  const DropdownMenuItem(value: 'master', child: Text('Master (Master Global)')),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _selectedRole = val);

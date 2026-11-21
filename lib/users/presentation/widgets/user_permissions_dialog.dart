@@ -274,30 +274,48 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
-                        value: _role.toLowerCase(),
+                        value: const {'user', 'manager', 'admin', 'superadmin', 'master'}
+                                .contains(_role.toLowerCase())
+                            ? _role.toLowerCase()
+                            : 'user',
                         icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
                         style: GoogleFonts.inter(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFF0F172A),
                         ),
-                        items: const [
-                          DropdownMenuItem(
+                        items: [
+                          const DropdownMenuItem(
                             value: 'user',
                             child: Text('👤 Operador'),
                           ),
-                          DropdownMenuItem(
+                          const DropdownMenuItem(
                             value: 'manager',
                             child: Text('👔 Gerente'),
                           ),
-                          DropdownMenuItem(
+                          const DropdownMenuItem(
                             value: 'admin',
                             child: Text('⚡ Administrador'),
                           ),
+                          if (_role.toLowerCase() == 'superadmin')
+                            const DropdownMenuItem(
+                              value: 'superadmin',
+                              child: Text('👑 Super Admin'),
+                            ),
+                          if (_role.toLowerCase() == 'master')
+                            const DropdownMenuItem(
+                              value: 'master',
+                              child: Text('👑 Master'),
+                            ),
                         ],
                         onChanged: (val) {
                           if (val != null) {
-                            _applyPreset(UserPermissions.defaultForRole(val), val);
+                            final normalizedRole =
+                                val == 'superadmin' ? 'superAdmin' : val;
+                            _applyPreset(
+                              UserPermissions.defaultForRole(normalizedRole),
+                              normalizedRole,
+                            );
                           }
                         },
                       ),

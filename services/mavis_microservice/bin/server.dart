@@ -36,7 +36,7 @@ void main(List<String> args) async {
           '/health': 'GET - Verifica integridade do serviço',
           '/generate': 'POST - Gera PDF sincronizado com Firestore, salva no Storage e retorna URLs + Base64',
           '/generate/raw': 'POST - Gera PDF sincronizado com Firestore e retorna os bytes brutos (application/pdf)',
-          '/gd/check-uc': 'POST - Verifica se a UC é recebedora em Créditos Solares (GD) para admin@admin.com.br e retorna resumo + botões',
+          '/gd/check-uc': 'POST - Verifica se a UC é recebedora em Créditos Solares (GD) para heitorklaus@hotmail.com e retorna resumo + botões',
           '/gd/generate-boleto': 'POST - Gera PDF do Boleto/Demonstrativo GD, salva no Firestore/Storage e retorna URL + Base64',
           '/gd/action': 'POST - Trata cliques nos botões pré-definidos (GD_GERAR_BOLETO, GD_GERAR_PROPOSTA, GD_CANCELAR)',
         },
@@ -183,7 +183,7 @@ void main(List<String> args) async {
             'allowed': false,
             'isBeneficiary': false,
             'nextAction': 'PROPOSAL_FLOW',
-            'reason': 'Fluxo de Créditos Solares (GD) habilitado apenas para admin@admin.com.br',
+            'reason': 'Fluxo de Créditos Solares (GD) habilitado apenas para heitorklaus@hotmail.com',
           }),
           headers: {'Content-Type': 'application/json; charset=utf-8'},
         );
@@ -260,7 +260,7 @@ void main(List<String> args) async {
 
       if (!FirestoreGdService.isAllowedForAdmin(ownerEmail: ownerEmail, companyId: companyId)) {
         return Response.forbidden(
-          jsonEncode({'error': 'Fluxo de Créditos Solares (GD) habilitado apenas para admin@admin.com.br'}),
+          jsonEncode({'error': 'Fluxo de Créditos Solares (GD) habilitado apenas para heitorklaus@hotmail.com'}),
           headers: {'Content-Type': 'application/json; charset=utf-8'},
         );
       }
@@ -364,7 +364,7 @@ void main(List<String> args) async {
 
         if (!FirestoreGdService.isAllowedForAdmin(ownerEmail: ownerEmail, companyId: companyId)) {
           return Response.forbidden(
-            jsonEncode({'error': 'Ação permitida apenas para admin@admin.com.br'}),
+            jsonEncode({'error': 'Ação permitida apenas para heitorklaus@hotmail.com'}),
             headers: {'Content-Type': 'application/json; charset=utf-8'},
           );
         }

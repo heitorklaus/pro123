@@ -17,9 +17,39 @@ import '../../domain/models/proposal_model.dart';
 import 'cover_divider_svg_builder.dart';
 
 class SolarProposalPdfService {
-  static final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+  static final _currencyFormat =
+      NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   static final _numberFormat = NumberFormat.decimalPattern('pt_BR');
   static Uint8List? _cachedPage3HouseBytes;
+
+  static PdfColor _darkenPdfColor(PdfColor c, double amount) {
+    final t = amount.clamp(0.0, 1.0);
+    return PdfColor(
+      (c.red * (1.0 - t) + 0.04 * t).clamp(0.0, 1.0),
+      (c.green * (1.0 - t) + 0.06 * t).clamp(0.0, 1.0),
+      (c.blue * (1.0 - t) + 0.08 * t).clamp(0.0, 1.0),
+    );
+  }
+
+  static PdfColor _lightenPdfColor(PdfColor c, double amount) {
+    final t = amount.clamp(0.0, 1.0);
+    return PdfColor(
+      (c.red + (1.0 - c.red) * t).clamp(0.0, 1.0),
+      (c.green + (1.0 - c.green) * t).clamp(0.0, 1.0),
+      (c.blue + (1.0 - c.blue) * t).clamp(0.0, 1.0),
+    );
+  }
+
+  static String _pdfColorToHex(PdfColor c) {
+    String h(double v) =>
+        (v * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    return '#${h(c.red)}${h(c.green)}${h(c.blue)}';
+  }
+
+  static bool _isDefaultDarkBgHex(String hex) {
+    final norm = hex.replaceAll('#', '').trim().toUpperCase();
+    return norm.isEmpty || norm == '0F172A' || norm == '0B1120';
+  }
 
   /// Faz upload do PDF da proposta no Firebase Storage na estrutura: propostas_mavis/{companyId}/{userId}/{fileName}
   static Future<String?> uploadProposalPdfToStorage({
@@ -27,14 +57,18 @@ class SolarProposalPdfService {
     required ProposalModel proposal,
   }) async {
     try {
-      final companyId = proposal.companyId != null && proposal.companyId!.isNotEmpty
-          ? proposal.companyId!
-          : 'default_company';
-      final userId = proposal.createdByUserId != null && proposal.createdByUserId!.isNotEmpty
+      final companyId =
+          proposal.companyId != null && proposal.companyId!.isNotEmpty
+              ? proposal.companyId!
+              : 'default_company';
+      final userId = proposal.createdByUserId != null &&
+              proposal.createdByUserId!.isNotEmpty
           ? proposal.createdByUserId!
           : 'default_user';
-      final cleanPropNumber = proposal.proposalNumber.replaceAll('/', '_').replaceAll('-', '_');
-      final fileName = 'proposta_${cleanPropNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final cleanPropNumber =
+          proposal.proposalNumber.replaceAll('/', '_').replaceAll('-', '_');
+      final fileName =
+          'proposta_${cleanPropNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final storagePath = 'propostas_mavis/$companyId/$userId/$fileName';
 
       final ref = FirebaseStorage.instance.ref().child(storagePath);
@@ -53,7 +87,10 @@ class SolarProposalPdfService {
       final downloadUrl = await uploadTask.ref.getDownloadURL();
 
       // Grava a URL gerada no Firestore dentro do documento da proposta
-      await FirebaseFirestore.instance.collection('proposals').doc(proposal.id).update({
+      await FirebaseFirestore.instance
+          .collection('proposals')
+          .doc(proposal.id)
+          .update({
         'pdfUrl': downloadUrl,
         'pdfGeneratedAt': FieldValue.serverTimestamp(),
       });
@@ -65,17 +102,26 @@ class SolarProposalPdfService {
   }
 
   /// Helper para obter fontes do Google Fonts no PDF
-  static Future<pw.Font?> _getPdfFont(String family, {bool isBlack = false, bool isBold = false}) async {
+  static Future<pw.Font?> _getPdfFont(String family,
+      {bool isBlack = false, bool isBold = false}) async {
     try {
       switch (family.toLowerCase()) {
         case 'roboto':
-          return isBlack || isBold ? await PdfGoogleFonts.robotoBold() : await PdfGoogleFonts.robotoRegular();
+          return isBlack || isBold
+              ? await PdfGoogleFonts.robotoBold()
+              : await PdfGoogleFonts.robotoRegular();
         case 'inter':
-          return isBlack || isBold ? await PdfGoogleFonts.interBold() : await PdfGoogleFonts.interRegular();
+          return isBlack || isBold
+              ? await PdfGoogleFonts.interBold()
+              : await PdfGoogleFonts.interRegular();
         case 'oswald':
-          return isBlack || isBold ? await PdfGoogleFonts.oswaldBold() : await PdfGoogleFonts.oswaldRegular();
+          return isBlack || isBold
+              ? await PdfGoogleFonts.oswaldBold()
+              : await PdfGoogleFonts.oswaldRegular();
         case 'poppins':
-          return isBlack || isBold ? await PdfGoogleFonts.poppinsBold() : await PdfGoogleFonts.poppinsRegular();
+          return isBlack || isBold
+              ? await PdfGoogleFonts.poppinsBold()
+              : await PdfGoogleFonts.poppinsRegular();
         case 'montserrat':
         default:
           if (isBlack) return await PdfGoogleFonts.montserratBlack();
@@ -95,14 +141,29 @@ class SolarProposalPdfService {
     bool autoUploadToStorage = false,
   }) async {
     final pdf = pw.Document();
-    final settings = solarSettings ?? await SolarSettingsService.loadSettings(companyId: proposal.companyId);
-    final primaryColor = PdfColor.fromInt(settings.themeColorValue);
-    final secondaryColor = PdfColor.fromInt(settings.secondaryThemeColorValue);
+    final settings = solarSettings ??
+        await SolarSettingsService.loadSettings(companyId: proposal.companyId);
+    final isCoverThemedStyle = settings.proposalStyle == 'corporateWave' ||
+        settings.proposalStyle == 'verticalSplit';
+    final themeBase = isCoverThemedStyle
+        ? PdfColor.fromInt(settings.verticalSplitAccentColorValue)
+        : PdfColor.fromInt(settings.themeColorValue);
+    final hasExplicitIconTheme = settings.selectedSvgTheme.trim().startsWith('#');
+    final primaryColor = (hasExplicitIconTheme || !isCoverThemedStyle)
+        ? PdfColor.fromInt(settings.themeColorValue)
+        : _darkenPdfColor(themeBase, 0.22);
+    final secNorm =
+        settings.secondaryThemeColor.replaceAll('#', '').trim().toUpperCase();
+    final hasDefaultSecondary = secNorm.isEmpty || secNorm == '102C49';
+    final secondaryColor = (isCoverThemedStyle && hasDefaultSecondary)
+        ? themeBase
+        : PdfColor.fromInt(settings.secondaryThemeColorValue);
 
     // Resolve Estudo de Telhado & Sombreamento vinculado (se existir)
     RoofStudyModel? effectiveStudy = roofStudy ?? proposal.linkedRoofStudy;
     String? studyIdToLoad = proposal.roofStudyId;
-    if ((studyIdToLoad == null || studyIdToLoad.isEmpty) && effectiveStudy == null) {
+    if ((studyIdToLoad == null || studyIdToLoad.isEmpty) &&
+        effectiveStudy == null) {
       for (final item in proposal.items) {
         if (item.roofStudyId != null && item.roofStudyId!.isNotEmpty) {
           studyIdToLoad = item.roofStudyId;
@@ -110,9 +171,12 @@ class SolarProposalPdfService {
         }
       }
     }
-    if (effectiveStudy == null && studyIdToLoad != null && studyIdToLoad.isNotEmpty) {
+    if (effectiveStudy == null &&
+        studyIdToLoad != null &&
+        studyIdToLoad.isNotEmpty) {
       try {
-        effectiveStudy = await RoofStudyRepository().getStudyById(studyIdToLoad);
+        effectiveStudy =
+            await RoofStudyRepository().getStudyById(studyIdToLoad);
       } catch (_) {}
     }
 
@@ -121,21 +185,27 @@ class SolarProposalPdfService {
     if (effectiveStudy != null) {
       if (effectiveStudy.id.isNotEmpty) {
         try {
-          final subPhotos = await RoofStudyRepository().getStudyPhotos(effectiveStudy.id);
+          final subPhotos =
+              await RoofStudyRepository().getStudyPhotos(effectiveStudy.id);
           if (subPhotos.isNotEmpty) {
             effectivePhotos = subPhotos;
           }
         } catch (_) {}
       }
       if (effectivePhotos.isEmpty) {
-        effectivePhotos = effectiveStudy.studyPhotos.where((p) => p.imageBase64.isNotEmpty).toList();
+        effectivePhotos = effectiveStudy.studyPhotos
+            .where((p) => p.imageBase64.isNotEmpty)
+            .toList();
       }
     }
 
     final hiddenPages = settings.hiddenPageIds;
     final customPages = settings.customPages;
 
-    final int studyPagesCount = (effectiveStudy != null && !hiddenPages.contains('page_4')) ? (1 + effectivePhotos.length) : 0;
+    final int studyPagesCount =
+        (effectiveStudy != null && !hiddenPages.contains('page_4'))
+            ? (1 + effectivePhotos.length)
+            : 0;
     int totalPages = 1; // page_1 (Capa)
     if (!hiddenPages.contains('page_2')) totalPages++;
     if (!hiddenPages.contains('page_3')) totalPages++;
@@ -162,18 +232,24 @@ class SolarProposalPdfService {
       fontMontserratBlack = await PdfGoogleFonts.montserratBlack();
       fontMontserratBold = await PdfGoogleFonts.montserratBold();
       fontMontserratSemiBold = await PdfGoogleFonts.montserratSemiBold();
-      headlineFontBold = await _getPdfFont(settings.coverHeadlineFont, isBold: true);
-      headlineFontBlack = await _getPdfFont(settings.coverHeadlineFont, isBlack: true);
-      rightBlockFontBold = await _getPdfFont(settings.coverRightBlockFont, isBold: true);
-      rightBlockFontBlack = await _getPdfFont(settings.coverRightBlockFont, isBlack: true);
-      footerFontBold = await _getPdfFont(settings.coverFooterFont, isBold: true);
+      headlineFontBold =
+          await _getPdfFont(settings.coverHeadlineFont, isBold: true);
+      headlineFontBlack =
+          await _getPdfFont(settings.coverHeadlineFont, isBlack: true);
+      rightBlockFontBold =
+          await _getPdfFont(settings.coverRightBlockFont, isBold: true);
+      rightBlockFontBlack =
+          await _getPdfFont(settings.coverRightBlockFont, isBlack: true);
+      footerFontBold =
+          await _getPdfFont(settings.coverFooterFont, isBold: true);
     } catch (_) {}
 
     // Carrega a imagem da capa (Custom Base64 / Firebase Storage / Web Background)
     Uint8List? coverImageBytes;
 
     // 1. Foto customizada da empresa (upload)
-    if (settings.customCoverImageBase64 != null && settings.customCoverImageBase64!.isNotEmpty) {
+    if (settings.customCoverImageBase64 != null &&
+        settings.customCoverImageBase64!.isNotEmpty) {
       try {
         final clean = settings.customCoverImageBase64!.contains(',')
             ? settings.customCoverImageBase64!.split(',').last
@@ -182,14 +258,41 @@ class SolarProposalPdfService {
       } catch (_) {}
     }
 
-    // 2. Capa oficial selecionada no catálogo (selectedCoverTemplate)
-    if (coverImageBytes == null && settings.selectedCoverTemplate.isNotEmpty) {
+    final useCleanBgForDivider = settings.proposalStyle == 'verticalSplit' ||
+        (settings.proposalStyle == 'modern' &&
+            (settings.isCustomCoverMode || settings.customDividerStyle >= 0));
+
+    if (coverImageBytes == null && useCleanBgForDivider) {
+      final bg = settings.webBackgroundTemplate;
+      final cleanBg = (bg.isNotEmpty &&
+              !bg.startsWith('modelo_') &&
+              !bg.contains('energiasolar'))
+          ? bg
+          : SolarSettingsModel.availableWebBackgrounds.first;
       try {
-        coverImageBytes = await SolarSettingsService.fetchCoverBytes(settings.selectedCoverTemplate);
+        coverImageBytes =
+            await SolarSettingsService.fetchWebBackgroundBytes(cleanBg);
       } catch (_) {}
       if (coverImageBytes == null) {
         try {
-          coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(settings.selectedCoverTemplate);
+          coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(
+              SolarSettingsModel.availableWebBackgrounds.first);
+        } catch (_) {}
+      }
+    }
+
+    // 2. Capa oficial selecionada no catálogo (selectedCoverTemplate)
+    if (coverImageBytes == null &&
+        !useCleanBgForDivider &&
+        settings.selectedCoverTemplate.isNotEmpty) {
+      try {
+        coverImageBytes = await SolarSettingsService.fetchCoverBytes(
+            settings.selectedCoverTemplate);
+      } catch (_) {}
+      if (coverImageBytes == null) {
+        try {
+          coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(
+              settings.selectedCoverTemplate);
         } catch (_) {}
       }
     }
@@ -197,11 +300,13 @@ class SolarProposalPdfService {
     // 3. Template de Wallpaper Web configurado (webBackgroundTemplate)
     if (coverImageBytes == null && settings.webBackgroundTemplate.isNotEmpty) {
       try {
-        coverImageBytes = await SolarSettingsService.fetchCoverBytes(settings.webBackgroundTemplate);
+        coverImageBytes = await SolarSettingsService.fetchCoverBytes(
+            settings.webBackgroundTemplate);
       } catch (_) {}
       if (coverImageBytes == null) {
         try {
-          coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(settings.webBackgroundTemplate);
+          coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(
+              settings.webBackgroundTemplate);
         } catch (_) {}
       }
     }
@@ -209,13 +314,15 @@ class SolarProposalPdfService {
     // 4. Fallback padrão garantido
     if (coverImageBytes == null) {
       try {
-        coverImageBytes = await SolarSettingsService.fetchCoverBytes('modelo_proposta_1.jpg');
+        coverImageBytes =
+            await SolarSettingsService.fetchCoverBytes('modelo_proposta_1.jpg');
       } catch (_) {}
       if (coverImageBytes == null) {
         final bgs = SolarSettingsService.getDefaultWebBackgroundList();
         if (bgs.isNotEmpty) {
           try {
-            coverImageBytes = await SolarSettingsService.fetchWebBackgroundBytes(bgs.first);
+            coverImageBytes =
+                await SolarSettingsService.fetchWebBackgroundBytes(bgs.first);
           } catch (_) {}
         }
       }
@@ -226,16 +333,22 @@ class SolarProposalPdfService {
       (item) => item.isSolarPlant,
       orElse: () => proposal.items.isNotEmpty
           ? proposal.items.first
-          : ProposalItemModel(name: 'Usina Solar', quantity: 1, unitPrice: proposal.totalAmount, totalPrice: proposal.totalAmount),
+          : ProposalItemModel(
+              name: 'Usina Solar',
+              quantity: 1,
+              unitPrice: proposal.totalAmount,
+              totalPrice: proposal.totalAmount),
     );
 
-    final kwp = solarPlantItem.solarPowerKwp ?? (proposal.totalAmount > 0 ? (proposal.totalAmount / 2300.0) : 8.68);
+    final kwp = solarPlantItem.solarPowerKwp ??
+        (proposal.totalAmount > 0 ? (proposal.totalAmount / 2300.0) : 8.68);
     double generationMonthly = solarPlantItem.estimatedMonthlyKwh ?? 0.0;
     if (generationMonthly <= 0) {
       final kwhMatch = RegExp(r'(\d+(?:[\.,]\d+)?)\s*kWh', caseSensitive: false)
           .firstMatch('${proposal.title} ${solarPlantItem.name}');
       if (kwhMatch != null) {
-        generationMonthly = double.tryParse(kwhMatch.group(1)!.replaceAll(',', '.')) ?? 0.0;
+        generationMonthly =
+            double.tryParse(kwhMatch.group(1)!.replaceAll(',', '.')) ?? 0.0;
       }
     }
     if (generationMonthly <= 0) {
@@ -256,7 +369,9 @@ class SolarProposalPdfService {
       final lowerName = comp.toLowerCase();
 
       int compQty = 1;
-      final qtyMatch = RegExp(r'^(\d+)\s*(?:x|un|unid)?\b', caseSensitive: false).firstMatch(comp);
+      final qtyMatch =
+          RegExp(r'^(\d+)\s*(?:x|un|unid)?\b', caseSensitive: false)
+              .firstMatch(comp);
       if (qtyMatch != null) {
         compQty = int.tryParse(qtyMatch.group(1)!) ?? 1;
       }
@@ -267,15 +382,21 @@ class SolarProposalPdfService {
           lowerName.contains('painel') ||
           lowerName.contains('bifacial')) {
         modulesCount += compQty;
-        final matchW = RegExp(r'(\d{3,4})\s*(?:w|watts|wp)\b', caseSensitive: false).firstMatch(comp);
+        final matchW =
+            RegExp(r'(\d{3,4})\s*(?:w|watts|wp)\b', caseSensitive: false)
+                .firstMatch(comp);
         if (matchW != null) {
           moduleWatts = int.tryParse(matchW.group(1)!) ?? 620;
         }
-      } else if (lowerName.contains('inversor') || lowerName.contains('microinversor')) {
+      } else if (lowerName.contains('inversor') ||
+          lowerName.contains('microinversor')) {
         inverterModel = comp;
-        final matchK = RegExp(r'(\d+(?:[\.,]\d+)?)\s*kw\b', caseSensitive: false).firstMatch(comp);
+        final matchK =
+            RegExp(r'(\d+(?:[\.,]\d+)?)\s*kw\b', caseSensitive: false)
+                .firstMatch(comp);
         if (matchK != null) {
-          inverterKw = double.tryParse(matchK.group(1)!.replaceAll(',', '.')) ?? inverterKw;
+          inverterKw = double.tryParse(matchK.group(1)!.replaceAll(',', '.')) ??
+              inverterKw;
         }
       }
     }
@@ -347,7 +468,8 @@ class SolarProposalPdfService {
     if (!hiddenPages.contains('page_3')) {
       if (_cachedPage3HouseBytes == null) {
         try {
-          final bd = await rootBundle.load('assets/images/solar_page3_house.jpg');
+          final bd =
+              await rootBundle.load('assets/images/solar_page3_house.jpg');
           _cachedPage3HouseBytes = bd.buffer.asUint8List();
         } catch (_) {}
       }
@@ -570,19 +692,29 @@ class SolarProposalPdfService {
     pw.Font? fontMontserratBold,
     pw.Font? fontMontserratSemiBold,
   }) {
-    final primaryHex = (settings.verticalSplitAccentColor.isNotEmpty ? settings.verticalSplitAccentColor : '#0284C7')
+    final primaryHex = (settings.verticalSplitAccentColor.isNotEmpty
+            ? settings.verticalSplitAccentColor
+            : '#0284C7')
         .replaceAll('#', '')
         .trim();
     final primarySvgColor = '#$primaryHex';
-    final primaryPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
+    final primaryPdfColor =
+        PdfColor.fromInt(settings.verticalSplitAccentColorValue);
 
-    final secondaryHex = (settings.coverTitleColor.isNotEmpty ? settings.coverTitleColor : '#38BDF8')
-        .replaceAll('#', '')
-        .trim();
-    final secondarySvgColor = '#$secondaryHex';
+    String toHex2(double c) =>
+        (c * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    final rL = (primaryPdfColor.red + (1.0 - primaryPdfColor.red) * 0.45)
+        .clamp(0.0, 1.0);
+    final gL = (primaryPdfColor.green + (1.0 - primaryPdfColor.green) * 0.45)
+        .clamp(0.0, 1.0);
+    final bL = (primaryPdfColor.blue + (1.0 - primaryPdfColor.blue) * 0.45)
+        .clamp(0.0, 1.0);
+    final secondarySvgColor = '#${toHex2(rL)}${toHex2(gL)}${toHex2(bL)}';
 
     Uint8List? logoBytes;
-    if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
+    if (settings.coverShowLogo &&
+        settings.companyLogoBase64 != null &&
+        settings.companyLogoBase64!.isNotEmpty) {
       try {
         final cleanLogo = settings.companyLogoBase64!.contains(',')
             ? settings.companyLogoBase64!.split(',').last
@@ -657,12 +789,14 @@ class SolarProposalPdfService {
             crossAxisAlignment: pw.CrossAxisAlignment.end,
             children: [
               if (logoBytes != null)
-                pw.Image(pw.MemoryImage(logoBytes), height: 48, fit: pw.BoxFit.contain)
+                pw.Image(pw.MemoryImage(logoBytes),
+                    height: 48, fit: pw.BoxFit.contain)
               else
                 pw.Text(
-                  (settings.companyName != null && settings.companyName!.isNotEmpty)
-                    ? settings.companyName!.toUpperCase()
-                    : 'SUA EMPRESA',
+                  (settings.companyName != null &&
+                          settings.companyName!.isNotEmpty)
+                      ? settings.companyName!.toUpperCase()
+                      : 'SUA EMPRESA',
                   style: pw.TextStyle(
                     font: fontMontserratBlack,
                     fontSize: 18,
@@ -672,7 +806,9 @@ class SolarProposalPdfService {
                 ),
               pw.SizedBox(height: 32),
               pw.Text(
-                settings.coverTitle.isNotEmpty ? settings.coverTitle.toUpperCase() : 'PROPOSTA\nCOMERCIAL',
+                settings.coverTitle.isNotEmpty
+                    ? settings.coverTitle.toUpperCase()
+                    : 'PROPOSTA\nCOMERCIAL',
                 textAlign: pw.TextAlign.right,
                 style: pw.TextStyle(
                   font: fontMontserratBlack,
@@ -684,7 +820,9 @@ class SolarProposalPdfService {
               ),
               pw.SizedBox(height: 8),
               pw.Text(
-                settings.coverSubtitle.isNotEmpty ? settings.coverSubtitle.toUpperCase() : 'ENERGIA SOLAR FOTOVOLTAICA',
+                settings.coverSubtitle.isNotEmpty
+                    ? settings.coverSubtitle.toUpperCase()
+                    : 'ENERGIA SOLAR FOTOVOLTAICA',
                 textAlign: pw.TextAlign.right,
                 style: pw.TextStyle(
                   font: fontMontserratBold,
@@ -734,19 +872,30 @@ class SolarProposalPdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              if (settings.companyPhone != null && settings.companyPhone!.isNotEmpty)
+              if (settings.companyPhone != null &&
+                  settings.companyPhone!.isNotEmpty)
                 pw.Text(
                   'Tel: ${settings.companyPhone!}',
-                  style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                  style: pw.TextStyle(
+                      font: fontMontserratSemiBold,
+                      fontSize: 10,
+                      color: PdfColors.white),
                 ),
               pw.Text(
                 'Email: contato@empresa.com.br',
-                style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                style: pw.TextStyle(
+                    font: fontMontserratSemiBold,
+                    fontSize: 10,
+                    color: PdfColors.white),
               ),
-              if (settings.companyWebsite != null && settings.companyWebsite!.isNotEmpty)
+              if (settings.companyWebsite != null &&
+                  settings.companyWebsite!.isNotEmpty)
                 pw.Text(
                   'Site: ${settings.companyWebsite!}',
-                  style: pw.TextStyle(font: fontMontserratSemiBold, fontSize: 10, color: PdfColors.white),
+                  style: pw.TextStyle(
+                      font: fontMontserratSemiBold,
+                      fontSize: 10,
+                      color: PdfColors.white),
                 ),
             ],
           ),
@@ -770,9 +919,11 @@ class SolarProposalPdfService {
     pw.Font? rightBlockFontBlack,
     pw.Font? footerFontBold,
   }) {
-    final accentHex = settings.verticalSplitAccentColor.replaceAll('#', '').trim();
+    final accentHex =
+        settings.verticalSplitAccentColor.replaceAll('#', '').trim();
     final accentSvgColor = '#$accentHex';
-    final accentPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
+    final accentPdfColor =
+        PdfColor.fromInt(settings.verticalSplitAccentColorValue);
     final divType = settings.verticalSplitDividerType;
     final badges = settings.verticalSplitFooterBadges;
 
@@ -813,14 +964,21 @@ class SolarProposalPdfService {
     const double a4W = 595.28;
     const double a4H = 841.89;
 
-    final double effectiveRightBlockTop = settings.verticalSplitRightBlockTop * a4H;
-    final double effectiveRightBlockRight = settings.verticalSplitRightBlockRight * a4W;
-    final double effectiveHeadlineLeft = settings.verticalSplitHeadlineLeft * a4W;
+    final double effectiveRightBlockTop =
+        settings.verticalSplitRightBlockTop * a4H;
+    final double effectiveRightBlockRight =
+        settings.verticalSplitRightBlockRight * a4W;
+    final double effectiveHeadlineLeft =
+        settings.verticalSplitHeadlineLeft * a4W;
     final double effectiveHeadlineTop = settings.verticalSplitHeadlineTop * a4H;
-    final double effectiveLeftFooterLeft = settings.verticalSplitLeftFooterLeft * a4W;
-    final double effectiveLeftFooterBottom = settings.verticalSplitLeftFooterBottom * a4H;
-    final double effectiveRightFooterRight = settings.verticalSplitRightFooterRight * a4W;
-    final double effectiveRightFooterBottom = settings.verticalSplitRightFooterBottom * a4H;
+    final double effectiveLeftFooterLeft =
+        settings.verticalSplitLeftFooterLeft * a4W;
+    final double effectiveLeftFooterBottom =
+        settings.verticalSplitLeftFooterBottom * a4H;
+    final double effectiveRightFooterRight =
+        settings.verticalSplitRightFooterRight * a4W;
+    final double effectiveRightFooterBottom =
+        settings.verticalSplitRightFooterBottom * a4H;
 
     final String resolvedTitle = settings.verticalSplitRightTitle
         .replaceAll('{cliente}', proposal.clientName)
@@ -828,13 +986,17 @@ class SolarProposalPdfService {
     String resolvedSubtitle = settings.verticalSplitRightSubtitle
         .replaceAll('{cliente}', proposal.clientName)
         .replaceAll('{nome}', proposal.clientName);
-    if (proposal.clientName.trim().isNotEmpty && resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA') {
+    if (proposal.clientName.trim().isNotEmpty &&
+        resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA') {
       final cNameUpper = proposal.clientName.trim().toUpperCase();
-      resolvedSubtitle = cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
+      resolvedSubtitle =
+          cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
     }
 
     Uint8List? logoBytes;
-    if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty) {
+    if (settings.coverShowLogo &&
+        settings.companyLogoBase64 != null &&
+        settings.companyLogoBase64!.isNotEmpty) {
       try {
         final cleanLogo = settings.companyLogoBase64!.contains(',')
             ? settings.companyLogoBase64!.split(',').last
@@ -880,9 +1042,12 @@ class SolarProposalPdfService {
                     pw.Container(
                       width: settings.verticalSplitHeadlineDividerWidth,
                       height: settings.verticalSplitHeadlineDividerHeight,
-                      color: settings.verticalSplitHeadlineDividerColor.isNotEmpty
-                          ? _parsePdfColor(settings.verticalSplitHeadlineDividerColor, fallback: accentPdfColor)
-                          : accentPdfColor,
+                      color:
+                          settings.verticalSplitHeadlineDividerColor.isNotEmpty
+                              ? _parsePdfColor(
+                                  settings.verticalSplitHeadlineDividerColor,
+                                  fallback: accentPdfColor)
+                              : accentPdfColor,
                     ),
                     pw.SizedBox(height: 12),
                   ] else ...[
@@ -908,7 +1073,8 @@ class SolarProposalPdfService {
             left: effectiveLeftFooterLeft,
             bottom: effectiveLeftFooterBottom,
             child: pw.SizedBox(
-              width: a4W * settings.verticalSplitLeftFooterWidth.clamp(0.20, 0.95),
+              width:
+                  a4W * settings.verticalSplitLeftFooterWidth.clamp(0.20, 0.95),
               child: divType == 2
                   ? pw.Text(
                       settings.verticalSplitLeftFooter,
@@ -929,9 +1095,14 @@ class SolarProposalPdfService {
                                 padding: const pw.EdgeInsets.only(bottom: 6),
                                 child: pw.Row(
                                   mainAxisSize: pw.MainAxisSize.min,
-                                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                  crossAxisAlignment:
+                                      pw.CrossAxisAlignment.center,
                                   children: [
-                                    _buildPdfCoverCustomIcon(badges[i].iconKey, 12, PdfColor.fromInt(settings.coverBadgesIconColorValue)),
+                                    _buildPdfCoverCustomIcon(
+                                        badges[i].iconKey,
+                                        12,
+                                        PdfColor.fromInt(settings
+                                            .coverBadgesIconColorValue)),
                                     pw.SizedBox(width: 5),
                                     pw.Text(
                                       badges[i].label,
@@ -939,7 +1110,8 @@ class SolarProposalPdfService {
                                         font: fontMontserratBold,
                                         fontSize: 9.0,
                                         fontWeight: pw.FontWeight.bold,
-                                        color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                                        color: PdfColor.fromInt(
+                                            settings.coverBadgesTextColorValue),
                                         letterSpacing: 0.8,
                                       ),
                                     ),
@@ -957,9 +1129,14 @@ class SolarProposalPdfService {
                                 for (int i = 0; i < badges.length; i++) ...[
                                   pw.Row(
                                     mainAxisSize: pw.MainAxisSize.min,
-                                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        pw.CrossAxisAlignment.center,
                                     children: [
-                                      _buildPdfCoverCustomIcon(badges[i].iconKey, 12, PdfColor.fromInt(settings.coverBadgesIconColorValue)),
+                                      _buildPdfCoverCustomIcon(
+                                          badges[i].iconKey,
+                                          12,
+                                          PdfColor.fromInt(settings
+                                              .coverBadgesIconColorValue)),
                                       pw.SizedBox(width: 5),
                                       pw.Text(
                                         badges[i].label,
@@ -967,7 +1144,8 @@ class SolarProposalPdfService {
                                           font: fontMontserratBold,
                                           fontSize: 9.0,
                                           fontWeight: pw.FontWeight.bold,
-                                          color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                                          color: PdfColor.fromInt(settings
+                                              .coverBadgesTextColorValue),
                                           letterSpacing: 0.8,
                                         ),
                                       ),
@@ -978,7 +1156,8 @@ class SolarProposalPdfService {
                                       width: 1.5,
                                       height: 12,
                                       color: PdfColor.fromInt(0x66FFFFFF),
-                                      margin: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                      margin: const pw.EdgeInsets.symmetric(
+                                          horizontal: 4),
                                     ),
                                 ],
                               ],
@@ -990,9 +1169,13 @@ class SolarProposalPdfService {
                                 for (int i = 0; i < badges.length; i++) ...[
                                   pw.Row(
                                     mainAxisSize: pw.MainAxisSize.min,
-                                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        pw.CrossAxisAlignment.center,
                                     children: [
-                                      _buildPdfCoverCustomIcon(badges[i].iconKey, 12, accentPdfColor),
+                                      _buildPdfCoverCustomIcon(
+                                          badges[i].iconKey,
+                                          12,
+                                          accentPdfColor),
                                       pw.SizedBox(width: 5),
                                       pw.Text(
                                         badges[i].label,
@@ -1000,7 +1183,8 @@ class SolarProposalPdfService {
                                           font: fontMontserratBold,
                                           fontSize: 9.0,
                                           fontWeight: pw.FontWeight.bold,
-                                          color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                                          color: PdfColor.fromInt(settings
+                                              .coverBadgesTextColorValue),
                                           letterSpacing: 0.8,
                                         ),
                                       ),
@@ -1011,7 +1195,8 @@ class SolarProposalPdfService {
                                       width: 1.5,
                                       height: 12,
                                       color: PdfColor.fromInt(0x66FFFFFF),
-                                      margin: const pw.EdgeInsets.symmetric(horizontal: 6),
+                                      margin: const pw.EdgeInsets.symmetric(
+                                          horizontal: 6),
                                     ),
                                 ],
                               ],
@@ -1035,7 +1220,8 @@ class SolarProposalPdfService {
                       font: rightBlockFontBold ?? fontMontserratBold,
                       fontSize: settings.verticalSplitRightTitleFontSize,
                       fontWeight: pw.FontWeight.bold,
-                      color: PdfColor.fromInt(settings.coverRightTitleColorValue),
+                      color:
+                          PdfColor.fromInt(settings.coverRightTitleColorValue),
                       letterSpacing: 5.5,
                     ),
                   ),
@@ -1046,7 +1232,8 @@ class SolarProposalPdfService {
                       font: rightBlockFontBlack ?? fontMontserratBlack,
                       fontSize: settings.verticalSplitRightSubtitleFontSize,
                       fontWeight: pw.FontWeight.bold,
-                      color: PdfColor.fromInt(settings.coverRightSubtitleColorValue),
+                      color: PdfColor.fromInt(
+                          settings.coverRightSubtitleColorValue),
                       letterSpacing: 2.0,
                     ),
                   ),
@@ -1056,7 +1243,9 @@ class SolarProposalPdfService {
                       width: settings.verticalSplitRightDividerWidth,
                       height: settings.verticalSplitRightDividerHeight,
                       color: settings.verticalSplitRightDividerColor.isNotEmpty
-                          ? _parsePdfColor(settings.verticalSplitRightDividerColor, fallback: accentPdfColor)
+                          ? _parsePdfColor(
+                              settings.verticalSplitRightDividerColor,
+                              fallback: accentPdfColor)
                           : accentPdfColor,
                     ),
                     pw.SizedBox(height: 14),
@@ -1069,7 +1258,8 @@ class SolarProposalPdfService {
                       font: rightBlockFontBold ?? fontMontserratBold,
                       fontSize: 11.5,
                       fontWeight: pw.FontWeight.bold,
-                      color: PdfColor.fromInt(settings.coverRightTaglineColorValue),
+                      color: PdfColor.fromInt(
+                          settings.coverRightTaglineColorValue),
                       lineSpacing: 2,
                     ),
                   ),
@@ -1080,7 +1270,8 @@ class SolarProposalPdfService {
                         padding: const pw.EdgeInsets.only(bottom: 10),
                         child: pw.Row(
                           children: [
-                            _buildPdfCoverCustomIcon(badge.iconKey, 14, accentPdfColor),
+                            _buildPdfCoverCustomIcon(
+                                badge.iconKey, 14, accentPdfColor),
                             pw.SizedBox(width: 8),
                             pw.Text(
                               badge.label,
@@ -1166,9 +1357,12 @@ class SolarProposalPdfService {
             child: pw.Text(
               textItem.text,
               style: pw.TextStyle(
-                font: textItem.isBold ? fontMontserratBold : fontMontserratSemiBold,
+                font: textItem.isBold
+                    ? fontMontserratBold
+                    : fontMontserratSemiBold,
                 fontSize: textItem.fontSize,
-                fontWeight: textItem.isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                fontWeight:
+                    textItem.isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
                 color: PdfColor.fromInt(textItem.colorValue),
               ),
             ),
@@ -1179,21 +1373,24 @@ class SolarProposalPdfService {
           pw.Positioned(
             left: iconItem.x * a4W,
             top: iconItem.y * a4H,
-            child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size, PdfColor.fromInt(iconItem.colorValue)),
+            child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size,
+                PdfColor.fromInt(iconItem.colorValue)),
           ),
-
       ],
     );
   }
 
-  static pw.Widget _buildPdfCoverCustomIcon(String iconKey, double size, PdfColor color) {
-    final hex = '#${color.toInt().toRadixString(16).padLeft(8, '0').substring(2)}';
+  static pw.Widget _buildPdfCoverCustomIcon(
+      String iconKey, double size, PdfColor color) {
+    final hex =
+        '#${color.toInt().toRadixString(16).padLeft(8, '0').substring(2)}';
     String svgContent;
     switch (iconKey.toLowerCase()) {
       case 'bolt':
       case 'energia':
       case 'raio':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="$hex"/></svg>';
         break;
       case 'chart':
       case 'grafico':
@@ -1201,7 +1398,8 @@ class SolarProposalPdfService {
       case 'bar_chart':
       case 'trending_up':
       case 'show_chart':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><rect x="3" y="12" width="4.5" height="9" rx="1" fill="$hex"/><rect x="9.75" y="4" width="4.5" height="17" rx="1" fill="$hex"/><rect x="16.5" y="8" width="4.5" height="13" rx="1" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><rect x="3" y="12" width="4.5" height="9" rx="1" fill="$hex"/><rect x="9.75" y="4" width="4.5" height="17" rx="1" fill="$hex"/><rect x="16.5" y="8" width="4.5" height="13" rx="1" fill="$hex"/></svg>';
         break;
       case 'coins':
       case 'moedas':
@@ -1210,80 +1408,96 @@ class SolarProposalPdfService {
       case 'attach_money':
       case 'savings':
       case 'economia':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5h-2v-1.5c-1.3-.2-2-1.1-2-2.5h1.5c0 .8.5 1.5 1.5 1.5s1.5-.7 1.5-1.5c0-.9-.7-1.3-1.8-1.7-1.5-.5-2.7-1.1-2.7-2.8 0-1.4.9-2.3 2-2.5V4.5h2V6c1.1.2 1.8 1 1.8 2.2h-1.5c0-.7-.4-1.2-1.3-1.2s-1.2.5-1.2 1.2c0 .8.6 1.1 1.6 1.5 1.7.6 2.9 1.2 2.9 3 0 1.5-.9 2.5-2 2.8v1.5z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5h-2v-1.5c-1.3-.2-2-1.1-2-2.5h1.5c0 .8.5 1.5 1.5 1.5s1.5-.7 1.5-1.5c0-.9-.7-1.3-1.8-1.7-1.5-.5-2.7-1.1-2.7-2.8 0-1.4.9-2.3 2-2.5V4.5h2V6c1.1.2 1.8 1 1.8 2.2h-1.5c0-.7-.4-1.2-1.3-1.2s-1.2.5-1.2 1.2c0 .8.6 1.1 1.6 1.5 1.7.6 2.9 1.2 2.9 3 0 1.5-.9 2.5-2 2.8v1.5z" fill="$hex"/></svg>';
         break;
       case 'sun':
       case 'sol':
       case 'solar_power':
       case 'painel':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><circle cx="12" cy="12" r="5" fill="$hex"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="$hex" stroke-width="2.5" stroke-linecap="round"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><circle cx="12" cy="12" r="5" fill="$hex"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="$hex" stroke-width="2.5" stroke-linecap="round"/></svg>';
         break;
       case 'star':
       case 'estrela':
       case 'favorito':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="$hex"/></svg>';
         break;
       case 'shield':
       case 'seguranca':
       case 'garantia':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="$hex"/></svg>';
         break;
       case 'verified':
       case 'check':
       case 'qualidade':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2L9.19 3.63 6 3.17 4.13 5.8 1.5 7.19 1.72 10.42 0 12.81 1.72 15.2 1.5 18.43 4.13 19.82 6 22.45 9.19 21.99 12 23.62 14.81 21.99 18 22.45 19.87 19.82 22.5 18.43 22.28 15.2 24 12.81 22.28 10.42 22.5 7.19 19.87 5.8 18 3.17 14.81 3.63 12 2zm-1.5 14.5l-4-4 1.41-1.41L10.5 13.67l6.59-6.59 1.41 1.41-8 8z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2L9.19 3.63 6 3.17 4.13 5.8 1.5 7.19 1.72 10.42 0 12.81 1.72 15.2 1.5 18.43 4.13 19.82 6 22.45 9.19 21.99 12 23.62 14.81 21.99 18 22.45 19.87 19.82 22.5 18.43 22.28 15.2 24 12.81 22.28 10.42 22.5 7.19 19.87 5.8 18 3.17 14.81 3.63 12 2zm-1.5 14.5l-4-4 1.41-1.41L10.5 13.67l6.59-6.59 1.41 1.41-8 8z" fill="$hex"/></svg>';
         break;
       case 'battery':
       case 'bateria':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM11 20v-5.5H9L13 7v5.5h2L11 20z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM11 20v-5.5H9L13 7v5.5h2L11 20z" fill="$hex"/></svg>';
         break;
       case 'percent':
       case 'desconto':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M7.5 4C5.57 4 4 5.57 4 7.5S5.57 11 7.5 11 11 9.43 11 7.5 9.43 4 7.5 4zm0 4.5c-.83 0-1.5-.67-1.5-1.5S6.67 5.5 7.5 5.5 9 6.17 9 7 8.33 8.5 7.5 8.5zM19.71 4.29a1 1 0 00-1.42 0l-14 14a1 1 0 101.42 1.42l14-14a1 1 0 000-1.42zM16.5 13c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5zm0 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M7.5 4C5.57 4 4 5.57 4 7.5S5.57 11 7.5 11 11 9.43 11 7.5 9.43 4 7.5 4zm0 4.5c-.83 0-1.5-.67-1.5-1.5S6.67 5.5 7.5 5.5 9 6.17 9 7 8.33 8.5 7.5 8.5zM19.71 4.29a1 1 0 00-1.42 0l-14 14a1 1 0 101.42 1.42l14-14a1 1 0 000-1.42zM16.5 13c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5zm0 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="$hex"/></svg>';
         break;
       case 'handshake':
       case 'parceria':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z" fill="$hex"/></svg>';
         break;
       case 'rocket':
       case 'foguete':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2.5s4 3 4 8.5c0 2-.5 4-1.5 5.5l1.5 3.5-3-1-3 1 1.5-3.5C10.5 15 10 13 10 11c0-5.5 4-8.5 4-8.5z" fill="$hex"/><circle cx="12" cy="9" r="1.5" fill="#FFFFFF"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2.5s4 3 4 8.5c0 2-.5 4-1.5 5.5l1.5 3.5-3-1-3 1 1.5-3.5C10.5 15 10 13 10 11c0-5.5 4-8.5 4-8.5z" fill="$hex"/><circle cx="12" cy="9" r="1.5" fill="#FFFFFF"/></svg>';
         break;
       case 'diamond':
       case 'diamante':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M19 3H5L2 9l10 12L22 9l-3-6zM9 5h6l1.5 3h-9L9 5zM4.5 9l2-3.5h1.8L6.8 9H4.5zm7.5 9.5L6.2 10h11.6L12 18.5zm3.7-9.5l-1.5-3.5h1.8l2 3.5h-2.3z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M19 3H5L2 9l10 12L22 9l-3-6zM9 5h6l1.5 3h-9L9 5zM4.5 9l2-3.5h1.8L6.8 9H4.5zm7.5 9.5L6.2 10h11.6L12 18.5zm3.7-9.5l-1.5-3.5h1.8l2 3.5h-2.3z" fill="$hex"/></svg>';
         break;
       case 'water_drop':
       case 'agua':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z" fill="$hex"/></svg>';
         break;
       case 'phone':
       case 'whatsapp':
       case 'telefone':
       case 'contato':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="$hex"/></svg>';
         break;
       case 'location':
       case 'localizacao':
       case 'endereco':
       case 'map':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="$hex"/></svg>';
         break;
       case 'mail':
       case 'email':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="$hex"/></svg>';
         break;
       case 'lightbulb':
       case 'light':
       case 'lampada':
       case 'iluminacao':
       case 'ideia':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z" fill="$hex"/></svg>';
         break;
       case 'music':
       case 'audio':
       case 'som':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="$hex"/></svg>';
         break;
       case 'temp':
       case 'clima':
@@ -1291,7 +1505,8 @@ class SolarProposalPdfService {
       case 'climate':
       case 'hvac':
       case 'thermostat':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-3-8c.55 0 1 .45 1 1v3h-2V6c0-.55.45-1 1-1z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-3-8c.55 0 1 .45 1 1v3h-2V6c0-.55.45-1 1-1z" fill="$hex"/></svg>';
         break;
       case 'lock':
       case 'acesso':
@@ -1300,40 +1515,47 @@ class SolarProposalPdfService {
       case 'biometria':
       case 'biometric':
       case 'fingerprint':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="$hex"/></svg>';
         break;
       case 'camera':
       case 'monitoramento':
       case 'video':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" fill="$hex"/></svg>';
         break;
       case 'wifi':
       case 'rede':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 3C7.95 3 4.21 4.34 1.2 6.6L3 9c2.47-1.85 5.56-3 9-3s6.53 1.15 9 3l1.8-2.4C19.79 4.34 16.05 3 12 3zm0 6c-2.9 0-5.58.97-7.74 2.6L6 14c1.7-1.28 3.75-2 6-2s4.3.72 6 2l1.74-2.4C17.58 9.97 14.9 9 12 9zm0 6c-1.57 0-3.03.54-4.2 1.44L12 21l4.2-4.56C15.03 15.54 13.57 15 12 15z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M12 3C7.95 3 4.21 4.34 1.2 6.6L3 9c2.47-1.85 5.56-3 9-3s6.53 1.15 9 3l1.8-2.4C19.79 4.34 16.05 3 12 3zm0 6c-2.9 0-5.58.97-7.74 2.6L6 14c1.7-1.28 3.75-2 6-2s4.3.72 6 2l1.74-2.4C17.58 9.97 14.9 9 12 9zm0 6c-1.57 0-3.03.54-4.2 1.44L12 21l4.2-4.56C15.03 15.54 13.57 15 12 15z" fill="$hex"/></svg>';
         break;
       case 'curtain':
       case 'cortina':
       case 'persiana':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 19V3H4v16H2v2h20v-2h-2zM6 5h5v4H6V5zm0 6h5v4H6v-4zm12 8H6v-2h12v2zm0-4h-5v-4h5v4zm0-6h-5V5h5v4z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M20 19V3H4v16H2v2h20v-2h-2zM6 5h5v4H6V5zm0 6h5v4H6v-4zm12 8H6v-2h12v2zm0-4h-5v-4h5v4zm0-6h-5V5h5v4z" fill="$hex"/></svg>';
         break;
       case 'home':
       case 'casa':
       case 'residencia':
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="$hex"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="$hex"/></svg>';
         break;
       case 'leaf':
       case 'eco':
       case 'nature':
       case 'sustentabilidade':
       default:
-        svgContent = '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.52-12.5 4.5" fill="none" stroke="$hex" stroke-width="2.5" stroke-linecap="round"/></svg>';
+        svgContent =
+            '<svg viewBox="0 0 24 24" width="$size" height="$size"><path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.52-12.5 4.5" fill="none" stroke="$hex" stroke-width="2.5" stroke-linecap="round"/></svg>';
         break;
     }
     return pw.SvgImage(svg: svgContent, width: size, height: size);
   }
 
   static bool _isDarkColor(PdfColor color) {
-    return (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) < 0.60;
+    return (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) <
+        0.60;
   }
 
   static pw.Widget _buildPdfCoverHeader({
@@ -1357,9 +1579,14 @@ class SolarProposalPdfService {
       case 2: // Faixa Executiva Escura
         final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
         final isDark = _isDarkColor(bg);
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final subColor = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#475569'));
-        final tagColor = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ??
+            (isDark ? effectiveAccent : PdfColor.fromHex('#475569'));
+        final tagColor = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -1371,48 +1598,83 @@ class SolarProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor, letterSpacing: 1.2)),
+                  pw.Text(title,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 11,
+                          fontWeight: pw.FontWeight.bold,
+                          color: titleColor,
+                          letterSpacing: 1.2)),
                   if (subtitle.isNotEmpty)
-                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: subColor)),
+                    pw.Text(subtitle,
+                        style: pw.TextStyle(
+                            font: fontSemiBold,
+                            fontSize: 7.5,
+                            color: subColor)),
                 ],
               ),
               if (tag.isNotEmpty)
-                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: tagColor)),
+                pw.Text(tag,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 8, color: tagColor)),
             ],
           ),
         );
       case 3: // Gradiente Tech / Accent Bar
         final bg = customBgColor ?? PdfColor.fromHex('#0B1120');
         final isDark = _isDarkColor(bg);
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#38BDF8') : PdfColor.fromHex('#475569'));
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ??
+            (isDark
+                ? _lightenPdfColor(effectiveAccent, 0.45)
+                : PdfColor.fromHex('#475569'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
           decoration: pw.BoxDecoration(
             color: bg,
-            border: pw.Border(bottom: pw.BorderSide(color: effectiveAccent, width: 2.5)),
+            border: pw.Border(
+                bottom: pw.BorderSide(color: effectiveAccent, width: 2.5)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 12, fontWeight: pw.FontWeight.bold, color: titleColor, letterSpacing: 1.5)),
+              pw.Text(title,
+                  style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                      color: titleColor,
+                      letterSpacing: 1.5)),
               if (subtitle.isNotEmpty || tag.isNotEmpty)
-                pw.Text('$subtitle ${tag.isNotEmpty ? "• $tag" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+                pw.Text('$subtitle ${tag.isNotEmpty ? "• $tag" : ""}',
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 8, color: subColor)),
             ],
           ),
         );
       case 4: // Corporate Clean
         final bg = customBgColor ?? PdfColors.white;
-        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
+        final isDark =
+            customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#CBD5E1')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
           decoration: pw.BoxDecoration(
             color: bg,
-            border: pw.Border(bottom: pw.BorderSide(color: isDark ? effectiveAccent : const PdfColor.fromInt(0xFFE2E8F0), width: isDark ? 2.0 : 1.0)),
+            border: pw.Border(
+                bottom: pw.BorderSide(
+                    color: isDark
+                        ? effectiveAccent
+                        : const PdfColor.fromInt(0xFFE2E8F0),
+                    width: isDark ? 2.0 : 1.0)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -1421,72 +1683,120 @@ class SolarProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  pw.Text(title,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 11,
+                          fontWeight: pw.FontWeight.bold,
+                          color: titleColor)),
                   if (subtitle.isNotEmpty)
-                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+                    pw.Text(subtitle,
+                        style: pw.TextStyle(
+                            font: fontSemiBold, fontSize: 8, color: subColor)),
                 ],
               ),
               if (tag.isNotEmpty)
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: pw.BoxDecoration(
-                    color: isDark ? const PdfColor.fromInt(0x30FFFFFF) : PdfColor.fromHex('#F1F5F9'),
+                    color: isDark
+                        ? const PdfColor.fromInt(0x30FFFFFF)
+                        : PdfColor.fromHex('#F1F5F9'),
                     borderRadius: pw.BorderRadius.circular(4),
-                    border: pw.Border.all(color: isDark ? effectiveAccent : PdfColor.fromHex('#CBD5E1')),
+                    border: pw.Border.all(
+                        color: isDark
+                            ? effectiveAccent
+                            : PdfColor.fromHex('#CBD5E1')),
                   ),
-                  child: pw.Text(tag, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: isDark ? PdfColors.white : PdfColor.fromHex('#334155'))),
+                  child: pw.Text(tag,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 7.5,
+                          color: isDark
+                              ? PdfColors.white
+                              : PdfColor.fromHex('#334155'))),
                 ),
             ],
           ),
         );
       case 5: // Dupla Linha
         final bg = customBgColor;
-        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final tagColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
+        final isDark =
+            customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final tagColor = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#CBD5E1')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: pw.BoxDecoration(
             color: bg,
-            border: pw.Border(bottom: pw.BorderSide(color: effectiveAccent, width: 2)),
+            border: pw.Border(
+                bottom: pw.BorderSide(color: effectiveAccent, width: 2)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor)),
+              pw.Text(title,
+                  style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                      color: titleColor)),
               if (tag.isNotEmpty)
-                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: tagColor)),
+                pw.Text(tag,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 8, color: tagColor)),
             ],
           ),
         );
       case 6: // Glass Card / Dark Floating
         final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
         final isDark = _isDarkColor(bg);
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final subColor = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#475569'));
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ??
+            (isDark ? effectiveAccent : PdfColor.fromHex('#475569'));
         return pw.Container(
           margin: const pw.EdgeInsets.all(12),
           padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: pw.BoxDecoration(
             color: bg,
             borderRadius: pw.BorderRadius.circular(8),
-            border: pw.Border.all(color: isDark ? PdfColor.fromHex('#334155') : PdfColor.fromHex('#CBD5E1')),
+            border: pw.Border.all(
+                color: isDark
+                    ? PdfColor.fromHex('#334155')
+                    : PdfColor.fromHex('#CBD5E1')),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 10, fontWeight: pw.FontWeight.bold, color: titleColor)),
+              pw.Text(title,
+                  style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                      color: titleColor)),
               if (subtitle.isNotEmpty)
-                pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+                pw.Text(subtitle,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 8, color: subColor)),
             ],
           ),
         );
       case 7: // Bilateral com Validade
         final bg = customBgColor ?? PdfColor.fromHex('#1E293B');
         final isDark = _isDarkColor(bg);
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -1498,19 +1808,35 @@ class SolarProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  pw.Text(title,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 10.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: titleColor)),
                   if (subtitle.isNotEmpty)
-                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: subColor)),
+                    pw.Text(subtitle,
+                        style: pw.TextStyle(
+                            font: fontSemiBold,
+                            fontSize: 7.5,
+                            color: subColor)),
                 ],
               ),
               if (tag.isNotEmpty)
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: pw.BoxDecoration(
                     color: effectiveAccent,
                     borderRadius: pw.BorderRadius.circular(4),
                   ),
-                  child: pw.Text(tag, style: pw.TextStyle(font: fontBold, fontSize: 8, color: isDark ? PdfColor.fromHex('#0F172A') : PdfColors.white)),
+                  child: pw.Text(tag,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 8,
+                          color: isDark
+                              ? PdfColor.fromHex('#0F172A')
+                              : PdfColors.white)),
                 ),
             ],
           ),
@@ -1523,23 +1849,39 @@ class SolarProposalPdfService {
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: pw.BoxDecoration(
             color: bg,
-            border: pw.Border(bottom: pw.BorderSide(color: effectiveAccent, width: 2)),
+            border: pw.Border(
+                bottom: pw.BorderSide(color: effectiveAccent, width: 2)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('[SYSTEM] $title', style: pw.TextStyle(font: fontBold, fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: titleColor)),
+              pw.Text('[SYSTEM] $title',
+                  style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 10.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: titleColor)),
               if (tag.isNotEmpty)
-                pw.Text('AUTH: $tag', style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: customTextColor ?? PdfColors.white)),
+                pw.Text('AUTH: $tag',
+                    style: pw.TextStyle(
+                        font: fontSemiBold,
+                        fontSize: 8,
+                        color: customTextColor ?? PdfColors.white)),
             ],
           ),
         );
       case 9: // Compacto Micro
         final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
-        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : true;
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#334155'));
-        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#64748B'));
-        final tagColor = customTextColor ?? (isDark ? PdfColors.white : effectiveAccent);
+        final isDark =
+            customBgColor != null ? _isDarkColor(customBgColor) : true;
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#334155'));
+        final subColor = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#CBD5E1')
+                : PdfColor.fromHex('#64748B'));
+        final tagColor =
+            customTextColor ?? (isDark ? PdfColors.white : effectiveAccent);
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 5),
@@ -1547,19 +1889,29 @@ class SolarProposalPdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 8, color: titleColor)),
+              pw.Text(title,
+                  style: pw.TextStyle(
+                      font: fontBold, fontSize: 8, color: titleColor)),
               if (subtitle.isNotEmpty)
-                pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+                pw.Text(subtitle,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 8, color: subColor)),
               if (tag.isNotEmpty)
-                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: tagColor)),
+                pw.Text(tag,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 8, color: tagColor)),
             ],
           ),
         );
       case 10: // Bold Accent Banner
         final bg = customBgColor ?? effectiveAccent;
         final isDark = _isDarkColor(bg);
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#1E293B'));
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#CBD5E1')
+                : PdfColor.fromHex('#1E293B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
@@ -1571,19 +1923,33 @@ class SolarProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 12, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  pw.Text(title,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 12,
+                          fontWeight: pw.FontWeight.bold,
+                          color: titleColor)),
                   if (subtitle.isNotEmpty)
-                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: subColor)),
+                    pw.Text(subtitle,
+                        style: pw.TextStyle(
+                            font: fontSemiBold, fontSize: 8, color: subColor)),
                 ],
               ),
               if (tag.isNotEmpty)
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: pw.BoxDecoration(
-                    color: isDark ? const PdfColor.fromInt(0x30FFFFFF) : PdfColor.fromHex('#0F172A'),
+                    color: isDark
+                        ? const PdfColor.fromInt(0x30FFFFFF)
+                        : PdfColor.fromHex('#0F172A'),
                     borderRadius: pw.BorderRadius.circular(4),
                   ),
-                  child: pw.Text(tag, style: pw.TextStyle(font: fontBold, fontSize: 8, color: isDark ? PdfColors.white : PdfColors.white)),
+                  child: pw.Text(tag,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 8,
+                          color: isDark ? PdfColors.white : PdfColors.white)),
                 ),
             ],
           ),
@@ -1591,15 +1957,25 @@ class SolarProposalPdfService {
       case 1: // Modern Minimalist
       default:
         final bg = customBgColor ?? PdfColors.white;
-        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
-        final titleColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final subColor = customTextColor ?? (isDark ? PdfColor.fromHex('#E2E8F0') : PdfColor.fromHex('#64748B'));
+        final isDark =
+            customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final titleColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final subColor = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#E2E8F0')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
           decoration: pw.BoxDecoration(
             color: bg,
-            border: pw.Border(bottom: pw.BorderSide(color: isDark ? effectiveAccent : const PdfColor.fromInt(0x30000000), width: isDark ? 2.0 : 0.8)),
+            border: pw.Border(
+                bottom: pw.BorderSide(
+                    color: isDark
+                        ? effectiveAccent
+                        : const PdfColor.fromInt(0x30000000),
+                    width: isDark ? 2.0 : 0.8)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -1608,13 +1984,26 @@ class SolarProposalPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  pw.Text(title, style: pw.TextStyle(font: fontBold, fontSize: 11, fontWeight: pw.FontWeight.bold, color: titleColor)),
+                  pw.Text(title,
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 11,
+                          fontWeight: pw.FontWeight.bold,
+                          color: titleColor)),
                   if (subtitle.isNotEmpty)
-                    pw.Text(subtitle, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: subColor)),
+                    pw.Text(subtitle,
+                        style: pw.TextStyle(
+                            font: fontSemiBold,
+                            fontSize: 7.5,
+                            color: subColor)),
                 ],
               ),
               if (tag.isNotEmpty)
-                pw.Text(tag, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: effectiveAccent)),
+                pw.Text(tag,
+                    style: pw.TextStyle(
+                        font: fontSemiBold,
+                        fontSize: 8,
+                        color: effectiveAccent)),
             ],
           ),
         );
@@ -1639,9 +2028,16 @@ class SolarProposalPdfService {
       case 2: // Slogan & Badges
         final bg = customBgColor ?? PdfColor.fromHex('#1E293B');
         final isDark = _isDarkColor(bg);
-        final t1Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
-        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#475569'));
-        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        final t1Color = customTextColor ??
+            (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#CBD5E1')
+                : PdfColor.fromHex('#475569'));
+        final t4Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -1650,14 +2046,20 @@ class SolarProposalPdfService {
             mainAxisSize: pw.MainAxisSize.min,
             children: [
               if (text1.isNotEmpty)
-                pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: t1Color)),
+                pw.Text(text1,
+                    style: pw.TextStyle(
+                        font: fontBold, fontSize: 8.5, color: t1Color)),
               if (text2.isNotEmpty || text3.isNotEmpty) ...[
                 pw.SizedBox(height: 3),
-                pw.Text('$text2  -  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+                pw.Text('$text2  -  $text3',
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 7.5, color: t2Color)),
               ],
               if (text4.isNotEmpty) ...[
                 pw.SizedBox(height: 2),
-                pw.Text(text4, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+                pw.Text(text4,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 6.5, color: t4Color)),
               ],
             ],
           ),
@@ -1665,8 +2067,12 @@ class SolarProposalPdfService {
       case 3: // Faixa Legal
         final bg = customBgColor ?? PdfColor.fromHex('#0B1120');
         final isDark = _isDarkColor(bg);
-        final t1Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#475569'));
-        final t4Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        final t1Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#475569'));
+        final t4Color = customTextColor ??
+            (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 7),
@@ -1674,40 +2080,63 @@ class SolarProposalPdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(text1.isNotEmpty ? text1 : text2, style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t1Color)),
+              pw.Text(text1.isNotEmpty ? text1 : text2,
+                  style: pw.TextStyle(
+                      font: fontSemiBold, fontSize: 7.5, color: t1Color)),
               if (text4.isNotEmpty)
-                pw.Text(text4, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: t4Color)),
+                pw.Text(text4,
+                    style: pw.TextStyle(
+                        font: fontBold, fontSize: 7.5, color: t4Color)),
             ],
           ),
         );
       case 4: // Minimalista Paginação
         final bg = customBgColor ?? PdfColors.white;
-        final isDark = customBgColor != null ? _isDarkColor(customBgColor) : false;
-        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#64748B'));
+        final isDark =
+            customBgColor != null ? _isDarkColor(customBgColor) : false;
+        final t1Color = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#64748B'));
         final t3Color = customTextColor ?? effectiveAccent;
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: pw.BoxDecoration(
             color: bg,
-            border: pw.Border(top: pw.BorderSide(color: isDark ? effectiveAccent : const PdfColor.fromInt(0x30000000), width: 0.8)),
+            border: pw.Border(
+                top: pw.BorderSide(
+                    color: isDark
+                        ? effectiveAccent
+                        : const PdfColor.fromInt(0x30000000),
+                    width: 0.8)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(text1.isNotEmpty ? text1 : text2, style: pw.TextStyle(font: fontSemiBold, fontSize: 8, color: t1Color)),
+              pw.Text(text1.isNotEmpty ? text1 : text2,
+                  style: pw.TextStyle(
+                      font: fontSemiBold, fontSize: 8, color: t1Color)),
               if (text3.isNotEmpty)
-                pw.Text(text3, style: pw.TextStyle(font: fontBold, fontSize: 8, color: t3Color)),
+                pw.Text(text3,
+                    style: pw.TextStyle(
+                        font: fontBold, fontSize: 8, color: t3Color)),
             ],
           ),
         );
       case 5: // Duas Colunas
         final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
         final isDark = _isDarkColor(bg);
-        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#475569'));
-        final t3Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0284C7'));
-        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#64748B') : PdfColor.fromHex('#94A3B8'));
+        final t1Color = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#475569'));
+        final t3Color = customTextColor ??
+            (isDark ? effectiveAccent : PdfColor.fromHex('#0284C7'));
+        final t4Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#64748B')
+                : PdfColor.fromHex('#94A3B8'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -1720,9 +2149,13 @@ class SolarProposalPdfService {
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
                   if (text1.isNotEmpty)
-                    pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
+                    pw.Text(text1,
+                        style: pw.TextStyle(
+                            font: fontBold, fontSize: 8, color: t1Color)),
                   if (text2.isNotEmpty)
-                    pw.Text(text2, style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t2Color)),
+                    pw.Text(text2,
+                        style: pw.TextStyle(
+                            font: fontSemiBold, fontSize: 7, color: t2Color)),
                 ],
               ),
               pw.Column(
@@ -1730,9 +2163,13 @@ class SolarProposalPdfService {
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
                   if (text3.isNotEmpty)
-                    pw.Text(text3, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: t3Color)),
+                    pw.Text(text3,
+                        style: pw.TextStyle(
+                            font: fontBold, fontSize: 7.5, color: t3Color)),
                   if (text4.isNotEmpty)
-                    pw.Text(text4, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+                    pw.Text(text4,
+                        style: pw.TextStyle(
+                            font: fontSemiBold, fontSize: 6.5, color: t4Color)),
                 ],
               ),
             ],
@@ -1741,53 +2178,75 @@ class SolarProposalPdfService {
       case 6: // Aviso Legal & Validade
         final bg = customBgColor ?? PdfColor.fromHex('#F8FAFC');
         final isDark = _isDarkColor(bg);
-        final t4Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#475569'));
-        final t2Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        final t4Color = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#475569'));
+        final t2Color = customTextColor ??
+            (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
         return pw.Container(
           margin: const pw.EdgeInsets.all(12),
           padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: pw.BoxDecoration(
             color: bg,
             borderRadius: pw.BorderRadius.circular(6),
-            border: pw.Border.all(color: isDark ? PdfColor.fromHex('#334155') : PdfColor.fromHex('#CBD5E1')),
+            border: pw.Border.all(
+                color: isDark
+                    ? PdfColor.fromHex('#334155')
+                    : PdfColor.fromHex('#CBD5E1')),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Expanded(
-                child: pw.Text(text4.isNotEmpty ? text4 : text1, style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t4Color)),
+                child: pw.Text(text4.isNotEmpty ? text4 : text1,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 7, color: t4Color)),
               ),
               if (text2.isNotEmpty)
-                pw.Text(text2, style: pw.TextStyle(font: fontBold, fontSize: 7.5, color: t2Color)),
+                pw.Text(text2,
+                    style: pw.TextStyle(
+                        font: fontBold, fontSize: 7.5, color: t2Color)),
             ],
           ),
         );
       case 7: // Borda Superior Neon
         final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
         final isDark = _isDarkColor(bg);
-        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
-        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#475569'));
+        final t1Color = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#475569'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           decoration: pw.BoxDecoration(
             color: bg,
-            border: pw.Border(top: pw.BorderSide(color: effectiveAccent, width: 2)),
+            border:
+                pw.Border(top: pw.BorderSide(color: effectiveAccent, width: 2)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               if (text1.isNotEmpty)
-                pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
-              pw.Text('$text2  ${text3.isNotEmpty ? "- $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+                pw.Text(text1,
+                    style: pw.TextStyle(
+                        font: fontBold, fontSize: 8, color: t1Color)),
+              pw.Text('$text2  ${text3.isNotEmpty ? "- $text3" : ""}',
+                  style: pw.TextStyle(
+                      font: fontSemiBold, fontSize: 7.5, color: t2Color)),
             ],
           ),
         );
       case 8: // Sustentabilidade & Futuro
         final bg = customBgColor ?? PdfColor.fromHex('#064E3B');
         final isDark = _isDarkColor(bg);
-        final t1Color = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#064E3B'));
-        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#A7F3D0') : PdfColor.fromHex('#047857'));
+        final t1Color = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#064E3B'));
+        final t2Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#A7F3D0')
+                : PdfColor.fromHex('#047857'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -1795,16 +2254,24 @@ class SolarProposalPdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(text1.isNotEmpty ? text1 : 'ENERGIA SUSTENTÁVEL PARA O FUTURO', style: pw.TextStyle(font: fontBold, fontSize: 8, color: t1Color)),
+              pw.Text(
+                  text1.isNotEmpty
+                      ? text1
+                      : 'ENERGIA SUSTENTÁVEL PARA O FUTURO',
+                  style: pw.TextStyle(
+                      font: fontBold, fontSize: 8, color: t1Color)),
               if (text2.isNotEmpty || text3.isNotEmpty)
-                pw.Text('$text2 ${text3.isNotEmpty ? "- $text3" : ""}', style: pw.TextStyle(font: fontSemiBold, fontSize: 7, color: t2Color)),
+                pw.Text('$text2 ${text3.isNotEmpty ? "- $text3" : ""}',
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 7, color: t2Color)),
             ],
           ),
         );
       case 9: // Compact Contacts
         final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
         final isDark = _isDarkColor(bg);
-        final tColor = customTextColor ?? (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
+        final tColor = customTextColor ??
+            (isDark ? PdfColors.white : PdfColor.fromHex('#0F172A'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 7),
@@ -1812,7 +2279,8 @@ class SolarProposalPdfService {
           child: pw.Center(
             child: pw.Text(
               [text1, text2, text3].where((s) => s.isNotEmpty).join('  -  '),
-              style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: tColor),
+              style: pw.TextStyle(
+                  font: fontSemiBold, fontSize: 7.5, color: tColor),
             ),
           ),
         );
@@ -1820,20 +2288,28 @@ class SolarProposalPdfService {
         final bg = customBgColor ?? PdfColor.fromHex('#030712');
         final isDark = _isDarkColor(bg);
         final t1Color = customTextColor ?? effectiveAccent;
-        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        final t4Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 7),
           color: bg,
           decoration: pw.BoxDecoration(
-            border: pw.Border(top: pw.BorderSide(color: effectiveAccent, width: 1.5)),
+            border: pw.Border(
+                top: pw.BorderSide(color: effectiveAccent, width: 1.5)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('DOCUMENTO AUTENTICADO DIGITALMENTE', style: pw.TextStyle(font: fontBold, fontSize: 7, color: t1Color)),
+              pw.Text('DOCUMENTO AUTENTICADO DIGITALMENTE',
+                  style: pw.TextStyle(
+                      font: fontBold, fontSize: 7, color: t1Color)),
               if (text4.isNotEmpty || text3.isNotEmpty)
-                pw.Text(text4.isNotEmpty ? text4 : text3, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+                pw.Text(text4.isNotEmpty ? text4 : text3,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 6.5, color: t4Color)),
             ],
           ),
         );
@@ -1841,9 +2317,16 @@ class SolarProposalPdfService {
       default:
         final bg = customBgColor ?? PdfColor.fromHex('#0F172A');
         final isDark = _isDarkColor(bg);
-        final t1Color = customTextColor ?? (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
-        final t2Color = customTextColor ?? (isDark ? PdfColor.fromHex('#CBD5E1') : PdfColor.fromHex('#475569'));
-        final t4Color = customTextColor ?? (isDark ? PdfColor.fromHex('#94A3B8') : PdfColor.fromHex('#64748B'));
+        final t1Color = customTextColor ??
+            (isDark ? effectiveAccent : PdfColor.fromHex('#0F172A'));
+        final t2Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#CBD5E1')
+                : PdfColor.fromHex('#475569'));
+        final t4Color = customTextColor ??
+            (isDark
+                ? PdfColor.fromHex('#94A3B8')
+                : PdfColor.fromHex('#64748B'));
         return pw.Container(
           width: double.infinity,
           padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -1852,14 +2335,23 @@ class SolarProposalPdfService {
             mainAxisSize: pw.MainAxisSize.min,
             children: [
               if (text1.isNotEmpty)
-                pw.Text(text1, style: pw.TextStyle(font: fontBold, fontSize: 8.5, color: t1Color, letterSpacing: 0.5)),
+                pw.Text(text1,
+                    style: pw.TextStyle(
+                        font: fontBold,
+                        fontSize: 8.5,
+                        color: t1Color,
+                        letterSpacing: 0.5)),
               if (text2.isNotEmpty || text3.isNotEmpty) ...[
                 pw.SizedBox(height: 2),
-                pw.Text('$text2  -  $text3', style: pw.TextStyle(font: fontSemiBold, fontSize: 7.5, color: t2Color)),
+                pw.Text('$text2  -  $text3',
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 7.5, color: t2Color)),
               ],
               if (text4.isNotEmpty) ...[
                 pw.SizedBox(height: 2),
-                pw.Text(text4, style: pw.TextStyle(font: fontSemiBold, fontSize: 6.5, color: t4Color)),
+                pw.Text(text4,
+                    style: pw.TextStyle(
+                        font: fontSemiBold, fontSize: 6.5, color: t4Color)),
               ],
             ],
           ),
@@ -1917,10 +2409,13 @@ class SolarProposalPdfService {
     // Dimensões A4 em pontos (595.28 x 841.89)
     const a4W = 595.28;
     const a4H = 841.89;
-    final accentPdfColor = PdfColor.fromInt(settings.verticalSplitAccentColorValue);
+    final accentPdfColor =
+        PdfColor.fromInt(settings.verticalSplitAccentColorValue);
     final accentHex = (settings.customDividerColor.isNotEmpty
             ? settings.customDividerColor
-            : (settings.verticalSplitAccentColor.isNotEmpty ? settings.verticalSplitAccentColor : '#F59E0B'))
+            : (settings.verticalSplitAccentColor.isNotEmpty
+                ? settings.verticalSplitAccentColor
+                : '#F59E0B'))
         .replaceAll('#', '')
         .trim();
     final accentSvgColor = '#${accentHex.isNotEmpty ? accentHex : 'F59E0B'}';
@@ -1929,7 +2424,8 @@ class SolarProposalPdfService {
             : '#FFFFFF')
         .replaceAll('#', '')
         .trim();
-    final bottomAreaSvgColor = '#${bottomAreaHex.isNotEmpty ? bottomAreaHex : 'FFFFFF'}';
+    final bottomAreaSvgColor =
+        '#${bottomAreaHex.isNotEmpty ? bottomAreaHex : 'FFFFFF'}';
 
     final String resolvedTitle = settings.verticalSplitRightTitle
         .replaceAll('{cliente}', proposal.clientName)
@@ -1937,9 +2433,11 @@ class SolarProposalPdfService {
     String resolvedSubtitle = settings.verticalSplitRightSubtitle
         .replaceAll('{cliente}', proposal.clientName)
         .replaceAll('{nome}', proposal.clientName);
-    if (proposal.clientName.trim().isNotEmpty && resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA') {
+    if (proposal.clientName.trim().isNotEmpty &&
+        resolvedSubtitle.toUpperCase() == 'FAMÍLIA SILVA') {
       final cNameUpper = proposal.clientName.trim().toUpperCase();
-      resolvedSubtitle = cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
+      resolvedSubtitle =
+          cNameUpper.startsWith('FAMÍLIA') ? cNameUpper : 'FAMÍLIA $cNameUpper';
     }
 
     return pw.Stack(
@@ -1969,8 +2467,10 @@ class SolarProposalPdfService {
         // 3. Frase de Impacto da Foto (Headline & Subheadline)
         if (settings.verticalSplitShowHeadline)
           pw.Positioned(
-            left: (a4W * settings.verticalSplitHeadlineLeft).clamp(0.0, a4W * 0.90),
-            top: (a4H * settings.verticalSplitHeadlineTop).clamp(0.0, a4H * 0.90),
+            left: (a4W * settings.verticalSplitHeadlineLeft)
+                .clamp(0.0, a4W * 0.90),
+            top: (a4H * settings.verticalSplitHeadlineTop)
+                .clamp(0.0, a4H * 0.90),
             child: pw.SizedBox(
               width: a4W * 0.88,
               child: pw.Column(
@@ -1991,9 +2491,12 @@ class SolarProposalPdfService {
                     pw.Container(
                       width: settings.verticalSplitHeadlineDividerWidth * 0.9,
                       height: settings.verticalSplitHeadlineDividerHeight * 0.9,
-                      color: settings.verticalSplitHeadlineDividerColor.isNotEmpty
-                          ? _parsePdfColor(settings.verticalSplitHeadlineDividerColor, fallback: accentPdfColor)
-                          : accentPdfColor,
+                      color:
+                          settings.verticalSplitHeadlineDividerColor.isNotEmpty
+                              ? _parsePdfColor(
+                                  settings.verticalSplitHeadlineDividerColor,
+                                  fallback: accentPdfColor)
+                              : accentPdfColor,
                     ),
                     pw.SizedBox(height: 10),
                   ] else ...[
@@ -2014,15 +2517,19 @@ class SolarProposalPdfService {
           ),
 
         // 4. Badges Informativos na Foto (Estilo limpo com ícones e divisores verticais)
-        if (settings.verticalSplitShowLeftFooter && settings.verticalSplitFooterBadges.isNotEmpty)
+        if (settings.verticalSplitShowLeftFooter &&
+            settings.verticalSplitFooterBadges.isNotEmpty)
           pw.Positioned(
-            left: (a4W * settings.verticalSplitLeftFooterLeft).clamp(0.0, a4W * 0.90),
+            left: (a4W * settings.verticalSplitLeftFooterLeft)
+                .clamp(0.0, a4W * 0.90),
             top: a4H - (settings.verticalSplitLeftFooterBottom * a4H) - 20,
             child: pw.Row(
               mainAxisSize: pw.MainAxisSize.min,
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                for (int i = 0; i < settings.verticalSplitFooterBadges.length; i++) ...[
+                for (int i = 0;
+                    i < settings.verticalSplitFooterBadges.length;
+                    i++) ...[
                   pw.Row(
                     mainAxisSize: pw.MainAxisSize.min,
                     crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -2039,7 +2546,8 @@ class SolarProposalPdfService {
                           font: fontMontserratBold,
                           fontSize: 8.5,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColor.fromInt(settings.coverBadgesTextColorValue),
+                          color: PdfColor.fromInt(
+                              settings.coverBadgesTextColorValue),
                           letterSpacing: 0.6,
                         ),
                       ),
@@ -2049,9 +2557,12 @@ class SolarProposalPdfService {
                     pw.Container(
                       width: 1.5,
                       height: 11,
-                      color: PdfColor.fromInt(settings.coverBadgesTextColorValue).luminance > 0.5
-                          ? PdfColor.fromInt(0x60FFFFFF)
-                          : PdfColor.fromInt(0x40000000),
+                      color:
+                          PdfColor.fromInt(settings.coverBadgesTextColorValue)
+                                      .luminance >
+                                  0.5
+                              ? PdfColor.fromInt(0x60FFFFFF)
+                              : PdfColor.fromInt(0x40000000),
                       margin: const pw.EdgeInsets.symmetric(horizontal: 7),
                     ),
                 ],
@@ -2062,9 +2573,15 @@ class SolarProposalPdfService {
         // 5. Bloco Institucional na Área Branca Preservada
         if (settings.verticalSplitShowRightBlock)
           pw.Positioned(
-            right: (settings.verticalSplitRightBlockRight * a4W).clamp(16.0, a4W * 0.45),
-            top: settings.verticalSplitRightBlockTop * a4H,
-            child: pw.Column(
+            left: (a4W -
+                    (settings.verticalSplitRightBlockRight * a4W) -
+                    (a4W * 0.42))
+                .clamp(-a4W * 0.4, a4W * 0.92),
+            top: (settings.verticalSplitRightBlockTop * a4H)
+                .clamp(-a4H * 0.2, a4H * 0.95),
+            child: pw.SizedBox(
+              width: a4W * 0.42,
+              child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
@@ -2084,7 +2601,8 @@ class SolarProposalPdfService {
                     font: rightBlockFontBlack ?? fontMontserratBlack,
                     fontSize: settings.verticalSplitRightSubtitleFontSize,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(settings.coverRightSubtitleColorValue),
+                    color:
+                        PdfColor.fromInt(settings.coverRightSubtitleColorValue),
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -2094,7 +2612,9 @@ class SolarProposalPdfService {
                     width: settings.verticalSplitRightDividerWidth * 0.8,
                     height: settings.verticalSplitRightDividerHeight * 0.8,
                     color: settings.verticalSplitRightDividerColor.isNotEmpty
-                        ? _parsePdfColor(settings.verticalSplitRightDividerColor, fallback: accentPdfColor)
+                        ? _parsePdfColor(
+                            settings.verticalSplitRightDividerColor,
+                            fallback: accentPdfColor)
                         : accentPdfColor,
                   ),
                   pw.SizedBox(height: 9),
@@ -2107,25 +2627,29 @@ class SolarProposalPdfService {
                     font: rightBlockFontBold ?? fontMontserratBold,
                     fontSize: 9.5,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(settings.coverRightTaglineColorValue),
+                    color:
+                        PdfColor.fromInt(settings.coverRightTaglineColorValue),
                     letterSpacing: 0.6,
                   ),
                 ),
               ],
             ),
+            ),
           ),
 
         // 6. Logomarca Customizada Posicionada pelo Usuário
-        if (settings.coverShowLogo && settings.companyLogoBase64 != null && settings.companyLogoBase64!.isNotEmpty)
+        if (settings.coverShowLogo &&
+            settings.companyLogoBase64 != null &&
+            settings.companyLogoBase64!.isNotEmpty)
           pw.Positioned(
-            left: (a4W * settings.coverLogoPositionX).clamp(0.0, a4W - settings.coverLogoWidth),
+            left: (a4W * settings.coverLogoPositionX)
+                .clamp(0.0, a4W - settings.coverLogoWidth),
             top: (a4H * settings.coverLogoPositionY).clamp(0.0, a4H - 50.0),
             child: pw.Image(
               pw.MemoryImage(base64Decode(
-                settings.companyLogoBase64!.contains(',')
-                    ? settings.companyLogoBase64!.split(',').last
-                    : settings.companyLogoBase64!
-              )),
+                  settings.companyLogoBase64!.contains(',')
+                      ? settings.companyLogoBase64!.split(',').last
+                      : settings.companyLogoBase64!)),
               width: settings.coverLogoWidth,
               fit: pw.BoxFit.contain,
             ),
@@ -2134,8 +2658,11 @@ class SolarProposalPdfService {
         // 7. Rodapé Institucional Posicionado pelo Usuário
         if (settings.verticalSplitShowRightFooter)
           pw.Positioned(
-            left: a4W - (settings.verticalSplitRightFooterRight * a4W) - (a4W * 0.45),
-            bottom: (a4H * settings.verticalSplitRightFooterBottom).clamp(10.0, a4H * 0.40),
+            left: a4W -
+                (settings.verticalSplitRightFooterRight * a4W) -
+                (a4W * 0.45),
+            bottom: (a4H * settings.verticalSplitRightFooterBottom)
+                .clamp(10.0, a4H * 0.40),
             child: pw.SizedBox(
               width: a4W * 0.45,
               child: pw.Column(
@@ -2167,8 +2694,10 @@ class SolarProposalPdfService {
         // 8. Informações do Cliente e Usina Posicionadas pelo Usuário
         if (settings.coverShowClientInfo)
           pw.Positioned(
-            left: (a4W * settings.coverClientInfoPositionX).clamp(0.0, a4W - 50.0),
-            top: (a4H * settings.coverClientInfoPositionY).clamp(0.0, a4H - 30.0),
+            left: (a4W * settings.coverClientInfoPositionX)
+                .clamp(0.0, a4W - 50.0),
+            top: (a4H * settings.coverClientInfoPositionY)
+                .clamp(0.0, a4H - 30.0),
             child: pw.SizedBox(
               width: settings.coverClientInfoWidth.clamp(100.0, a4W),
               child: pw.Column(
@@ -2182,11 +2711,13 @@ class SolarProposalPdfService {
                         font: fontMontserratBold,
                         fontSize: settings.coverClientInfoFontSize,
                         fontWeight: pw.FontWeight.bold,
-                        color: PdfColor.fromInt(settings.coverClientInfoColorValue),
+                        color: PdfColor.fromInt(
+                            settings.coverClientInfoColorValue),
                       ),
                       maxLines: 1,
                     ),
-                  if (proposal.clientDocument != null && proposal.clientDocument!.trim().isNotEmpty) ...[
+                  if (proposal.clientDocument != null &&
+                      proposal.clientDocument!.trim().isNotEmpty) ...[
                     pw.SizedBox(height: 2),
                     pw.Text(
                       'CPF/CNPJ: ${proposal.clientDocument!.trim()}',
@@ -2194,7 +2725,8 @@ class SolarProposalPdfService {
                         font: fontMontserratBold,
                         fontSize: settings.coverClientInfoFontSize * 0.9,
                         fontWeight: pw.FontWeight.bold,
-                        color: PdfColor.fromInt(settings.coverClientInfoSecondaryColorValue),
+                        color: PdfColor.fromInt(
+                            settings.coverClientInfoSecondaryColorValue),
                       ),
                       maxLines: 1,
                     ),
@@ -2206,7 +2738,8 @@ class SolarProposalPdfService {
                       font: fontMontserratBold,
                       fontSize: settings.coverClientInfoFontSize * 0.9,
                       fontWeight: pw.FontWeight.bold,
-                      color: PdfColor.fromInt(settings.coverClientInfoSecondaryColorValue),
+                      color: PdfColor.fromInt(
+                          settings.coverClientInfoSecondaryColorValue),
                     ),
                     maxLines: 1,
                   ),
@@ -2223,9 +2756,12 @@ class SolarProposalPdfService {
             child: pw.Text(
               textItem.text,
               style: pw.TextStyle(
-                font: textItem.isBold ? fontMontserratBold : fontMontserratSemiBold,
+                font: textItem.isBold
+                    ? fontMontserratBold
+                    : fontMontserratSemiBold,
                 fontSize: textItem.fontSize,
-                fontWeight: textItem.isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                fontWeight:
+                    textItem.isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
                 color: PdfColor.fromInt(textItem.colorValue),
               ),
             ),
@@ -2236,17 +2772,15 @@ class SolarProposalPdfService {
           pw.Positioned(
             left: iconItem.x * a4W,
             top: iconItem.y * a4H,
-            child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size, PdfColor.fromInt(iconItem.colorValue)),
+            child: _buildPdfCoverCustomIcon(iconItem.iconKey, iconItem.size,
+                PdfColor.fromInt(iconItem.colorValue)),
           ),
-
-
-
-
       ],
     );
   }
 
-  static PdfColor _parsePdfColor(String hex, {double alpha = 1.0, PdfColor? fallback}) {
+  static PdfColor _parsePdfColor(String hex,
+      {double alpha = 1.0, PdfColor? fallback}) {
     try {
       var clean = hex.replaceAll('#', '').replaceAll('0x', '').trim();
       if (clean.length == 8) {
@@ -2282,14 +2816,18 @@ class SolarProposalPdfService {
     final textDark = PdfColor.fromHex('#0F172A');
     final textMuted = PdfColor.fromHex('#64748B');
     final lineGrey = PdfColor.fromHex('#E2E8F0');
-    final slogan = (settings.companySlogan != null && settings.companySlogan!.trim().isNotEmpty)
+    final slogan = (settings.companySlogan != null &&
+            settings.companySlogan!.trim().isNotEmpty)
         ? settings.companySlogan!.trim().toUpperCase()
         : 'ENERGIA QUE TRANSFORMA';
 
     // SVG vetorial nítido de Painel Solar com Sol no canto esquerdo
-    final hexR = (primaryColor.red * 255).round().toRadixString(16).padLeft(2, '0');
-    final hexG = (primaryColor.green * 255).round().toRadixString(16).padLeft(2, '0');
-    final hexB = (primaryColor.blue * 255).round().toRadixString(16).padLeft(2, '0');
+    final hexR =
+        (primaryColor.red * 255).round().toRadixString(16).padLeft(2, '0');
+    final hexG =
+        (primaryColor.green * 255).round().toRadixString(16).padLeft(2, '0');
+    final hexB =
+        (primaryColor.blue * 255).round().toRadixString(16).padLeft(2, '0');
     final colorHex = '#$hexR$hexG$hexB';
 
     final solarIconSvg = '''
@@ -2304,21 +2842,48 @@ class SolarProposalPdfService {
 </svg>
 ''';
 
-    final customHeaderBg = settings.coverHeaderBgColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderBgColor) : null;
-    final customHeaderTxt = settings.coverHeaderTextColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderTextColor) : null;
-    final customHeaderIcon = settings.coverHeaderIconColor.isNotEmpty ? _parsePdfColor(settings.coverHeaderIconColor) : null;
+    final isCoverThemed = settings.proposalStyle == 'corporateWave' ||
+        settings.proposalStyle == 'verticalSplit';
+    final themedDarkBg = _darkenPdfColor(primaryColor, 0.58);
+    final customHeaderBg =
+        (isCoverThemed && _isDefaultDarkBgHex(settings.coverHeaderBgColor))
+            ? themedDarkBg
+            : (settings.coverHeaderBgColor.isNotEmpty
+                ? _parsePdfColor(settings.coverHeaderBgColor)
+                : themedDarkBg);
+    final customHeaderTxt = settings.coverHeaderTextColor.isNotEmpty
+        ? _parsePdfColor(settings.coverHeaderTextColor)
+        : null;
+    final customHeaderIcon = settings.coverHeaderIconColor.isNotEmpty
+        ? _parsePdfColor(settings.coverHeaderIconColor)
+        : null;
 
-    final customFooterBg = settings.coverFooterBgColor.isNotEmpty ? _parsePdfColor(settings.coverFooterBgColor) : null;
-    final customFooterTxt = settings.coverFooterTextColor.isNotEmpty ? _parsePdfColor(settings.coverFooterTextColor) : null;
-    final customFooterIcon = settings.coverFooterIconColor.isNotEmpty ? _parsePdfColor(settings.coverFooterIconColor) : null;
+    final customFooterBg =
+        (isCoverThemed && _isDefaultDarkBgHex(settings.coverFooterBgColor))
+            ? themedDarkBg
+            : (settings.coverFooterBgColor.isNotEmpty
+                ? _parsePdfColor(settings.coverFooterBgColor)
+                : themedDarkBg);
+    final customFooterTxt = settings.coverFooterTextColor.isNotEmpty
+        ? _parsePdfColor(settings.coverFooterTextColor)
+        : null;
+    final customFooterIcon = settings.coverFooterIconColor.isNotEmpty
+        ? _parsePdfColor(settings.coverFooterIconColor)
+        : null;
 
     pw.Widget topHeader;
     if (settings.coverShowHeader) {
       topHeader = _buildPdfCoverHeader(
         styleId: settings.coverHeaderStyle,
-        text1: settings.coverHeaderText1.isNotEmpty ? settings.coverHeaderText1 : pageTitle,
-        text2: settings.coverHeaderText2.isNotEmpty ? settings.coverHeaderText2 : (proposal?.proposalNumber ?? ''),
-        text3: settings.coverHeaderText3.isNotEmpty ? settings.coverHeaderText3 : 'Página $pageNumber de $totalPages',
+        text1: settings.coverHeaderText1.isNotEmpty
+            ? settings.coverHeaderText1
+            : pageTitle,
+        text2: settings.coverHeaderText2.isNotEmpty
+            ? settings.coverHeaderText2
+            : (proposal?.proposalNumber ?? ''),
+        text3: settings.coverHeaderText3.isNotEmpty
+            ? settings.coverHeaderText3
+            : 'Página $pageNumber de $totalPages',
         accentColor: primaryColor,
         fontBold: fontBold,
         fontSemiBold: fontSemiBold,
@@ -2344,7 +2909,8 @@ class SolarProposalPdfService {
                       height: 14,
                       decoration: pw.BoxDecoration(
                         color: primaryColor,
-                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(1.5)),
+                        borderRadius:
+                            const pw.BorderRadius.all(pw.Radius.circular(1.5)),
                       ),
                     ),
                     pw.SizedBox(width: 8),
@@ -2479,7 +3045,8 @@ class SolarProposalPdfService {
           child: fullBleedContent
               ? content
               : pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 12),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 36, vertical: 12),
                   child: content,
                 ),
         ),
@@ -2520,12 +3087,18 @@ class SolarProposalPdfService {
           children: [
             pw.Text(
               title,
-              style: pw.TextStyle(fontSize: 6.8, fontWeight: pw.FontWeight.bold, color: textMuted),
+              style: pw.TextStyle(
+                  fontSize: 6.8,
+                  fontWeight: pw.FontWeight.bold,
+                  color: textMuted),
             ),
             pw.SizedBox(height: 3),
             pw.Text(
               value,
-              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor),
+              style: pw.TextStyle(
+                  fontSize: 13,
+                  fontWeight: pw.FontWeight.bold,
+                  color: primaryColor),
             ),
             pw.SizedBox(height: 2),
             pw.Text(
@@ -2544,7 +3117,10 @@ class SolarProposalPdfService {
       padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       child: pw.Text(
         text,
-        style: pw.TextStyle(fontSize: 7.0, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#475569')),
+        style: pw.TextStyle(
+            fontSize: 7.0,
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColor.fromHex('#475569')),
       ),
     );
   }
@@ -2584,7 +3160,8 @@ class SolarProposalPdfService {
 
     // 2. Tenta recuperar imagem em alta resolução da lista de fotos (photos ou studyPhotos)
     if (snapshotImage == null) {
-      final allPhotos = (photos != null && photos.isNotEmpty) ? photos : study.studyPhotos;
+      final allPhotos =
+          (photos != null && photos.isNotEmpty) ? photos : study.studyPhotos;
       for (final photo in allPhotos) {
         if (photo.imageBase64.isNotEmpty) {
           try {
@@ -2599,7 +3176,9 @@ class SolarProposalPdfService {
     }
 
     // 3. Fallback para droneImageUrl caso seja data base64
-    if (snapshotImage == null && study.droneImageUrl != null && study.droneImageUrl!.isNotEmpty) {
+    if (snapshotImage == null &&
+        study.droneImageUrl != null &&
+        study.droneImageUrl!.isNotEmpty) {
       try {
         final url = study.droneImageUrl!;
         if (url.startsWith('data:image') || url.length > 500) {
@@ -2610,7 +3189,9 @@ class SolarProposalPdfService {
     }
 
     // 4. Fallback final para thumbnailBase64 caso nada mais esteja disponível
-    if (snapshotImage == null && study.thumbnailBase64 != null && study.thumbnailBase64!.isNotEmpty) {
+    if (snapshotImage == null &&
+        study.thumbnailBase64 != null &&
+        study.thumbnailBase64!.isNotEmpty) {
       try {
         final clean = study.thumbnailBase64!.contains(',')
             ? study.thumbnailBase64!.split(',').last
@@ -2626,7 +3207,9 @@ class SolarProposalPdfService {
 
     final sections = study.sections.isNotEmpty
         ? study.sections
-        : (study.mapsSections.isNotEmpty ? study.mapsSections : study.droneSections);
+        : (study.mapsSections.isNotEmpty
+            ? study.mapsSections
+            : study.droneSections);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -2658,7 +3241,9 @@ class SolarProposalPdfService {
             _buildStudyKpiCard(
               title: 'IRRADIAÇÃO SOLAR LOCAL',
               value: '${hsp.toStringAsFixed(2)} HSP',
-              sub: study.stateUf != null ? 'Atlas Solar / CRESESB (${study.stateUf})' : 'Horas de Sol Pico',
+              sub: study.stateUf != null
+                  ? 'Atlas Solar / CRESESB (${study.stateUf})'
+                  : 'Horas de Sol Pico',
               primaryColor: primaryColor,
             ),
           ],
@@ -2691,7 +3276,9 @@ class SolarProposalPdfService {
                       ),
                     ),
                     pw.Text(
-                      study.formattedAddress.isNotEmpty ? study.formattedAddress : 'Local de Instalação Mapeado',
+                      study.formattedAddress.isNotEmpty
+                          ? study.formattedAddress
+                          : 'Local de Instalação Mapeado',
                       style: pw.TextStyle(fontSize: 7.5, color: textMuted),
                     ),
                   ],
@@ -2703,7 +3290,8 @@ class SolarProposalPdfService {
                           child: pw.ClipRRect(
                             horizontalRadius: 6,
                             verticalRadius: 6,
-                            child: pw.Image(snapshotImage, fit: pw.BoxFit.contain),
+                            child:
+                                pw.Image(snapshotImage, fit: pw.BoxFit.contain),
                           ),
                         )
                       : pw.Center(
@@ -2712,12 +3300,16 @@ class SolarProposalPdfService {
                             children: [
                               pw.Text(
                                 '📐 Estudo Geométrico Computadorizado',
-                                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: textDark),
+                                style: pw.TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: textDark),
                               ),
                               pw.SizedBox(height: 4),
                               pw.Text(
                                 'Georreferenciamento e disposição angular dos módulos no plano de cobertura.',
-                                style: pw.TextStyle(fontSize: 9, color: textMuted),
+                                style:
+                                    pw.TextStyle(fontSize: 9, color: textMuted),
                               ),
                             ],
                           ),
@@ -2742,7 +3334,8 @@ class SolarProposalPdfService {
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
                     color: cardBg,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(10)),
                     border: pw.Border.all(color: borderCol, width: 1),
                   ),
                   child: pw.Column(
@@ -2759,11 +3352,13 @@ class SolarProposalPdfService {
                       pw.SizedBox(height: 6),
                       pw.Table(
                         border: pw.TableBorder(
-                          horizontalInside: pw.BorderSide(color: borderCol, width: 0.5),
+                          horizontalInside:
+                              pw.BorderSide(color: borderCol, width: 0.5),
                         ),
                         children: [
                           pw.TableRow(
-                            decoration: pw.BoxDecoration(color: PdfColor.fromHex('#F1F5F9')),
+                            decoration: pw.BoxDecoration(
+                                color: PdfColor.fromHex('#F1F5F9')),
                             children: [
                               _buildTableHeaderCell('Água / Plano'),
                               _buildTableHeaderCell('Placas'),
@@ -2772,15 +3367,26 @@ class SolarProposalPdfService {
                               _buildTableHeaderCell('Inclinação'),
                             ],
                           ),
-                          for (int i = 0; i < (sections.isNotEmpty ? sections.length : 1); i++) ...[
+                          for (int i = 0;
+                              i < (sections.isNotEmpty ? sections.length : 1);
+                              i++) ...[
                             if (sections.isNotEmpty)
                               pw.TableRow(
                                 children: [
                                   _buildTableCell(sections[i].name),
-                                  _buildTableCell('${sections[i].activeModuleCount} un'),
-                                  _buildTableCell('${((sections[i].activeModuleCount * sections[i].moduleSpec.watts) / 1000.0).toStringAsFixed(2)} kWp'),
-                                  _buildTableCell(sections[i].roofType.name == 'gabledCeramic' ? 'Cerâmico' : (sections[i].roofType.name == 'monoPitch' ? 'Metálico' : 'Platibanda')),
-                                  _buildTableCell('${sections[i].tiltDegrees.toStringAsFixed(0)}°'),
+                                  _buildTableCell(
+                                      '${sections[i].activeModuleCount} un'),
+                                  _buildTableCell(
+                                      '${((sections[i].activeModuleCount * sections[i].moduleSpec.watts) / 1000.0).toStringAsFixed(2)} kWp'),
+                                  _buildTableCell(sections[i].roofType.name ==
+                                          'gabledCeramic'
+                                      ? 'Cerâmico'
+                                      : (sections[i].roofType.name ==
+                                              'monoPitch'
+                                          ? 'Metálico'
+                                          : 'Platibanda')),
+                                  _buildTableCell(
+                                      '${sections[i].tiltDegrees.toStringAsFixed(0)}°'),
                                 ],
                               )
                             else
@@ -2788,7 +3394,8 @@ class SolarProposalPdfService {
                                 children: [
                                   _buildTableCell('Plano 1'),
                                   _buildTableCell('$totalModules un'),
-                                  _buildTableCell('${totalKwp.toStringAsFixed(2)} kWp'),
+                                  _buildTableCell(
+                                      '${totalKwp.toStringAsFixed(2)} kWp'),
                                   _buildTableCell('Telhado Padrão'),
                                   _buildTableCell('12°'),
                                 ],
@@ -2809,8 +3416,10 @@ class SolarProposalPdfService {
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
                     color: PdfColor.fromHex('#F0FDF4'),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-                    border: pw.Border.all(color: PdfColor.fromHex('#BBF7D0'), width: 1),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(
+                        color: PdfColor.fromHex('#BBF7D0'), width: 1),
                   ),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -2839,12 +3448,18 @@ class SolarProposalPdfService {
                       pw.SizedBox(height: 6),
                       pw.Text(
                         'A disposição foi planejada respeitando recuos de segurança para circulação técnica e manutenção, além de evitar zonas de turbulência e sombreamento severo por platibandas ou obstáculos.',
-                        style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('#15803D'), lineSpacing: 1.3),
+                        style: pw.TextStyle(
+                            fontSize: 7.2,
+                            color: PdfColor.fromHex('#15803D'),
+                            lineSpacing: 1.3),
                       ),
                       pw.SizedBox(height: 6),
                       pw.Text(
                         'Orientação angular otimizada para capturar o maior índice de irradiação solar ao longo do ano.',
-                        style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('#15803D'), lineSpacing: 1.3),
+                        style: pw.TextStyle(
+                            fontSize: 7.2,
+                            color: PdfColor.fromHex('#15803D'),
+                            lineSpacing: 1.3),
                       ),
                     ],
                   ),
@@ -2882,7 +3497,8 @@ class SolarProposalPdfService {
     final totalMods = photo.totalModules ?? study.totalModulesCount;
     final shaded = photo.shadedCount ?? 0;
     final sunCount = (totalMods - shaded).clamp(0, totalMods);
-    final ratio = photo.sunRatio ?? (totalMods > 0 ? (sunCount / totalMods) : 1.0);
+    final ratio =
+        photo.sunRatio ?? (totalMods > 0 ? (sunCount / totalMods) : 1.0);
     final hourFormatted = _formatHour(photo.hourOfDay);
 
     return pw.Column(
@@ -2902,10 +3518,12 @@ class SolarProposalPdfService {
               pw.Row(
                 children: [
                   pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
                     decoration: pw.BoxDecoration(
                       color: primaryColor,
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                      borderRadius:
+                          const pw.BorderRadius.all(pw.Radius.circular(6)),
                     ),
                     child: pw.Text(
                       'HORÁRIO: $hourFormatted',
@@ -2919,19 +3537,24 @@ class SolarProposalPdfService {
                   pw.SizedBox(width: 12),
                   pw.Text(
                     'Altitude Solar: ${photo.sunElevation?.toStringAsFixed(1) ?? '--'}°  •  Azimute: ${photo.sunAzimuth?.toStringAsFixed(1) ?? '--'}°',
-                    style: pw.TextStyle(fontSize: 8.0, color: textDark, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(
+                        fontSize: 8.0,
+                        color: textDark,
+                        fontWeight: pw.FontWeight.bold),
                   ),
                 ],
               ),
               pw.Row(
                 children: [
                   pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2.5),
                     decoration: pw.BoxDecoration(
                       color: ratio >= 0.8
                           ? const PdfColor.fromInt(0xFFD1FAE5)
                           : const PdfColor.fromInt(0xFFFEF3C7),
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                      borderRadius:
+                          const pw.BorderRadius.all(pw.Radius.circular(5)),
                     ),
                     child: pw.Text(
                       '${(ratio * 100).toStringAsFixed(0)}% APROVEITAMENTO SOLAR',
@@ -2974,7 +3597,8 @@ class SolarProposalPdfService {
                     ),
                   )
                 : pw.Center(
-                    child: pw.Text('Registro fotográfico indisponível', style: pw.TextStyle(fontSize: 10, color: textMuted)),
+                    child: pw.Text('Registro fotográfico indisponível',
+                        style: pw.TextStyle(fontSize: 10, color: textMuted)),
                   ),
           ),
         ),
@@ -3046,7 +3670,10 @@ class SolarProposalPdfService {
           pw.SizedBox(height: 4),
           pw.Text(
             'Diferenciais & Escopo da Usina Solar',
-            style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+            style: pw.TextStyle(
+                fontSize: 17,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromHex('#0F172A')),
           ),
           pw.SizedBox(height: 14),
           ...cardRows,
@@ -3060,7 +3687,10 @@ class SolarProposalPdfService {
         pw.SizedBox(height: 4),
         pw.Text(
           'Por que escolher a nossa solução solar?',
-          style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+          style: pw.TextStyle(
+              fontSize: 17,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColor.fromHex('#0F172A')),
         ),
         pw.SizedBox(height: 14),
 
@@ -3070,7 +3700,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Confiança se conquista',
-                description: 'Atuamos do início ao fim da instalação, inclusive com pós-venda especializado e equipe própria dedicada.',
+                description:
+                    'Atuamos do início ao fim da instalação, inclusive com pós-venda especializado e equipe própria dedicada.',
                 svgIcon: SolarPdfIcons.shieldCheck(hex),
               ),
             ),
@@ -3078,7 +3709,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Bom negócio',
-                description: 'Você se torna produtor da sua própria energia: investe com retorno rápido e lucra por mais de 25 anos.',
+                description:
+                    'Você se torna produtor da sua própria energia: investe com retorno rápido e lucra por mais de 25 anos.',
                 svgIcon: SolarPdfIcons.dollar(hex),
               ),
             ),
@@ -3090,7 +3722,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Tecnologia de ponta',
-                description: 'Trabalhamos exclusivamente com as melhores marcas globais de módulos Tier 1 e inversores certificados.',
+                description:
+                    'Trabalhamos exclusivamente com as melhores marcas globais de módulos Tier 1 e inversores certificados.',
                 svgIcon: SolarPdfIcons.solarTech(hex),
               ),
             ),
@@ -3098,7 +3731,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Zero dor de cabeça',
-                description: 'Processo ágil, seguro e padronizado. Instalação rápida concluída em poucos dias sem obras pesadas.',
+                description:
+                    'Processo ágil, seguro e padronizado. Instalação rápida concluída em poucos dias sem obras pesadas.',
                 svgIcon: SolarPdfIcons.thumbsUp(hex),
               ),
             ),
@@ -3108,7 +3742,10 @@ class SolarProposalPdfService {
         pw.SizedBox(height: 24),
         pw.Text(
           'Escopo do Projeto (Turn-Key)',
-          style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+          style: pw.TextStyle(
+              fontSize: 17,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColor.fromHex('#0F172A')),
         ),
         pw.SizedBox(height: 14),
 
@@ -3118,7 +3755,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Solução completa',
-                description: 'Projeto Turn-Key integral: cuidamos do projeto executivo, ART, montagem, homologação e concessionária.',
+                description:
+                    'Projeto Turn-Key integral: cuidamos do projeto executivo, ART, montagem, homologação e concessionária.',
                 svgIcon: SolarPdfIcons.lightbulb(hex),
               ),
             ),
@@ -3126,7 +3764,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Aplicativo gratuito',
-                description: 'Acompanhe na palma da mão, em tempo real, a geração de energia e a economia acumulada da sua usina 24h.',
+                description:
+                    'Acompanhe na palma da mão, em tempo real, a geração de energia e a economia acumulada da sua usina 24h.',
                 svgIcon: SolarPdfIcons.smartphone(hex),
               ),
             ),
@@ -3138,7 +3777,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Frete e seguro inclusos',
-                description: 'Equipamentos entregues com frete e seguro 100% cobertos diretamente no endereço da instalação da usina.',
+                description:
+                    'Equipamentos entregues com frete e seguro 100% cobertos diretamente no endereço da instalação da usina.',
                 svgIcon: SolarPdfIcons.truck(hex),
               ),
             ),
@@ -3146,7 +3786,8 @@ class SolarProposalPdfService {
             pw.Expanded(
               child: _buildInfoCardBadge(
                 title: 'Certificação e garantias',
-                description: 'Módulos e inversores homologados pelo INMETRO, com até 25 anos de garantia de fábrica estendida.',
+                description:
+                    'Módulos e inversores homologados pelo INMETRO, com até 25 anos de garantia de fábrica estendida.',
                 svgIcon: SolarPdfIcons.award(hex),
               ),
             ),
@@ -3218,16 +3859,25 @@ class SolarProposalPdfService {
                 width: 250,
                 padding: const pw.EdgeInsets.all(12),
                 decoration: pw.BoxDecoration(
-                  color: PdfColor.fromHex(c.cardBgColorHex != null && c.cardBgColorHex!.isNotEmpty ? c.cardBgColorHex! : '#F8FAFC'),
+                  color: PdfColor.fromHex(
+                      c.cardBgColorHex != null && c.cardBgColorHex!.isNotEmpty
+                          ? c.cardBgColorHex!
+                          : '#F8FAFC'),
                   borderRadius: pw.BorderRadius.circular(8),
                   border: pw.Border.all(color: PdfColor.fromHex('#E2E8F0')),
                 ),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(c.title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#0F172A'))),
+                    pw.Text(c.title,
+                        style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 11,
+                            color: PdfColor.fromHex('#0F172A'))),
                     pw.SizedBox(height: 4),
-                    pw.Text(c.description, style: pw.TextStyle(fontSize: 9.5, color: PdfColor.fromHex('#475569'))),
+                    pw.Text(c.description,
+                        style: pw.TextStyle(
+                            fontSize: 9.5, color: PdfColor.fromHex('#475569'))),
                   ],
                 ),
               );
@@ -3250,11 +3900,13 @@ class SolarProposalPdfService {
           width: double.infinity,
           height: 100,
           margin: const pw.EdgeInsets.only(top: 15),
-          padding: const pw.EdgeInsets.only(top: 22, bottom: 10, left: 14, right: 14),
+          padding: const pw.EdgeInsets.only(
+              top: 22, bottom: 10, left: 14, right: 14),
           decoration: pw.BoxDecoration(
             color: PdfColors.white,
             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
-            border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 1.0),
+            border:
+                pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 1.0),
           ),
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -3263,13 +3915,19 @@ class SolarProposalPdfService {
               pw.Text(
                 title,
                 textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F172A')),
+                style: pw.TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromHex('#0F172A')),
               ),
               pw.SizedBox(height: 4),
               pw.Text(
                 description,
                 textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(fontSize: 8.5, color: PdfColor.fromHex('#475569'), height: 1.25),
+                style: pw.TextStyle(
+                    fontSize: 8.5,
+                    color: PdfColor.fromHex('#475569'),
+                    height: 1.25),
               ),
             ],
           ),
@@ -3284,7 +3942,8 @@ class SolarProposalPdfService {
             decoration: pw.BoxDecoration(
               color: PdfColors.white,
               shape: pw.BoxShape.circle,
-              border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 1.2),
+              border:
+                  pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 1.2),
             ),
             child: pw.Center(
               child: pw.SvgImage(
@@ -3315,8 +3974,9 @@ class SolarProposalPdfService {
     required PdfColor secondaryColor,
     Uint8List? houseImageBytes,
   }) {
-    final hasKwInModel = RegExp(r'\b\d+(?:[\.,]\d+)?\s*kwp?\b', caseSensitive: false)
-        .hasMatch(inverterModel);
+    final hasKwInModel =
+        RegExp(r'\b\d+(?:[\.,]\d+)?\s*kwp?\b', caseSensitive: false)
+            .hasMatch(inverterModel);
     final inverterDisplay = hasKwInModel
         ? inverterModel
         : '$inverterModel • ${inverterKw.toStringAsFixed(0)} kW';
@@ -3564,7 +4224,9 @@ class SolarProposalPdfService {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 7.0, horizontal: 6),
       decoration: const pw.BoxDecoration(
-        border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFCBD5E1), width: 0.7)),
+        border: pw.Border(
+            bottom:
+                pw.BorderSide(color: PdfColor.fromInt(0xFFCBD5E1), width: 0.7)),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -3579,7 +4241,8 @@ class SolarProposalPdfService {
                   height: 26,
                   decoration: pw.BoxDecoration(
                     color: primaryColor,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(6.5)),
                   ),
                   child: pw.Center(
                     child: pw.SvgImage(
@@ -3645,7 +4308,8 @@ class SolarProposalPdfService {
       if (!joinedLower.contains('estrutura') &&
           !joinedLower.contains('perfil') &&
           !joinedLower.contains('fixa')) {
-        equipmentItems.add('Estrutura de fixação para telha ${roofType.toLowerCase()}');
+        equipmentItems
+            .add('Estrutura de fixação para telha ${roofType.toLowerCase()}');
       }
       if (!joinedLower.contains('string') &&
           !joinedLower.contains('dps') &&
@@ -3654,7 +4318,8 @@ class SolarProposalPdfService {
         equipmentItems.add('Quadro string box CC/CA com DPS e proteção');
       }
       if (!joinedLower.contains('cabo') && !joinedLower.contains('mc4')) {
-        equipmentItems.add('Cabos solares 1,8 kV com proteção UV e conectores MC4');
+        equipmentItems
+            .add('Cabos solares 1,8 kV com proteção UV e conectores MC4');
       }
       if (!joinedLower.contains('homolog') &&
           !joinedLower.contains('engenharia') &&
@@ -3675,13 +4340,15 @@ class SolarProposalPdfService {
     // Inclui também quaisquer outros itens/produtos adicionados depois da usina principal
     for (final extraItem in proposal.items) {
       if (identical(extraItem, solarPlantItem)) continue;
-      if (extraItem.solarComponents != null && extraItem.solarComponents!.isNotEmpty) {
+      if (extraItem.solarComponents != null &&
+          extraItem.solarComponents!.isNotEmpty) {
         for (final comp in extraItem.solarComponents!) {
           if (!equipmentItems.contains(comp)) {
             equipmentItems.add(comp);
           }
         }
-      } else if (extraItem.name.trim().isNotEmpty && extraItem.name.trim() != 'Item sem descrição') {
+      } else if (extraItem.name.trim().isNotEmpty &&
+          extraItem.name.trim() != 'Item sem descrição') {
         final qtyStr = extraItem.quantity % 1 == 0
             ? extraItem.quantity.toInt().toString()
             : extraItem.quantity.toString();
@@ -3713,7 +4380,8 @@ class SolarProposalPdfService {
         children: [
           // 1. Hero Banner Escuro com Ilustração Vetorial
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+            padding:
+                const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 18),
             decoration: pw.BoxDecoration(
               color: secondaryColor,
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(14)),
@@ -3778,7 +4446,8 @@ class SolarProposalPdfService {
           pw.Container(
             decoration: pw.BoxDecoration(
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
-              border: pw.Border.all(color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
+              border: pw.Border.all(
+                  color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -3790,15 +4459,18 @@ class SolarProposalPdfService {
                       color: const PdfColor.fromInt(0xFFD8E5EE),
                     ),
                   pw.Container(
-                    padding: pw.EdgeInsets.symmetric(horizontal: 12, vertical: rowVerticalPad),
+                    padding: pw.EdgeInsets.symmetric(
+                        horizontal: 12, vertical: rowVerticalPad),
                     decoration: pw.BoxDecoration(
                       color: i.isEven
                           ? const PdfColor.fromInt(0xFFF5F9FC)
                           : PdfColors.white,
                       borderRadius: i == 0
-                          ? const pw.BorderRadius.vertical(top: pw.Radius.circular(10))
+                          ? const pw.BorderRadius.vertical(
+                              top: pw.Radius.circular(10))
                           : (i == equipmentItems.length - 1
-                              ? const pw.BorderRadius.vertical(bottom: pw.Radius.circular(10))
+                              ? const pw.BorderRadius.vertical(
+                                  bottom: pw.Radius.circular(10))
                               : null),
                     ),
                     child: pw.Row(
@@ -3809,11 +4481,13 @@ class SolarProposalPdfService {
                           height: 26,
                           decoration: pw.BoxDecoration(
                             color: primaryColor,
-                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
+                            borderRadius: const pw.BorderRadius.all(
+                                pw.Radius.circular(6.5)),
                           ),
                           child: pw.Center(
                             child: pw.SvgImage(
-                              svg: _getComponentIcon(equipmentItems[i], '#FFFFFF'),
+                              svg: _getComponentIcon(
+                                  equipmentItems[i], '#FFFFFF'),
                               width: 15,
                               height: 15,
                             ),
@@ -3856,11 +4530,14 @@ class SolarProposalPdfService {
               // Opção 1: À vista via Pix
               pw.Expanded(
                 child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 13),
                   decoration: pw.BoxDecoration(
                     color: const PdfColor.fromInt(0xFFEEF6FA),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
-                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(11)),
+                    border: pw.Border.all(
+                        color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
                   ),
                   child: pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -3870,7 +4547,8 @@ class SolarProposalPdfService {
                         height: 26,
                         decoration: pw.BoxDecoration(
                           color: primaryColor,
-                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
+                          borderRadius: const pw.BorderRadius.all(
+                              pw.Radius.circular(6.5)),
                         ),
                         child: pw.Center(
                           child: pw.SvgImage(
@@ -3916,11 +4594,14 @@ class SolarProposalPdfService {
               // Opção 2: Financiamento solar
               pw.Expanded(
                 child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 13),
                   decoration: pw.BoxDecoration(
                     color: const PdfColor.fromInt(0xFFEEF6FA),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
-                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(11)),
+                    border: pw.Border.all(
+                        color: const PdfColor.fromInt(0xFFD8E5EE), width: 1.0),
                   ),
                   child: pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -3930,7 +4611,8 @@ class SolarProposalPdfService {
                         height: 26,
                         decoration: pw.BoxDecoration(
                           color: primaryColor,
-                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6.5)),
+                          borderRadius: const pw.BorderRadius.all(
+                              pw.Radius.circular(6.5)),
                         ),
                         child: pw.Center(
                           child: pw.SvgImage(
@@ -3975,7 +4657,8 @@ class SolarProposalPdfService {
 
           // 4. Barra de Resumo Inferior: Investimento Total & Prazo de Entrega
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            padding:
+                const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: pw.BoxDecoration(
               color: secondaryColor,
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(11)),
@@ -4005,29 +4688,29 @@ class SolarProposalPdfService {
                     ),
                   ],
                 ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      'Prazo de entrega',
-                      style: const pw.TextStyle(
-                        fontSize: 9.5,
-                        color: PdfColor.fromInt(0xFFC3E6F4),
+                if (proposal.deliveryTime != null &&
+                    proposal.deliveryTime!.trim().isNotEmpty)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'Prazo de entrega',
+                        style: const pw.TextStyle(
+                          fontSize: 9.5,
+                          color: PdfColor.fromInt(0xFFC3E6F4),
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      (proposal.deliveryTime != null && proposal.deliveryTime!.isNotEmpty)
-                          ? proposal.deliveryTime!
-                          : 'Imediata / 3 a 5 dias úteis',
-                      style: pw.TextStyle(
-                        fontSize: 12.0,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        proposal.deliveryTime!.trim(),
+                        style: pw.TextStyle(
+                          fontSize: 12.0,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -4057,20 +4740,29 @@ class SolarProposalPdfService {
     );
 
     final rows21 = yearlyData.take(21).toList();
-    final startYear = rows21.isNotEmpty ? rows21.first.year : DateTime.now().year;
-    final endYear = rows21.isNotEmpty ? rows21.last.year : (DateTime.now().year + 20);
+    final startYear =
+        rows21.isNotEmpty ? rows21.first.year : DateTime.now().year;
+    final endYear =
+        rows21.isNotEmpty ? rows21.last.year : (DateTime.now().year + 20);
 
-    final totalWithoutSolar = yearlyData.fold(0.0, (prev, item) => prev + (item.withoutSolar * 12));
+    final totalWithoutSolar =
+        yearlyData.fold(0.0, (prev, item) => prev + (item.withoutSolar * 12));
     final totalWithSolar = yearlyData.fold(
-        0.0, (prev, item) => prev + (((item.withSolarMin + item.withSolarMax) / 2) * 12));
+        0.0,
+        (prev, item) =>
+            prev + (((item.withSolarMin + item.withSolarMax) / 2) * 12));
     final firstYearSavings = (yearlyData.first.withoutSolar * 12) -
-        (((yearlyData.first.withSolarMin + yearlyData.first.withSolarMax) / 2) * 12);
+        (((yearlyData.first.withSolarMin + yearlyData.first.withSolarMax) / 2) *
+            12);
     final totalSavings = totalWithoutSolar - totalWithSolar;
     final paybackMonths =
-        ((proposal.totalAmount / (firstYearSavings / 12)).round()).clamp(12, 60);
+        ((proposal.totalAmount / (firstYearSavings / 12)).round())
+            .clamp(12, 60);
 
-    final autoConsumptionDaily = generationDaily * (settings.simultaneityRate / 100.0);
-    final dailyInjection = generationDaily * (1.0 - (settings.simultaneityRate / 100.0));
+    final autoConsumptionDaily =
+        generationDaily * (settings.simultaneityRate / 100.0);
+    final dailyInjection =
+        generationDaily * (1.0 - (settings.simultaneityRate / 100.0));
 
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 10),
@@ -4079,7 +4771,8 @@ class SolarProposalPdfService {
         children: [
           // 1. Banner Principal Escuro
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+            padding:
+                const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 11),
             decoration: pw.BoxDecoration(
               color: secondaryColor,
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
@@ -4092,7 +4785,8 @@ class SolarProposalPdfService {
                   height: 24,
                   decoration: pw.BoxDecoration(
                     color: primaryColor,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Center(
                     child: pw.SvgImage(
@@ -4181,11 +4875,14 @@ class SolarProposalPdfService {
               pw.Expanded(
                 flex: 65,
                 child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 9),
                   decoration: pw.BoxDecoration(
                     color: PdfColors.white,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(
+                        color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
                   ),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -4197,7 +4894,8 @@ class SolarProposalPdfService {
                             height: 20,
                             decoration: pw.BoxDecoration(
                               color: primaryColor,
-                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                              borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(5)),
                             ),
                             child: pw.Center(
                               child: pw.SvgImage(
@@ -4225,15 +4923,15 @@ class SolarProposalPdfService {
                           pw.Expanded(
                             child: pw.Column(
                               children: [
-                                _buildParamRow('Concessionária', settings.utilityCompany),
+                                _buildParamRow(
+                                    'Concessionária', settings.utilityCompany),
                                 _buildParamRow('Simultaneidade',
                                     '${settings.simultaneityRate.toStringAsFixed(0)}%'),
                                 _buildParamRow('Inflação anual',
                                     '${settings.annualInflation.toStringAsFixed(0)}%'),
                                 _buildParamRow('Consumo mensal',
                                     '${_numberFormat.format(generationMonthly)} kWh'),
-                                _buildParamRow(
-                                    'Consumo diário',
+                                _buildParamRow('Consumo diário',
                                     '${generationDaily.toStringAsFixed(2).replaceAll('.', ',')} kWh',
                                     isLast: true),
                               ],
@@ -4243,16 +4941,13 @@ class SolarProposalPdfService {
                           pw.Expanded(
                             child: pw.Column(
                               children: [
-                                _buildParamRow(
-                                    'Autoconsumo',
+                                _buildParamRow('Autoconsumo',
                                     '${autoConsumptionDaily.toStringAsFixed(2).replaceAll('.', ',')} kWh'),
                                 _buildParamRow('Geração mensal',
                                     '${_numberFormat.format(generationMonthly)} kWh'),
-                                _buildParamRow(
-                                    'Geração diária',
+                                _buildParamRow('Geração diária',
                                     '${generationDaily.toStringAsFixed(2).replaceAll('.', ',')} kWh'),
-                                _buildParamRow(
-                                    'Injeção diária',
+                                _buildParamRow('Injeção diária',
                                     '${dailyInjection.toStringAsFixed(2).replaceAll('.', ',')} kWh',
                                     isLast: true),
                               ],
@@ -4270,11 +4965,14 @@ class SolarProposalPdfService {
               pw.Expanded(
                 flex: 35,
                 child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 9),
                   decoration: pw.BoxDecoration(
                     color: PdfColors.white,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-                    border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(
+                        color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
                   ),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -4286,7 +4984,8 @@ class SolarProposalPdfService {
                             height: 20,
                             decoration: pw.BoxDecoration(
                               color: primaryColor,
-                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                              borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(5)),
                             ),
                             child: pw.Center(
                               child: pw.SvgImage(
@@ -4309,10 +5008,12 @@ class SolarProposalPdfService {
                       ),
                       pw.SizedBox(height: 8),
                       pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6.5),
+                        padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6.5),
                         decoration: const pw.BoxDecoration(
                           color: PdfColor.fromInt(0xFFEEF2F6),
-                          borderRadius: pw.BorderRadius.all(pw.Radius.circular(6)),
+                          borderRadius:
+                              pw.BorderRadius.all(pw.Radius.circular(6)),
                         ),
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -4338,10 +5039,12 @@ class SolarProposalPdfService {
                       ),
                       pw.SizedBox(height: 6),
                       pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6.5),
+                        padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6.5),
                         decoration: const pw.BoxDecoration(
                           color: PdfColor.fromInt(0xFFE8F8EE),
-                          borderRadius: pw.BorderRadius.all(pw.Radius.circular(6)),
+                          borderRadius:
+                              pw.BorderRadius.all(pw.Radius.circular(6)),
                         ),
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -4377,17 +5080,20 @@ class SolarProposalPdfService {
           pw.Container(
             decoration: pw.BoxDecoration(
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-              border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
+              border: pw.Border.all(
+                  color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
                 // Cabeçalho Azul com Ícone
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 6.5),
                   decoration: pw.BoxDecoration(
                     color: primaryColor,
-                    borderRadius: const pw.BorderRadius.vertical(top: pw.Radius.circular(7.5)),
+                    borderRadius: const pw.BorderRadius.vertical(
+                        top: pw.Radius.circular(7.5)),
                   ),
                   child: pw.Row(
                     children: [
@@ -4473,7 +5179,8 @@ class SolarProposalPdfService {
                         pw.Expanded(
                           flex: 18,
                           child: pw.Container(
-                            padding: const pw.EdgeInsets.symmetric(vertical: 3.1),
+                            padding:
+                                const pw.EdgeInsets.symmetric(vertical: 3.1),
                             color: idx.isEven
                                 ? PdfColors.white
                                 : const PdfColor.fromInt(0xFFF8FAFC),
@@ -4491,7 +5198,8 @@ class SolarProposalPdfService {
                         pw.Expanded(
                           flex: 54,
                           child: pw.Container(
-                            padding: const pw.EdgeInsets.symmetric(vertical: 3.1, horizontal: 4),
+                            padding: const pw.EdgeInsets.symmetric(
+                                vertical: 3.1, horizontal: 4),
                             color: idx.isEven
                                 ? const PdfColor.fromInt(0xFFE2F5EA)
                                 : const PdfColor.fromInt(0xFFEDF9F2),
@@ -4509,7 +5217,8 @@ class SolarProposalPdfService {
                         pw.Expanded(
                           flex: 28,
                           child: pw.Container(
-                            padding: const pw.EdgeInsets.symmetric(vertical: 3.1, horizontal: 4),
+                            padding: const pw.EdgeInsets.symmetric(
+                                vertical: 3.1, horizontal: 4),
                             color: idx.isEven
                                 ? PdfColors.white
                                 : const PdfColor.fromInt(0xFFF8FAFC),
@@ -4545,7 +5254,8 @@ class SolarProposalPdfService {
       decoration: pw.BoxDecoration(
         color: PdfColors.white,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-        border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
+        border: pw.Border.all(
+            color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.8),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -4587,14 +5297,16 @@ class SolarProposalPdfService {
     );
   }
 
-  static pw.Widget _buildParamRow(String label, String value, {bool isLast = false}) {
+  static pw.Widget _buildParamRow(String label, String value,
+      {bool isLast = false}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 2.8, horizontal: 2),
       decoration: pw.BoxDecoration(
         border: isLast
             ? null
             : const pw.Border(
-                bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF1F5F9), width: 0.6),
+                bottom: pw.BorderSide(
+                    color: PdfColor.fromInt(0xFFF1F5F9), width: 0.6),
               ),
       ),
       child: pw.Row(
@@ -4602,7 +5314,8 @@ class SolarProposalPdfService {
         children: [
           pw.Text(
             label,
-            style: const pw.TextStyle(fontSize: 7.4, color: PdfColor.fromInt(0xFF64748B)),
+            style: const pw.TextStyle(
+                fontSize: 7.4, color: PdfColor.fromInt(0xFF64748B)),
           ),
           pw.Text(
             value,
@@ -4627,7 +5340,8 @@ class SolarProposalPdfService {
     required PdfColor primaryColor,
     required PdfColor secondaryColor,
   }) {
-    final activeBanks = settings.financingBanks.where((b) => b.isActive).toList();
+    final activeBanks =
+        settings.financingBanks.where((b) => b.isActive).toList();
     final banksToRender = <SolarFinancingBank>[
       activeBanks.isNotEmpty
           ? activeBanks[0]
@@ -4678,13 +5392,19 @@ class SolarProposalPdfService {
 </svg>
 ''';
 
+    final cardFillHex = _pdfColorToHex(_darkenPdfColor(secondaryColor, 0.25));
+    final cardStrokeHex =
+        _pdfColorToHex(_lightenPdfColor(secondaryColor, 0.45));
+    final cardDot1Hex = _pdfColorToHex(_lightenPdfColor(secondaryColor, 0.65));
+    final cardDot2Hex = _pdfColorToHex(_lightenPdfColor(secondaryColor, 0.45));
+
     final cardIllustrationSvg = '''
 <svg viewBox="0 0 110 68" width="90" height="56">
   <g transform="rotate(-10 55 34)">
-    <rect x="10" y="10" width="84" height="50" rx="8" fill="#1E73BE" stroke="#38BDF8" stroke-width="1.2"/>
+    <rect x="10" y="10" width="84" height="50" rx="8" fill="$cardFillHex" stroke="$cardStrokeHex" stroke-width="1.2"/>
     <rect x="20" y="25" width="12" height="9" rx="2" fill="#FBBF24"/>
-    <circle cx="72" cy="24" r="3.5" fill="#7DD3FC" opacity="0.85"/>
-    <circle cx="77" cy="24" r="3.5" fill="#38BDF8" opacity="0.85"/>
+    <circle cx="72" cy="24" r="3.5" fill="$cardDot1Hex" opacity="0.85"/>
+    <circle cx="77" cy="24" r="3.5" fill="$cardDot2Hex" opacity="0.85"/>
   </g>
 </svg>
 ''';
@@ -4697,7 +5417,8 @@ class SolarProposalPdfService {
         children: [
           // 1. Hero Banner Escuro
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+            padding:
+                const pw.EdgeInsets.symmetric(horizontal: 22, vertical: 16),
             decoration: pw.BoxDecoration(
               color: secondaryColor,
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(14)),
@@ -4771,17 +5492,25 @@ class SolarProposalPdfService {
           // Grid 2x2 dos Bancos
           pw.Row(
             children: [
-              pw.Expanded(child: _buildBankCard(banksToRender[0], proposal.totalAmount, primaryColor, primaryHex)),
+              pw.Expanded(
+                  child: _buildBankCard(banksToRender[0], proposal.totalAmount,
+                      primaryColor, primaryHex)),
               pw.SizedBox(width: 12),
-              pw.Expanded(child: _buildBankCard(banksToRender[1], proposal.totalAmount, primaryColor, primaryHex)),
+              pw.Expanded(
+                  child: _buildBankCard(banksToRender[1], proposal.totalAmount,
+                      primaryColor, primaryHex)),
             ],
           ),
           pw.SizedBox(height: 12),
           pw.Row(
             children: [
-              pw.Expanded(child: _buildBankCard(banksToRender[2], proposal.totalAmount, primaryColor, primaryHex)),
+              pw.Expanded(
+                  child: _buildBankCard(banksToRender[2], proposal.totalAmount,
+                      primaryColor, primaryHex)),
               pw.SizedBox(width: 12),
-              pw.Expanded(child: _buildBankCard(banksToRender[3], proposal.totalAmount, primaryColor, primaryHex)),
+              pw.Expanded(
+                  child: _buildBankCard(banksToRender[3], proposal.totalAmount,
+                      primaryColor, primaryHex)),
             ],
           ),
 
@@ -4824,17 +5553,21 @@ class SolarProposalPdfService {
                         style: pw.TextStyle(
                           fontSize: 7.2,
                           fontWeight: pw.FontWeight.bold,
-                          color: const PdfColor.fromInt(0xFF38BDF8),
+                          color: _lightenPdfColor(secondaryColor, 0.55),
                           letterSpacing: 0.8,
                         ),
                       ),
                       pw.SizedBox(height: 7),
                       pw.Row(
-                        children: ['VISA', 'MASTERCARD', 'ELO'].map((b) => _buildCardBrandBadge(b)).toList(),
+                        children: ['VISA', 'MASTERCARD', 'ELO']
+                            .map((b) => _buildCardBrandBadge(b))
+                            .toList(),
                       ),
                       pw.SizedBox(height: 5),
                       pw.Row(
-                        children: ['AMEX', 'HIPERCARD', 'DINERS CLUB'].map((b) => _buildCardBrandBadge(b)).toList(),
+                        children: ['AMEX', 'HIPERCARD', 'DINERS CLUB']
+                            .map((b) => _buildCardBrandBadge(b))
+                            .toList(),
                       ),
                     ],
                   ),
@@ -4852,23 +5585,29 @@ class SolarProposalPdfService {
                         final rateItem = settings.creditCardRates.firstWhere(
                           (r) => r.installment == installments,
                           orElse: () => CreditCardInstallmentRate(
-                              installment: installments, feePercentage: installments * 1.05),
+                              installment: installments,
+                              feePercentage: installments * 1.05),
                         );
-                        final val = rateItem.calculateInstallmentValue(proposal.totalAmount);
+                        final val = rateItem
+                            .calculateInstallmentValue(proposal.totalAmount);
 
                         return pw.Container(
-                          margin: pw.EdgeInsets.only(bottom: installments == 12 ? 0 : 6),
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
+                          margin: pw.EdgeInsets.only(
+                              bottom: installments == 12 ? 0 : 6),
+                          padding: const pw.EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7.5),
                           decoration: pw.BoxDecoration(
-                            color: const PdfColor.fromInt(0xFF183B5E),
-                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                            color: _darkenPdfColor(secondaryColor, 0.45),
+                            borderRadius: const pw.BorderRadius.all(
+                                pw.Radius.circular(8)),
                             border: pw.Border.all(
-                              color: const PdfColor.fromInt(0xFF284F78),
+                              color: _darkenPdfColor(secondaryColor, 0.25),
                               width: 0.7,
                             ),
                           ),
                           child: pw.Row(
-                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                                pw.MainAxisAlignment.spaceBetween,
                             children: [
                               pw.Text(
                                 '$installments' 'x no cartão',
@@ -4933,7 +5672,9 @@ class SolarProposalPdfService {
     final lowerName = '${bank.id} ${bank.name}'.toLowerCase();
     PdfColor ratePillBg = const PdfColor.fromInt(0xFFEFF6FF);
     PdfColor ratePillText = const PdfColor.fromInt(0xFF0284C7);
-    if (lowerName.contains('solfacil') || lowerName.contains('solfácil') || lowerName.contains('sicredi')) {
+    if (lowerName.contains('solfacil') ||
+        lowerName.contains('solfácil') ||
+        lowerName.contains('sicredi')) {
       ratePillBg = const PdfColor.fromInt(0xFFEAF7EE);
       ratePillText = const PdfColor.fromInt(0xFF15803D);
     } else if (lowerName.contains('santander')) {
@@ -4948,7 +5689,8 @@ class SolarProposalPdfService {
       decoration: pw.BoxDecoration(
         color: PdfColors.white,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
-        border: pw.Border.all(color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.9),
+        border: pw.Border.all(
+            color: const PdfColor.fromInt(0xFFE2E8F0), width: 0.9),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -4960,10 +5702,12 @@ class SolarProposalPdfService {
             children: [
               _buildBankLogoWidget(bank, primaryColor),
               pw.Container(
-                padding: const pw.EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                padding:
+                    const pw.EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                 decoration: pw.BoxDecoration(
                   color: ratePillBg,
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                  borderRadius:
+                      const pw.BorderRadius.all(pw.Radius.circular(12)),
                 ),
                 child: pw.Text(
                   '${bank.monthlyInterestRate.toStringAsFixed(2).replaceAll('.', ',')}% a.m.',
@@ -4981,9 +5725,12 @@ class SolarProposalPdfService {
           // Tabela de Parcelas (12x .. 60x/90x)
           for (int i = 0; i < installments.length; i++)
             pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
+              padding:
+                  const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
               decoration: pw.BoxDecoration(
-                color: i.isEven ? const PdfColor.fromInt(0xFFF4F8FB) : PdfColors.white,
+                color: i.isEven
+                    ? const PdfColor.fromInt(0xFFF4F8FB)
+                    : PdfColors.white,
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
               ),
               child: pw.Row(
@@ -4998,7 +5745,8 @@ class SolarProposalPdfService {
                     ),
                   ),
                   pw.Text(
-                    _currencyFormat.format(bank.calculateInstallment(totalAmount, installments[i])),
+                    _currencyFormat.format(bank.calculateInstallment(
+                        totalAmount, installments[i])),
                     style: pw.TextStyle(
                       fontSize: 9.5,
                       fontWeight: pw.FontWeight.bold,
@@ -5013,7 +5761,8 @@ class SolarProposalPdfService {
     );
   }
 
-  static pw.Widget _buildBankLogoWidget(SolarFinancingBank bank, PdfColor primaryColor) {
+  static pw.Widget _buildBankLogoWidget(
+      SolarFinancingBank bank, PdfColor primaryColor) {
     // 1. Se o usuário enviou logo customizada nas configurações, renderiza a imagem
     if (bank.logoBase64 != null && bank.logoBase64!.trim().isNotEmpty) {
       try {
@@ -5024,7 +5773,8 @@ class SolarProposalPdfService {
         if (bytes.isNotEmpty) {
           return pw.SizedBox(
             height: 22,
-            child: pw.Image(pw.MemoryImage(bytes), height: 22, fit: pw.BoxFit.contain),
+            child: pw.Image(pw.MemoryImage(bytes),
+                height: 22, fit: pw.BoxFit.contain),
           );
         }
       } catch (_) {}
@@ -5038,15 +5788,20 @@ class SolarProposalPdfService {
         mainAxisSize: pw.MainAxisSize.min,
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          pw.Text('s', style: const pw.TextStyle(fontSize: 17, color: PdfColor.fromInt(0xFF111827))),
+          pw.Text('s',
+              style: const pw.TextStyle(
+                  fontSize: 17, color: PdfColor.fromInt(0xFF111827))),
           pw.SizedBox(width: 1),
           pw.SvgImage(
-            svg: '<svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="5" fill="#FACC15"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="#FACC15" stroke-width="2.4" stroke-linecap="round"/></svg>',
+            svg:
+                '<svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="5" fill="#FACC15"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="#FACC15" stroke-width="2.4" stroke-linecap="round"/></svg>',
             width: 15,
             height: 15,
           ),
           pw.SizedBox(width: 1),
-          pw.Text('lfácil', style: const pw.TextStyle(fontSize: 17, color: PdfColor.fromInt(0xFF111827))),
+          pw.Text('lfácil',
+              style: const pw.TextStyle(
+                  fontSize: 17, color: PdfColor.fromInt(0xFF111827))),
         ],
       );
     }
@@ -5057,7 +5812,8 @@ class SolarProposalPdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.SvgImage(
-            svg: '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2c-.4 3.1-3.4 4.5-3.4 7.7 0 1.4.8 2.6 1.7 3.4-.5-1.3-.1-2.8 1-3.9.4 1.6 1.8 2.3 1.8 4.2 0 1.3-.7 2.4-1.7 3.2 2.9-.4 5.1-2.6 5.1-5.6 0-3.2-3.4-4.7-4.5-9zM7 11.2c-2.6.9-4.5 2.7-4.5 4.8 0 2.8 4.2 5 9.5 5s9.5-2.2 9.5-5c0-2-1.8-3.8-4.3-4.7.6 1.1.8 2.3.5 3.6-1.1 1.6-3.4 2.5-5.7 2.5-2.6 0-4.9-1.1-5.8-2.9-.2-1.1.1-2.2.8-3.3z" fill="#EC0000"/></svg>',
+            svg:
+                '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2c-.4 3.1-3.4 4.5-3.4 7.7 0 1.4.8 2.6 1.7 3.4-.5-1.3-.1-2.8 1-3.9.4 1.6 1.8 2.3 1.8 4.2 0 1.3-.7 2.4-1.7 3.2 2.9-.4 5.1-2.6 5.1-5.6 0-3.2-3.4-4.7-4.5-9zM7 11.2c-2.6.9-4.5 2.7-4.5 4.8 0 2.8 4.2 5 9.5 5s9.5-2.2 9.5-5c0-2-1.8-3.8-4.3-4.7.6 1.1.8 2.3.5 3.6-1.1 1.6-3.4 2.5-5.7 2.5-2.6 0-4.9-1.1-5.8-2.9-.2-1.1.1-2.2.8-3.3z" fill="#EC0000"/></svg>',
             width: 16,
             height: 16,
           ),
@@ -5080,7 +5836,8 @@ class SolarProposalPdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.SvgImage(
-            svg: '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none"/><path d="M12 2c2 3 2 6 0 8-2-2-2-5 0-8zM22 12c-3 2-6 2-8 0 2-2 5-2 8 0zM12 22c-2-3-2-6 0-8 2 2 2 5 0 8zM2 12c3-2 6-2 8 0-2 2-5 2-8 0zM19.1 4.9c-.7 3.5-2.8 5.6-5.6 5.6 0-2.8 2.1-4.9 5.6-5.6zM19.1 19.1c-3.5-.7-5.6-2.8-5.6-5.6 2.8 0 4.9 2.1 5.6 5.6zM4.9 19.1c.7-3.5 2.8-5.6 5.6-5.6 0 2.8-2.1 4.9-5.6 5.6zM4.9 4.9c3.5.7 5.6 2.8 5.6 5.6-2.8 0-4.9-2.1-5.6-5.6z" fill="#3FA110"/></svg>',
+            svg:
+                '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none"/><path d="M12 2c2 3 2 6 0 8-2-2-2-5 0-8zM22 12c-3 2-6 2-8 0 2-2 5-2 8 0zM12 22c-2-3-2-6 0-8 2 2 2 5 0 8zM2 12c3-2 6-2 8 0-2 2-5 2-8 0zM19.1 4.9c-.7 3.5-2.8 5.6-5.6 5.6 0-2.8 2.1-4.9 5.6-5.6zM19.1 19.1c-3.5-.7-5.6-2.8-5.6-5.6 2.8 0 4.9 2.1 5.6 5.6zM4.9 19.1c.7-3.5 2.8-5.6 5.6-5.6 0 2.8-2.1 4.9-5.6 5.6zM4.9 4.9c3.5.7 5.6 2.8 5.6 5.6-2.8 0-4.9-2.1-5.6-5.6z" fill="#3FA110"/></svg>',
             width: 16,
             height: 16,
           ),
@@ -5103,7 +5860,8 @@ class SolarProposalPdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.SvgImage(
-            svg: '<svg viewBox="0 0 28 24" width="22" height="18"><path d="M2 2h7c3 0 5 1.5 5 4.2 0 1.8-1 3.1-2.5 3.6 1.9.5 3 2 3 4.1 0 3-2.3 5.1-5.8 5.1H2V2zm4.2 6.4h2.4c1.2 0 1.9-.6 1.9-1.6s-.7-1.6-1.9-1.6H6.2v3.2zm0 7.2h2.8c1.4 0 2.2-.7 2.2-1.8 0-1.1-.8-1.8-2.2-1.8H6.2v3.6z" fill="#1D4ED8"/><path d="M13 6h4.2l3.1 9.5L23.4 6H27.5l-5.3 15h-4L13 6z" fill="#06B6D4"/></svg>',
+            svg:
+                '<svg viewBox="0 0 28 24" width="22" height="18"><path d="M2 2h7c3 0 5 1.5 5 4.2 0 1.8-1 3.1-2.5 3.6 1.9.5 3 2 3 4.1 0 3-2.3 5.1-5.8 5.1H2V2zm4.2 6.4h2.4c1.2 0 1.9-.6 1.9-1.6s-.7-1.6-1.9-1.6H6.2v3.2zm0 7.2h2.8c1.4 0 2.2-.7 2.2-1.8 0-1.1-.8-1.8-2.2-1.8H6.2v3.6z" fill="#1D4ED8"/><path d="M13 6h4.2l3.1 9.5L23.4 6H27.5l-5.3 15h-4L13 6z" fill="#06B6D4"/></svg>',
             width: 22,
             height: 18,
           ),
@@ -5131,26 +5889,39 @@ class SolarProposalPdfService {
     );
   }
 
-  static String _pdfColorToHex(PdfColor color) {
-    final r = (color.red * 255).round().toRadixString(16).padLeft(2, '0');
-    final g = (color.green * 255).round().toRadixString(16).padLeft(2, '0');
-    final b = (color.blue * 255).round().toRadixString(16).padLeft(2, '0');
-    return '#$r$g$b';
-  }
-
   static String _getComponentIcon(String item, String hex) {
     final upper = item.toUpperCase();
     if (upper.contains('INVERSOR') || upper.contains('MICRO')) {
       return SolarPdfIcons.inverterBox(hex);
-    } else if (upper.contains('MÓDULO') || upper.contains('MODULO') || upper.contains('PAINEL') || upper.contains('PLACA') || upper.contains('FOTOVOLTAICO')) {
+    } else if (upper.contains('MÓDULO') ||
+        upper.contains('MODULO') ||
+        upper.contains('PAINEL') ||
+        upper.contains('PLACA') ||
+        upper.contains('FOTOVOLTAICO')) {
       return SolarPdfIcons.panelGrid(hex);
-    } else if (upper.contains('ESTRUTURA') || upper.contains('PERFIL') || upper.contains('FIXAÇÃO') || upper.contains('FIXACAO') || upper.contains('TELHADO') || upper.contains('TELHA')) {
+    } else if (upper.contains('ESTRUTURA') ||
+        upper.contains('PERFIL') ||
+        upper.contains('FIXAÇÃO') ||
+        upper.contains('FIXACAO') ||
+        upper.contains('TELHADO') ||
+        upper.contains('TELHA')) {
       return SolarPdfIcons.roof(hex);
-    } else if (upper.contains('STRING') || upper.contains('DPS') || upper.contains('CHAVE') || upper.contains('QUADRO') || upper.contains('PROTEÇÃO') || upper.contains('PROTECAO')) {
+    } else if (upper.contains('STRING') ||
+        upper.contains('DPS') ||
+        upper.contains('CHAVE') ||
+        upper.contains('QUADRO') ||
+        upper.contains('PROTEÇÃO') ||
+        upper.contains('PROTECAO')) {
       return SolarPdfIcons.shieldCheck(hex);
-    } else if (upper.contains('CABO') || upper.contains('CONECTOR') || upper.contains('MC4')) {
+    } else if (upper.contains('CABO') ||
+        upper.contains('CONECTOR') ||
+        upper.contains('MC4')) {
       return SolarPdfIcons.cablePlug(hex);
-    } else if (upper.contains('HOMOLOGAÇÃO') || upper.contains('HOMOLOGACAO') || upper.contains('ENGENHARIA') || upper.contains('PROJETO') || upper.contains('ART')) {
+    } else if (upper.contains('HOMOLOGAÇÃO') ||
+        upper.contains('HOMOLOGACAO') ||
+        upper.contains('ENGENHARIA') ||
+        upper.contains('PROJETO') ||
+        upper.contains('ART')) {
       return SolarPdfIcons.documentFile(hex);
     } else {
       return SolarPdfIcons.solarTech(hex);
@@ -5160,175 +5931,175 @@ class SolarProposalPdfService {
 
 /// Biblioteca de Ícones Vetoriais SVG Ultra-Sharp para o PDF Solar
 class SolarPdfIcons {
-  static String _svgWrap(String paths, {String color = '#0F172A', int size = 24, double strokeWidth = 2.0}) {
+  static String _svgWrap(String paths,
+      {String color = '#0F172A', int size = 24, double strokeWidth = 2.0}) {
     return '<svg width="$size" height="$size" viewBox="0 0 24 24" fill="none" stroke="$color" stroke-width="$strokeWidth" stroke-linecap="round" stroke-linejoin="round">$paths</svg>';
   }
 
   /// 1. Escudo com Check (Confiança)
   static String shieldCheck(String color, {int size = 24}) => _svgWrap(
-    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
+        color: color,
+        size: size,
+      );
 
   /// 2. Moeda / Dinheiro (Bom Negócio / Investimento)
   static String dollar(String color, {int size = 24}) => _svgWrap(
-    '<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/>',
-    color: color,
-    size: size,
-  );
+        '<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/>',
+        color: color,
+        size: size,
+      );
 
   /// 3. Painel Solar com Sol (Tecnologia)
   static String solarTech(String color, {int size = 24}) => _svgWrap(
-    '<path d="M12 2v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M2 12h2"/><path d="M19.07 4.93l-1.41 1.41"/><path d="M6 10l-3 10h18l-3-10H6z"/><path d="M6 15h12"/><path d="M12 10v10"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="M12 2v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M2 12h2"/><path d="M19.07 4.93l-1.41 1.41"/><path d="M6 10l-3 10h18l-3-10H6z"/><path d="M6 15h12"/><path d="M12 10v10"/>',
+        color: color,
+        size: size,
+      );
 
   /// 4. Polegar / Like (Zero Dor de Cabeça)
   static String thumbsUp(String color, {int size = 24}) => _svgWrap(
-    '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h3"/><path d="M10 5a3 3 0 0 1 6 0"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h3"/><path d="M10 5a3 3 0 0 1 6 0"/>',
+        color: color,
+        size: size,
+      );
 
   /// 5. Lâmpada de Ideias (Solução Completa Turn-Key)
   static String lightbulb(String color, {int size = 24}) => _svgWrap(
-    '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+        color: color,
+        size: size,
+      );
 
   /// 6. Smartphone (App Gratuito de Monitoramento)
   static String smartphone(String color, {int size = 24}) => _svgWrap(
-    '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
-    color: color,
-    size: size,
-  );
+        '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+        color: color,
+        size: size,
+      );
 
   /// 7. Caminhão de Entrega (Frete Incluso)
   static String truck(String color, {int size = 24}) => _svgWrap(
-    '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14v10"/><circle cx="17" cy="18.5" r="2.5"/><circle cx="7" cy="18.5" r="2.5"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14v10"/><circle cx="17" cy="18.5" r="2.5"/><circle cx="7" cy="18.5" r="2.5"/>',
+        color: color,
+        size: size,
+      );
 
   /// 8. Certificado / Selo INMETRO & Garantias
   static String award(String color, {int size = 24}) => _svgWrap(
-    '<circle cx="12" cy="8" r="6"/><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.724.522L12 19.8l-4.268 2.138a.5.5 0 0 1-.724-.522l1.515-8.526"/>',
-    color: color,
-    size: size,
-  );
+        '<circle cx="12" cy="8" r="6"/><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.724.522L12 19.8l-4.268 2.138a.5.5 0 0 1-.724-.522l1.515-8.526"/>',
+        color: color,
+        size: size,
+      );
 
   /// 9. Raio / Potência do Sistema
   static String bolt(String color, {int size = 24}) => _svgWrap(
-    '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+        color: color,
+        size: size,
+      );
 
   /// 10. Grade de Módulos Solares
   static String solarPanel(String color, {int size = 24}) => _svgWrap(
-    '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/>',
-    color: color,
-    size: size,
-  );
+        '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/>',
+        color: color,
+        size: size,
+      );
 
   /// 11. Potência do Módulo em Watts
   static String sunWatt(String color, {int size = 24}) => _svgWrap(
-    '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
-    color: color,
-    size: size,
-  );
+        '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+        color: color,
+        size: size,
+      );
 
   /// 12. Inversor / Microinversor Grid-Tie
   static String inverter(String color, {int size = 24}) => _svgWrap(
-    '<rect width="16" height="16" x="4" y="4" rx="2"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/>',
-    color: color,
-    size: size,
-  );
+        '<rect width="16" height="16" x="4" y="4" rx="2"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/>',
+        color: color,
+        size: size,
+      );
 
   /// 13. Telhado / Estrutura
   static String roof(String color, {int size = 24}) => _svgWrap(
-    '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+        color: color,
+        size: size,
+      );
 
   /// 14. Gráfico de Produção de Energia
   static String trendingUp(String color, {int size = 24}) => _svgWrap(
-    '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
-    color: color,
-    size: size,
-  );
+        '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+        color: color,
+        size: size,
+      );
 
   /// 15. Régua / Área Ocupada
   static String rulerSquare(String color, {int size = 24}) => _svgWrap(
-    '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
-    color: color,
-    size: size,
-  );
+        '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
+        color: color,
+        size: size,
+      );
 
   /// 16. Tabela / Calendário Financeiro
   static String calendarTable(String color, {int size = 24}) => _svgWrap(
-    '<rect width="18" height="16" x="3" y="4" rx="2"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="16" x2="16" y1="2" y2="6"/>',
-    color: color,
-    size: size,
-  );
+        '<rect width="18" height="16" x="3" y="4" rx="2"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="16" x2="16" y1="2" y2="6"/>',
+        color: color,
+        size: size,
+      );
 
   /// 17. Relógio / Payback
   static String clock(String color, {int size = 24}) => _svgWrap(
-    '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
-    color: color,
-    size: size,
-  );
+        '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+        color: color,
+        size: size,
+      );
 
   /// 18. Painel Solar 3x2 (Lista de Equipamentos)
   static String panelGrid(String color, {int size = 24}) => _svgWrap(
-    '<path d="M3 5h18v14H3zM3 12h18M9 5v14m6-14v14"/>',
-    color: color,
-    size: size,
-    strokeWidth: 1.65,
-  );
+        '<path d="M3 5h18v14H3zM3 12h18M9 5v14m6-14v14"/>',
+        color: color,
+        size: size,
+        strokeWidth: 1.65,
+      );
 
   /// 19. Inversor com Raio (Lista de Equipamentos)
   static String inverterBox(String color, {int size = 24}) => _svgWrap(
-    '<path d="M6 3h12v18H6zM9 7h6m-3 3-3 5h4l-1 3"/>',
-    color: color,
-    size: size,
-    strokeWidth: 1.65,
-  );
+        '<path d="M6 3h12v18H6zM9 7h6m-3 3-3 5h4l-1 3"/>',
+        color: color,
+        size: size,
+        strokeWidth: 1.65,
+      );
 
   /// 20. Cabo Solar / Conector MC4 (Lista de Equipamentos)
   static String cablePlug(String color, {int size = 24}) => _svgWrap(
-    '<path d="M7 3v5m4-5v5M5 8h8v3a4 4 0 0 1-8 0zm4 7v2a3 3 0 0 0 6 0v-3a3 3 0 0 1 6 0v5"/>',
-    color: color,
-    size: size,
-    strokeWidth: 1.65,
-  );
+        '<path d="M7 3v5m4-5v5M5 8h8v3a4 4 0 0 1-8 0zm4 7v2a3 3 0 0 0 6 0v-3a3 3 0 0 1 6 0v5"/>',
+        color: color,
+        size: size,
+        strokeWidth: 1.65,
+      );
 
   /// 21. Documento / Projeto Executivo & ART
   static String documentFile(String color, {int size = 24}) => _svgWrap(
-    '<path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6"/>',
-    color: color,
-    size: size,
-    strokeWidth: 1.65,
-  );
+        '<path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6"/>',
+        color: color,
+        size: size,
+        strokeWidth: 1.65,
+      );
 
   /// 22. Ícone Pix
   static String pix(String color, {int size = 24}) => _svgWrap(
-    '<path d="M12 3l9 9-9 9-9-9zm-5 9 5 5 5-5m-10 0 5-5 5 5"/>',
-    color: color,
-    size: size,
-    strokeWidth: 1.65,
-  );
+        '<path d="M12 3l9 9-9 9-9-9zm-5 9 5 5 5-5m-10 0 5-5 5 5"/>',
+        color: color,
+        size: size,
+        strokeWidth: 1.65,
+      );
 
   /// 23. Ícone Banco / Financiamento
   static String bank(String color, {int size = 24}) => _svgWrap(
-    '<path d="M3 9l9-5 9 5H3zm3 3v6m6-6v6m6-6v6M3 21h18"/>',
-    color: color,
-    size: size,
-    strokeWidth: 1.65,
-  );
+        '<path d="M3 9l9-5 9 5H3zm3 3v6m6-6v6m6-6v6M3 21h18"/>',
+        color: color,
+        size: size,
+        strokeWidth: 1.65,
+      );
 }
-

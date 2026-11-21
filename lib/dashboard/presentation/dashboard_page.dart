@@ -34,6 +34,7 @@ import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
 import 'master_ai_quotas_view.dart';
+import '../../sites/presentation/site_builder_view.dart';
 import 'widgets/global_search_dialog.dart';
 import 'widgets/support_chat_fab.dart';
 import '../../solar_designer/presentation/roof_studies_view.dart';
@@ -781,6 +782,8 @@ class _DashboardPageState extends State<DashboardPage> {
           );
         }
         return ContractsView(currentUser: _currentUser);
+      case AppSidebarItem.sites:
+        return SiteBuilderView(currentUser: _currentUser);
       case AppSidebarItem.solarCredits:
         if (!UserModel.isMasterEmail(_currentUser?.email)) {
           return const Center(

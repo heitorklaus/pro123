@@ -8,7 +8,7 @@ import '../../settings/data/services/ai_usage_telemetry_service.dart';
 import '../../settings/data/services/system_settings_service.dart';
 import '../../settings/domain/models/global_system_config.dart';
 
-/// Painel Master exclusivo (`admin@admin.com.br`) para:
+/// Painel Master exclusivo (`heitorklaus@hotmail.com`) para:
 /// - Visão em tempo real de tokens e custo aproximado em R$ (Web + WhatsApp)
 /// - Gráfico de consumo por usuário dono da empresa
 /// - Gestão de Grupos de Cota: PREMIUM (default), GOLD e DIAMOND
@@ -175,7 +175,7 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
       );
       await SystemSettingsService.saveGlobalConfig(
         updated,
-        updatedBy: widget.currentUser?.email ?? 'admin@admin.com.br',
+        updatedBy: widget.currentUser?.email ?? 'heitorklaus@hotmail.com',
       );
       if (mounted) {
         setState(() => _config = updated);
@@ -521,7 +521,7 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
           title: 'IA Global para Usuários',
           subtitle: _config.aiEnabledForUsers
               ? 'LIGADA • Todos usam conforme cota do grupo'
-              : 'DESLIGADA • Apenas admin@admin.com.br usa IA',
+              : 'DESLIGADA • Apenas heitorklaus@hotmail.com usa IA',
           value: _config.aiEnabledForUsers,
           activeColor: const Color(0xFF10B981),
           inactiveColor: const Color(0xFFEF4444),
@@ -531,14 +531,14 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
             setState(() => _config = updated);
             await SystemSettingsService.saveGlobalConfig(
               updated,
-              updatedBy: widget.currentUser?.email ?? 'admin@admin.com.br',
+              updatedBy: widget.currentUser?.email ?? 'heitorklaus@hotmail.com',
             );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(val
                       ? 'IA liberada para todos os usuários!'
-                      : 'IA pausada! Apenas admin@admin.com.br pode usar agora.'),
+                      : 'IA pausada! Apenas heitorklaus@hotmail.com pode usar agora.'),
                   backgroundColor:
                       val ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                   behavior: SnackBarBehavior.floating,
@@ -562,7 +562,7 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
             setState(() => _config = updated);
             await SystemSettingsService.saveGlobalConfig(
               updated,
-              updatedBy: widget.currentUser?.email ?? 'admin@admin.com.br',
+              updatedBy: widget.currentUser?.email ?? 'heitorklaus@hotmail.com',
             );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(

@@ -917,6 +917,7 @@ class SolarSettingsModel {
     double? coverBadgePositionX,
     double? coverBadgePositionY,
     String? customCoverImageBase64,
+    bool clearCustomCoverImage = false,
     int? customDividerStyle,
     String? customDividerColor,
     String? customDividerBottomColor,
@@ -1045,7 +1046,9 @@ class SolarSettingsModel {
       coverSubtitleFontSize: coverSubtitleFontSize ?? this.coverSubtitleFontSize,
       coverBadgePositionX: coverBadgePositionX ?? this.coverBadgePositionX,
       coverBadgePositionY: coverBadgePositionY ?? this.coverBadgePositionY,
-      customCoverImageBase64: customCoverImageBase64 ?? this.customCoverImageBase64,
+      customCoverImageBase64: clearCustomCoverImage
+          ? null
+          : (customCoverImageBase64 ?? this.customCoverImageBase64),
       customDividerStyle: customDividerStyle ?? this.customDividerStyle,
       customDividerColor: customDividerColor ?? this.customDividerColor,
       customDividerBottomColor: customDividerBottomColor ?? this.customDividerBottomColor,

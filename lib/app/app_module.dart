@@ -3,6 +3,7 @@ import '../auth/auth_module.dart';
 import '../dashboard/dashboard_module.dart';
 import '../products/presentation/automation_web_proposal_page.dart';
 import '../proposals/presentation/web_proposal_page.dart';
+import '../sites/presentation/public_solar_site_page.dart';
 
 class AppModule extends Module {
   @override
@@ -34,6 +35,11 @@ class AppModule extends Module {
         ChildRoute(
           '/preview-automacao',
           child: (context, args) => const AutomationWebProposalPage(studyId: 'preview'),
+        ),
+        // Rota Pública de Sites One-Page das Empresas (Acesso Livre sem Login)
+        ChildRoute(
+          '/site/:slug',
+          child: (context, args) => PublicSolarSitePage(slug: args.params['slug'] ?? ''),
         ),
       ];
 }

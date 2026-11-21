@@ -44,7 +44,7 @@ class FirestoreSettingsService {
 
     for (final fallbackCid in [
       'GLOBAL_MASTER',
-      'XeKKr3jD1WdmyHJJNayTEX18x9I2',
+      '5NqpP8D5qRfbu7s8ZouYu1NIcKv1',
       '0Y5DVRzkIQXrb6wyyUwxslbxeOB2'
     ]) {
       if (!candidateCompanyIds.contains(fallbackCid)) {

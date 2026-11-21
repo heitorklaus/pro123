@@ -230,7 +230,7 @@ Retorne ESTRITAMENTE um objeto JSON válido (sem markdown ```json e sem texto an
   "commercial": {
     "paymentTerms": "À vista via PIX (5% desc) ou Boleto 30DD",
     "validityDays": 15,
-    "deliveryTime": "Imediata / 3 a 5 dias úteis",
+    "deliveryTime": null,
     "notes": "Instalação turn-key completa com engenharia, projeto e homologação inclusos."
   }
 }''';

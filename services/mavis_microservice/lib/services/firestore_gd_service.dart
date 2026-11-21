@@ -3,17 +3,15 @@ import 'package:http/http.dart' as http;
 import '../models/solar_credit_dto.dart';
 
 /// Serviço de consulta e lançamento de Créditos Solares (GD) no Cloud Firestore.
-/// Restrito inicialmente à conta master `admin@admin.com.br`.
+/// Restrito inicialmente à conta master `heitorklaus@hotmail.com`.
 class FirestoreGdService {
   static const String _projectId = 'mavis-crm-80885';
   static const String _documentsBaseUrl =
       'https://firestore.googleapis.com/v1/projects/$_projectId/databases/(default)/documents';
   static const Set<String> _allowedEmails = {
-    'admin@admin.com.br',
     'heitorklaus@hotmail.com',
   };
   static const Set<String> _knownAdminCompanyIds = {
-    'XeKKr3jD1WdmyHJJNayTEX18x9I2',
     '0Y5DVRzkIQXrb6wyyUwxslbxeOB2',
     '5NqpP8D5qRfbu7s8ZouYu1NIcKv1',
   };

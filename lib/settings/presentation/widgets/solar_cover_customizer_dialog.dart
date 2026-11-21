@@ -18,6 +18,7 @@ import 'cover_pages_manager_tab.dart';
 import 'cover_page2_interactive_canvas.dart';
 import 'cover_custom_page_interactive_canvas.dart';
 import 'corporate_wave_cover_view.dart';
+import 'taos_loading_popup.dart';
 
 /// Modal amplo de estúdio visual para personalização interativa em tempo real da capa da proposta
 class SolarCoverCustomizerDialog extends StatefulWidget {
@@ -443,14 +444,26 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       );
 
       if (files.isNotEmpty) {
-        final bytes = await files.first.readAsBytes();
-        final b64 = base64Encode(bytes);
-        setState(() {
-          _current = _current.copyWith(
-            customCoverImageBase64: b64,
-            isCustomCoverMode: true,
-          );
-        });
+        if (mounted) {
+          TaosLoadingPopup.show(context, message: 'Carregando Imagem');
+          await Future.delayed(const Duration(milliseconds: 60));
+        }
+        try {
+          final bytes = await files.first.readAsBytes();
+          final b64 = SolarSettingsService.compressImageBytesForFirestore(bytes);
+          if (mounted) {
+            setState(() {
+              _current = _current.copyWith(
+                customCoverImageBase64: b64,
+                isCustomCoverMode: true,
+              );
+            });
+          }
+        } finally {
+          if (mounted) {
+            TaosLoadingPopup.hide(context);
+          }
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1435,14 +1448,99 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             companyEmail: 'contato@empresa.com.br',
                             companyWebsite: (_current.companyWebsite != null && _current.companyWebsite!.isNotEmpty) ? _current.companyWebsite! : 'www.empresa.com.br',
                             companyLogoBase64: _current.companyLogoBase64,
-                            photoUrl: SolarSettingsService.getBigCoverUrl(
-                              _current.selectedCoverTemplate.isNotEmpty
+                            photoUrl: (() {
+                              final target = _current.selectedCoverTemplate.isNotEmpty
                                   ? _current.selectedCoverTemplate
-                                  : 'modelo_proposta_1.jpg',
-                            ),
+                                  : 'modelo_proposta_1.jpg';
+                              return (target.startsWith('modelo_') ||
+                                      target.contains('energiasolar'))
+                                  ? SolarSettingsService.getBigCoverUrl(target)
+                                  : SolarSettingsService.getWebBackgroundUrl(target);
+                            })(),
                             customPhotoBase64: _current.customCoverImageBase64,
                             primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF0284C7)),
+                            showLogo: _current.coverShowLogo,
+                            logoWidth: _current.coverLogoWidth,
+                            logoPositionX: _current.coverLogoPositionX,
+                            logoPositionY: _current.coverLogoPositionY,
+                            titleColor: Color(_current.coverTitleColorValue),
+                            titleFontSize: _current.coverTitleFontSize,
+                            subtitleColor: Color(_current.coverSubtitleColorValue),
+                            subtitleFontSize: _current.coverSubtitleFontSize,
+                            showHeadline: _current.verticalSplitShowHeadline,
+                            headline: _current.verticalSplitHeadline,
+                            subheadline: _current.verticalSplitSubheadline,
+                            headlineColor: Color(_current.coverHeadlineColorValue),
+                            headlineLeft: _current.verticalSplitHeadlineLeft,
+                            headlineTop: _current.verticalSplitHeadlineTop,
+                            showBadges: _current.verticalSplitShowLeftFooter,
+                            badges: _current.verticalSplitFooterBadges
+                                .map((b) => b.label)
+                                .toList(),
+                            badgesLeft: _current.verticalSplitLeftFooterLeft,
+                            badgesBottom: _current.verticalSplitLeftFooterBottom,
                           ),
+                          if (_current.coverShowLogo)
+                            _buildDraggableHandle(
+                              elementKey: 'logo',
+                              label: '🏢 Logomarca',
+                              left: _current.coverLogoPositionX * canvasW,
+                              top: _current.coverLogoPositionY * canvasH,
+                              width: (_current.coverLogoWidth * scale).clamp(60.0, canvasW * 0.55),
+                              height: 54 * scale,
+                              onDelete: () => setState(() => _current = _current.copyWith(coverShowLogo: false)),
+                              onDrag: (dx, dy) {
+                                setState(() {
+                                  final newX = ((_current.coverLogoPositionX * canvasW) + dx) / canvasW;
+                                  final newY = ((_current.coverLogoPositionY * canvasH) + dy) / canvasH;
+                                  _current = _current.copyWith(
+                                    coverLogoPositionX: newX.clamp(0.0, 0.90),
+                                    coverLogoPositionY: newY.clamp(0.0, 0.90),
+                                  );
+                                });
+                              },
+                            ),
+                          if (_current.verticalSplitShowHeadline)
+                            _buildDraggableHandle(
+                              elementKey: 'headline',
+                              label: '📌 Título da Foto',
+                              left: _current.verticalSplitHeadlineLeft * canvasW,
+                              top: _current.verticalSplitHeadlineTop * canvasH,
+                              width: canvasW * 0.48,
+                              height: 96 * scale,
+                              onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowHeadline: false)),
+                              onDrag: (dx, dy) {
+                                setState(() {
+                                  final newLeft = ((_current.verticalSplitHeadlineLeft * canvasW) + dx) / canvasW;
+                                  final newTop = ((_current.verticalSplitHeadlineTop * canvasH) + dy) / canvasH;
+                                  _current = _current.copyWith(
+                                    verticalSplitHeadlineLeft: newLeft.clamp(-0.50, 1.50),
+                                    verticalSplitHeadlineTop: newTop.clamp(-0.50, 1.50),
+                                  );
+                                });
+                              },
+                            ),
+                          if (_current.verticalSplitShowLeftFooter &&
+                              _current.verticalSplitFooterBadges.isNotEmpty)
+                            _buildDraggableHandle(
+                              elementKey: 'leftFooter',
+                              label: '🏷️ Badges / Selos',
+                              left: _current.verticalSplitLeftFooterLeft * canvasW,
+                              top: (canvasH - (_current.verticalSplitLeftFooterBottom * canvasH) - (54 * scale)).clamp(0.0, canvasH - 54 * scale),
+                              width: canvasW * 0.56,
+                              height: 54 * scale,
+                              onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowLeftFooter: false)),
+                              onDrag: (dx, dy) {
+                                setState(() {
+                                  final newLeft = ((_current.verticalSplitLeftFooterLeft * canvasW) + dx) / canvasW;
+                                  final newBottom = ((_current.verticalSplitLeftFooterBottom * canvasH) - dy) / canvasH;
+                                  _current = _current.copyWith(
+                                    verticalSplitLeftFooterLeft: newLeft.clamp(0.0, 0.90),
+                                    verticalSplitLeftFooterBottom: newBottom.clamp(0.0, 0.92),
+                                  );
+                                });
+                              },
+                            ),
                         ] else if (_current.proposalStyle == 'verticalSplit') ...[
                           // Capa Vertical Split Renderizada em tempo real
                           SolarVerticalSplitCoverView(
@@ -1599,13 +1697,25 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           )
                         else
                           Image.network(
-                            SolarSettingsService.getBigCoverUrl(
-                              _current.selectedCoverTemplate.isNotEmpty
+                            (() {
+                              final useCleanBg = _current.isCustomCoverMode ||
+                                  _current.customDividerStyle >= 0;
+                              if (useCleanBg) {
+                                final bg = _current.webBackgroundTemplate;
+                                final cleanBg = (bg.isNotEmpty &&
+                                        !bg.startsWith('modelo_') &&
+                                        !bg.contains('energiasolar'))
+                                    ? bg
+                                    : SolarSettingsModel.availableWebBackgrounds.first;
+                                return SolarSettingsService.getWebBackgroundUrl(cleanBg);
+                              }
+                              final target = _current.selectedCoverTemplate.isNotEmpty
                                   ? _current.selectedCoverTemplate
                                   : (_current.webBackgroundTemplate.isNotEmpty
                                       ? _current.webBackgroundTemplate
-                                      : 'modelo_proposta_1.jpg'),
-                            ),
+                                      : 'modelo_proposta_1.jpg');
+                              return SolarSettingsService.getBigCoverUrl(target);
+                            })(),
                             fit: BoxFit.cover,
                             width: canvasW,
                             height: canvasH,
@@ -3703,6 +3813,31 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           const Divider(color: Color(0xFF334155)),
           const SizedBox(height: 16),
 
+          // ── 3.5. SEÇÃO: PALETA DE CORES DA PROPOSTA (ÍCONES E FUNDOS) ─────
+          _panelSectionTitle(
+            'Paleta de Cores da Proposta',
+            'Personalize os fundos dos banners e as cores dos ícones de toda a proposta',
+          ),
+          const SizedBox(height: 12),
+          _buildProposalThemeColorPalette(
+            label: 'Cor dos Fundos / Banners da Proposta',
+            selectedHex: _current.secondaryThemeColor,
+            onSelected: (hex) => setState(() {
+              _current = _current.copyWith(secondaryThemeColor: hex);
+            }),
+          ),
+          const SizedBox(height: 14),
+          _buildProposalThemeColorPalette(
+            label: 'Cor dos Ícones da Proposta',
+            selectedHex: _current.themeColorHex,
+            onSelected: (hex) => setState(() {
+              _current = _current.copyWith(selectedSvgTheme: hex);
+            }),
+          ),
+          const SizedBox(height: 24),
+          const Divider(color: Color(0xFF334155)),
+          const SizedBox(height: 16),
+
           // ── 4. SEÇÃO: RODAPÉ INSTITUCIONAL ───────────────────────────────
           _panelSectionTitle(
             'Rodapé Institucional',
@@ -3938,9 +4073,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     width: cardW,
                     child: InkWell(
                       onTap: () => setState(() {
+                        String nextWebBg = _current.webBackgroundTemplate;
+                        if (divId >= 0 &&
+                            (nextWebBg.isEmpty ||
+                                nextWebBg.startsWith('modelo_') ||
+                                nextWebBg.contains('energiasolar'))) {
+                          final numMatch = RegExp(r'\d+').firstMatch(_current.selectedCoverTemplate);
+                          final idx = ((int.tryParse(numMatch?.group(0) ?? '1') ?? 1) - 1) %
+                              SolarSettingsModel.availableWebBackgrounds.length;
+                          nextWebBg = SolarSettingsModel.availableWebBackgrounds[idx];
+                        }
                         _current = _current.copyWith(
                           customDividerStyle: divId,
                           isCustomCoverMode: divId >= 0,
+                          webBackgroundTemplate: nextWebBg,
                         );
                       }),
                       borderRadius: BorderRadius.circular(10),
@@ -4516,7 +4662,11 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     _current = _current.copyWith(
                       selectedCoverTemplate: item,
                       webBackgroundTemplate: item,
-                      customCoverImageBase64: null,
+                      clearCustomCoverImage: true,
+                      isCustomCoverMode: !isCoversMode,
+                      customDividerStyle: isCoversMode
+                          ? -1
+                          : (_current.customDividerStyle >= 0 ? _current.customDividerStyle : 0),
                     );
                   });
                 },
@@ -4708,12 +4858,92 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     );
   }
 
+  Widget _buildProposalThemeColorPalette({
+    required String label,
+    required String selectedHex,
+    required ValueChanged<String> onSelected,
+  }) {
+    const palette = [
+      {'hex': '#2563EB', 'name': 'Azul Royal'},
+      {'hex': '#0284C7', 'name': 'Azul Ciano'},
+      {'hex': '#102C49', 'name': 'Azul Marinho'},
+      {'hex': '#10B981', 'name': 'Verde Esmeralda'},
+      {'hex': '#059669', 'name': 'Verde Folha'},
+      {'hex': '#0D9488', 'name': 'Verde Petróleo'},
+      {'hex': '#F59E0B', 'name': 'Âmbar Solar'},
+      {'hex': '#F97316', 'name': 'Laranja Energia'},
+      {'hex': '#8B5CF6', 'name': 'Roxo Tech'},
+      {'hex': '#EF4444', 'name': 'Vermelho Rubi'},
+      {'hex': '#0F172A', 'name': 'Preto Grafite'},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFFE2E8F0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: palette.map((item) {
+            final hex = item['hex']!;
+            final isSel = selectedHex.trim().toUpperCase() == hex.toUpperCase();
+            final color = Color(int.parse(hex.replaceAll('#', 'FF'), radix: 16));
+            return Tooltip(
+              message: item['name']!,
+              child: InkWell(
+                onTap: () => onSelected(hex),
+                borderRadius: BorderRadius.circular(18),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSel ? Colors.white : const Color(0xFF475569),
+                      width: isSel ? 2.5 : 1,
+                    ),
+                    boxShadow: isSel
+                        ? [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.55),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: isSel
+                      ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                      : null,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildColorOption(String hex, String name) {
     final isSelected = _current.verticalSplitAccentColor.toLowerCase() == hex.toLowerCase();
     final color = Color(int.parse(hex.replaceAll('#', 'FF'), radix: 16));
 
     return InkWell(
-      onTap: () => setState(() => _current = _current.copyWith(verticalSplitAccentColor: hex)),
+      onTap: () => setState(() => _current = _current.copyWith(
+            verticalSplitAccentColor: hex,
+            selectedSvgTheme: hex,
+            secondaryThemeColor: hex,
+          )),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

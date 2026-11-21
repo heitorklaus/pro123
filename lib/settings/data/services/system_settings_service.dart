@@ -163,7 +163,7 @@ class SystemSettingsService {
       return true;
     }
 
-    // 2.1 Liga/Desliga global da IA pelo Master (quando desligado, só admin@admin.com.br usa IA)
+    // 2.1 Liga/Desliga global da IA pelo Master (quando desligado, só heitorklaus@hotmail.com usa IA)
     final globalCfg = await getGlobalConfig();
     if (!globalCfg.aiEnabledForUsers) {
       if (context.mounted) {

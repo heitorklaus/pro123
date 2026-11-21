@@ -16,6 +16,7 @@ import 'widgets/solar_cover_divider_painter.dart';
 import 'widgets/solar_vertical_split_painter.dart';
 import 'widgets/solar_cover_customizer_dialog.dart';
 import 'widgets/corporate_wave_cover_view.dart';
+import 'widgets/taos_loading_popup.dart';
 
 class SolarSettingsView extends StatefulWidget {
   final VoidCallback? onBack;
@@ -2639,6 +2640,8 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           _verticalSplitRightTaglineCtrl.text = val.verticalSplitRightTagline;
           _verticalSplitRightFooterCtrl.text = val.verticalSplitRightFooter;
           _verticalSplitAccentColor = val.verticalSplitAccentColor;
+          _selectedSvgTheme = val.selectedSvgTheme;
+          _secondaryThemeColor = val.secondaryThemeColor;
           _selectedWebBg = val.webBackgroundTemplate;
           _companyLogoBase64 = val.companyLogoBase64;
           _coverShowLogo = val.coverShowLogo;
@@ -2679,6 +2682,8 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         _verticalSplitRightTaglineCtrl.text = updated.verticalSplitRightTagline;
         _verticalSplitRightFooterCtrl.text = updated.verticalSplitRightFooter;
         _verticalSplitAccentColor = updated.verticalSplitAccentColor;
+        _selectedSvgTheme = updated.selectedSvgTheme;
+        _secondaryThemeColor = updated.secondaryThemeColor;
         _selectedWebBg = updated.webBackgroundTemplate;
         _companyLogoBase64 = updated.companyLogoBase64;
         _coverShowLogo = updated.coverShowLogo;
@@ -2715,7 +2720,36 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── BOTÃO DESTACADO: PERSONALIZAR CAPA & VISUAL ─────────────────────
+        // ── BOTÕES DESTACADOS: SALVAR ALTERAÇÕES & PERSONALIZAR CAPA ────────
+        SizedBox(
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: _isSaving ? null : _saveSettings,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2.2),
+                  )
+                : const Icon(Icons.save_rounded, size: 20),
+            label: Text(_isSaving ? 'SALVANDO ALTERAÇÕES...' : 'SALVAR ALTERAÇÕES'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              elevation: 5,
+              shadowColor: const Color(0xFF10B981).withValues(alpha: 0.45),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              textStyle: GoogleFonts.outfit(
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         ElevatedButton.icon(
           onPressed: _openCoverCustomizer,
           icon: const Icon(Icons.palette_rounded, size: 18),
@@ -2785,18 +2819,54 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 ? CorporateWaveCoverView(
                     width: previewW,
                     height: previewH,
-                    title: 'PROPOSTA\nCOMERCIAL',
-                    subtitle: 'ENERGIA SOLAR FOTOVOLTAICA',
+                    title: _settings.coverTitle.isNotEmpty
+                        ? _settings.coverTitle
+                        : 'PROPOSTA\nCOMERCIAL',
+                    subtitle: _settings.coverSubtitle.isNotEmpty
+                        ? _settings.coverSubtitle
+                        : 'ENERGIA SOLAR FOTOVOLTAICA',
                     clientName: 'João da Silva Santos',
                     locationAndDate: 'Brasil • 2026',
-                    companyName: _companyNameCtrl.text.isNotEmpty ? _companyNameCtrl.text : 'SUA EMPRESA SOLAR',
-                    companyPhone: _companyPhoneCtrl.text.isNotEmpty ? _companyPhoneCtrl.text : '(11) 98765-4321',
+                    companyName: _companyNameCtrl.text.isNotEmpty
+                        ? _companyNameCtrl.text
+                        : 'SUA EMPRESA SOLAR',
+                    companyPhone: _companyPhoneCtrl.text.isNotEmpty
+                        ? _companyPhoneCtrl.text
+                        : '(11) 98765-4321',
                     companyEmail: 'contato@empresa.com.br',
-                    companyWebsite: _companyWebsiteCtrl.text.isNotEmpty ? _companyWebsiteCtrl.text : 'www.empresa.com.br',
+                    companyWebsite: _companyWebsiteCtrl.text.isNotEmpty
+                        ? _companyWebsiteCtrl.text
+                        : 'www.empresa.com.br',
                     companyLogoBase64: _companyLogoBase64,
-                    photoUrl: SolarSettingsService.getBigCoverUrl(_selectedCover),
+                    photoUrl: (_selectedCover.startsWith('modelo_') ||
+                            _selectedCover.contains('energiasolar'))
+                        ? SolarSettingsService.getBigCoverUrl(_selectedCover)
+                        : SolarSettingsService.getWebBackgroundUrl(_selectedCover),
                     customPhotoBase64: _customCoverImageBase64,
-                    primaryColor: const Color(0xFF0284C7),
+                    primaryColor: Color(
+                      _hexToInt(_settings.verticalSplitAccentColor,
+                          fallback: 0xFF0284C7),
+                    ),
+                    showLogo: _settings.coverShowLogo,
+                    logoWidth: _settings.coverLogoWidth,
+                    logoPositionX: _settings.coverLogoPositionX,
+                    logoPositionY: _settings.coverLogoPositionY,
+                    titleColor: Color(_settings.coverTitleColorValue),
+                    titleFontSize: _settings.coverTitleFontSize,
+                    subtitleColor: Color(_settings.coverSubtitleColorValue),
+                    subtitleFontSize: _settings.coverSubtitleFontSize,
+                    showHeadline: _settings.verticalSplitShowHeadline,
+                    headline: _settings.verticalSplitHeadline,
+                    subheadline: _settings.verticalSplitSubheadline,
+                    headlineColor: Color(_settings.coverHeadlineColorValue),
+                    headlineLeft: _settings.verticalSplitHeadlineLeft,
+                    headlineTop: _settings.verticalSplitHeadlineTop,
+                    showBadges: _settings.verticalSplitShowLeftFooter,
+                    badges: _settings.verticalSplitFooterBadges
+                        .map((b) => b.label)
+                        .toList(),
+                    badgesLeft: _settings.verticalSplitLeftFooterLeft,
+                    badgesBottom: _settings.verticalSplitLeftFooterBottom,
                   )
                 : (_proposalStyle == 'verticalSplit'
                     ? SolarVerticalSplitCoverView(
@@ -2821,7 +2891,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                     )
                   else
                     Image.network(
-                      SolarSettingsService.getWebBackgroundUrl(_selectedWebBg),
+                      SolarSettingsService.getWebBackgroundUrl(
+                        (_selectedWebBg.isNotEmpty &&
+                                !_selectedWebBg.startsWith('modelo_') &&
+                                !_selectedWebBg.contains('energiasolar'))
+                            ? _selectedWebBg
+                            : SolarSettingsModel.availableWebBackgrounds.first,
+                      ),
                       fit: BoxFit.cover,
                       width: previewW,
                       height: previewH,
@@ -3416,15 +3492,26 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
 
               return InkWell(
                 onTap: () => setState(() {
+                  final modelColor =
+                      (model['primaryColor'] as String?) ?? '#0284C7';
                   _proposalStyle = 'corporateWave';
                   _selectedCover = imgName;
                   _isCustomCoverMode = false;
+                  _customDividerStyle = -1;
                   _customCoverImageBase64 = null;
+                  _verticalSplitAccentColor = modelColor;
+                  _selectedSvgTheme = modelColor;
+                  _secondaryThemeColor = modelColor;
                   _settings = _settings.copyWith(
                     selectedCoverTemplate: imgName,
                     webBackgroundTemplate: imgName,
-                    customCoverImageBase64: null,
+                    clearCustomCoverImage: true,
+                    isCustomCoverMode: false,
+                    customDividerStyle: -1,
                     proposalStyle: 'corporateWave',
+                    verticalSplitAccentColor: modelColor,
+                    selectedSvgTheme: modelColor,
+                    secondaryThemeColor: modelColor,
                   );
                 }),
                 borderRadius: BorderRadius.circular(10),
@@ -3533,12 +3620,30 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   _selectedVerticalSplit = model.id;
                   _verticalSplitDividerType = model.dividerType;
                   _selectedWebBg = model.imageName;
+                  _selectedCover = model.imageName;
                   _verticalSplitHeadlineCtrl.text = model.headline;
                   _verticalSplitSubheadlineCtrl.text = model.subheadline;
                   _verticalSplitRightTaglineCtrl.text = model.rightTagline;
                   _verticalSplitRightFooterCtrl.text = model.rightFooter;
                   _verticalSplitAccentColor = model.accentColor;
+                  _selectedSvgTheme = model.accentColor;
+                  _secondaryThemeColor = model.accentColor;
                   _isCustomCoverMode = false;
+                  _customDividerStyle = -1;
+                  _customCoverImageBase64 = null;
+                  _settings = _settings.copyWith(
+                    proposalStyle: 'verticalSplit',
+                    selectedVerticalSplitTemplate: model.id,
+                    verticalSplitDividerType: model.dividerType,
+                    selectedCoverTemplate: model.imageName,
+                    webBackgroundTemplate: model.imageName,
+                    clearCustomCoverImage: true,
+                    isCustomCoverMode: false,
+                    customDividerStyle: -1,
+                    verticalSplitAccentColor: model.accentColor,
+                    selectedSvgTheme: model.accentColor,
+                    secondaryThemeColor: model.accentColor,
+                  );
                 }),
                 borderRadius: BorderRadius.circular(10),
                 child: AnimatedContainer(
@@ -3726,12 +3831,19 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   _selectedCover = coverName;
                   _proposalStyle = 'modern';
                   _isCustomCoverMode = false;
+                  _customDividerStyle = -1;
                   _customCoverImageBase64 = null;
+                  _selectedSvgTheme = '#2563EB';
+                  _secondaryThemeColor = '#102C49';
                   _settings = _settings.copyWith(
                     selectedCoverTemplate: coverName,
                     webBackgroundTemplate: coverName,
-                    customCoverImageBase64: null,
+                    clearCustomCoverImage: true,
+                    isCustomCoverMode: false,
+                    customDividerStyle: -1,
                     proposalStyle: 'modern',
+                    selectedSvgTheme: '#2563EB',
+                    secondaryThemeColor: '#102C49',
                   );
                 }),
                 borderRadius: BorderRadius.circular(10),
@@ -4075,6 +4187,11 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               onTap: () => setState(() {
                 _customDividerStyle = divId;
                 _isCustomCoverMode = true;
+                if (_selectedWebBg.isEmpty ||
+                    _selectedWebBg.startsWith('modelo_') ||
+                    _selectedWebBg.contains('energiasolar')) {
+                  _selectedWebBg = SolarSettingsModel.availableWebBackgrounds.first;
+                }
               }),
               borderRadius: BorderRadius.circular(10),
               child: Container(
@@ -4234,13 +4351,29 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       );
 
       if (files.isNotEmpty) {
-        final bytes = await files.first.readAsBytes();
-        final b64 = base64Encode(bytes);
-        setState(() {
-          _customCoverImageBase64 = b64;
-          _isCustomCoverMode = true;
-          _coverSubTab = 1;
-        });
+        if (mounted) {
+          TaosLoadingPopup.show(context, message: 'Carregando Imagem');
+          await Future.delayed(const Duration(milliseconds: 60));
+        }
+        try {
+          final bytes = await files.first.readAsBytes();
+          final b64 = SolarSettingsService.compressImageBytesForFirestore(bytes);
+          if (mounted) {
+            setState(() {
+              _customCoverImageBase64 = b64;
+              _isCustomCoverMode = true;
+              _coverSubTab = 1;
+              _settings = _settings.copyWith(
+                customCoverImageBase64: b64,
+                isCustomCoverMode: true,
+              );
+            });
+          }
+        } finally {
+          if (mounted) {
+            TaosLoadingPopup.hide(context);
+          }
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -4266,7 +4399,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
 
       if (files.isNotEmpty) {
         final bytes = await files.first.readAsBytes();
-        final b64 = base64Encode(bytes);
+        final b64 = SolarSettingsService.compressImageBytesForFirestore(
+          bytes,
+          maxWidth: 600,
+          maxBase64Chars: 350000,
+          keepPngTransparency: true,
+        );
         setState(() {
           _companyLogoBase64 = b64;
           _coverShowLogo = true;

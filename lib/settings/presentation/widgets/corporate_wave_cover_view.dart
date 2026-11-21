@@ -246,6 +246,24 @@ class CorporateWaveCoverView extends StatelessWidget {
   final String? customPhotoBase64;
   final Color primaryColor;
   final Color? secondaryColor;
+  final bool showLogo;
+  final double logoWidth;
+  final double? logoPositionX;
+  final double? logoPositionY;
+  final Color? titleColor;
+  final double titleFontSize;
+  final Color? subtitleColor;
+  final double subtitleFontSize;
+  final bool showHeadline;
+  final String headline;
+  final String subheadline;
+  final Color? headlineColor;
+  final double headlineLeft;
+  final double headlineTop;
+  final bool showBadges;
+  final List<String> badges;
+  final double badgesLeft;
+  final double badgesBottom;
 
   static const double baseA4Width = 595.28;
   static const double baseA4Height = 841.89;
@@ -267,6 +285,24 @@ class CorporateWaveCoverView extends StatelessWidget {
     this.customPhotoBase64,
     this.primaryColor = const Color(0xFF0284C7),
     this.secondaryColor,
+    this.showLogo = true,
+    this.logoWidth = 90.0,
+    this.logoPositionX,
+    this.logoPositionY,
+    this.titleColor,
+    this.titleFontSize = 28.0,
+    this.subtitleColor,
+    this.subtitleFontSize = 12.0,
+    this.showHeadline = false,
+    this.headline = '',
+    this.subheadline = '',
+    this.headlineColor,
+    this.headlineLeft = 0.06,
+    this.headlineTop = 0.44,
+    this.showBadges = false,
+    this.badges = const [],
+    this.badgesLeft = 0.06,
+    this.badgesBottom = 0.14,
   });
 
   @override
@@ -350,55 +386,29 @@ class CorporateWaveCoverView extends StatelessWidget {
                   size: const Size(baseA4Width, baseA4Height),
                   painter: CorporateWaveDecorationPainter(
                     primaryColor: primaryColor,
-                    secondaryColor: secondaryColor ?? const Color(0xFF38BDF8),
+                    secondaryColor: secondaryColor ??
+                        Color.lerp(primaryColor, Colors.white, 0.42)!,
+                    darkColor: Color.lerp(primaryColor, Colors.black, 0.45)!,
                   ),
                 ),
               ),
 
-              // 3. CABEÇALHO DIREITO (LOGO + TÍTULO DA PROPOSTA + SUBTÍTULO + DATA)
+              // 3. CABEÇALHO DIREITO (TÍTULO DA PROPOSTA + SUBTÍTULO + DATA)
               Positioned(
-                top: 50,
+                top: 140,
                 right: 45,
                 left: 230,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Logomarca da Empresa
-                    if (companyLogoBase64 != null && companyLogoBase64!.isNotEmpty)
-                      Image.memory(
-                        base64Decode(companyLogoBase64!.contains(',')
-                            ? companyLogoBase64!.split(',').last
-                            : companyLogoBase64!),
-                        height: 52,
-                        fit: BoxFit.contain,
-                      )
-                    else
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.business_center_rounded, size: 36, color: primaryColor),
-                          const SizedBox(width: 8),
-                          Text(
-                            companyName?.isNotEmpty == true ? companyName!.toUpperCase() : 'SUA EMPRESA',
-                            style: GoogleFonts.outfit(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F172A),
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 38),
-
-                    // Título em Destaque Navy Blue
+                    // Título em Destaque
                     Text(
                       title.toUpperCase(),
                       textAlign: TextAlign.right,
                       style: GoogleFonts.outfit(
-                        fontSize: 28,
+                        fontSize: titleFontSize.clamp(16.0, 48.0),
                         fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0F172A),
+                        color: titleColor ?? const Color(0xFF0F172A),
                         height: 1.1,
                         letterSpacing: 0.8,
                       ),
@@ -410,9 +420,9 @@ class CorporateWaveCoverView extends StatelessWidget {
                       subtitle.toUpperCase(),
                       textAlign: TextAlign.right,
                       style: GoogleFonts.inter(
-                        fontSize: 12,
+                        fontSize: subtitleFontSize.clamp(8.0, 24.0),
                         fontWeight: FontWeight.w700,
-                        color: primaryColor,
+                        color: subtitleColor ?? primaryColor,
                         letterSpacing: 2.0,
                       ),
                     ),
@@ -443,6 +453,128 @@ class CorporateWaveCoverView extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // 3.1 LOGOMARCA POSICIONÁVEL
+              if (showLogo)
+                Positioned(
+                  left: (logoPositionX ?? 0.62) * baseA4Width,
+                  top: (logoPositionY ?? 0.05) * baseA4Height,
+                  child: (companyLogoBase64 != null &&
+                          companyLogoBase64!.isNotEmpty)
+                      ? Image.memory(
+                          base64Decode(companyLogoBase64!.contains(',')
+                              ? companyLogoBase64!.split(',').last
+                              : companyLogoBase64!),
+                          width: logoWidth.clamp(40.0, 220.0),
+                          fit: BoxFit.contain,
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.business_center_rounded,
+                                size: (logoWidth * 0.36).clamp(22.0, 52.0),
+                                color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              companyName?.isNotEmpty == true
+                                  ? companyName!.toUpperCase()
+                                  : 'SUA EMPRESA',
+                              style: GoogleFonts.outfit(
+                                fontSize: (logoWidth * 0.20).clamp(13.0, 24.0),
+                                fontWeight: FontWeight.w900,
+                                color: const Color(0xFF0F172A),
+                                letterSpacing: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+
+              // 3.2 HEADLINE / FRASE DE IMPACTO OPCIONAL
+              if (showHeadline && headline.trim().isNotEmpty)
+                Positioned(
+                  left: headlineLeft * baseA4Width,
+                  top: headlineTop * baseA4Height,
+                  child: SizedBox(
+                    width: baseA4Width * 0.48,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          headline.trim(),
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: headlineColor ?? Colors.white,
+                            height: 1.15,
+                            shadows: const [
+                              Shadow(
+                                  color: Colors.black87,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2)),
+                            ],
+                          ),
+                        ),
+                        if (subheadline.trim().isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            subheadline.trim(),
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: (headlineColor ?? Colors.white)
+                                  .withValues(alpha: 0.92),
+                              shadows: const [
+                                Shadow(
+                                    color: Colors.black87,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 1)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 3.3 BADGES / SELOS CUSTOMIZÁVEIS
+              if (showBadges && badges.isNotEmpty)
+                Positioned(
+                  left: badgesLeft * baseA4Width,
+                  bottom: badgesBottom * baseA4Height,
+                  child: SizedBox(
+                    width: baseA4Width * 0.56,
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: badges.map((b) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Color.lerp(primaryColor, Colors.black, 0.65)!
+                                .withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Color.lerp(primaryColor, Colors.white, 0.35)!
+                                  .withValues(alpha: 0.85),
+                            ),
+                          ),
+                          child: Text(
+                            b,
+                            style: GoogleFonts.inter(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
 
               // 4. RODAPÉ INFERIOR (BARRA DE CONTATOS EMBUTIDA NA ONDA AZUL)
               Positioned(

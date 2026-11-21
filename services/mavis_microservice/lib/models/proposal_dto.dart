@@ -177,7 +177,7 @@ class ProposalDTO {
       totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0.0,
       paymentTerms: map['paymentTerms']?.toString() ?? '',
       validityDays: (map['validityDays'] as num?)?.toInt() ?? 15,
-      deliveryTime: map['deliveryTime']?.toString() ?? 'Imediata / 3 a 5 dias úteis',
+      deliveryTime: map['deliveryTime']?.toString(),
       notes: map['notes']?.toString(),
       themeColorValue: (map['themeColorValue'] as num?)?.toInt() ?? 0xFF0284C7,
       status: map['status']?.toString() ?? 'inApproval',

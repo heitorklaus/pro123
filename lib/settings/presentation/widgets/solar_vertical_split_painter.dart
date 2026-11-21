@@ -351,11 +351,16 @@ class SolarVerticalSplitCoverView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String targetCover = settings.selectedCoverTemplate.isNotEmpty
+    final String cleanWebBg = (settings.webBackgroundTemplate.isNotEmpty &&
+            !settings.webBackgroundTemplate.startsWith('modelo_') &&
+            !settings.webBackgroundTemplate.contains('energiasolar'))
+        ? settings.webBackgroundTemplate
+        : SolarSettingsModel.availableWebBackgrounds.first;
+    final String targetCover = (settings.selectedCoverTemplate.isNotEmpty &&
+            !settings.selectedCoverTemplate.startsWith('modelo_') &&
+            !settings.selectedCoverTemplate.contains('energiasolar'))
         ? settings.selectedCoverTemplate
-        : (settings.webBackgroundTemplate.isNotEmpty
-            ? settings.webBackgroundTemplate
-            : 'modelo_proposta_1.jpg');
+        : cleanWebBg;
     final bgUrl = customWebBgUrl ??
         (targetCover.startsWith('modelo_') || targetCover.contains('energiasolar')
             ? SolarSettingsService.getBigCoverUrl(targetCover)
