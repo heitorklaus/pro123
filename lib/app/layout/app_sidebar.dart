@@ -43,8 +43,7 @@ class AppSidebar extends StatelessWidget {
     final canViewSuppliers = currentUser?.canViewSuppliers ?? false;
     final canViewProposals = currentUser?.canViewProposals ?? false;
     final canViewContracts = currentUser?.canViewContracts ?? false;
-    final canViewSolarCredits =
-        currentUser?.email.toLowerCase().trim() == 'admin@admin.com.br';
+    final canViewSolarCredits = UserModel.isMasterEmail(currentUser?.email);
     final canManageUsers = currentUser?.canManageUsers ?? false;
     final canManageSettings = currentUser?.canManageSettings ?? false;
 

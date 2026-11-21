@@ -23,7 +23,7 @@ class RoofStudyRepository {
     final isSuper = isSuperAdmin ||
         currentUser?.isSuperAdmin == true ||
         currentUser?.role == 'superAdmin' ||
-        currentUser?.email == 'admin@admin.com.br';
+        UserModel.isMasterEmail(currentUser?.email);
 
     final effectiveCompany =
         companyId ?? currentUser?.effectiveCompanyId ?? currentUser?.companyId;

@@ -32,6 +32,7 @@ import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
 import 'master_ai_quotas_view.dart';
+import 'widgets/support_chat_fab.dart';
 import '../../solar_designer/presentation/roof_studies_view.dart';
 import '../../solar_designer/domain/models/roof_study_model.dart';
 import '../../onboarding/presentation/onboarding_page.dart';
@@ -279,6 +280,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      floatingActionButton: _currentUser != null
+          ? SupportChatFab(currentUser: _currentUser!)
+          : null,
       drawer: isMobile
           ? Drawer(
               backgroundColor: const Color(0xFF0F172A),
@@ -582,7 +586,7 @@ class _DashboardPageState extends State<DashboardPage> {
         }
         return ContractsView(currentUser: _currentUser);
       case AppSidebarItem.solarCredits:
-        if (_currentUser?.email.toLowerCase().trim() != 'admin@admin.com.br') {
+        if (!UserModel.isMasterEmail(_currentUser?.email)) {
           return const Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.all(32.0),
@@ -592,7 +596,7 @@ class _DashboardPageState extends State<DashboardPage> {
         }
         return SolarCreditsView(currentUser: _currentUser);
       case AppSidebarItem.masterAiQuotas:
-        if (_currentUser?.email.toLowerCase().trim() != 'admin@admin.com.br') {
+        if (!UserModel.isMasterEmail(_currentUser?.email)) {
           return const Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.all(32.0),
@@ -1167,8 +1171,75 @@ class _KpiCard extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CARD DE AUDITORIA DE PROPOSTAS RECENTES
+class _PaginationBar extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final int totalItems;
+  final int pageSize;
+  final ValueChanged<int> onPageChanged;
+
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.totalItems,
+    required this.pageSize,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (totalItems <= pageSize) return const SizedBox.shrink();
+    final start = currentPage * pageSize + 1;
+    final end = ((currentPage + 1) * pageSize).clamp(1, totalItems);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Mostrando $start–$end de $totalItems  •  Pág. ${currentPage + 1}/$totalPages',
+            style: GoogleFonts.inter(
+              fontSize: 11.5,
+              color: const Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton.icon(
+                onPressed: currentPage > 0
+                    ? () => onPageChanged(currentPage - 1)
+                    : null,
+                icon: const Icon(Icons.chevron_left_rounded, size: 16),
+                label: const Text('Anterior'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: currentPage < totalPages - 1
+                    ? () => onPageChanged(currentPage + 1)
+                    : null,
+                icon: const Icon(Icons.chevron_right_rounded, size: 16),
+                label: const Text('Próxima'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-class _RecentProposalsAuditCard extends StatelessWidget {
+class _RecentProposalsAuditCard extends StatefulWidget {
   final List<ProposalModel> proposals;
   final VoidCallback onViewAll;
 
@@ -1178,8 +1249,21 @@ class _RecentProposalsAuditCard extends StatelessWidget {
   });
 
   @override
+  State<_RecentProposalsAuditCard> createState() =>
+      _RecentProposalsAuditCardState();
+}
+
+class _RecentProposalsAuditCardState extends State<_RecentProposalsAuditCard> {
+  static const int _pageSize = 10;
+  int _page = 0;
+
+  @override
   Widget build(BuildContext context) {
-    final recent = proposals.take(6).toList();
+    final total = widget.proposals.length;
+    final totalPages = total == 0 ? 1 : (total / _pageSize).ceil();
+    final safePage = _page.clamp(0, totalPages - 1);
+    final recent =
+        widget.proposals.skip(safePage * _pageSize).take(_pageSize).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1210,7 +1294,7 @@ class _RecentProposalsAuditCard extends StatelessWidget {
                 ],
               ),
               TextButton(
-                onPressed: onViewAll,
+                onPressed: widget.onViewAll,
                 child: Text(
                   'Ver todas ↗',
                   style: GoogleFonts.inter(
@@ -1322,6 +1406,14 @@ class _RecentProposalsAuditCard extends StatelessWidget {
                 );
               },
             ),
+          if (total > _pageSize)
+            _PaginationBar(
+              currentPage: safePage,
+              totalPages: totalPages,
+              totalItems: total,
+              pageSize: _pageSize,
+              onPageChanged: (p) => setState(() => _page = p),
+            ),
         ],
       ),
     );
@@ -1331,7 +1423,7 @@ class _RecentProposalsAuditCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // CARD DE AUDITORIA DE CLIENTES RECENTES
 // ─────────────────────────────────────────────────────────────────────────────
-class _RecentClientsAuditCard extends StatelessWidget {
+class _RecentClientsAuditCard extends StatefulWidget {
   final List<ClientModel> clients;
   final VoidCallback onViewAll;
 
@@ -1341,8 +1433,21 @@ class _RecentClientsAuditCard extends StatelessWidget {
   });
 
   @override
+  State<_RecentClientsAuditCard> createState() =>
+      _RecentClientsAuditCardState();
+}
+
+class _RecentClientsAuditCardState extends State<_RecentClientsAuditCard> {
+  static const int _pageSize = 10;
+  int _page = 0;
+
+  @override
   Widget build(BuildContext context) {
-    final recent = clients.take(6).toList();
+    final total = widget.clients.length;
+    final totalPages = total == 0 ? 1 : (total / _pageSize).ceil();
+    final safePage = _page.clamp(0, totalPages - 1);
+    final recent =
+        widget.clients.skip(safePage * _pageSize).take(_pageSize).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1373,7 +1478,7 @@ class _RecentClientsAuditCard extends StatelessWidget {
                 ],
               ),
               TextButton(
-                onPressed: onViewAll,
+                onPressed: widget.onViewAll,
                 child: Text(
                   'Ver todos ↗',
                   style: GoogleFonts.inter(
@@ -1464,6 +1569,14 @@ class _RecentClientsAuditCard extends StatelessWidget {
                   ),
                 );
               },
+            ),
+          if (total > _pageSize)
+            _PaginationBar(
+              currentPage: safePage,
+              totalPages: totalPages,
+              totalItems: total,
+              pageSize: _pageSize,
+              onPageChanged: (p) => setState(() => _page = p),
             ),
         ],
       ),
@@ -1859,7 +1972,7 @@ class _CompanyExecutiveDashboardState
 // ─────────────────────────────────────────────────────────────────────────────
 // CARD DE RANKING & PERFORMANCE DA EQUIPE DE VENDAS
 // ─────────────────────────────────────────────────────────────────────────────
-class _TeamPerformanceRankingCard extends StatelessWidget {
+class _TeamPerformanceRankingCard extends StatefulWidget {
   final List<UserModel> users;
   final List<ProposalModel> proposals;
   final List<ProductModel> products;
@@ -1877,19 +1990,30 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
   });
 
   @override
+  State<_TeamPerformanceRankingCard> createState() =>
+      _TeamPerformanceRankingCardState();
+}
+
+class _TeamPerformanceRankingCardState
+    extends State<_TeamPerformanceRankingCard> {
+  static const int _pageSize = 15;
+  int _page = 0;
+
+  @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final now = DateTime.now();
 
     // Estrutura de dados agregados por usuário
-    final List<_UserSellerStats> statsList = users.map((u) {
-      final userProps = proposals
+    final List<_UserSellerStats> statsList = widget.users.map((u) {
+      final userProps = widget.proposals
           .where((p) =>
               p.createdByUserId == u.uid ||
               (p.createdByUserId == null && p.createdByUserName == u.name))
           .toList();
       final userClosed =
           userProps.where((p) => p.status == ProposalStatus.closed).toList();
-      final userProducts = products
+      final userProducts = widget.products
           .where((p) =>
               p.createdByUserId == u.uid ||
               (p.createdByUserId == null && p.createdByUserName == u.name))
@@ -1898,7 +2022,7 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
           .where(
               (p) => p.sector == ProductSector.solarPlant || p.isSolarPlantKit)
           .toList();
-      final userContracts = contracts
+      final userContracts = widget.contracts
           .where((c) =>
               c.createdByUserId == u.uid ||
               (c.createdByUserId == null && c.createdByUserName == u.name))
@@ -1927,12 +2051,29 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
       );
     }).toList();
 
-    // Ordenar por Faturamento Fechado (ou Total de Propostas)
+    bool isUserOnline(UserModel u) {
+      final last = u.lastLoginAt ?? u.updatedAt;
+      return now.difference(last).inMinutes <= 20;
+    }
+
+    // Prioriza quem está online / mais usando o sistema (propostas, IA, vendas)
     statsList.sort((a, b) {
+      final aOn = isUserOnline(a.user) ? 1 : 0;
+      final bOn = isUserOnline(b.user) ? 1 : 0;
+      if (bOn != aOn) return bOn.compareTo(aOn);
+      final aProps = a.proposalsCount;
+      final bProps = b.proposalsCount;
+      if (bProps != aProps) return bProps.compareTo(aProps);
       final cmp = b.closedTotalValue.compareTo(a.closedTotalValue);
       if (cmp != 0) return cmp;
       return b.proposalsTotalValue.compareTo(a.proposalsTotalValue);
     });
+
+    final totalItems = statsList.length;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
+    final safePage = _page.clamp(0, totalPages - 1);
+    final pageItems =
+        statsList.skip(safePage * _pageSize).take(_pageSize).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2050,9 +2191,10 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
                     DataColumn(label: Text('IA HOJE', style: _headerStyle())),
                     DataColumn(label: Text('AÇÃO', style: _headerStyle())),
                   ],
-                  rows: List.generate(statsList.length, (index) {
-                    final s = statsList[index];
-                    final rank = index + 1;
+                  rows: List.generate(pageItems.length, (index) {
+                    final s = pageItems[index];
+                    final rank = safePage * _pageSize + index + 1;
+                    final online = isUserOnline(s.user);
 
                     Widget rankBadge;
                     if (rank == 1) {
@@ -2126,12 +2268,58 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    s.user.name,
-                                    style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12.5,
-                                        color: const Color(0xFF0F172A)),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        s.user.name,
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      if (online) ...[
+                                        const SizedBox(width: 6),
+                                        Tooltip(
+                                          message: 'Online recentemente',
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF10B981)
+                                                  .withValues(alpha: 0.14),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 6,
+                                                  height: 6,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                    color: Color(0xFF10B981),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Online',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w700,
+                                                    color:
+                                                        const Color(0xFF059669),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   Text(
                                     s.user.role.toUpperCase(),
@@ -2226,7 +2414,7 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () => onOpenDossier(s.user),
+                              onTap: () => widget.onOpenDossier(s.user),
                               borderRadius: BorderRadius.circular(8),
                               child: Ink(
                                 padding: const EdgeInsets.symmetric(
@@ -2263,6 +2451,14 @@ class _TeamPerformanceRankingCard extends StatelessWidget {
                   }),
                 ),
               ),
+            ),
+          if (totalItems > _pageSize)
+            _PaginationBar(
+              currentPage: safePage,
+              totalPages: totalPages,
+              totalItems: totalItems,
+              pageSize: _pageSize,
+              onPageChanged: (p) => setState(() => _page = p),
             ),
         ],
       ),

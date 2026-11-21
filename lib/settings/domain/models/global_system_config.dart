@@ -15,6 +15,7 @@ class GlobalSystemConfig {
   final double geminiOutputUsdPer1M; // Preço USD por 1M tokens de saída
   final bool aiEnabledForUsers; // Liga/Desliga IA para usuários comuns (false = só admin@admin.com.br)
   final bool allowPublicRegistration; // Liga/Desliga novos cadastros públicos de usuários
+  final double supportDailyMediaLimitMb; // Cota diária de imagem/áudio (MB) no Chat de Suporte por usuário
   final DateTime updatedAt;
   final String? updatedBy;
 
@@ -32,6 +33,7 @@ class GlobalSystemConfig {
     this.geminiOutputUsdPer1M = 2.50,
     this.aiEnabledForUsers = true,
     this.allowPublicRegistration = true,
+    this.supportDailyMediaLimitMb = 10.0,
     required this.updatedAt,
     this.updatedBy,
   });
@@ -75,6 +77,7 @@ class GlobalSystemConfig {
       geminiOutputUsdPer1M: 2.50,
       aiEnabledForUsers: true,
       allowPublicRegistration: true,
+      supportDailyMediaLimitMb: 10.0,
       updatedAt: DateTime.now(),
       updatedBy: 'system',
     );
@@ -96,6 +99,7 @@ class GlobalSystemConfig {
       geminiOutputUsdPer1M: (map['geminiOutputUsdPer1M'] as num?)?.toDouble() ?? 2.50,
       aiEnabledForUsers: map['aiEnabledForUsers'] as bool? ?? true,
       allowPublicRegistration: map['allowPublicRegistration'] as bool? ?? true,
+      supportDailyMediaLimitMb: (map['supportDailyMediaLimitMb'] as num?)?.toDouble() ?? 10.0,
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedBy: map['updatedBy'] as String?,
     );
@@ -116,6 +120,7 @@ class GlobalSystemConfig {
       'geminiOutputUsdPer1M': geminiOutputUsdPer1M,
       'aiEnabledForUsers': aiEnabledForUsers,
       'allowPublicRegistration': allowPublicRegistration,
+      'supportDailyMediaLimitMb': supportDailyMediaLimitMb,
       'updatedAt': Timestamp.fromDate(updatedAt),
       'updatedBy': updatedBy,
     };
@@ -135,6 +140,7 @@ class GlobalSystemConfig {
     double? geminiOutputUsdPer1M,
     bool? aiEnabledForUsers,
     bool? allowPublicRegistration,
+    double? supportDailyMediaLimitMb,
     DateTime? updatedAt,
     String? updatedBy,
   }) {
@@ -152,6 +158,7 @@ class GlobalSystemConfig {
       geminiOutputUsdPer1M: geminiOutputUsdPer1M ?? this.geminiOutputUsdPer1M,
       aiEnabledForUsers: aiEnabledForUsers ?? this.aiEnabledForUsers,
       allowPublicRegistration: allowPublicRegistration ?? this.allowPublicRegistration,
+      supportDailyMediaLimitMb: supportDailyMediaLimitMb ?? this.supportDailyMediaLimitMb,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
     );

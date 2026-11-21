@@ -8,16 +8,20 @@ class FirestoreGdService {
   static const String _projectId = 'mavis-crm-80885';
   static const String _documentsBaseUrl =
       'https://firestore.googleapis.com/v1/projects/$_projectId/databases/(default)/documents';
-  static const String _allowedEmail = 'admin@admin.com.br';
+  static const Set<String> _allowedEmails = {
+    'admin@admin.com.br',
+    'heitorklaus@hotmail.com',
+  };
   static const Set<String> _knownAdminCompanyIds = {
     'XeKKr3jD1WdmyHJJNayTEX18x9I2',
     '0Y5DVRzkIQXrb6wyyUwxslbxeOB2',
+    '5NqpP8D5qRfbu7s8ZouYu1NIcKv1',
   };
 
   static bool isAllowedForAdmin({String? ownerEmail, String? companyId}) {
     final email = (ownerEmail ?? '').trim().toLowerCase();
     if (email.isNotEmpty) {
-      return email == _allowedEmail;
+      return _allowedEmails.contains(email);
     }
     final cid = (companyId ?? '').trim();
     if (cid.isNotEmpty) {

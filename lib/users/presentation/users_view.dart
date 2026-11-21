@@ -810,7 +810,7 @@ class _AdminTreeGroup extends StatelessWidget {
 
                               // Consumo de IA Hoje
                               AiUsageBadge(user: admin, compact: MediaQuery.of(context).size.width < 1100),
-                              if (FirebaseAuth.instance.currentUser?.email?.toLowerCase().trim() == 'admin@admin.com.br') ...[
+                              if (UserModel.isMasterEmail(FirebaseAuth.instance.currentUser?.email)) ...[
                                 const SizedBox(width: 8),
                                 _AiPlanTierDropdown(user: admin),
                               ],

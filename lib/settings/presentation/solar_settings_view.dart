@@ -2864,10 +2864,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 // 2. Frase de Impacto da Foto (Headline & Subheadline)
                 if (_settings.verticalSplitShowHeadline)
                   Positioned(
-                    left: (previewW * _settings.verticalSplitHeadlineLeft).clamp(12.0, previewW * 0.70),
-                    top: (previewH * _settings.verticalSplitHeadlineTop).clamp(12.0, previewH * 0.50),
+                    left: (previewW * _settings.verticalSplitHeadlineLeft).clamp(8.0, previewW * 0.85),
+                    top: (previewH * _settings.verticalSplitHeadlineTop).clamp(8.0, previewH * 0.85),
                     child: SizedBox(
-                      width: previewW * 0.72,
+                      width: previewW * 0.88,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -2877,33 +2877,38 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                                 ? _verticalSplitHeadlineCtrl.text
                                 : 'ENERGIA QUE MOVE O SEU AMANHÃ',
                             style: GoogleFonts.montserrat(
-                              fontSize: 14.5,
+                              fontSize: (_settings.verticalSplitHeadlineFontSize * (previewW / 595.28)).clamp(8.0, 26.0),
                               fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 0.3,
+                              color: Color(_settings.coverHeadlineColorValue),
+                              letterSpacing: 0.2,
                               height: 1.15,
                             ),
                           ),
-                          const SizedBox(height: 5),
-                          Container(
-                            width: 32,
-                            height: 2.5,
-                            decoration: BoxDecoration(
-                              color: Color(_hexToInt(_verticalSplitAccentColor)),
-                              borderRadius: BorderRadius.circular(2),
+                          if (_settings.verticalSplitShowHeadlineDivider) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              width: (_settings.verticalSplitHeadlineDividerWidth * (previewW / 595.28)).clamp(14.0, 60.0),
+                              height: (_settings.verticalSplitHeadlineDividerHeight * (previewW / 595.28)).clamp(1.5, 5.0),
+                              decoration: BoxDecoration(
+                                color: _settings.verticalSplitHeadlineDividerColor.isNotEmpty
+                                    ? Color(_hexToInt(_settings.verticalSplitHeadlineDividerColor))
+                                    : Color(_hexToInt(_verticalSplitAccentColor)),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
+                            const SizedBox(height: 5),
+                          ] else
+                            const SizedBox(height: 5),
                           Text(
                             _verticalSplitSubheadlineCtrl.text.isNotEmpty
                                 ? _verticalSplitSubheadlineCtrl.text
-                                : 'MAIS ECONOMIA. MAIS LIBERDADE. MAIS FUTURO.',
+                                : 'MAIS ECONOMIA.\nMAIS LIBERDADE.\nUM FUTURO SUSTENTÁVEL.',
                             style: GoogleFonts.montserrat(
-                              fontSize: 7.2,
+                              fontSize: (10.5 * (previewW / 595.28)).clamp(5.5, 13.0),
                               fontWeight: FontWeight.w700,
-                              color: Colors.white.withValues(alpha: 0.95),
-                              letterSpacing: 0.4,
-                              height: 1.2,
+                              color: Color(_settings.coverHeadlineColorValue).withValues(alpha: 0.95),
+                              letterSpacing: 0.3,
+                              height: 1.22,
                             ),
                           ),
                         ],
@@ -2911,63 +2916,58 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                     ),
                   ),
 
-                // 3. Badges Informativos na Foto
-                if (_settings.verticalSplitShowLeftFooter) ...[
+                // 3. Badges Informativos na Foto (Pilares dinâmicos iguais ao Estúdio Visual & PDF)
+                if (_settings.verticalSplitShowLeftFooter && _settings.verticalSplitFooterBadges.isNotEmpty)
                   Positioned(
-                    left: (previewW * _settings.verticalSplitLeftFooterLeft).clamp(12.0, previewW * 0.70),
-                    top: previewH - (((_settings.verticalSplitLeftFooterBottom <= 0.08) ? 0.32 : _settings.verticalSplitLeftFooterBottom) * previewH) - 24,
+                    left: (previewW * _settings.verticalSplitLeftFooterLeft).clamp(8.0, previewW * 0.85),
+                    top: (previewH - (_settings.verticalSplitLeftFooterBottom * previewH) - 12).clamp(8.0, previewH - 20),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Color(_hexToInt(_verticalSplitAccentColor)).withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Color(_hexToInt(_verticalSplitAccentColor)), width: 0.8),
-                          ),
-                          child: Row(
+                        for (int i = 0; i < _settings.verticalSplitFooterBadges.length; i++) ...[
+                          Row(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Icon(Icons.verified_rounded, size: 8.5, color: Colors.white),
+                              Icon(
+                                _settings.verticalSplitFooterBadges[i].iconKey == 'bolt'
+                                    ? Icons.bolt_rounded
+                                    : (_settings.verticalSplitFooterBadges[i].iconKey == 'chart'
+                                        ? Icons.bar_chart_rounded
+                                        : Icons.eco_outlined),
+                                size: (11 * (previewW / 595.28)).clamp(6.5, 14.0),
+                                color: Color(_settings.coverBadgesIconColorValue),
+                              ),
                               const SizedBox(width: 3),
                               Text(
-                                'GARANTIA 25 ANOS',
-                                style: GoogleFonts.montserrat(fontSize: 6.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                _settings.verticalSplitFooterBadges[i].label,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: (8.5 * (previewW / 595.28)).clamp(5.0, 10.0),
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(_settings.coverBadgesTextColorValue),
+                                  letterSpacing: 0.4,
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Color(_hexToInt(_verticalSplitAccentColor)).withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Color(_hexToInt(_verticalSplitAccentColor)), width: 0.8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.eco_rounded, size: 8.5, color: Colors.white),
-                              const SizedBox(width: 3),
-                              Text(
-                                'ENERGIA LIMPA',
-                                style: GoogleFonts.montserrat(fontSize: 6.5, fontWeight: FontWeight.bold, color: Colors.white),
-                              ),
-                            ],
-                          ),
-                        ),
+                          if (i < _settings.verticalSplitFooterBadges.length - 1)
+                            Container(
+                              width: 1,
+                              height: 8,
+                              color: Color(_settings.coverBadgesTextColorValue).withValues(alpha: 0.35),
+                              margin: const EdgeInsets.symmetric(horizontal: 5),
+                            ),
+                        ],
                       ],
                     ),
                   ),
-                ],
 
-                // 4. Bloco Institucional na Área Branca Preservada
+                // 4. Bloco Institucional na Área Branca Preservada (Direita)
                 if (_settings.verticalSplitShowRightBlock)
                   Positioned(
-                    left: previewW - (((_settings.verticalSplitRightBlockRight <= 0.12) ? 0.53 : _settings.verticalSplitRightBlockRight) * previewW) - (previewW * 0.42),
-                    top: ((_settings.verticalSplitRightBlockTop <= 0.25) ? 0.72 : _settings.verticalSplitRightBlockTop) * previewH,
+                    right: (_settings.verticalSplitRightBlockRight * previewW).clamp(10.0, previewW * 0.45),
+                    top: (_settings.verticalSplitRightBlockTop * previewH).clamp(10.0, previewH - 40),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -2977,10 +2977,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                               ? _verticalSplitRightTitleCtrl.text
                               : 'PROPOSTA',
                           style: GoogleFonts.montserrat(
-                            fontSize: 8.5,
+                            fontSize: (_settings.verticalSplitRightTitleFontSize * (previewW / 595.28)).clamp(6.5, 18.0),
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF334155),
-                            letterSpacing: 2.8,
+                            color: Color(_settings.coverRightTitleColorValue),
+                            letterSpacing: 2.5,
                           ),
                         ),
                         const SizedBox(height: 1),
@@ -2989,32 +2989,38 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                               ? _verticalSplitRightSubtitleCtrl.text
                               : 'SOLAR',
                           style: GoogleFonts.montserrat(
-                            fontSize: 21,
+                            fontSize: (_settings.verticalSplitRightSubtitleFontSize * (previewW / 595.28)).clamp(13.0, 32.0),
                             fontWeight: FontWeight.w900,
-                            color: const Color(0xFF0F172A),
+                            color: Color(_settings.coverRightSubtitleColorValue),
                             letterSpacing: 1.0,
                             height: 1.0,
                           ),
                         ),
-                        const SizedBox(height: 5),
-                        Container(
-                          width: 28,
-                          height: 2.4,
-                          decoration: BoxDecoration(
-                            color: Color(_hexToInt(_verticalSplitAccentColor)),
-                            borderRadius: BorderRadius.circular(2),
+                        if (_settings.verticalSplitShowRightDivider) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            width: (_settings.verticalSplitRightDividerWidth * 0.8 * (previewW / 595.28)).clamp(16.0, 54.0),
+                            height: (_settings.verticalSplitRightDividerHeight * 0.8 * (previewW / 595.28)).clamp(1.5, 4.0),
+                            decoration: BoxDecoration(
+                              color: _settings.verticalSplitRightDividerColor.isNotEmpty
+                                  ? Color(_hexToInt(_settings.verticalSplitRightDividerColor))
+                                  : Color(_hexToInt(_verticalSplitAccentColor)),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 5),
+                          const SizedBox(height: 4),
+                        ] else
+                          const SizedBox(height: 4),
                         Text(
                           _verticalSplitRightTaglineCtrl.text.isNotEmpty
                               ? _verticalSplitRightTaglineCtrl.text
-                              : 'SOLUÇÕES EM ENERGIA PARA UM FUTURO MELHOR',
+                              : 'SOLUÇÕES EM ENERGIA\nPARA UM FUTURO MELHOR',
                           style: GoogleFonts.montserrat(
-                            fontSize: 6.5,
+                            fontSize: (9.5 * (previewW / 595.28)).clamp(5.0, 11.0),
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF475569),
-                            letterSpacing: 0.5,
+                            color: Color(_settings.coverRightTaglineColorValue),
+                            letterSpacing: 0.4,
+                            height: 1.2,
                           ),
                         ),
                       ],
@@ -3069,31 +3075,51 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                     ),
                   ),
 
-                // Informações do Cliente & Usina (Canto inferior direito fixo)
-                Positioned(
-                  bottom: 8,
-                  right: 14,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Cliente: João da Silva Santos',
-                        style: GoogleFonts.inter(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                // 7. Informações do Cliente & Usina (Esquerda por default, seguindo o Estúdio Visual)
+                if (_settings.coverShowClientInfo)
+                  Positioned(
+                    left: (previewW * _settings.coverClientInfoPositionX).clamp(8.0, previewW - 40.0),
+                    top: (previewH * _settings.coverClientInfoPositionY).clamp(8.0, previewH - 28.0),
+                    child: SizedBox(
+                      width: (_settings.coverClientInfoWidth * (previewW / 595.28)).clamp(90.0, previewW),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Cliente: João da Silva Santos',
+                            style: GoogleFonts.montserrat(
+                              fontSize: (_settings.coverClientInfoFontSize * (previewW / 595.28)).clamp(5.5, 11.0),
+                              fontWeight: FontWeight.bold,
+                              color: Color(_settings.coverClientInfoColorValue),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 1.5),
+                          Text(
+                            'CPF/CNPJ: 123.456.789-00',
+                            style: GoogleFonts.montserrat(
+                              fontSize: (_settings.coverClientInfoFontSize * 0.9 * (previewW / 595.28)).clamp(5.0, 10.0),
+                              fontWeight: FontWeight.bold,
+                              color: Color(_settings.coverClientInfoSecondaryColorValue),
+                            ),
+                            maxLines: 1,
+                          ),
+                          const SizedBox(height: 1.5),
+                          Text(
+                            'Geração: 990 kWh/mês (8.61 kWp)',
+                            style: GoogleFonts.montserrat(
+                              fontSize: (_settings.coverClientInfoFontSize * 0.9 * (previewW / 595.28)).clamp(5.0, 10.0),
+                              fontWeight: FontWeight.bold,
+                              color: Color(_settings.coverClientInfoSecondaryColorValue),
+                            ),
+                            maxLines: 1,
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Geração: 990 kWh/mês (8.61 kWp)',
-                        style: GoogleFonts.inter(
-                          fontSize: 7.0,
-                          fontWeight: FontWeight.w600,
-                          color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
               ],
             )),
           ),

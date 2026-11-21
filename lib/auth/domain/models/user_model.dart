@@ -241,10 +241,18 @@ class UserModel {
     this.customDailyBrlQuota,
   });
 
+  static const Set<String> masterEmails = {
+    'admin@admin.com.br',
+    'heitorklaus@hotmail.com',
+  };
+
+  static bool isMasterEmail(String? email) =>
+      email != null && masterEmails.contains(email.toLowerCase().trim());
+
   bool get isSuperAdmin =>
       role.toLowerCase() == 'superadmin' ||
       role.toLowerCase() == 'master' ||
-      email.toLowerCase().trim() == 'admin@admin.com.br';
+      isMasterEmail(email);
   bool get isAdmin => isSuperAdmin || role.toLowerCase() == 'admin';
   bool get isManager => isSuperAdmin || role.toLowerCase() == 'manager' || isAdmin;
   bool get isActive => status == 'active';

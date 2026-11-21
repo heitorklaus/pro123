@@ -42,6 +42,7 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
 
   int _aiAnalysesQuota = 25;
   int _maxSellers = 5;
+  double _supportMediaLimitMb = 10.0;
   String _companySortMode = 'recent'; // 'recent' | 'top_today' | 'top_month'
 
   final _brlFmt = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
@@ -85,6 +86,7 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
       _config = cfg;
       _aiAnalysesQuota = cfg.defaultDailyAiQuota;
       _maxSellers = cfg.defaultMaxSellersPerCompany;
+      _supportMediaLimitMb = cfg.supportDailyMediaLimitMb;
       _usdRateCtrl.text = cfg.usdToBrlRate.toStringAsFixed(2);
       _inputUsdCtrl.text = cfg.geminiInputUsdPer1M.toStringAsFixed(2);
       _outputUsdCtrl.text = cfg.geminiOutputUsdPer1M.toStringAsFixed(2);
@@ -152,6 +154,7 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
       final updated = _config.copyWith(
         defaultDailyAiQuota: _aiAnalysesQuota,
         defaultMaxSellersPerCompany: _maxSellers,
+        supportDailyMediaLimitMb: _supportMediaLimitMb,
         usdToBrlRate: _currentUsdRate,
         geminiInputUsdPer1M: _currentInUsd,
         geminiOutputUsdPer1M: _currentOutUsd,
@@ -1267,6 +1270,16 @@ class _MasterAiQuotasViewState extends State<MasterAiQuotasView>
                     if (_maxSellers > 1) setState(() => _maxSellers--);
                   },
                   onPlus: () => setState(() => _maxSellers++),
+                ),
+                _CounterChip(
+                  label: 'Mídia Suporte / dia (MB)',
+                  valueText: '${_supportMediaLimitMb.toStringAsFixed(0)} MB/dia',
+                  onMinus: () {
+                    if (_supportMediaLimitMb > 1) {
+                      setState(() => _supportMediaLimitMb -= 1);
+                    }
+                  },
+                  onPlus: () => setState(() => _supportMediaLimitMb += 1),
                 ),
                 ElevatedButton.icon(
                   onPressed: _isSaving ? null : () => _saveConfig(),

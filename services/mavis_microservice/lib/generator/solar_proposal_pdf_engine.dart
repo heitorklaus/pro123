@@ -1005,7 +1005,7 @@ class SolarProposalPdfEngine {
               dividerType: settings.customDividerStyle,
               width: a4W,
               height: a4H,
-              splitYRatio: 0.70,
+              splitYRatio: 0.72,
               primaryColorHex: accentSvgColor,
               bottomAreaColorHex: bottomAreaSvgColor,
             ),
@@ -1017,7 +1017,7 @@ class SolarProposalPdfEngine {
             left: (a4W * settings.verticalSplitHeadlineLeft).clamp(0.0, a4W * 0.90),
             top: (a4H * settings.verticalSplitHeadlineTop).clamp(0.0, a4H * 0.90),
             child: pw.SizedBox(
-              width: a4W * 0.70,
+              width: a4W * 0.88,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -1106,7 +1106,7 @@ class SolarProposalPdfEngine {
         // 5. Bloco Institucional na Área Branca Preservada
         if (settings.verticalSplitShowRightBlock)
           pw.Positioned(
-            left: a4W - (settings.verticalSplitRightBlockRight * a4W) - (a4W * 0.42),
+            right: (settings.verticalSplitRightBlockRight * a4W).clamp(16.0, a4W * 0.45),
             top: settings.verticalSplitRightBlockTop * a4H,
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,

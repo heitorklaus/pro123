@@ -19,7 +19,7 @@ class AuthRepository {
   CollectionReference<Map<String, dynamic>> get _usersRef =>
       _firestore.collection('users');
 
-  /// Efetua o login via Conta Google, sincronizando com Firebase Auth e Cloud Firestore
+  /// Efetua o login via Conta Google, sincronizando com Firebasçe Auth e Cloud Firestore
   Future<UserModel?> signInWithGoogle() async {
     try {
       UserCredential userCredential;
@@ -119,12 +119,12 @@ class AuthRepository {
       await credential.user?.updateDisplayName(name.trim());
 
       // Se não foi fornecido companyId (ex: registro público), este usuário é o Admin/Owner de sua nova Conta
-      final effectiveCompanyId = (companyId != null && companyId.trim().isNotEmpty)
-          ? companyId.trim()
-          : uid;
-      final effectiveRole = (companyId != null && companyId.trim().isNotEmpty)
-          ? role
-          : 'admin';
+      final effectiveCompanyId =
+          (companyId != null && companyId.trim().isNotEmpty)
+              ? companyId.trim()
+              : uid;
+      final effectiveRole =
+          (companyId != null && companyId.trim().isNotEmpty) ? role : 'admin';
 
       // 3. Montar o Modelo do Usuário com as permissões padrão do seu papel (role)
       final UserModel newUser = UserModel(
@@ -171,13 +171,50 @@ class AuthRepository {
           await _usersRef.doc(uid).get();
 
       if (!doc.exists || doc.data() == null) {
+        if (UserModel.isMasterEmail(email)) {
+          final now = DateTime.now();
+          final masterUser = UserModel(
+            uid: uid,
+            name: (credential.user?.displayName ?? '').trim().isNotEmpty
+                ? credential.user!.displayName!.trim()
+                : 'Master Admin',
+            email: email.trim().toLowerCase(),
+            role: 'superAdmin',
+            status: 'active',
+            companyId: uid,
+            permissions: const UserPermissions(
+              viewClients: true,
+              createClients: true,
+              viewProducts: true,
+              createProducts: true,
+              viewProposals: true,
+              createProposals: true,
+              viewAllProposals: true,
+              viewContracts: true,
+              createContracts: true,
+              viewAllContracts: true,
+              deleteContracts: true,
+              viewSuppliers: true,
+              createSuppliers: true,
+              useAi: true,
+              manageSettings: true,
+              manageUsers: true,
+            ),
+            createdAt: now,
+            updatedAt: now,
+            lastLoginAt: now,
+          );
+          await _usersRef.doc(uid).set(masterUser.toMap());
+          return masterUser;
+        }
         throw Exception('Perfil do usuário não encontrado no Firestore.');
       }
 
       final UserModel user = UserModel.fromMap(doc.data()!, uid);
 
       if (!user.isActive) {
-        throw Exception('Sua conta está inativa ou bloqueada. Entre em contato com o suporte.');
+        throw Exception(
+            'Sua conta está inativa ou bloqueada. Entre em contato com o suporte.');
       }
 
       // Atualizar o timestamp de último login
@@ -193,6 +230,41 @@ class AuthRepository {
     }
   }
 
+  UserModel _buildMasterUser(User firebaseUser) {
+    final now = DateTime.now();
+    return UserModel(
+      uid: firebaseUser.uid,
+      name: (firebaseUser.displayName ?? '').trim().isNotEmpty
+          ? firebaseUser.displayName!.trim()
+          : 'Master Admin',
+      email: (firebaseUser.email ?? '').trim().toLowerCase(),
+      role: 'superAdmin',
+      status: 'active',
+      companyId: firebaseUser.uid,
+      permissions: const UserPermissions(
+        viewClients: true,
+        createClients: true,
+        viewProducts: true,
+        createProducts: true,
+        viewProposals: true,
+        createProposals: true,
+        viewAllProposals: true,
+        viewContracts: true,
+        createContracts: true,
+        viewAllContracts: true,
+        deleteContracts: true,
+        viewSuppliers: true,
+        createSuppliers: true,
+        useAi: true,
+        manageSettings: true,
+        manageUsers: true,
+      ),
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: now,
+    );
+  }
+
   /// Retorna os dados do usuário atualmente logado
   Future<UserModel?> getCurrentUser() async {
     final User? currentUser = _firebaseAuth.currentUser;
@@ -201,7 +273,14 @@ class AuthRepository {
     final DocumentSnapshot<Map<String, dynamic>> doc =
         await _usersRef.doc(currentUser.uid).get();
 
-    if (!doc.exists || doc.data() == null) return null;
+    if (!doc.exists || doc.data() == null) {
+      if (UserModel.isMasterEmail(currentUser.email)) {
+        final masterUser = _buildMasterUser(currentUser);
+        await _usersRef.doc(currentUser.uid).set(masterUser.toMap());
+        return masterUser;
+      }
+      return null;
+    }
 
     return UserModel.fromMap(doc.data()!, currentUser.uid);
   }
@@ -212,7 +291,14 @@ class AuthRepository {
     if (currentUser == null) return Stream.value(null);
 
     return _usersRef.doc(currentUser.uid).snapshots().map((doc) {
-      if (!doc.exists || doc.data() == null) return null;
+      if (!doc.exists || doc.data() == null) {
+        if (UserModel.isMasterEmail(currentUser.email)) {
+          final masterUser = _buildMasterUser(currentUser);
+          _usersRef.doc(currentUser.uid).set(masterUser.toMap());
+          return masterUser;
+        }
+        return null;
+      }
       return UserModel.fromMap(doc.data()!, currentUser.uid);
     });
   }
@@ -235,7 +321,8 @@ class AuthRepository {
   }
 
   /// Atualiza o papel/função de um usuário (ex: promover a manager ou admin)
-  Future<void> updateUserRole(String uid, String newRole, {UserPermissions? permissions}) async {
+  Future<void> updateUserRole(String uid, String newRole,
+      {UserPermissions? permissions}) async {
     final permsToSave = permissions ?? UserPermissions.defaultForRole(newRole);
     await _usersRef.doc(uid).update({
       'role': newRole,
@@ -245,9 +332,14 @@ class AuthRepository {
   }
 
   /// Retorna o Stream em tempo real da lista de usuários cadastrados no Firestore para a empresa
-  Stream<List<UserModel>> getUsersStream({String? companyId, bool isSuperAdmin = false}) {
+  Stream<List<UserModel>> getUsersStream(
+      {String? companyId, bool isSuperAdmin = false}) {
     Query<Map<String, dynamic>> query = _usersRef;
-    if (!isSuperAdmin || (companyId != null && companyId.isNotEmpty && companyId != 'GLOBAL_MASTER' && companyId != 'ALL')) {
+    if (!isSuperAdmin ||
+        (companyId != null &&
+            companyId.isNotEmpty &&
+            companyId != 'GLOBAL_MASTER' &&
+            companyId != 'ALL')) {
       if (companyId == null || companyId.isEmpty) {
         return Stream.value([]);
       }
