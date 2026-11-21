@@ -16,6 +16,7 @@ class GlobalSystemConfig {
   final bool aiEnabledForUsers; // Liga/Desliga IA para usuários comuns (false = só admin@admin.com.br)
   final bool allowPublicRegistration; // Liga/Desliga novos cadastros públicos de usuários
   final double supportDailyMediaLimitMb; // Cota diária de imagem/áudio (MB) no Chat de Suporte por usuário
+  final int supportDailyTextQuota; // Cota diária de mensagens de texto no Chat de Suporte por usuário
   final DateTime updatedAt;
   final String? updatedBy;
 
@@ -34,6 +35,7 @@ class GlobalSystemConfig {
     this.aiEnabledForUsers = true,
     this.allowPublicRegistration = true,
     this.supportDailyMediaLimitMb = 10.0,
+    this.supportDailyTextQuota = 100,
     required this.updatedAt,
     this.updatedBy,
   });
@@ -78,6 +80,7 @@ class GlobalSystemConfig {
       aiEnabledForUsers: true,
       allowPublicRegistration: true,
       supportDailyMediaLimitMb: 10.0,
+      supportDailyTextQuota: 100,
       updatedAt: DateTime.now(),
       updatedBy: 'system',
     );
@@ -100,6 +103,7 @@ class GlobalSystemConfig {
       aiEnabledForUsers: map['aiEnabledForUsers'] as bool? ?? true,
       allowPublicRegistration: map['allowPublicRegistration'] as bool? ?? true,
       supportDailyMediaLimitMb: (map['supportDailyMediaLimitMb'] as num?)?.toDouble() ?? 10.0,
+      supportDailyTextQuota: (map['supportDailyTextQuota'] as num?)?.toInt() ?? 100,
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedBy: map['updatedBy'] as String?,
     );
@@ -121,6 +125,7 @@ class GlobalSystemConfig {
       'aiEnabledForUsers': aiEnabledForUsers,
       'allowPublicRegistration': allowPublicRegistration,
       'supportDailyMediaLimitMb': supportDailyMediaLimitMb,
+      'supportDailyTextQuota': supportDailyTextQuota,
       'updatedAt': Timestamp.fromDate(updatedAt),
       'updatedBy': updatedBy,
     };
@@ -141,6 +146,7 @@ class GlobalSystemConfig {
     bool? aiEnabledForUsers,
     bool? allowPublicRegistration,
     double? supportDailyMediaLimitMb,
+    int? supportDailyTextQuota,
     DateTime? updatedAt,
     String? updatedBy,
   }) {
@@ -159,6 +165,7 @@ class GlobalSystemConfig {
       aiEnabledForUsers: aiEnabledForUsers ?? this.aiEnabledForUsers,
       allowPublicRegistration: allowPublicRegistration ?? this.allowPublicRegistration,
       supportDailyMediaLimitMb: supportDailyMediaLimitMb ?? this.supportDailyMediaLimitMb,
+      supportDailyTextQuota: supportDailyTextQuota ?? this.supportDailyTextQuota,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
     );

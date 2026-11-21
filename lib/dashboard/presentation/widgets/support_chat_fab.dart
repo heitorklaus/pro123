@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -148,6 +148,9 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
   bool _isRecording = false;
   int _recordSeconds = 0;
   Timer? _recordTimer;
+  DateTime? _lastTextSentAt;
+  DateTime? _floodBlockedUntil;
+  final List<DateTime> _recentTextSentTimestamps = [];
 
   static const Set<String> _allowedImageExts = {
     'jpg',
@@ -157,6 +160,11 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
     'gif'
   };
   static const int _maxSingleFileBytes = 5 * 1024 * 1024; // 5 MB por arquivo
+  static const int _maxTextChars = 800;
+  static const Duration _textCooldown = Duration(seconds: 3);
+  static const Duration _burstWindow = Duration(minutes: 1);
+  static const int _maxBurstCount = 10;
+  static const Duration _burstBlockDuration = Duration(seconds: 30);
 
   @override
   void dispose() {
@@ -223,6 +231,59 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
     });
   }
 
+  Future<bool> _checkTextFloodAndQuota(String text) async {
+    if (text.length > _maxTextChars) {
+      _showError(
+          'Mensagem muito longa (máx. $_maxTextChars caracteres por envio).');
+      return false;
+    }
+    if (widget.currentUser.isSuperAdmin) return true;
+
+    final now = DateTime.now();
+    if (_floodBlockedUntil != null && now.isBefore(_floodBlockedUntil!)) {
+      final secs = _floodBlockedUntil!.difference(now).inSeconds + 1;
+      _showError('Muitas mensagens seguidas. Aguarde ${secs}s para enviar.');
+      return false;
+    }
+
+    if (_lastTextSentAt != null) {
+      final diff = now.difference(_lastTextSentAt!);
+      if (diff < _textCooldown) {
+        final secs = (_textCooldown - diff).inSeconds + 1;
+        _showError('Aguarde ${secs}s antes de enviar outra mensagem.');
+        return false;
+      }
+    }
+
+    _recentTextSentTimestamps
+        .removeWhere((t) => now.difference(t) > _burstWindow);
+    if (_recentTextSentTimestamps.length >= _maxBurstCount) {
+      _floodBlockedUntil = now.add(_burstBlockDuration);
+      _showError(
+          'Limite de rajada atingido ($_maxBurstCount msgs/min). Aguarde 30s.');
+      return false;
+    }
+
+    final cfg = await SystemSettingsService.getGlobalConfig();
+    if (cfg.supportDailyTextQuota > 0) {
+      final snap = await FirebaseFirestore.instance
+          .collection('support_chats')
+          .doc(widget.currentUser.uid)
+          .get();
+      final data = snap.data() ?? {};
+      final sameDay = data['todayTextDate'] == _todayStr;
+      final usedCount =
+          sameDay ? ((data['todayTextCount'] as num?)?.toInt() ?? 0) : 0;
+      if (usedCount >= cfg.supportDailyTextQuota) {
+        _showError(
+          'Limite diário de mensagens atingido ($usedCount / ${cfg.supportDailyTextQuota}). Aguarde a renovação amanhã.',
+        );
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _sendMessage({
     String? customText,
     String mediaType = 'text',
@@ -232,6 +293,11 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
     final text = (customText ?? _msgCtrl.text).trim();
     if (text.isEmpty && mediaUrl == null) return;
     if (_sending) return;
+
+    if (mediaType == 'text') {
+      final allowed = await _checkTextFloodAndQuota(text);
+      if (!allowed) return;
+    }
 
     setState(() => _sending = true);
     if (customText == null) _msgCtrl.clear();
@@ -246,13 +312,23 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
           : widget.currentUser.email;
 
       int nextMediaBytes = 0;
-      if (mediaSizeBytes > 0) {
+      int? nextTextCount;
+      if (mediaSizeBytes > 0 || mediaType == 'text') {
         final prevSnap = await chatRef.get();
         final prevData = prevSnap.data() ?? {};
-        final sameDay = prevData['todayMediaDate'] == _todayStr;
-        final prevUsed =
-            sameDay ? ((prevData['todayMediaBytes'] as num?)?.toInt() ?? 0) : 0;
-        nextMediaBytes = prevUsed + mediaSizeBytes;
+        if (mediaSizeBytes > 0) {
+          final sameDay = prevData['todayMediaDate'] == _todayStr;
+          final prevUsed =
+              sameDay ? ((prevData['todayMediaBytes'] as num?)?.toInt() ?? 0) : 0;
+          nextMediaBytes = prevUsed + mediaSizeBytes;
+        }
+        if (mediaType == 'text') {
+          final sameDayText = prevData['todayTextDate'] == _todayStr;
+          final prevTextUsed = sameDayText
+              ? ((prevData['todayTextCount'] as num?)?.toInt() ?? 0)
+              : 0;
+          nextTextCount = prevTextUsed + 1;
+        }
       }
 
       final previewLabel = mediaType == 'image'
@@ -277,6 +353,10 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
           'todayMediaDate': _todayStr,
           'todayMediaBytes': nextMediaBytes,
         },
+        if (nextTextCount != null) ...{
+          'todayTextDate': _todayStr,
+          'todayTextCount': nextTextCount,
+        },
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -290,6 +370,12 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
         if (mediaSizeBytes > 0) 'mediaSizeBytes': mediaSizeBytes,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      if (mediaType == 'text') {
+        final sentAt = DateTime.now();
+        _lastTextSentAt = sentAt;
+        _recentTextSentTimestamps.add(sentAt);
+      }
 
       _scrollToBottom();
     } catch (e) {
@@ -825,10 +911,18 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
                           )
                         : TextField(
                             controller: _msgCtrl,
+                            maxLength: _maxTextChars,
+                            maxLengthEnforcement: MaxLengthEnforcement.enforced,
                             textInputAction: TextInputAction.send,
                             onSubmitted: (_) => _sendMessage(),
                             decoration: InputDecoration(
                               hintText: 'Digite sua mensagem...',
+                              counterStyle: GoogleFonts.inter(
+                                fontSize: 10,
+                                color: isDark
+                                    ? const Color(0xFF64748B)
+                                    : const Color(0xFF94A3B8),
+                              ),
                               isDense: true,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
