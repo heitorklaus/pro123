@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -296,6 +297,34 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
     }
   }
 
+  Future<void> _enqueueMediaRelay({
+    required Uint8List bytes,
+    required String contentType,
+    required String mediaType,
+    required String ext,
+    required String text,
+  }) async {
+    final userName = widget.currentUser.name.trim().isNotEmpty
+        ? widget.currentUser.name.trim()
+        : widget.currentUser.email;
+    await FirebaseFirestore.instance.collection('support_media_inbox').add({
+      'chatId': widget.currentUser.uid,
+      'companyId': widget.currentUser.effectiveCompanyId,
+      'userId': widget.currentUser.uid,
+      'userName': userName,
+      'userEmail': widget.currentUser.email,
+      'ticketCode': widget.ticketCode,
+      'mediaType': mediaType,
+      'contentType': contentType,
+      'ext': ext,
+      'text': text,
+      'mediaSizeBytes': bytes.length,
+      'base64Data': base64Encode(bytes),
+      'todayStr': _todayStr,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> _pickAndSendImage() async {
     if (_sending || _isRecording) return;
     try {
@@ -328,15 +357,34 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
 
       setState(() => _sending = true);
       final ts = DateTime.now().millisecondsSinceEpoch;
-      final ref = FirebaseStorage.instance
-          .ref('support_chats/${widget.currentUser.uid}/img_$ts.$ext');
       final contentType = ext == 'png'
           ? 'image/png'
           : (ext == 'webp' ? 'image/webp' : 'image/jpeg');
-      await ref
-          .putData(bytes, SettableMetadata(contentType: contentType))
-          .timeout(const Duration(seconds: 15));
-      final url = await ref.getDownloadURL().timeout(const Duration(seconds: 10));
+
+      String? url;
+      try {
+        final ref = FirebaseStorage.instance
+            .ref('support_chats/${widget.currentUser.uid}/img_$ts.$ext');
+        await ref
+            .putData(bytes, SettableMetadata(contentType: contentType))
+            .timeout(const Duration(seconds: 5));
+        url = await ref.getDownloadURL().timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // Fallback sem CORS via Firestore Inbox -> mavis_bot sobe ao Storage
+        if (bytes.length <= 700 * 1024) {
+          await _enqueueMediaRelay(
+            bytes: bytes,
+            contentType: contentType,
+            mediaType: 'image',
+            ext: ext,
+            text: '📷 Imagem enviada',
+          );
+          if (mounted) setState(() => _sending = false);
+          _scrollToBottom();
+          return;
+        }
+        rethrow;
+      }
 
       setState(() => _sending = false);
       await _sendMessage(
@@ -419,13 +467,30 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
         final ts = DateTime.now().millisecondsSinceEpoch;
         final ext = kIsWeb ? 'webm' : 'ogg';
         final mime = kIsWeb ? 'audio/webm' : 'audio/ogg';
-        final ref = FirebaseStorage.instance
-            .ref('support_chats/${widget.currentUser.uid}/aud_$ts.$ext');
-        await ref
-            .putData(bytes, SettableMetadata(contentType: mime))
-            .timeout(const Duration(seconds: 15));
-        final url =
-            await ref.getDownloadURL().timeout(const Duration(seconds: 10));
+        String? url;
+        try {
+          final ref = FirebaseStorage.instance
+              .ref('support_chats/${widget.currentUser.uid}/aud_$ts.$ext');
+          await ref
+              .putData(bytes, SettableMetadata(contentType: mime))
+              .timeout(const Duration(seconds: 5));
+          url =
+              await ref.getDownloadURL().timeout(const Duration(seconds: 5));
+        } catch (_) {
+          if (bytes.length <= 700 * 1024) {
+            await _enqueueMediaRelay(
+              bytes: bytes,
+              contentType: mime,
+              mediaType: 'audio',
+              ext: ext,
+              text: '🎙️ Áudio (${_recordSeconds}s)',
+            );
+            if (mounted) setState(() => _sending = false);
+            _scrollToBottom();
+            return;
+          }
+          rethrow;
+        }
 
         setState(() => _sending = false);
         await _sendMessage(
