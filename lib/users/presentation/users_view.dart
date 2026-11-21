@@ -12,6 +12,7 @@ import '../../auth/domain/models/user_model.dart';
 import '../../auth/presentation/register/register_store.dart';
 import '../../settings/data/services/system_settings_service.dart';
 import '../../settings/domain/models/plan_cost_policy.dart';
+import '../../settings/presentation/widgets/plan_usage_breakdown_dialog.dart';
 import 'widgets/ai_usage_badge.dart';
 import 'widgets/user_permissions_dialog.dart';
 import 'widgets/user_dossier_dialog.dart';
@@ -641,36 +642,45 @@ class _PlanCostConsumptionBadge extends StatelessWidget {
 
         return Tooltip(
           message:
-              'Teto de custo (20% para garantir 80% de lucro): ${PlanCostPolicy.formatBrl(maxCost)}/mês',
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(7),
-              border: Border.all(color: border),
+              'Clique para ver detalhes • Teto de custo (20%): ${PlanCostPolicy.formatBrl(maxCost)}/mês',
+          child: InkWell(
+            onTap: () => PlanUsageBreakdownDialog.show(
+              context,
+              companyId: cid,
+              userName: user.name.isNotEmpty ? user.name : user.email,
+              tier: user.aiPlanTier,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isExceeded
-                      ? Icons.lock_rounded
-                      : (isNear
-                          ? Icons.warning_amber_rounded
-                          : Icons.account_balance_wallet_rounded),
-                  size: 13,
-                  color: fg,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  'Consumindo ${PlanCostPolicy.formatBrl(usedBrl)} do plano de ${PlanCostPolicy.formatBrl(planPrice)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+            borderRadius: BorderRadius.circular(7),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isExceeded
+                        ? Icons.lock_rounded
+                        : (isNear
+                            ? Icons.warning_amber_rounded
+                            : Icons.account_balance_wallet_rounded),
+                    size: 13,
                     color: fg,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 5),
+                  Text(
+                    'Consumindo ${PlanCostPolicy.formatBrl(usedBrl)} do plano de ${PlanCostPolicy.formatBrl(planPrice)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: fg,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

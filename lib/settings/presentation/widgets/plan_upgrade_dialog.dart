@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../domain/models/plan_cost_policy.dart';
+import 'plan_usage_breakdown_dialog.dart';
 
 /// Diálogo exibido ao usuário quando o consumo mensal atinge o teto de custo do plano,
 /// travando IA/Agentes/Uploads e oferecendo upgrade gratuito para GOLD ou DIAMOND.
@@ -113,7 +114,8 @@ class _PlanUpgradeDialogState extends State<PlanUpgradeDialog> {
                 ),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.lock_clock_rounded, color: Colors.white, size: 30),
+              child: const Icon(Icons.lock_clock_rounded,
+                  color: Colors.white, size: 30),
             ),
             const SizedBox(height: 16),
             Text(
@@ -135,7 +137,26 @@ class _PlanUpgradeDialogState extends State<PlanUpgradeDialog> {
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => PlanUsageBreakdownDialog.show(
+                context,
+                companyId: widget.companyId,
+                userName: 'Minha Conta',
+                tier: widget.currentTier,
+              ),
+              icon: const Icon(Icons.analytics_outlined,
+                  size: 16, color: Color(0xFF38BDF8)),
+              label: Text(
+                'Ver detalhes do meu consumo (IA, Agentes e Uploads)',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF38BDF8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -145,7 +166,8 @@ class _PlanUpgradeDialogState extends State<PlanUpgradeDialog> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFF10B981), size: 20),
+                  const Icon(Icons.auto_awesome_rounded,
+                      color: Color(0xFF10B981), size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -172,8 +194,10 @@ class _PlanUpgradeDialogState extends State<PlanUpgradeDialog> {
                     backgroundColor: const Color(0xFFF59E0B),
                     foregroundColor: const Color(0xFF0F172A),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    textStyle: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 12.5),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800, fontSize: 12.5),
                   ),
                 ),
               ),
@@ -185,23 +209,29 @@ class _PlanUpgradeDialogState extends State<PlanUpgradeDialog> {
                 child: ElevatedButton.icon(
                   onPressed: _isUpgrading ? null : () => _upgradeTo('diamond'),
                   icon: const Icon(Icons.diamond_rounded, size: 18),
-                  label: const Text('ATUALIZAR GRÁTIS PARA DIAMOND (R\$ 99,90)'),
+                  label:
+                      const Text('ATUALIZAR GRÁTIS PARA DIAMOND (R\$ 99,90)'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF06B6D4),
                     foregroundColor: const Color(0xFF0F172A),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    textStyle: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 12.5),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800, fontSize: 12.5),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
             ],
             TextButton(
-              onPressed: _isUpgrading ? null : () => Navigator.of(context).pop(false),
+              onPressed:
+                  _isUpgrading ? null : () => Navigator.of(context).pop(false),
               child: Text(
                 'Fechar',
-                style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                style: GoogleFonts.inter(
+                    color: const Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ],

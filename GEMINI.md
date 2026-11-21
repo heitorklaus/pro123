@@ -587,4 +587,19 @@ ole == 'admin'). Usuários cadastrados internamente herdam o companyId da empres
 
 > 📚 *Roadmap técnico e tarefas detalhadas em:* [`/docs/roadmap_and_backlog.md`](file:///c:/mavis/docs/roadmap_and_backlog.md) e [`/docs/microservico_pdf_proposta_roadmap.md`](file:///c:/mavis/docs/microservico_pdf_proposta_roadmap.md)
 
+---
+
+## 💰 7. Política de Planos, Margem de Lucro (80%) e Cotas Configuráveis
+
+Todos os valores comerciais, margem mínima de lucro e estimativas exibidas ao cliente final ficam centralizados em [`PlanCostPolicy`](file:///c:/mavis/lib/settings/domain/models/plan_cost_policy.dart) e **podem ser alterados a qualquer momento** conforme ajuste comercial (caso esteja oferecendo demais ou cobrando caro demais):
+
+- **Planos e Preços Mensais Atuais:**
+  - `PREMIUM`: **R$ 59,90/mês** → teto máximo de custo (20%): **R$ 11,98** *(80% lucro = R$ 47,92)*
+  - `GOLD`: **R$ 79,90/mês** → teto máximo de custo (20%): **R$ 15,98** *(80% lucro = R$ 63,92)*
+  - `DIAMOND`: **R$ 99,90/mês** → teto máximo de custo (20%): **R$ 19,98** *(80% lucro = R$ 79,92)*
+- **Contabilização Unificada (`ai_company_usage/{companyId}.monthCostBrl`):** soma tokens de IA/Agentes (Web + WhatsApp) convertidos para R$ + uploads de capas, logos, PDFs e mídias (`calculateUploadCostBrl`).
+- **Trava & Upgrade Gratuito ([`PlanUpgradeDialog`](file:///c:/mavis/lib/settings/presentation/widgets/plan_upgrade_dialog.dart)):** ao atingir 100% do teto de custo (20% do plano), bloqueia IA, Agentes e Uploads e oferece upgrade imediato para `GOLD` ou `DIAMOND` (sem fluxo de pagamento nesta etapa).
+- **Alerta do Super Admin ([`SuperAdminProfitAlertDialog`](file:///c:/mavis/lib/dashboard/presentation/widgets/super_admin_profit_alert_dialog.dart)):** ao logar como `heitorklaus@hotmail.com`, exibe popup listando empresas ≥ 75% do teto de custo.
+- **Tabela de Benefícios para o Cliente ([`PlanBenefitsTableDialog`](file:///c:/mavis/lib/settings/presentation/widgets/plan_benefits_table_dialog.dart)):** exibida pelo botão `ⓘ` no Passo 3 do Onboarding e na tela de planos — mostra apenas entregas em **propostas no WhatsApp**, **análises de PDF** e **MB de uploads** (nunca expõe custos internos), com números configuráveis em `PlanCostPolicy.clientBenefitsForTier`.
+
 

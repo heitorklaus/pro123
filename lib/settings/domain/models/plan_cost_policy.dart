@@ -51,4 +51,46 @@ class PlanCostPolicy {
   }
 
   static String formatBrl(double value) => _brlFmt.format(value);
+
+  /// Estimativas exibidas ao cliente final (em MB, análises de PDF e propostas WhatsApp).
+  /// Podem ser ajustadas livremente a qualquer momento sem expor custos internos.
+  static ({
+    String title,
+    String priceLabel,
+    int monthlyPdfAnalyses,
+    int monthlyWhatsAppProposals,
+    int monthlyUploadMb,
+    String dailyMixedSummary,
+  }) clientBenefitsForTier(String? tier) {
+    switch (normalizeTier(tier)) {
+      case 'gold':
+        return (
+          title: 'GOLD',
+          priceLabel: 'R\$ 79,90',
+          monthlyPdfAnalyses: 510,
+          monthlyWhatsAppProposals: 1715,
+          monthlyUploadMb: 940,
+          dailyMixedSummary: '~16 msgs Agente + ~11 PDFs/dia',
+        );
+      case 'diamond':
+        return (
+          title: 'DIAMOND',
+          priceLabel: 'R\$ 99,90',
+          monthlyPdfAnalyses: 640,
+          monthlyWhatsAppProposals: 2145,
+          monthlyUploadMb: 1170,
+          dailyMixedSummary: '~20 msgs Agente + ~13 PDFs/dia',
+        );
+      case 'premium':
+      default:
+        return (
+          title: 'PREMIUM',
+          priceLabel: 'R\$ 59,90',
+          monthlyPdfAnalyses: 380,
+          monthlyWhatsAppProposals: 1280,
+          monthlyUploadMb: 700,
+          dailyMixedSummary: '~12 msgs Agente + ~8 PDFs/dia',
+        );
+    }
+  }
 }

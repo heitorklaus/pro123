@@ -146,6 +146,66 @@ class AuthRepository {
 
       return newUser;
     } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        try {
+          final signInCred = await _firebaseAuth.signInWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          );
+          final existingUser = signInCred.user;
+          if (existingUser != null) {
+            final uid = existingUser.uid;
+            final userDoc = await _usersRef.doc(uid).get();
+            final userData = userDoc.data();
+            final cid = (userData?['companyId'] as String?)?.trim().isNotEmpty == true
+                ? (userData!['companyId'] as String).trim()
+                : uid;
+            final companyDoc =
+                await _firestore.collection('companies').doc(cid).get();
+            final completedUser = userData?['onboardingCompleted'] == true;
+            final completedCompany =
+                companyDoc.data()?['onboardingCompleted'] == true;
+
+            if (completedUser || completedCompany) {
+              await _firebaseAuth.signOut();
+              throw Exception('Este e-mail já está em uso por outra conta.');
+            }
+
+            // Cadastro abandonado antes de concluir o Passo 3: retoma normalmente
+            await existingUser.updateDisplayName(name.trim());
+            final DateTime now = DateTime.now();
+            final effectiveRole =
+                (companyId != null && companyId.trim().isNotEmpty)
+                    ? role
+                    : (userData?['role'] as String? ?? 'admin');
+            final resumedUser = UserModel(
+              uid: uid,
+              name: name.trim(),
+              email: email.trim(),
+              phone: phone?.trim() ?? userData?['phone'] as String?,
+              role: effectiveRole,
+              status: 'active',
+              companyId: cid,
+              permissions: UserPermissions.defaultForRole(effectiveRole),
+              createdAt: now,
+              updatedAt: now,
+              lastLoginAt: now,
+            );
+            await _usersRef.doc(uid).set(
+              {
+                ...resumedUser.toMap(),
+                'onboardingCompleted': false,
+              },
+              SetOptions(merge: true),
+            );
+            return resumedUser;
+          }
+        } on FirebaseAuthException {
+          throw Exception(
+            'Já existe um cadastro com este e-mail. Use sua senha anterior para continuar ou redefina a senha na tela de login.',
+          );
+        }
+      }
       throw Exception(_mapFirebaseAuthError(e.code));
     } catch (e) {
       throw Exception('Falha ao cadastrar usuário no Firestore: $e');

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/services/subscription_service.dart';
+import '../../../settings/presentation/widgets/plan_benefits_table_dialog.dart';
 import 'pix_checkout_dialog.dart';
 
 /// Modal oficial de Planos & Assinaturas acionado a qualquer momento pelo Dashboard
@@ -103,9 +104,22 @@ class _SubscriptionPlansDialogState extends State<SubscriptionPlansDialog> {
                           ),
                         ],
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Tooltip(
+                            message: 'O que cada plano inclui (propostas, IA e uploads)',
+                            child: IconButton(
+                              onPressed: () => PlanBenefitsTableDialog.show(context),
+                              icon: const Icon(Icons.info_outline_rounded,
+                                  color: Color(0xFF38BDF8)),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                          ),
+                        ],
                       ),
                     ],
                   ),

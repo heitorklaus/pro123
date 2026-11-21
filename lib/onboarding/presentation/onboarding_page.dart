@@ -14,6 +14,8 @@ import '../../settings/data/services/cnpj_service.dart';
 import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/domain/models/company_model.dart';
+import '../../settings/domain/models/plan_cost_policy.dart';
+import '../../settings/presentation/widgets/plan_benefits_table_dialog.dart';
 import 'widgets/dark_tech_image_data.dart';
 import 'widgets/onboarding_niche_card.dart';
 import 'widgets/onboarding_step_progress.dart';
@@ -78,6 +80,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   String? _logoBase64;
   String? _companyId;
   String? _lastAutoSearchedCnpj;
+  String _selectedTier = 'premium';
 
   void _onCnpjChanged(String val) {
     final clean = val.replaceAll(RegExp(r'\D'), '');
@@ -1767,25 +1770,161 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
           const SizedBox(height: 18),
 
-          // Título
-          Text(
-            'Plano TAOS PRO',
-            style: GoogleFonts.outfit(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Para empresas que querem acelerar vendas, propostas e fechar contratos sem limites.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: const Color(0xFF94A3B8),
-              height: 1.4,
-            ),
-          ),
+          // Título + Botão "i" de Informações dos Planos
+          Builder(builder: (context) {
+            final tierBenefits =
+                PlanCostPolicy.clientBenefitsForTier(_selectedTier);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Plano TAOS ${tierBenefits.title}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    Tooltip(
+                      message:
+                          'Ver tabela completa do que cada plano inclui (propostas, IA e uploads)',
+                      child: InkWell(
+                        onTap: () => PlanBenefitsTableDialog.show(
+                          context,
+                          highlightTier: _selectedTier,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0EA5E9)
+                                .withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: const Color(0xFF38BDF8)
+                                  .withValues(alpha: 0.45),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.info_outline_rounded,
+                                  size: 16, color: Color(0xFF38BDF8)),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Detalhes',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF38BDF8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Para empresas que querem acelerar vendas, propostas e fechar contratos com IA.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: const Color(0xFF94A3B8),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Abas dos Planos: PREMIUM (padrão) | GOLD | DIAMOND
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF051326),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF0E274A)),
+                  ),
+                  child: Row(
+                    children: [
+                      for (final t in const [
+                        (
+                          key: 'premium',
+                          label: 'PREMIUM',
+                          color: Color(0xFF0EA5E9)
+                        ),
+                        (
+                          key: 'gold',
+                          label: 'GOLD',
+                          color: Color(0xFFF59E0B)
+                        ),
+                        (
+                          key: 'diamond',
+                          label: 'DIAMOND',
+                          color: Color(0xFF10B981)
+                        ),
+                      ])
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _selectedTier = t.key),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _selectedTier == t.key
+                                    ? t.color.withValues(alpha: 0.22)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _selectedTier == t.key
+                                      ? t.color
+                                      : Colors.transparent,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    t.label,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: _selectedTier == t.key
+                                          ? Colors.white
+                                          : const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: () => PlanBenefitsTableDialog.show(
+                                      context,
+                                      highlightTier: t.key,
+                                    ),
+                                    child: Icon(
+                                      Icons.info_outline_rounded,
+                                      size: 13,
+                                      color: _selectedTier == t.key
+                                          ? t.color
+                                          : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }),
 
           const SizedBox(height: 18),
 
@@ -1903,7 +2042,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                isMonthly ? 'R\$ 99,00' : 'R\$ 450,00',
+                isMonthly
+                    ? PlanCostPolicy.clientBenefitsForTier(_selectedTier)
+                        .priceLabel
+                    : 'R\$ ${(PlanCostPolicy.planPriceBrl(_selectedTier) * 6 * 0.76).toStringAsFixed(2).replaceAll('.', ',')}',
                 style: GoogleFonts.outfit(
                   fontSize: 34,
                   fontWeight: FontWeight.w800,
@@ -1913,7 +2055,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                isMonthly ? '/ mês via PIX' : 'por 6 meses (R\$ 75/mês)',
+                isMonthly ? '/ mês via PIX' : 'por 6 meses (-24%)',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
