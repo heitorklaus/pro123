@@ -5,10 +5,12 @@ class UserPermissions {
   // Clientes
   final bool viewClients;
   final bool createClients;
+  final bool viewAllClients;
 
   // Produtos & Usinas Solares
   final bool viewProducts;
   final bool createProducts;
+  final bool viewAllProducts;
 
   // Propostas Comerciais
   final bool viewProposals;
@@ -24,6 +26,7 @@ class UserPermissions {
   // Fornecedores & Parceiros
   final bool viewSuppliers;
   final bool createSuppliers;
+  final bool viewAllSuppliers;
 
   // Inteligência Artificial
   final bool useAi; // Acesso à leitura de faturas, PDF de usinas e assistente de propostas IA
@@ -35,8 +38,10 @@ class UserPermissions {
   const UserPermissions({
     this.viewClients = true,
     this.createClients = true,
+    this.viewAllClients = false,
     this.viewProducts = true,
     this.createProducts = true,
+    this.viewAllProducts = false,
     this.viewProposals = true,
     this.createProposals = true,
     this.viewAllProposals = false,
@@ -46,6 +51,7 @@ class UserPermissions {
     this.deleteContracts = false,
     this.viewSuppliers = true,
     this.createSuppliers = true,
+    this.viewAllSuppliers = false,
     this.useAi = true,
     this.manageSettings = false,
     this.manageUsers = false,
@@ -58,8 +64,10 @@ class UserPermissions {
         return const UserPermissions(
           viewClients: true,
           createClients: true,
+          viewAllClients: true,
           viewProducts: true,
           createProducts: true,
+          viewAllProducts: true,
           viewProposals: true,
           createProposals: true,
           viewAllProposals: true,
@@ -69,6 +77,7 @@ class UserPermissions {
           deleteContracts: true,
           viewSuppliers: true,
           createSuppliers: true,
+          viewAllSuppliers: true,
           useAi: true,
           manageSettings: true,
           manageUsers: true,
@@ -77,17 +86,20 @@ class UserPermissions {
         return const UserPermissions(
           viewClients: true,
           createClients: true,
+          viewAllClients: false,
           viewProducts: true,
           createProducts: true,
+          viewAllProducts: false,
           viewProposals: true,
           createProposals: true,
-          viewAllProposals: true,
+          viewAllProposals: false,
           viewContracts: true,
           createContracts: true,
-          viewAllContracts: true,
+          viewAllContracts: false,
           deleteContracts: false,
           viewSuppliers: true,
           createSuppliers: true,
+          viewAllSuppliers: false,
           useAi: true,
           manageSettings: false,
           manageUsers: false,
@@ -97,8 +109,10 @@ class UserPermissions {
         return const UserPermissions(
           viewClients: true,
           createClients: true,
+          viewAllClients: false,
           viewProducts: true,
           createProducts: false,
+          viewAllProducts: false,
           viewProposals: true,
           createProposals: true,
           viewAllProposals: false,
@@ -108,6 +122,7 @@ class UserPermissions {
           deleteContracts: false,
           viewSuppliers: true,
           createSuppliers: false,
+          viewAllSuppliers: false,
           useAi: true,
           manageSettings: false,
           manageUsers: false,
@@ -120,8 +135,10 @@ class UserPermissions {
     return UserPermissions(
       viewClients: map['viewClients'] as bool? ?? true,
       createClients: map['createClients'] as bool? ?? (map['editLeads'] as bool? ?? true),
+      viewAllClients: map['viewAllClients'] as bool? ?? false,
       viewProducts: map['viewProducts'] as bool? ?? true,
       createProducts: map['createProducts'] as bool? ?? (map['editLeads'] as bool? ?? true),
+      viewAllProducts: map['viewAllProducts'] as bool? ?? false,
       viewProposals: map['viewProposals'] as bool? ?? true,
       createProposals: map['createProposals'] as bool? ?? true,
       viewAllProposals: map['viewAllProposals'] as bool? ?? (map['viewReports'] as bool? ?? false),
@@ -131,6 +148,7 @@ class UserPermissions {
       deleteContracts: map['deleteContracts'] as bool? ?? false,
       viewSuppliers: map['viewSuppliers'] as bool? ?? true,
       createSuppliers: map['createSuppliers'] as bool? ?? (map['editLeads'] as bool? ?? false),
+      viewAllSuppliers: map['viewAllSuppliers'] as bool? ?? false,
       useAi: map['useAi'] as bool? ?? true,
       manageSettings: map['manageSettings'] as bool? ?? false,
       manageUsers: map['manageUsers'] as bool? ?? false,
@@ -141,8 +159,10 @@ class UserPermissions {
     return {
       'viewClients': viewClients,
       'createClients': createClients,
+      'viewAllClients': viewAllClients,
       'viewProducts': viewProducts,
       'createProducts': createProducts,
+      'viewAllProducts': viewAllProducts,
       'viewProposals': viewProposals,
       'createProposals': createProposals,
       'viewAllProposals': viewAllProposals,
@@ -152,6 +172,7 @@ class UserPermissions {
       'deleteContracts': deleteContracts,
       'viewSuppliers': viewSuppliers,
       'createSuppliers': createSuppliers,
+      'viewAllSuppliers': viewAllSuppliers,
       'useAi': useAi,
       'manageSettings': manageSettings,
       'manageUsers': manageUsers,
@@ -161,8 +182,10 @@ class UserPermissions {
   UserPermissions copyWith({
     bool? viewClients,
     bool? createClients,
+    bool? viewAllClients,
     bool? viewProducts,
     bool? createProducts,
+    bool? viewAllProducts,
     bool? viewProposals,
     bool? createProposals,
     bool? viewAllProposals,
@@ -172,6 +195,7 @@ class UserPermissions {
     bool? deleteContracts,
     bool? viewSuppliers,
     bool? createSuppliers,
+    bool? viewAllSuppliers,
     bool? useAi,
     bool? manageSettings,
     bool? manageUsers,
@@ -179,8 +203,10 @@ class UserPermissions {
     return UserPermissions(
       viewClients: viewClients ?? this.viewClients,
       createClients: createClients ?? this.createClients,
+      viewAllClients: viewAllClients ?? this.viewAllClients,
       viewProducts: viewProducts ?? this.viewProducts,
       createProducts: createProducts ?? this.createProducts,
+      viewAllProducts: viewAllProducts ?? this.viewAllProducts,
       viewProposals: viewProposals ?? this.viewProposals,
       createProposals: createProposals ?? this.createProposals,
       viewAllProposals: viewAllProposals ?? this.viewAllProposals,
@@ -190,6 +216,7 @@ class UserPermissions {
       deleteContracts: deleteContracts ?? this.deleteContracts,
       viewSuppliers: viewSuppliers ?? this.viewSuppliers,
       createSuppliers: createSuppliers ?? this.createSuppliers,
+      viewAllSuppliers: viewAllSuppliers ?? this.viewAllSuppliers,
       useAi: useAi ?? this.useAi,
       manageSettings: manageSettings ?? this.manageSettings,
       manageUsers: manageUsers ?? this.manageUsers,
@@ -261,20 +288,37 @@ class UserModel {
   // Verificações diretas de permissão com respeito estrito às configurações do RBAC (SuperAdmin sempre tem tudo liberado)
   bool get canViewClients => isSuperAdmin || permissions.viewClients;
   bool get canCreateClients => isSuperAdmin || permissions.createClients;
+  bool get canViewAllClients => isSuperAdmin || permissions.viewAllClients || isAdmin;
   bool get canViewProducts => isSuperAdmin || permissions.viewProducts;
   bool get canCreateProducts => isSuperAdmin || permissions.createProducts;
+  bool get canViewAllProducts => isSuperAdmin || permissions.viewAllProducts || isAdmin;
   bool get canViewProposals => isSuperAdmin || permissions.viewProposals;
   bool get canCreateProposals => isSuperAdmin || permissions.createProposals;
-  bool get canViewAllProposals => isSuperAdmin || permissions.viewAllProposals || isAdmin || isManager;
+  bool get canViewAllProposals => isSuperAdmin || permissions.viewAllProposals || isAdmin;
   bool get canViewContracts => isSuperAdmin || permissions.viewContracts;
   bool get canCreateContracts => isSuperAdmin || permissions.createContracts;
-  bool get canViewAllContracts => isSuperAdmin || permissions.viewAllContracts || isAdmin || isManager;
+  bool get canViewAllContracts => isSuperAdmin || permissions.viewAllContracts || isAdmin;
   bool get canDeleteContracts => isSuperAdmin || permissions.deleteContracts || isAdmin;
   bool get canViewSuppliers => isSuperAdmin || permissions.viewSuppliers;
   bool get canCreateSuppliers => isSuperAdmin || permissions.createSuppliers;
+  bool get canViewAllSuppliers => isSuperAdmin || permissions.viewAllSuppliers || isAdmin;
   bool get canUseAi => isSuperAdmin || permissions.useAi;
   bool get canManageSettings => isSuperAdmin || permissions.manageSettings;
   bool get canManageUsers => isSuperAdmin || permissions.manageUsers;
+
+  /// Verifica se o usuário pode visualizar um registro específico com base em RBAC + compartilhamento.
+  bool canAccessRecord({
+    required bool viewAllPermission,
+    String? createdByUserId,
+    bool isPublicForCompany = false,
+    List<String> sharedWithUserIds = const [],
+  }) {
+    if (isSuperAdmin || isAdmin || viewAllPermission) return true;
+    if (createdByUserId != null && createdByUserId == uid) return true;
+    if (isPublicForCompany) return true;
+    if (sharedWithUserIds.contains(uid)) return true;
+    return false;
+  }
 
   factory UserModel.fromMap(Map<String, dynamic> map, String uid) {
     return UserModel(

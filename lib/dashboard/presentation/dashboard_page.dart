@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ import '../../auth/domain/models/user_model.dart';
 import '../../clients/data/repositories/client_repository.dart';
 import '../../clients/domain/models/client_model.dart';
 import '../../clients/presentation/clients_view.dart';
+import '../../clients/presentation/widgets/client_form_dialog.dart';
 import '../../products/data/repositories/product_repository.dart';
 import '../../products/domain/models/product_model.dart';
 import '../../products/presentation/products_view.dart';
@@ -32,6 +34,7 @@ import '../../settings/data/services/company_service.dart';
 import '../../settings/data/services/settings_service.dart';
 import '../../settings/presentation/settings_view.dart';
 import 'master_ai_quotas_view.dart';
+import 'widgets/global_search_dialog.dart';
 import 'widgets/support_chat_fab.dart';
 import '../../solar_designer/presentation/roof_studies_view.dart';
 import '../../solar_designer/domain/models/roof_study_model.dart';
@@ -56,6 +59,8 @@ class _DashboardPageState extends State<DashboardPage> {
   ProposalItemModel? _pendingProposalItem;
   ClientModel? _pendingProposalClient;
   RoofStudyModel? _pendingRoofStudy;
+  bool _pendingNewSolarPlant = false;
+  bool _pendingNewProposal = false;
   ProductSector? _preferredSector = ProductSector.solarPlant;
 
   bool _isCheckingOnboarding = true;
@@ -278,7 +283,18 @@ class _DashboardPageState extends State<DashboardPage> {
             ? Icons.sensors_rounded
             : Icons.inventory_2_outlined;
 
-    return Scaffold(
+    final canCreateProducts = _currentUser?.canCreateProducts ?? false;
+    final canCreateProposals = _currentUser?.canCreateProposals ?? false;
+    final canCreateClients = _currentUser?.canCreateClients ?? false;
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            _openGlobalSearch,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            _openGlobalSearch,
+      },
+      child: Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       floatingActionButton: _currentUser != null
           ? SupportChatFab(currentUser: _currentUser!)
@@ -307,6 +323,8 @@ class _DashboardPageState extends State<DashboardPage> {
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: Colors.white,
         elevation: 0,
+        toolbarHeight: isMobile ? null : 64,
+        titleSpacing: 0,
         leading: Builder(
           builder: (appBarCtx) => IconButton(
             tooltip: isMobile
@@ -328,10 +346,130 @@ class _DashboardPageState extends State<DashboardPage> {
                 : _toggleSidebar,
           ),
         ),
-        title: TaosLogo(
-          height: isMobile ? 32 : 80,
-        ),
+        title: isMobile
+            ? TaosLogo(height: 32)
+            : Row(
+                children: [
+                  SizedBox(
+                    width: _isSidebarCollapsed ? 184 : 200,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: TaosLogo(height: 80),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          InkWell(
+                            onTap: _openGlobalSearch,
+                            borderRadius: BorderRadius.circular(11),
+                            child: Container(
+                              width: 330,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.16),
+                                    const Color(0xFF1E293B)
+                                        .withValues(alpha: 0.9),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(11),
+                                border: Border.all(
+                                  color: const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.auto_awesome_rounded,
+                                      color: Color(0xFFFBBF24), size: 17),
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    child: Text(
+                                      'Busca rápida...',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFFE2E8F0),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF59E0B)
+                                          .withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Ctrl+K',
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFFFBBF24),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (canCreateProducts ||
+                              canCreateProposals ||
+                              canCreateClients) ...[
+                            const SizedBox(width: 12),
+                            if (canCreateProducts)
+                              _QuickTopButton(
+                                label: 'NOVA USINA',
+                                icon: Icons.solar_power_rounded,
+                                color: const Color(0xFFF59E0B),
+                                onTap: _quickNewSolarPlant,
+                              ),
+                            if (canCreateProducts &&
+                                (canCreateProposals || canCreateClients))
+                              const _TopDivider(),
+                            if (canCreateProposals)
+                              _QuickTopButton(
+                                label: 'NOVA PROPOSTA',
+                                icon: Icons.description_rounded,
+                                color: const Color(0xFF818CF8),
+                                onTap: _quickNewProposal,
+                              ),
+                            if (canCreateProposals && canCreateClients)
+                              const _TopDivider(),
+                            if (canCreateClients)
+                              _QuickTopButton(
+                                label: 'NOVO CLIENTE',
+                                icon: Icons.person_add_alt_1_rounded,
+                                color: const Color(0xFF10B981),
+                                onTap: _quickNewClient,
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
         actions: [
+          if (isMobile)
+            IconButton(
+              tooltip: 'Busca Rápida Gold',
+              icon: const Icon(Icons.search_rounded, color: Color(0xFFFBBF24)),
+              onPressed: _openGlobalSearch,
+            ),
           // Contador de Teste Grátis & Botão de Assinar Agora
           if (_subscriptionInfo != null && _subscriptionInfo!.isTrial) ...[
             Center(
@@ -483,6 +621,52 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ],
             ),
+      ),
+    );
+  }
+
+  void _openGlobalSearch() {
+    showDialog(
+      context: context,
+      builder: (_) => GlobalSearchDialog(
+        currentUser: _currentUser,
+        onNavigate: (section) {
+          setState(() => _activeItem = section);
+        },
+      ),
+    );
+  }
+
+  void _quickNewSolarPlant() {
+    setState(() {
+      _pendingNewSolarPlant = true;
+      _activeItem = AppSidebarItem.products;
+    });
+  }
+
+  void _quickNewProposal() {
+    setState(() {
+      _pendingNewProposal = true;
+      _activeItem = AppSidebarItem.proposals;
+    });
+  }
+
+  void _quickNewClient() {
+    showDialog(
+      context: context,
+      builder: (_) => ClientFormDialog(
+        currentUser: _currentUser,
+        onClientSaved: (saved) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cliente "${saved.name}" salvo com sucesso!'),
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -539,6 +723,12 @@ class _DashboardPageState extends State<DashboardPage> {
         return ProductsView(
           currentUser: _currentUser,
           onProceedToProposal: _navigateToProposalWithItem,
+          startWithNewSolarPlant: _pendingNewSolarPlant,
+          onConsumeStartFlag: () {
+            if (_pendingNewSolarPlant && mounted) {
+              setState(() => _pendingNewSolarPlant = false);
+            }
+          },
         );
       case AppSidebarItem.suppliers:
         if (!canViewSuppliers) {
@@ -564,6 +754,12 @@ class _DashboardPageState extends State<DashboardPage> {
           initialItem: _pendingProposalItem,
           initialClient: _pendingProposalClient,
           initialRoofStudy: _pendingRoofStudy,
+          startWithNewProposal: _pendingNewProposal,
+          onConsumeStartFlag: () {
+            if (_pendingNewProposal && mounted) {
+              setState(() => _pendingNewProposal = false);
+            }
+          },
           onClearInitialItem: () => setState(() {
             _pendingProposalItem = null;
             _pendingProposalClient = null;
@@ -1215,7 +1411,8 @@ class _PaginationBar extends StatelessWidget {
                 label: const Text('Anterior'),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1227,7 +1424,8 @@ class _PaginationBar extends StatelessWidget {
                 label: const Text('Próxima'),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
               ),
             ],
@@ -2495,4 +2693,67 @@ class _UserSellerStats {
     required this.contractsCount,
     required this.conversionRate,
   });
+}
+
+class _TopDivider extends StatelessWidget {
+  const _TopDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 22,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: const Color(0xFF334155),
+    );
+  }
+}
+
+class _QuickTopButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickTopButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: color.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 17, color: color),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

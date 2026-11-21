@@ -50,6 +50,10 @@ class SupplierRepository {
     String? paymentTerms,
     String? notes,
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
+    bool isPublicForCompany = false,
+    List<String> sharedWithUserIds = const [],
   }) async {
     final now = DateTime.now();
     final docRef = _suppliersRef.doc();
@@ -75,6 +79,10 @@ class SupplierRepository {
       paymentTerms: paymentTerms?.trim(),
       notes: notes?.trim(),
       companyId: companyId,
+      createdByUserId: createdByUserId,
+      createdByUserName: createdByUserName,
+      isPublicForCompany: isPublicForCompany,
+      sharedWithUserIds: sharedWithUserIds,
       createdAt: now,
       updatedAt: now,
     );

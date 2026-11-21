@@ -6,6 +6,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../../../app/theme/app_colors.dart';
+import '../../../app/widgets/visibility_selector_card.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../../settings/data/services/system_settings_service.dart';
@@ -69,6 +70,8 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
   String? _errorMessage;
   String? _cepError;
   bool _addressLocked = false;
+  bool _isPublicForCompany = false;
+  List<String> _sharedWithUserIds = [];
 
   bool get _isEditing => widget.client != null;
 
@@ -83,6 +86,8 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
 
     if (_isEditing) {
       final c = widget.client!;
+      _isPublicForCompany = c.isPublicForCompany;
+      _sharedWithUserIds = List<String>.from(c.sharedWithUserIds);
       _nameCtrl.text = c.name;
       _emailCtrl.text = c.email;
       _phoneCtrl.text = c.phone ?? '';
@@ -399,6 +404,8 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
           city: n(_cityCtrl.text),
           state: n(_stateCtrl.text),
           notes: n(_notesCtrl.text),
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
           updatedAt: DateTime.now(),
         );
         await _repo.updateClient(savedClient);
@@ -430,6 +437,8 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
           companyId: companyId,
           createdByUserId: user?.uid,
           createdByUserName: user?.name,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
       }
 
@@ -1479,6 +1488,16 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                           hintText: 'Ex: Cliente tem interesse em usina solar de 5 kWp. Telhado cerâmico.',
                           prefixIcon: Icon(Icons.comment_outlined, color: Color(0xFF64748B)),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      VisibilitySelectorCard(
+                        currentUser: widget.currentUser,
+                        isPublicForCompany: _isPublicForCompany,
+                        sharedWithUserIds: _sharedWithUserIds,
+                        onPublicChanged: (v) =>
+                            setState(() => _isPublicForCompany = v),
+                        onSharedUsersChanged: (list) =>
+                            setState(() => _sharedWithUserIds = list),
                       ),
                     ],
                   ),

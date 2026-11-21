@@ -88,6 +88,8 @@ class ContractModel {
   final String? deliveryTime;
   final String? createdByUserId;
   final String? createdByUserName;
+  final bool isPublicForCompany;
+  final List<String> sharedWithUserIds;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? signedAt;
@@ -121,6 +123,8 @@ class ContractModel {
     this.deliveryTime,
     this.createdByUserId,
     this.createdByUserName,
+    this.isPublicForCompany = false,
+    this.sharedWithUserIds = const [],
     required this.createdAt,
     required this.updatedAt,
     this.signedAt,
@@ -171,6 +175,10 @@ class ContractModel {
       deliveryTime: data['deliveryTime'] as String?,
       createdByUserId: data['createdByUserId'] as String?,
       createdByUserName: data['createdByUserName'] as String?,
+      isPublicForCompany: data['isPublicForCompany'] as bool? ?? false,
+      sharedWithUserIds: List<String>.from(
+        data['sharedWithUserIds'] as List? ?? const [],
+      ),
       createdAt: parseDate(data['createdAt']),
       updatedAt: parseDate(data['updatedAt']),
       signedAt: parseNullableDate(data['signedAt']),
@@ -206,6 +214,8 @@ class ContractModel {
       'deliveryTime': deliveryTime,
       'createdByUserId': createdByUserId,
       'createdByUserName': createdByUserName,
+      'isPublicForCompany': isPublicForCompany,
+      'sharedWithUserIds': sharedWithUserIds,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'signedAt': signedAt != null ? Timestamp.fromDate(signedAt!) : null,
@@ -241,6 +251,8 @@ class ContractModel {
     String? deliveryTime,
     String? createdByUserId,
     String? createdByUserName,
+    bool? isPublicForCompany,
+    List<String>? sharedWithUserIds,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? signedAt,
@@ -274,6 +286,8 @@ class ContractModel {
       deliveryTime: deliveryTime ?? this.deliveryTime,
       createdByUserId: createdByUserId ?? this.createdByUserId,
       createdByUserName: createdByUserName ?? this.createdByUserName,
+      isPublicForCompany: isPublicForCompany ?? this.isPublicForCompany,
+      sharedWithUserIds: sharedWithUserIds ?? this.sharedWithUserIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       signedAt: signedAt ?? this.signedAt,

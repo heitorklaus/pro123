@@ -134,6 +134,8 @@ class ProductModel {
   final String? companyId; // Multi-tenancy
   final String? createdByUserId; // UID do Vendedor / Operador que criou
   final String? createdByUserName; // Nome do Vendedor / Operador
+  final bool isPublicForCompany;
+  final List<String> sharedWithUserIds;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -159,6 +161,8 @@ class ProductModel {
     this.companyId,
     this.createdByUserId,
     this.createdByUserName,
+    this.isPublicForCompany = false,
+    this.sharedWithUserIds = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -303,6 +307,8 @@ class ProductModel {
       'companyId': companyId,
       'createdByUserId': createdByUserId,
       'createdByUserName': createdByUserName,
+      'isPublicForCompany': isPublicForCompany,
+      'sharedWithUserIds': sharedWithUserIds,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -331,6 +337,10 @@ class ProductModel {
       companyId: map['companyId'] as String?,
       createdByUserId: map['createdByUserId'] as String?,
       createdByUserName: map['createdByUserName'] as String?,
+      isPublicForCompany: map['isPublicForCompany'] as bool? ?? false,
+      sharedWithUserIds: List<String>.from(
+        map['sharedWithUserIds'] as List? ?? const [],
+      ),
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -358,6 +368,8 @@ class ProductModel {
     String? companyId,
     String? createdByUserId,
     String? createdByUserName,
+    bool? isPublicForCompany,
+    List<String>? sharedWithUserIds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -383,6 +395,8 @@ class ProductModel {
       companyId: companyId ?? this.companyId,
       createdByUserId: createdByUserId ?? this.createdByUserId,
       createdByUserName: createdByUserName ?? this.createdByUserName,
+      isPublicForCompany: isPublicForCompany ?? this.isPublicForCompany,
+      sharedWithUserIds: sharedWithUserIds ?? this.sharedWithUserIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

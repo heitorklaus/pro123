@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/widgets/visibility_selector_card.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../clients/data/repositories/client_repository.dart';
@@ -45,6 +46,8 @@ class ProposalsView extends StatefulWidget {
   final ClientModel? initialClient;
   final RoofStudyModel? initialRoofStudy;
   final VoidCallback? onClearInitialItem;
+  final bool startWithNewProposal;
+  final VoidCallback? onConsumeStartFlag;
 
   const ProposalsView({
     super.key,
@@ -53,6 +56,8 @@ class ProposalsView extends StatefulWidget {
     this.initialClient,
     this.initialRoofStudy,
     this.onClearInitialItem,
+    this.startWithNewProposal = false,
+    this.onConsumeStartFlag,
   });
 
   @override
@@ -76,6 +81,12 @@ class _ProposalsViewState extends State<ProposalsView> {
       _activeInitialItem = widget.initialItem;
       _aiLinkedClient = widget.initialClient;
       _activeRoofStudy = widget.initialRoofStudy;
+    } else if (widget.startWithNewProposal) {
+      _isCreatingOrEditing = true;
+      _proposalToEdit = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onConsumeStartFlag?.call();
+      });
     }
   }
 
@@ -92,6 +103,18 @@ class _ProposalsViewState extends State<ProposalsView> {
         _activeInitialItem = widget.initialItem;
         _aiLinkedClient = widget.initialClient;
         _activeRoofStudy = widget.initialRoofStudy;
+      });
+    } else if (widget.startWithNewProposal && !oldWidget.startWithNewProposal) {
+      setState(() {
+        _isCreatingOrEditing = true;
+        _proposalToEdit = null;
+        _activeInitialItem = null;
+        _aiLinkedClient = null;
+        _aiParsedProposal = null;
+        _activeRoofStudy = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onConsumeStartFlag?.call();
       });
     }
   }
@@ -1007,7 +1030,7 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
               stream: _repo.getProposalsStream(
                 companyId: _companyId,
                 currentUserId: widget.currentUser?.uid ?? _currentUser?.uid,
-                isAllProposalsVisible: widget.currentUser?.canViewAllProposals ?? _currentUser?.canViewAllProposals ?? false,
+                isAllProposalsVisible: true,
                 isSuperAdmin: widget.currentUser?.isSuperAdmin ?? _currentUser?.isSuperAdmin ?? false,
               ),
               builder: (ctx, snap) {
@@ -1027,7 +1050,16 @@ class _ProposalTableViewState extends State<_ProposalTableView> {
                   );
                 }
 
-                final all = snap.data ?? [];
+                final activeUser = widget.currentUser ?? _currentUser;
+                final all = (snap.data ?? []).where((p) {
+                  if (activeUser == null) return true;
+                  return activeUser.canAccessRecord(
+                    viewAllPermission: activeUser.canViewAllProposals,
+                    createdByUserId: p.createdByUserId,
+                    isPublicForCompany: p.isPublicForCompany,
+                    sharedWithUserIds: p.sharedWithUserIds,
+                  );
+                }).toList();
                 final filtered = all.where((p) {
                   final matchesQuery = _query.isEmpty ||
                       p.proposalNumber
@@ -1885,6 +1917,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   String? _connectionType;
   double? _availabilityKwh;
   double? _publicLightingValueRs;
+  bool _isPublicForCompany = false;
+  List<String> _sharedWithUserIds = [];
 
   static const _cleanProposalStorageKey = 'mavis_proposal_clean_mode';
 
@@ -2006,6 +2040,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _connectionType = p.connectionType;
       _availabilityKwh = p.availabilityKwh;
       _publicLightingValueRs = p.publicLightingValueRs;
+      _isPublicForCompany = p.isPublicForCompany;
+      _sharedWithUserIds = List<String>.from(p.sharedWithUserIds);
       if (p.roofStudyId != null && p.roofStudyId!.isNotEmpty) {
         RoofStudyRepository().getStudyById(p.roofStudyId!).then((study) {
           if (study != null && mounted) {
@@ -3030,6 +3066,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           connectionType: _connectionType,
           availabilityKwh: _availabilityKwh,
           publicLightingValueRs: _publicLightingValueRs,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
         await _proposalRepo.updateProposal(updated);
         savedProposalId = updated.id;
@@ -3059,6 +3097,8 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           connectionType: _connectionType,
           availabilityKwh: _availabilityKwh,
           publicLightingValueRs: _publicLightingValueRs,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
         savedProposalId = created.id;
         savedProposalCode = created.proposalNumber;
@@ -4982,6 +5022,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                   const SizedBox(height: 12),
                   _buildBillingParamsCard(isDark),
                 ],
+                const SizedBox(height: 12),
+                VisibilitySelectorCard(
+                  currentUser: _currentUser,
+                  isPublicForCompany: _isPublicForCompany,
+                  sharedWithUserIds: _sharedWithUserIds,
+                  onPublicChanged: (v) =>
+                      setState(() => _isPublicForCompany = v),
+                  onSharedUsersChanged: (list) =>
+                      setState(() => _sharedWithUserIds = list),
+                ),
                 const SizedBox(height: 16),
                 // Quadro financeiro mobile
                 Container(
@@ -5149,6 +5199,16 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                             const SizedBox(height: 14),
                             _buildBillingParamsCard(isDark),
                           ],
+                          const SizedBox(height: 14),
+                          VisibilitySelectorCard(
+                            currentUser: _currentUser,
+                            isPublicForCompany: _isPublicForCompany,
+                            sharedWithUserIds: _sharedWithUserIds,
+                            onPublicChanged: (v) =>
+                                setState(() => _isPublicForCompany = v),
+                            onSharedUsersChanged: (list) =>
+                                setState(() => _sharedWithUserIds = list),
+                          ),
                         ],
                       ),
                     ),

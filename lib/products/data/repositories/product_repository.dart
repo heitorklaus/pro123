@@ -125,6 +125,8 @@ class ProductRepository {
     String? companyId,
     String? createdByUserId,
     String? createdByUserName,
+    bool isPublicForCompany = false,
+    List<String> sharedWithUserIds = const [],
   }) async {
     final now = DateTime.now();
     final docRef = _productsRef.doc();
@@ -151,6 +153,8 @@ class ProductRepository {
       companyId: companyId,
       createdByUserId: createdByUserId,
       createdByUserName: createdByUserName,
+      isPublicForCompany: isPublicForCompany,
+      sharedWithUserIds: sharedWithUserIds,
       createdAt: now,
       updatedAt: now,
     );

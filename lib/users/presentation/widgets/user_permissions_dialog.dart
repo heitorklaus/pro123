@@ -23,8 +23,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
   late String _role;
   late bool _viewClients;
   late bool _createClients;
+  late bool _viewAllClients;
   late bool _viewProducts;
   late bool _createProducts;
+  late bool _viewAllProducts;
   late bool _viewProposals;
   late bool _createProposals;
   late bool _viewAllProposals;
@@ -34,6 +36,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
   late bool _deleteContracts;
   late bool _viewSuppliers;
   late bool _createSuppliers;
+  late bool _viewAllSuppliers;
   late bool _useAi;
   late bool _manageSettings;
   late bool _manageUsers;
@@ -47,8 +50,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
     final p = widget.user.permissions;
     _viewClients = p.viewClients;
     _createClients = p.createClients;
+    _viewAllClients = p.viewAllClients;
     _viewProducts = p.viewProducts;
     _createProducts = p.createProducts;
+    _viewAllProducts = p.viewAllProducts;
     _viewProposals = p.viewProposals;
     _createProposals = p.createProposals;
     _viewAllProposals = p.viewAllProposals;
@@ -58,6 +63,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
     _deleteContracts = p.deleteContracts;
     _viewSuppliers = p.viewSuppliers;
     _createSuppliers = p.createSuppliers;
+    _viewAllSuppliers = p.viewAllSuppliers;
     _useAi = p.useAi;
     _manageSettings = p.manageSettings;
     _manageUsers = p.manageUsers;
@@ -68,8 +74,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
       _role = role;
       _viewClients = preset.viewClients;
       _createClients = preset.createClients;
+      _viewAllClients = preset.viewAllClients;
       _viewProducts = preset.viewProducts;
       _createProducts = preset.createProducts;
+      _viewAllProducts = preset.viewAllProducts;
       _viewProposals = preset.viewProposals;
       _createProposals = preset.createProposals;
       _viewAllProposals = preset.viewAllProposals;
@@ -79,6 +87,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
       _deleteContracts = preset.deleteContracts;
       _viewSuppliers = preset.viewSuppliers;
       _createSuppliers = preset.createSuppliers;
+      _viewAllSuppliers = preset.viewAllSuppliers;
       _useAi = preset.useAi;
       _manageSettings = preset.manageSettings;
       _manageUsers = preset.manageUsers;
@@ -91,8 +100,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
       final updatedPermissions = UserPermissions(
         viewClients: _viewClients,
         createClients: _createClients,
+        viewAllClients: _viewAllClients,
         viewProducts: _viewProducts,
         createProducts: _createProducts,
+        viewAllProducts: _viewAllProducts,
         viewProposals: _viewProposals,
         createProposals: _createProposals,
         viewAllProposals: _viewAllProposals,
@@ -102,6 +113,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
         deleteContracts: _deleteContracts,
         viewSuppliers: _viewSuppliers,
         createSuppliers: _createSuppliers,
+        viewAllSuppliers: _viewAllSuppliers,
         useAi: _useAi,
         manageSettings: _manageSettings,
         manageUsers: _manageUsers,
@@ -379,6 +391,12 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
                         value: _createClients,
                         onChanged: (val) => setState(() => _createClients = val),
                       ),
+                      _permissionSwitch(
+                        title: 'Ver Todos os Clientes da Empresa',
+                        subtitle: 'Se desmarcado, verá apenas clientes criados por ele ou compartilhados',
+                        value: _viewAllClients,
+                        onChanged: (val) => setState(() => _viewAllClients = val),
+                      ),
                     ],
                   ),
 
@@ -402,6 +420,12 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
                         subtitle: 'Habilita os botões "Montar Usina Solar" (com IA OCR), "Novo Produto" e inclusão de itens no catálogo',
                         value: _createProducts,
                         onChanged: (val) => setState(() => _createProducts = val),
+                      ),
+                      _permissionSwitch(
+                        title: 'Ver Todas as Usinas & Produtos da Empresa',
+                        subtitle: 'Se desmarcado, verá apenas usinas/produtos criados por ele ou compartilhados',
+                        value: _viewAllProducts,
+                        onChanged: (val) => setState(() => _viewAllProducts = val),
                       ),
                     ],
                   ),
@@ -492,6 +516,12 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
                         subtitle: 'Permite registrar novos fornecedores e prazos de pagamento',
                         value: _createSuppliers,
                         onChanged: (val) => setState(() => _createSuppliers = val),
+                      ),
+                      _permissionSwitch(
+                        title: 'Ver Todos os Fornecedores da Empresa',
+                        subtitle: 'Se desmarcado, verá apenas fornecedores criados por ele ou compartilhados',
+                        value: _viewAllSuppliers,
+                        onChanged: (val) => setState(() => _viewAllSuppliers = val),
                       ),
                     ],
                   ),

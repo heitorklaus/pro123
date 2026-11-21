@@ -183,6 +183,8 @@ class ProposalModel {
   final String? companyId;
   final String? createdByUserId;
   final String? createdByUserName;
+  final bool isPublicForCompany;
+  final List<String> sharedWithUserIds;
   final String? pdfUrl;
   final String? pdfPath;
   final String? connectionType; // 'Monofásico' | 'Bifásico' | 'Trifásico'
@@ -217,6 +219,8 @@ class ProposalModel {
     this.companyId,
     this.createdByUserId,
     this.createdByUserName,
+    this.isPublicForCompany = false,
+    this.sharedWithUserIds = const [],
     this.pdfUrl,
     this.pdfPath,
     this.connectionType,
@@ -258,6 +262,8 @@ class ProposalModel {
     String? companyId,
     String? createdByUserId,
     String? createdByUserName,
+    bool? isPublicForCompany,
+    List<String>? sharedWithUserIds,
     String? pdfUrl,
     String? pdfPath,
     String? connectionType,
@@ -292,6 +298,8 @@ class ProposalModel {
       companyId: companyId ?? this.companyId,
       createdByUserId: createdByUserId ?? this.createdByUserId,
       createdByUserName: createdByUserName ?? this.createdByUserName,
+      isPublicForCompany: isPublicForCompany ?? this.isPublicForCompany,
+      sharedWithUserIds: sharedWithUserIds ?? this.sharedWithUserIds,
       pdfUrl: pdfUrl ?? this.pdfUrl,
       pdfPath: pdfPath ?? this.pdfPath,
       connectionType: connectionType ?? this.connectionType,
@@ -327,6 +335,8 @@ class ProposalModel {
       'companyId': companyId,
       'createdByUserId': createdByUserId,
       'createdByUserName': createdByUserName,
+      'isPublicForCompany': isPublicForCompany,
+      'sharedWithUserIds': sharedWithUserIds,
       'pdfUrl': pdfUrl,
       'pdfPath': pdfPath,
       if (connectionType != null) 'connectionType': connectionType,
@@ -374,6 +384,10 @@ class ProposalModel {
       companyId: map['companyId'] as String?,
       createdByUserId: map['createdByUserId'] as String?,
       createdByUserName: map['createdByUserName'] as String?,
+      isPublicForCompany: map['isPublicForCompany'] as bool? ?? false,
+      sharedWithUserIds: List<String>.from(
+        map['sharedWithUserIds'] as List? ?? const [],
+      ),
       pdfUrl: map['pdfUrl'] as String?,
       pdfPath: map['pdfPath'] as String?,
       connectionType: map['connectionType'] as String?,

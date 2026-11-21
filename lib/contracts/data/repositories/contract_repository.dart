@@ -37,12 +37,14 @@ class ContractRepository {
           .map((doc) => ContractModel.fromFirestore(doc))
           .toList();
 
-      // Se o usuário não tiver permissão para ver todas as propostas/contratos, filtra os próprios
-      if (!isSuperAdmin && currentUser != null && currentUser.permissions.viewAllProposals == false) {
-        list = list.where((c) =>
-            c.createdByUserId == currentUser.uid ||
-            c.createdByUserId == null ||
-            c.createdByUserId!.isEmpty).toList();
+      // Se o usuário não tiver permissão para ver todos os contratos, filtra pelos próprios ou compartilhados
+      if (!isSuperAdmin && currentUser != null) {
+        list = list.where((c) => currentUser.canAccessRecord(
+              viewAllPermission: currentUser.canViewAllContracts,
+              createdByUserId: c.createdByUserId,
+              isPublicForCompany: c.isPublicForCompany,
+              sharedWithUserIds: c.sharedWithUserIds,
+            )).toList();
       }
 
       // Ordenação decrescente em memória

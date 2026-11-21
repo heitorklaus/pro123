@@ -52,6 +52,10 @@ class SupplierModel {
   final String? paymentTerms; // Ex: Boleto 30/60DD, À vista 5% desc
   final String? notes;
   final String? companyId; // Multi-tenancy
+  final String? createdByUserId;
+  final String? createdByUserName;
+  final bool isPublicForCompany;
+  final List<String> sharedWithUserIds;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -77,6 +81,10 @@ class SupplierModel {
     this.paymentTerms,
     this.notes,
     this.companyId,
+    this.createdByUserId,
+    this.createdByUserName,
+    this.isPublicForCompany = false,
+    this.sharedWithUserIds = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -114,6 +122,10 @@ class SupplierModel {
       'paymentTerms': paymentTerms?.trim(),
       'notes': notes?.trim(),
       'companyId': companyId,
+      'createdByUserId': createdByUserId,
+      'createdByUserName': createdByUserName,
+      'isPublicForCompany': isPublicForCompany,
+      'sharedWithUserIds': sharedWithUserIds,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -141,6 +153,12 @@ class SupplierModel {
       paymentTerms: map['paymentTerms'] as String?,
       notes: map['notes'] as String?,
       companyId: map['companyId'] as String?,
+      createdByUserId: map['createdByUserId'] as String?,
+      createdByUserName: map['createdByUserName'] as String?,
+      isPublicForCompany: map['isPublicForCompany'] as bool? ?? false,
+      sharedWithUserIds: List<String>.from(
+        map['sharedWithUserIds'] as List? ?? const [],
+      ),
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -167,6 +185,10 @@ class SupplierModel {
     String? paymentTerms,
     String? notes,
     String? companyId,
+    String? createdByUserId,
+    String? createdByUserName,
+    bool? isPublicForCompany,
+    List<String>? sharedWithUserIds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -191,6 +213,10 @@ class SupplierModel {
       paymentTerms: paymentTerms ?? this.paymentTerms,
       notes: notes ?? this.notes,
       companyId: companyId ?? this.companyId,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      createdByUserName: createdByUserName ?? this.createdByUserName,
+      isPublicForCompany: isPublicForCompany ?? this.isPublicForCompany,
+      sharedWithUserIds: sharedWithUserIds ?? this.sharedWithUserIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

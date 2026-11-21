@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/widgets/visibility_selector_card.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../suppliers/data/repositories/supplier_repository.dart';
@@ -25,11 +26,15 @@ import 'automation_study_form_card.dart';
 class ProductsView extends StatefulWidget {
   final UserModel? currentUser;
   final ProceedToProposalCallback? onProceedToProposal;
+  final bool startWithNewSolarPlant;
+  final VoidCallback? onConsumeStartFlag;
 
   const ProductsView({
     super.key,
     this.currentUser,
     this.onProceedToProposal,
+    this.startWithNewSolarPlant = false,
+    this.onConsumeStartFlag,
   });
 
   @override
@@ -47,6 +52,34 @@ class _ProductsViewState extends State<ProductsView> {
   _ProductsViewMode _mode = _ProductsViewMode.table;
   CategoryModel _selectedCategory = CategoryModel.nativeCategories.first;
   ProductModel? _editingProduct;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startWithNewSolarPlant) {
+      _editingProduct = null;
+      _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
+      _mode = _ProductsViewMode.form;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onConsumeStartFlag?.call();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.startWithNewSolarPlant && !oldWidget.startWithNewSolarPlant) {
+      setState(() {
+        _editingProduct = null;
+        _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
+        _mode = _ProductsViewMode.form;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onConsumeStartFlag?.call();
+      });
+    }
+  }
 
   void _startNewProduct() {
     setState(() {
@@ -1394,7 +1427,16 @@ class _ProductTableViewState extends State<_ProductTableView> {
                       );
                     }
 
-                    final all = snap.data ?? [];
+                    final activeUser = widget.currentUser ?? _currentUser;
+                    final all = (snap.data ?? []).where((p) {
+                      if (activeUser == null) return true;
+                      return activeUser.canAccessRecord(
+                        viewAllPermission: activeUser.canViewAllProducts,
+                        createdByUserId: p.createdByUserId,
+                        isPublicForCompany: p.isPublicForCompany,
+                        sharedWithUserIds: p.sharedWithUserIds,
+                      );
+                    }).toList();
                     final filtered = all.where((p) {
                       final matchesQuery = _query.isEmpty ||
                           p.name.toLowerCase().contains(_query) ||
@@ -4543,6 +4585,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
   ProductStatus _status = ProductStatus.active;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isPublicForCompany = false;
+  List<String> _sharedWithUserIds = [];
 
   // Mapa de Controladores para Campos Específicos do Nicho
   final Map<String, TextEditingController> _dynamicControllers = {};
@@ -4570,6 +4614,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
 
     if (_isEditing) {
       final p = widget.product!;
+      _isPublicForCompany = p.isPublicForCompany;
+      _sharedWithUserIds = List<String>.from(p.sharedWithUserIds);
       _nameCtrl.text = p.name;
       _skuCtrl.text = p.sku ?? '';
       _barcodeCtrl.text = p.barcode ?? '';
@@ -4833,6 +4879,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
           ncm: n(_ncmCtrl.text),
           status: _status,
           specificAttributes: attributes,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
           updatedAt: DateTime.now(),
         );
         await _repo.updateProduct(updated);
@@ -4868,6 +4916,8 @@ class _ProductFormCardState extends State<_ProductFormCard> {
           companyId: companyId,
           createdByUserId: user?.uid,
           createdByUserName: user?.name,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
       }
 
@@ -5427,6 +5477,16 @@ class _ProductFormCardState extends State<_ProductFormCard> {
             ),
             const SizedBox(height: 24),
           ],
+
+          VisibilitySelectorCard(
+            currentUser: widget.currentUser,
+            isPublicForCompany: _isPublicForCompany,
+            sharedWithUserIds: _sharedWithUserIds,
+            onPublicChanged: (v) => setState(() => _isPublicForCompany = v),
+            onSharedUsersChanged: (list) =>
+                setState(() => _sharedWithUserIds = list),
+          ),
+          const SizedBox(height: 18),
 
           // ── Botão Salvar ──────────────────────────────────────────────────
           Material(

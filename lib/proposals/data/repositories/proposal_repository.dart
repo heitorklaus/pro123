@@ -111,6 +111,8 @@ class ProposalRepository {
     String? connectionType,
     double? availabilityKwh,
     double? publicLightingValueRs,
+    bool isPublicForCompany = false,
+    List<String> sharedWithUserIds = const [],
   }) async {
     final now = DateTime.now();
     final docRef = _proposalsRef.doc();
@@ -145,6 +147,8 @@ class ProposalRepository {
       companyId: companyId,
       createdByUserId: effectiveUserId,
       createdByUserName: effectiveUserName,
+      isPublicForCompany: isPublicForCompany,
+      sharedWithUserIds: sharedWithUserIds,
       connectionType: connectionType,
       availabilityKwh: availabilityKwh,
       publicLightingValueRs: publicLightingValueRs,

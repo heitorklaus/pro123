@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/widgets/visibility_selector_card.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../proposals/domain/models/proposal_item_model.dart';
@@ -152,6 +153,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _roofStudyId;
+  bool _isPublicForCompany = false;
+  List<String> _sharedWithUserIds = [];
 
   bool get _isEditing => widget.product != null && widget.product!.id.trim().isNotEmpty;
 
@@ -166,6 +169,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
 
     if (widget.product != null) {
       final p = widget.product!;
+      _isPublicForCompany = p.isPublicForCompany;
+      _sharedWithUserIds = List<String>.from(p.sharedWithUserIds);
       _nameCtrl.text = p.name;
       _skuCtrl.text = p.sku ?? '';
       _stockCtrl.text = p.stockQuantity.toStringAsFixed(0);
@@ -477,6 +482,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           stockQuantity: stock,
           unit: ProductUnit.un,
           specificAttributes: specificAttributes,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
         await _repo.updateProduct(updated);
         savedProduct = updated;
@@ -505,6 +512,8 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
           companyId: companyId,
           createdByUserId: user?.uid,
           createdByUserName: user?.name,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
       }
 
@@ -1847,6 +1856,16 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
               ),
             ),
 
+            const SizedBox(height: 16),
+            VisibilitySelectorCard(
+              currentUser: widget.currentUser,
+              isPublicForCompany: _isPublicForCompany,
+              sharedWithUserIds: _sharedWithUserIds,
+              onPublicChanged: (v) => setState(() => _isPublicForCompany = v),
+              onSharedUsersChanged: (list) =>
+                  setState(() => _sharedWithUserIds = list),
+            ),
+
             const SizedBox(height: 18),
 
             // Card Totalizador no Mobile
@@ -2069,6 +2088,16 @@ class _SolarPlantFormCardState extends State<SolarPlantFormCard> {
                           hintText: 'Ex: Garantia de 25 anos de performance nos módulos e 10 anos no inversor. Homologação inclusa.',
                           prefixIcon: Icon(Icons.notes_rounded, color: Color(0xFF64748B)),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      VisibilitySelectorCard(
+                        currentUser: widget.currentUser,
+                        isPublicForCompany: _isPublicForCompany,
+                        sharedWithUserIds: _sharedWithUserIds,
+                        onPublicChanged: (v) =>
+                            setState(() => _isPublicForCompany = v),
+                        onSharedUsersChanged: (list) =>
+                            setState(() => _sharedWithUserIds = list),
                       ),
                     ],
                   ),

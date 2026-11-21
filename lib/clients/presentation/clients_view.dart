@@ -313,7 +313,16 @@ class _ClientTableViewState extends State<_ClientTableView> {
                               );
                             }
 
-                            final all = snapshot.data ?? [];
+                            final activeUser = widget.currentUser ?? _currentUser;
+                            final all = (snapshot.data ?? []).where((c) {
+                              if (activeUser == null) return true;
+                              return activeUser.canAccessRecord(
+                                viewAllPermission: activeUser.canViewAllClients,
+                                createdByUserId: c.createdByUserId,
+                                isPublicForCompany: c.isPublicForCompany,
+                                sharedWithUserIds: c.sharedWithUserIds,
+                              );
+                            }).toList();
                             final filtered = _query.isEmpty
                                 ? all
                                 : all

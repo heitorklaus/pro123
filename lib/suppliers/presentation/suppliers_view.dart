@@ -5,6 +5,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../../app/theme/app_colors.dart';
+import '../../app/widgets/visibility_selector_card.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../products/presentation/category_dialogs.dart';
@@ -42,6 +43,7 @@ class _SuppliersViewState extends State<SuppliersView> {
                   width: 760,
                   child: _SupplierFormCard(
                     supplier: _editingSupplier,
+                    currentUser: widget.currentUser,
                     onBack: () => setState(() {
                       _showForm = false;
                       _editingSupplier = null;
@@ -424,7 +426,16 @@ class _SupplierTableViewState extends State<_SupplierTableView> {
                             );
                           }
 
-                          final all = snap.data ?? [];
+                          final activeUser = widget.currentUser ?? _currentUser;
+                          final all = (snap.data ?? []).where((s) {
+                            if (activeUser == null) return true;
+                            return activeUser.canAccessRecord(
+                              viewAllPermission: activeUser.canViewAllSuppliers,
+                              createdByUserId: s.createdByUserId,
+                              isPublicForCompany: s.isPublicForCompany,
+                              sharedWithUserIds: s.sharedWithUserIds,
+                            );
+                          }).toList();
                           final filtered = all.where((s) {
                             final matchesQuery = _query.isEmpty ||
                                 s.corporateName.toLowerCase().contains(_query) ||
@@ -883,11 +894,13 @@ class _SupplierEmptyState extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _SupplierFormCard extends StatefulWidget {
   final SupplierModel? supplier;
+  final UserModel? currentUser;
   final VoidCallback onBack;
   final VoidCallback onSuccess;
 
   const _SupplierFormCard({
     this.supplier,
+    this.currentUser,
     required this.onBack,
     required this.onSuccess,
   });
@@ -927,6 +940,8 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
   bool _isSearchingZip = false;
   String? _zipError;
   String? _errorMessage;
+  bool _isPublicForCompany = false;
+  List<String> _sharedWithUserIds = [];
 
   bool get _isEditing => widget.supplier != null;
 
@@ -941,6 +956,8 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
 
     if (_isEditing) {
       final s = widget.supplier!;
+      _isPublicForCompany = s.isPublicForCompany;
+      _sharedWithUserIds = List<String>.from(s.sharedWithUserIds);
       _tradeNameCtrl.text = s.tradeName;
       _corpNameCtrl.text = s.corporateName;
       _cnpjCtrl.text = s.cnpj ?? '';
@@ -1086,6 +1103,8 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
           paymentTerms: n(_paymentTermsCtrl.text),
           notes: n(_notesCtrl.text),
           status: _status,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
         await _repo.updateSupplier(updated);
       } else {
@@ -1095,7 +1114,8 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
         } catch (_) {
           auth = AuthRepository();
         }
-        final companyId = await auth.getCurrentCompanyId();
+        final user = widget.currentUser ?? await auth.getCurrentUser();
+        final companyId = user?.effectiveCompanyId ?? await auth.getCurrentCompanyId();
 
         await _repo.createSupplier(
           tradeName: tradeName.isNotEmpty ? tradeName : corpName,
@@ -1117,6 +1137,10 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
           notes: n(_notesCtrl.text),
           status: _status,
           companyId: companyId,
+          createdByUserId: user?.uid,
+          createdByUserName: user?.name,
+          isPublicForCompany: _isPublicForCompany,
+          sharedWithUserIds: _sharedWithUserIds,
         );
       }
 
@@ -1770,6 +1794,16 @@ class _SupplierFormCardState extends State<_SupplierFormCard> {
             ),
             const SizedBox(height: 20),
           ],
+
+          VisibilitySelectorCard(
+            currentUser: widget.currentUser,
+            isPublicForCompany: _isPublicForCompany,
+            sharedWithUserIds: _sharedWithUserIds,
+            onPublicChanged: (v) => setState(() => _isPublicForCompany = v),
+            onSharedUsersChanged: (list) =>
+                setState(() => _sharedWithUserIds = list),
+          ),
+          const SizedBox(height: 18),
 
           // ── Botão Salvar ──────────────────────────────────────────────────
           Material(
