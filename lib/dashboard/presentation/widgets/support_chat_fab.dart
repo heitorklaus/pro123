@@ -30,8 +30,20 @@ class SupportChatFab extends StatefulWidget {
 
 class _SupportChatFabState extends State<SupportChatFab> {
   bool _isDialogOpen = false;
+  OverlayEntry? _floatingEntry;
+  Offset? _floatingOffset;
+  Size _floatingSize = const Size(410, 520);
   int _lastHandledUnread = 0;
   Timestamp? _lastHandledUpdatedAt;
+
+  bool get _isChatOpen => _isDialogOpen || _floatingEntry != null;
+
+  @override
+  void dispose() {
+    _floatingEntry?.remove();
+    _floatingEntry = null;
+    super.dispose();
+  }
 
   String get _ticketCode {
     final clean =
@@ -55,14 +67,14 @@ class _SupportChatFabState extends State<SupportChatFab> {
         final updatedAt = data?['updatedAt'] as Timestamp?;
 
         if (unread > 0) {
-          if (_isDialogOpen) {
+          if (_isChatOpen) {
             chatDocRef.set({'unreadByUser': 0}, SetOptions(merge: true));
           } else if (updatedAt != _lastHandledUpdatedAt ||
               unread > _lastHandledUnread) {
             _lastHandledUpdatedAt = updatedAt;
             _lastHandledUnread = unread;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_isDialogOpen) {
+              if (mounted && !_isChatOpen) {
                 _openChatDialog(context);
               }
             });
@@ -138,34 +150,128 @@ class _SupportChatFabState extends State<SupportChatFab> {
     );
   }
 
-  void _openChatDialog(BuildContext context) {
-    if (_isDialogOpen) return;
-    _isDialogOpen = true;
-
+  void _markRead() {
     FirebaseFirestore.instance
         .collection('support_chats')
         .doc(widget.currentUser.uid)
         .set({'unreadByUser': 0}, SetOptions(merge: true));
+  }
+
+  void _openChatDialog(BuildContext context) {
+    if (_isChatOpen) {
+      if (_floatingEntry != null) return;
+      return;
+    }
+    _isDialogOpen = true;
+    _markRead();
 
     showDialog(
       context: context,
       builder: (ctx) => _SupportChatDialog(
         currentUser: widget.currentUser,
         ticketCode: _ticketCode,
+        isFloating: false,
+        onToggleFloating: () {
+          Navigator.of(ctx).pop();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openFloatingChat();
+          });
+        },
+        onClose: () => Navigator.of(ctx).pop(),
       ),
     ).whenComplete(() {
       if (mounted) _isDialogOpen = false;
     });
+  }
+
+  void _closeFloatingChat() {
+    _floatingEntry?.remove();
+    _floatingEntry = null;
+    if (mounted) setState(() {});
+  }
+
+  void _openFloatingChat() {
+    if (_floatingEntry != null || !mounted) return;
+    _markRead();
+
+    final screenSize = MediaQuery.of(context).size;
+    final maxW = (screenSize.width - 24).clamp(320.0, 760.0);
+    final maxH = (screenSize.height - 24).clamp(380.0, 820.0);
+    _floatingSize = Size(
+      _floatingSize.width.clamp(320.0, maxW),
+      _floatingSize.height.clamp(380.0, maxH),
+    );
+    _floatingOffset ??= Offset(
+      (screenSize.width - _floatingSize.width - 24)
+          .clamp(12.0, screenSize.width - _floatingSize.width - 12),
+      (screenSize.height - _floatingSize.height - 84)
+          .clamp(12.0, screenSize.height - _floatingSize.height - 12),
+    );
+
+    _floatingEntry = OverlayEntry(
+      builder: (overlayCtx) {
+        final s = MediaQuery.of(overlayCtx).size;
+        final w = _floatingSize.width.clamp(320.0, (s.width - 24).clamp(320.0, 820.0));
+        final h = _floatingSize.height.clamp(380.0, (s.height - 24).clamp(380.0, 860.0));
+        final left = (_floatingOffset?.dx ?? 24.0)
+            .clamp(8.0, (s.width - w - 8).clamp(8.0, s.width));
+        final top = (_floatingOffset?.dy ?? 24.0)
+            .clamp(8.0, (s.height - h - 8).clamp(8.0, s.height));
+
+        return Positioned(
+          left: left,
+          top: top,
+          width: w,
+          height: h,
+          child: _SupportChatDialog(
+            currentUser: widget.currentUser,
+            ticketCode: _ticketCode,
+            isFloating: true,
+            onToggleFloating: () {
+              _closeFloatingChat();
+              if (mounted) _openChatDialog(context);
+            },
+            onClose: _closeFloatingChat,
+            onDrag: (delta) {
+              _floatingOffset = Offset(
+                (left + delta.dx).clamp(8.0, (s.width - w - 8).clamp(8.0, s.width)),
+                (top + delta.dy).clamp(8.0, (s.height - h - 8).clamp(8.0, s.height)),
+              );
+              _floatingEntry?.markNeedsBuild();
+            },
+            onResize: (delta) {
+              final nextW = (w + delta.dx).clamp(320.0, (s.width - left - 8).clamp(320.0, 820.0));
+              final nextH = (h + delta.dy).clamp(380.0, (s.height - top - 8).clamp(380.0, 860.0));
+              _floatingSize = Size(nextW, nextH);
+              _floatingEntry?.markNeedsBuild();
+            },
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_floatingEntry!);
+    setState(() {});
   }
 }
 
 class _SupportChatDialog extends StatefulWidget {
   final UserModel currentUser;
   final String ticketCode;
+  final bool isFloating;
+  final VoidCallback? onToggleFloating;
+  final VoidCallback? onClose;
+  final ValueChanged<Offset>? onDrag;
+  final ValueChanged<Offset>? onResize;
 
   const _SupportChatDialog({
     required this.currentUser,
     required this.ticketCode,
+    this.isFloating = false,
+    this.onToggleFloating,
+    this.onClose,
+    this.onDrag,
+    this.onResize,
   });
 
   @override
@@ -255,11 +361,11 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 140), () {
+    Future.delayed(const Duration(milliseconds: 80), () {
       if (!mounted || !_scrollCtrl.hasClients) return;
       _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 220),
+        0.0,
+        duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
     });
@@ -673,68 +779,111 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
         .limitToLast(60)
         .snapshots();
 
-    return Dialog(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: SizedBox(
-        width: 430,
-        height: 560,
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
+    final windowContent = Material(
+      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+      elevation: widget.isFloating ? 16 : 0,
+      shadowColor: Colors.black54,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: widget.isFloating
+            ? BorderSide(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.45),
+                width: 1.2,
+              )
+            : BorderSide.none,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              // Header (arrastável no modo flutuante)
+              GestureDetector(
+                onPanUpdate: widget.isFloating && widget.onDrag != null
+                    ? (details) => widget.onDrag!(details.delta)
+                    : null,
+                child: MouseRegion(
+                  cursor: widget.isFloating
+                      ? SystemMouseCursors.grab
+                      : MouseCursor.defer,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.support_agent_rounded,
-                      color: Color(0xFF10B981),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          'Atendimento & Suporte TAOS',
-                          style: GoogleFonts.outfit(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF10B981).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.support_agent_rounded,
+                            color: Color(0xFF10B981),
+                            size: 20,
                           ),
                         ),
-                        Text(
-                          'Protocolo ${widget.ticketCode} • Texto, Imagem e Áudio',
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF94A3B8),
-                            fontSize: 11,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Atendimento & Suporte TAOS',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                widget.isFloating
+                                    ? 'Modo livre • Arraste aqui para mover'
+                                    : 'Protocolo ${widget.ticketCode} • Texto, Imagem e Áudio',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                        if (widget.onToggleFloating != null)
+                          IconButton(
+                            tooltip: widget.isFloating
+                                ? 'Centralizar janela'
+                                : 'Soltar janela (mover/redimensionar)',
+                            onPressed: widget.onToggleFloating,
+                            icon: Icon(
+                              widget.isFloating
+                                  ? Icons.center_focus_strong_rounded
+                                  : Icons.open_in_new_rounded,
+                              color: Colors.white70,
+                              size: 19,
+                            ),
+                          ),
+                        IconButton(
+                          tooltip: 'Fechar chat',
+                          onPressed: widget.onClose ??
+                              () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close_rounded,
+                              color: Colors.white70),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon:
-                        const Icon(Icons.close_rounded, color: Colors.white70),
-                  ),
-                ],
+                ),
               ),
-            ),
 
             // Mensagens em tempo real
             Expanded(
@@ -777,10 +926,11 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
 
                   return ListView.builder(
                     controller: _scrollCtrl,
+                    reverse: true,
                     padding: const EdgeInsets.all(14),
                     itemCount: docs.length,
                     itemBuilder: (context, i) {
-                      final d = docs[i].data();
+                      final d = docs[docs.length - 1 - i].data();
                       final isUser = d['senderRole'] == 'user';
                       final text = (d['text'] ?? '').toString();
                       final mediaType = (d['mediaType'] ?? 'text').toString();
@@ -1006,6 +1156,43 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
             ),
           ],
         ),
+        if (widget.isFloating && widget.onResize != null)
+          Positioned(
+            right: 2,
+            bottom: 2,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeDownRight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanUpdate: (details) => widget.onResize!(details.delta),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.south_east_rounded,
+                    size: 14,
+                    color: isDark
+                        ? const Color(0xFF64748B)
+                        : const Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.isFloating) {
+      return SizedBox.expand(child: windowContent);
+    }
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: SizedBox(
+        width: 430,
+        height: 560,
+        child: windowContent,
       ),
     );
   }
