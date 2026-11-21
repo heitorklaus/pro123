@@ -299,31 +299,59 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
     }
   }
 
-  Future<void> _enqueueMediaRelay({
+  Future<void> _sendInlineMedia({
     required Uint8List bytes,
     required String contentType,
     required String mediaType,
     required String ext,
     required String text,
   }) async {
+    final chatRef = FirebaseFirestore.instance
+        .collection('support_chats')
+        .doc(widget.currentUser.uid);
+
     final userName = widget.currentUser.name.trim().isNotEmpty
         ? widget.currentUser.name.trim()
         : widget.currentUser.email;
-    await FirebaseFirestore.instance.collection('support_media_inbox').add({
-      'chatId': widget.currentUser.uid,
-      'companyId': widget.currentUser.effectiveCompanyId,
+
+    final prevSnap = await chatRef.get();
+    final prevData = prevSnap.data() ?? {};
+    final sameDay = prevData['todayMediaDate'] == _todayStr;
+    final prevUsed =
+        sameDay ? ((prevData['todayMediaBytes'] as num?)?.toInt() ?? 0) : 0;
+    final nextMediaBytes = prevUsed + bytes.length;
+    final b64 = base64Encode(bytes);
+
+    await chatRef.set({
       'userId': widget.currentUser.uid,
       'userName': userName,
       'userEmail': widget.currentUser.email,
       'userPhone': widget.currentUser.phone ?? '',
+      'companyId': widget.currentUser.effectiveCompanyId,
       'ticketCode': widget.ticketCode,
-      'mediaType': mediaType,
-      'contentType': contentType,
-      'ext': ext,
+      'lastMessage': mediaType == 'audio' ? '🎙️ [Áudio]' : '📷 [Imagem]',
+      'lastSenderRole': 'user',
+      'lastMediaType': mediaType,
+      'lastMediaUrl': null,
+      'lastMediaBase64': b64,
+      'lastMediaContentType': contentType,
+      'lastMediaExt': ext,
+      'pendingWhatsappPush': true,
+      'unreadByAdmin': FieldValue.increment(1),
+      'unreadByUser': 0,
+      'todayMediaDate': _todayStr,
+      'todayMediaBytes': nextMediaBytes,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await chatRef.collection('messages').add({
+      'senderId': widget.currentUser.uid,
+      'senderName': userName,
+      'senderRole': 'user',
       'text': text,
+      'mediaType': mediaType,
+      'mediaBase64': b64,
       'mediaSizeBytes': bytes.length,
-      'base64Data': base64Encode(bytes),
-      'todayStr': _todayStr,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -378,20 +406,17 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
         }
       }
 
-      if (kIsWeb) {
-        // No Web usa relay direto sem CORS (Firestore -> mavis_bot -> Storage)
-        if (uploadBytes.length <= 700 * 1024) {
-          await _enqueueMediaRelay(
-            bytes: uploadBytes,
-            contentType: contentType,
-            mediaType: 'image',
-            ext: uploadExt,
-            text: '📷 Imagem enviada',
-          );
-          if (mounted) setState(() => _sending = false);
-          _scrollToBottom();
-          return;
-        }
+      if (kIsWeb && uploadBytes.length <= 700 * 1024) {
+        await _sendInlineMedia(
+          bytes: uploadBytes,
+          contentType: contentType,
+          mediaType: 'image',
+          ext: uploadExt,
+          text: '📷 Imagem enviada',
+        );
+        if (mounted) setState(() => _sending = false);
+        _scrollToBottom();
+        return;
       }
 
       final ts = DateTime.now().millisecondsSinceEpoch;
@@ -484,7 +509,7 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
         final ext = kIsWeb ? 'webm' : 'ogg';
         final mime = kIsWeb ? 'audio/webm' : 'audio/ogg';
         if (kIsWeb && bytes.length <= 700 * 1024) {
-          await _enqueueMediaRelay(
+          await _sendInlineMedia(
             bytes: bytes,
             contentType: mime,
             mediaType: 'audio',
@@ -628,6 +653,7 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
                       final text = (d['text'] ?? '').toString();
                       final mediaType = (d['mediaType'] ?? 'text').toString();
                       final mediaUrl = d['mediaUrl'] as String?;
+                      final mediaBase64 = d['mediaBase64'] as String?;
                       final ts = (d['createdAt'] as Timestamp?)?.toDate();
                       final timeStr =
                           ts != null ? DateFormat('HH:mm').format(ts) : '';
@@ -664,22 +690,34 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
                                 ),
                                 const SizedBox(height: 3),
                               ],
-                              if (mediaType == 'image' && mediaUrl != null) ...[
+                              if (mediaType == 'image' &&
+                                  (mediaUrl != null || mediaBase64 != null)) ...[
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(
-                                    mediaUrl,
-                                    width: 240,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        const Icon(Icons.broken_image_outlined),
-                                  ),
+                                  child: mediaBase64 != null
+                                      ? Image.memory(
+                                          base64Decode(mediaBase64),
+                                          width: 240,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                                  Icons.broken_image_outlined),
+                                        )
+                                      : Image.network(
+                                          mediaUrl!,
+                                          width: 240,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                                  Icons.broken_image_outlined),
+                                        ),
                                 ),
                                 const SizedBox(height: 6),
                               ] else if (mediaType == 'audio' &&
-                                  mediaUrl != null) ...[
+                                  (mediaUrl != null || mediaBase64 != null)) ...[
                                 _AudioBubblePlayer(
                                   url: mediaUrl,
+                                  base64Data: mediaBase64,
                                   isUser: isUser,
                                   isDark: isDark,
                                 ),
@@ -777,7 +815,7 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              '🔴 Gravando áudio... ${_recordSeconds}s (toque no Stop para enviar)',
+                              '🔴 Gravando áudio... ${_recordSeconds}s (toque no Stop ou Enviar)',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -802,9 +840,12 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    onPressed: (_sending || _isRecording)
+                    tooltip: _isRecording ? 'Parar e enviar áudio' : 'Enviar',
+                    onPressed: _sending
                         ? null
-                        : () => _sendMessage(),
+                        : (_isRecording
+                            ? _toggleAudioRecording
+                            : () => _sendMessage()),
                     style: IconButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                     ),
@@ -831,12 +872,14 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
 }
 
 class _AudioBubblePlayer extends StatefulWidget {
-  final String url;
+  final String? url;
+  final String? base64Data;
   final bool isUser;
   final bool isDark;
 
   const _AudioBubblePlayer({
-    required this.url,
+    this.url,
+    this.base64Data,
     required this.isUser,
     required this.isDark,
   });
@@ -867,8 +910,10 @@ class _AudioBubblePlayerState extends State<_AudioBubblePlayer> {
   Future<void> _toggle() async {
     if (_playing) {
       await _player.pause();
-    } else {
-      await _player.play(UrlSource(widget.url));
+    } else if (widget.base64Data != null) {
+      await _player.play(BytesSource(base64Decode(widget.base64Data!)));
+    } else if (widget.url != null) {
+      await _player.play(UrlSource(widget.url!));
     }
   }
 
