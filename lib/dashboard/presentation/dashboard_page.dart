@@ -37,6 +37,7 @@ import 'master_ai_quotas_view.dart';
 import '../../sites/presentation/site_builder_view.dart';
 import 'widgets/global_search_dialog.dart';
 import 'widgets/support_chat_fab.dart';
+import 'widgets/super_admin_profit_alert_dialog.dart';
 import '../../solar_designer/presentation/roof_studies_view.dart';
 import '../../solar_designer/domain/models/roof_study_model.dart';
 import '../../onboarding/presentation/onboarding_page.dart';
@@ -54,6 +55,7 @@ class _DashboardPageState extends State<DashboardPage> {
   late final AuthRepository _authRepo;
   StreamSubscription<UserModel?>? _userSub;
   UserModel? _currentUser;
+  bool _profitAlertChecked = false;
 
   AppSidebarItem _activeItem = AppSidebarItem.dashboard;
   bool _isSidebarCollapsed = false;
@@ -97,6 +99,21 @@ class _DashboardPageState extends State<DashboardPage> {
               companyId: user.effectiveCompanyId);
           if (!_needsOnboarding && !_isCheckingOnboarding) {
             _checkFirstLoginOnboarding();
+          }
+          if (!_profitAlertChecked) {
+            _profitAlertChecked = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              SuperAdminProfitAlertDialog.checkAndShowIfNeeded(
+                context,
+                currentUser: user,
+                onGoToUsers: () {
+                  if (mounted) {
+                    setState(() => _activeItem = AppSidebarItem.users);
+                  }
+                },
+              );
+            });
           }
         }
       }

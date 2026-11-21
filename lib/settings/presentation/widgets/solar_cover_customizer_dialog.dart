@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import '../../../proposals/data/services/solar_proposal_pdf_service.dart';
 import '../../../proposals/domain/models/proposal_item_model.dart';
 import '../../../proposals/domain/models/proposal_model.dart';
+import '../../data/services/ai_usage_telemetry_service.dart';
 import '../../data/services/solar_settings_service.dart';
 import '../../domain/models/solar_settings_model.dart';
 import 'solar_cover_divider_painter.dart';
@@ -438,6 +439,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   Future<void> _pickCustomCoverPhoto() async {
     try {
+      final allowed = await AiUsageTelemetryService.guardUploadOrAgent(
+        context,
+        actionLabel: 'Upload de Foto da Capa',
+      );
+      if (!allowed) return;
+
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
@@ -451,6 +458,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         try {
           final bytes = await files.first.readAsBytes();
           final b64 = SolarSettingsService.compressImageBytesForFirestore(bytes);
+          await AiUsageTelemetryService.recordUploadOrAgentCost(
+            actionType: 'upload_cover',
+            bytes: bytes.length,
+          );
           if (mounted) {
             setState(() {
               _current = _current.copyWith(

@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../app/theme/app_colors.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../auth/presentation/register/register_store.dart';
 import '../../settings/data/services/system_settings_service.dart';
+import '../../settings/domain/models/plan_cost_policy.dart';
 import 'widgets/ai_usage_badge.dart';
 import 'widgets/user_permissions_dialog.dart';
 import 'widgets/user_dossier_dialog.dart';
@@ -590,6 +592,93 @@ class _TableViewState extends State<_TableView> {
 // ─────────────────────────────────────────────────────────────────────────────
 // GRUPO DE ADMINISTRADOR COM SANFONA (+) / (-) PARA OPERADORES SUBORDINADOS
 // ─────────────────────────────────────────────────────────────────────────────
+class _PlanCostConsumptionBadge extends StatelessWidget {
+  final UserModel user;
+
+  const _PlanCostConsumptionBadge({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final cid = user.effectiveCompanyId;
+    final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
+    final planPrice = PlanCostPolicy.planPriceBrl(user.aiPlanTier);
+    final maxCost = PlanCostPolicy.maxMonthlyCostBrl(user.aiPlanTier);
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('ai_company_usage')
+          .doc(cid)
+          .snapshots(),
+      builder: (context, snap) {
+        double usedBrl = 0.0;
+        if (snap.hasData && snap.data!.exists && snap.data!.data() != null) {
+          final data = snap.data!.data()!;
+          if (data['monthKey'] == monthKey) {
+            usedBrl = (data['monthCostBrl'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+
+        final ratio = maxCost > 0 ? (usedBrl / maxCost) : 0.0;
+        final isExceeded = ratio >= 1.0;
+        final isNear = !isExceeded && ratio >= PlanCostPolicy.nearLimitRatioOfCap;
+
+        final Color bg;
+        final Color border;
+        final Color fg;
+        if (isExceeded) {
+          bg = const Color(0xFFFEF2F2);
+          border = const Color(0xFFFCA5A5);
+          fg = const Color(0xFFDC2626);
+        } else if (isNear) {
+          bg = const Color(0xFFFFFBEB);
+          border = const Color(0xFFFCD34D);
+          fg = const Color(0xFFD97706);
+        } else {
+          bg = const Color(0xFFECFDF5);
+          border = const Color(0xFFA7F3D0);
+          fg = const Color(0xFF047857);
+        }
+
+        return Tooltip(
+          message:
+              'Teto de custo (20% para garantir 80% de lucro): ${PlanCostPolicy.formatBrl(maxCost)}/mês',
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isExceeded
+                      ? Icons.lock_rounded
+                      : (isNear
+                          ? Icons.warning_amber_rounded
+                          : Icons.account_balance_wallet_rounded),
+                  size: 13,
+                  color: fg,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'Consumindo ${PlanCostPolicy.formatBrl(usedBrl)} do plano de ${PlanCostPolicy.formatBrl(planPrice)}',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _AiPlanTierDropdown extends StatelessWidget {
   final UserModel user;
   const _AiPlanTierDropdown({required this.user});
@@ -862,7 +951,11 @@ class _AdminTreeGroup extends StatelessWidget {
                                 const SizedBox(width: 10),
                               ],
 
-                              // Consumo de IA Hoje
+                              // Consumo de IA Hoje + Custo Mensal do Plano (Margem 80%)
+                              if (!admin.isSuperAdmin) ...[
+                                _PlanCostConsumptionBadge(user: admin),
+                                const SizedBox(width: 8),
+                              ],
                               AiUsageBadge(user: admin, compact: MediaQuery.of(context).size.width < 1100),
                               if (UserModel.isMasterEmail(FirebaseAuth.instance.currentUser?.email)) ...[
                                 const SizedBox(width: 8),

@@ -13,6 +13,7 @@ import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:record/record.dart';
 import '../../../auth/domain/models/user_model.dart';
+import '../../../settings/data/services/ai_usage_telemetry_service.dart';
 import '../../../settings/data/services/system_settings_service.dart';
 import 'audio_bytes_helper_stub.dart'
     if (dart.library.io) 'audio_bytes_helper_io.dart';
@@ -689,6 +690,13 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
           .putData(uploadBytes, SettableMetadata(contentType: contentType))
           .timeout(const Duration(seconds: 12));
       final url = await ref.getDownloadURL().timeout(const Duration(seconds: 8));
+      await AiUsageTelemetryService.recordUploadOrAgentCost(
+        actionType: 'upload_support_media',
+        bytes: uploadBytes.length,
+        companyId: widget.currentUser.effectiveCompanyId,
+        userId: widget.currentUser.uid,
+        userName: widget.currentUser.name,
+      );
 
       setState(() => _sending = false);
       await _sendMessage(
@@ -790,6 +798,13 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
             .putData(bytes, SettableMetadata(contentType: mime))
             .timeout(const Duration(seconds: 12));
         final url = await ref.getDownloadURL().timeout(const Duration(seconds: 8));
+        await AiUsageTelemetryService.recordUploadOrAgentCost(
+          actionType: 'upload_support_audio',
+          bytes: bytes.length,
+          companyId: widget.currentUser.effectiveCompanyId,
+          userId: widget.currentUser.uid,
+          userName: widget.currentUser.name,
+        );
 
         setState(() => _sending = false);
         await _sendMessage(

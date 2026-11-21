@@ -7,6 +7,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../domain/models/global_system_config.dart';
+import '../../presentation/widgets/plan_upgrade_dialog.dart';
 import 'ai_usage_telemetry_service.dart';
 
 /// Serviço responsável pelo gerenciamento de Cotas de IA, Limites de Vendedores por Integrador e Configurações Master
@@ -189,6 +190,25 @@ class SystemSettingsService {
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final currentCount = (currentUser.aiUsageDate == todayStr) ? currentUser.aiUsageCount : 0;
     final maxQuota = await getEffectiveDailyAiQuota(currentUser);
+
+    // 2.5 Verificação de Margem de Lucro (80% lucro / 20% custo máximo do plano)
+    final profitCap = await AiUsageTelemetryService.checkMonthlyProfitCap(currentUser);
+    if (!profitCap.allowed) {
+      if (context.mounted) {
+        final upgraded = await PlanUpgradeDialog.show(
+          context,
+          companyId: profitCap.companyId,
+          currentTier: profitCap.tier,
+          usedBrl: profitCap.usedBrl,
+          maxCostBrl: profitCap.maxCostBrl,
+          planPriceBrl: profitCap.planPriceBrl,
+          actionLabel: 'Interações com Inteligência Artificial',
+        );
+        if (!upgraded) return false;
+      } else {
+        return false;
+      }
+    }
 
     // 3. Verificação de Limite Diário (Análises + Tokens/R$ do Grupo)
     if (currentCount >= maxQuota) {

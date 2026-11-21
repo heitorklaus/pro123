@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../settings/data/services/ai_usage_telemetry_service.dart';
 import '../../../settings/data/services/solar_settings_service.dart';
 import '../../../settings/domain/models/solar_settings_model.dart';
 import '../../../settings/domain/models/proposal_pages_models.dart';
@@ -94,6 +95,14 @@ class SolarProposalPdfService {
         'pdfUrl': downloadUrl,
         'pdfGeneratedAt': FieldValue.serverTimestamp(),
       });
+
+      await AiUsageTelemetryService.recordUploadOrAgentCost(
+        actionType: 'upload_proposal_pdf',
+        bytes: pdfBytes.length,
+        isAgentOrPdf: true,
+        companyId: companyId,
+        userId: userId,
+      );
 
       return downloadUrl;
     } catch (e) {

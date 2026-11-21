@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/domain/models/user_model.dart';
 import '../../domain/models/global_system_config.dart';
+import '../../domain/models/plan_cost_policy.dart';
+import '../../presentation/widgets/plan_upgrade_dialog.dart';
 import 'system_settings_service.dart';
 
 /// Serviço central de telemetria, cálculo de custos em R$ e controle de tokens de IA.
@@ -343,5 +345,190 @@ class AiUsageTelemetryService {
       maxBrl: maxBrl,
       tier: tier,
     );
+  }
+
+  /// Registra custo em R$ de uploads (capas, logos, PDFs, mídias) ou interações de agente
+  /// no acumulado mensal da empresa (`ai_company_usage/{companyId}`) e no global.
+  static Future<void> recordUploadOrAgentCost({
+    required String actionType,
+    int bytes = 0,
+    bool isAgentOrPdf = false,
+    String? companyId,
+    String? userId,
+    String? userName,
+  }) async {
+    try {
+      String? cid = companyId;
+      String? uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
+      String uName = userName ?? '';
+      if (cid == null || cid.isEmpty) {
+        final user = await AuthRepository().getCurrentUser();
+        cid = user?.effectiveCompanyId ?? uid ?? 'unknown';
+        uid ??= user?.uid;
+        if (uName.isEmpty) uName = user?.name ?? user?.email ?? '';
+      }
+      if (cid.isEmpty) return;
+
+      final config = await SystemSettingsService.getGlobalConfig();
+      final costBrl = PlanCostPolicy.calculateUploadCostBrl(
+        bytes,
+        usdToBrlRate: config.usdToBrlRate,
+        isAgentOrPdf: isAgentOrPdf,
+      );
+      final costUsd =
+          config.usdToBrlRate > 0 ? (costBrl / config.usdToBrlRate) : 0.0;
+
+      final now = DateTime.now();
+      final dateKey = DateFormat('yyyy-MM-dd').format(now);
+      final monthKey = DateFormat('yyyy-MM').format(now);
+
+      Future<void> applyTo(DocumentReference<Map<String, dynamic>> ref,
+          {Map<String, dynamic>? extra}) async {
+        await _db.runTransaction((tx) async {
+          final snap = await tx.get(ref);
+          final data = snap.data() ?? <String, dynamic>{};
+          final sameDay = data['todayDate'] == dateKey;
+          final sameMonth = data['monthKey'] == monthKey;
+
+          tx.set(
+            ref,
+            {
+              if (extra != null) ...extra,
+              'todayDate': dateKey,
+              'todayCostUsd':
+                  (sameDay ? ((data['todayCostUsd'] as num?)?.toDouble() ?? 0.0) : 0.0) +
+                      costUsd,
+              'todayCostBrl':
+                  (sameDay ? ((data['todayCostBrl'] as num?)?.toDouble() ?? 0.0) : 0.0) +
+                      costBrl,
+              'monthKey': monthKey,
+              'monthCostUsd':
+                  (sameMonth ? ((data['monthCostUsd'] as num?)?.toDouble() ?? 0.0) : 0.0) +
+                      costUsd,
+              'monthCostBrl':
+                  (sameMonth ? ((data['monthCostBrl'] as num?)?.toDouble() ?? 0.0) : 0.0) +
+                      costBrl,
+              'monthUploadCostBrl': (sameMonth
+                      ? ((data['monthUploadCostBrl'] as num?)?.toDouble() ?? 0.0)
+                      : 0.0) +
+                  costBrl,
+              'monthUploadBytes': (sameMonth
+                      ? ((data['monthUploadBytes'] as num?)?.toInt() ?? 0)
+                      : 0) +
+                  bytes,
+              'monthUploadCount': (sameMonth
+                      ? ((data['monthUploadCount'] as num?)?.toInt() ?? 0)
+                      : 0) +
+                  1,
+              'lastSource': actionType,
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+        });
+      }
+
+      await applyTo(
+        _db.collection('ai_company_usage').doc(cid),
+        extra: {
+          'companyId': cid,
+          'lastUserId': uid,
+          if (uName.isNotEmpty) 'lastUserName': uName,
+        },
+      );
+      await applyTo(_db.collection('ai_system_totals').doc('global'));
+    } catch (e) {
+      debugPrint('[AiUsageTelemetryService] Falha ao registrar custo de upload/agente: $e');
+    }
+  }
+
+  /// Verifica se o consumo mensal (IA + Agentes + Uploads) está dentro do teto de 20% do plano
+  /// para preservar a margem de 80% de lucro.
+  static Future<({
+    bool allowed,
+    bool nearLimit,
+    String companyId,
+    String tier,
+    double usedBrl,
+    double maxCostBrl,
+    double planPriceBrl,
+  })> checkMonthlyProfitCap(UserModel user) async {
+    final cid = user.effectiveCompanyId;
+    if (user.isSuperAdmin) {
+      return (
+        allowed: true,
+        nearLimit: false,
+        companyId: cid,
+        tier: 'diamond',
+        usedBrl: 0.0,
+        maxCostBrl: 999999.0,
+        planPriceBrl: 99.90,
+      );
+    }
+
+    UserModel? companyOwner;
+    if (cid.isNotEmpty && cid != user.uid) {
+      try {
+        final ownerDoc = await _db.collection('users').doc(cid).get();
+        if (ownerDoc.exists && ownerDoc.data() != null) {
+          companyOwner = UserModel.fromMap(ownerDoc.data()!, ownerDoc.id);
+        }
+      } catch (_) {}
+    }
+
+    final tier = PlanCostPolicy.normalizeTier(companyOwner?.aiPlanTier ?? user.aiPlanTier);
+    final planPriceBrl = PlanCostPolicy.planPriceBrl(tier);
+    final maxCostBrl = PlanCostPolicy.maxMonthlyCostBrl(tier);
+    final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
+
+    double usedBrl = 0.0;
+    try {
+      final usageDoc = await _db.collection('ai_company_usage').doc(cid).get();
+      if (usageDoc.exists && usageDoc.data() != null) {
+        final data = usageDoc.data()!;
+        if (data['monthKey'] == monthKey) {
+          usedBrl = (data['monthCostBrl'] as num?)?.toDouble() ?? 0.0;
+        }
+      }
+    } catch (_) {}
+
+    final ratio = maxCostBrl > 0 ? (usedBrl / maxCostBrl) : 0.0;
+    return (
+      allowed: usedBrl < maxCostBrl,
+      nearLimit: ratio >= PlanCostPolicy.nearLimitRatioOfCap && usedBrl < maxCostBrl,
+      companyId: cid,
+      tier: tier,
+      usedBrl: usedBrl,
+      maxCostBrl: maxCostBrl,
+      planPriceBrl: planPriceBrl,
+    );
+  }
+
+  /// Trava uploads ou interações de agente quando o teto do plano for atingido
+  /// e oferece upgrade gratuito para GOLD ou DIAMOND.
+  static Future<bool> guardUploadOrAgent(
+    BuildContext context, {
+    UserModel? user,
+    required String actionLabel,
+  }) async {
+    final effectiveUser = user ?? await AuthRepository().getCurrentUser();
+    if (effectiveUser == null || effectiveUser.isSuperAdmin) return true;
+
+    final cap = await checkMonthlyProfitCap(effectiveUser);
+    if (cap.allowed) return true;
+
+    if (context.mounted) {
+      final upgraded = await PlanUpgradeDialog.show(
+        context,
+        companyId: cap.companyId,
+        currentTier: cap.tier,
+        usedBrl: cap.usedBrl,
+        maxCostBrl: cap.maxCostBrl,
+        planPriceBrl: cap.planPriceBrl,
+        actionLabel: actionLabel,
+      );
+      return upgraded;
+    }
+    return false;
   }
 }

@@ -10,6 +10,7 @@ import '../../proposals/domain/models/proposal_item_model.dart';
 import '../../proposals/domain/models/proposal_model.dart';
 import '../../proposals/presentation/web_proposal_page.dart';
 import '../data/services/ai_agent_settings_service.dart';
+import '../data/services/ai_usage_telemetry_service.dart';
 import '../data/services/solar_settings_service.dart';
 import '../domain/models/solar_settings_model.dart';
 import 'widgets/solar_cover_divider_painter.dart';
@@ -4345,6 +4346,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   /// Abertura de Seletor de Arquivos para Foto da Capa
   Future<void> _pickCustomCoverFile() async {
     try {
+      final allowed = await AiUsageTelemetryService.guardUploadOrAgent(
+        context,
+        actionLabel: 'Upload de Foto da Capa',
+      );
+      if (!allowed) return;
+
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
@@ -4358,6 +4365,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         try {
           final bytes = await files.first.readAsBytes();
           final b64 = SolarSettingsService.compressImageBytesForFirestore(bytes);
+          await AiUsageTelemetryService.recordUploadOrAgentCost(
+            actionType: 'upload_cover',
+            bytes: bytes.length,
+          );
           if (mounted) {
             setState(() {
               _customCoverImageBase64 = b64;
@@ -4392,6 +4403,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   /// Abertura de Seletor de Arquivos para Logomarca da Empresa
   Future<void> _pickLogoFile() async {
     try {
+      final allowed = await AiUsageTelemetryService.guardUploadOrAgent(
+        context,
+        actionLabel: 'Upload de Logomarca',
+      );
+      if (!allowed) return;
+
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
@@ -4404,6 +4421,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           maxWidth: 600,
           maxBase64Chars: 350000,
           keepPngTransparency: true,
+        );
+        await AiUsageTelemetryService.recordUploadOrAgentCost(
+          actionType: 'upload_logo',
+          bytes: bytes.length,
         );
         setState(() {
           _companyLogoBase64 = b64;
