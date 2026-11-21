@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:record/record.dart';
 import '../../../auth/domain/models/user_model.dart';
@@ -356,42 +357,55 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
       if (!allowed) return;
 
       setState(() => _sending = true);
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final contentType = ext == 'png'
+      var uploadBytes = bytes;
+      var uploadExt = ext;
+      var contentType = ext == 'png'
           ? 'image/png'
           : (ext == 'webp' ? 'image/webp' : 'image/jpeg');
 
-      String? url;
-      try {
-        final ref = FirebaseStorage.instance
-            .ref('support_chats/${widget.currentUser.uid}/img_$ts.$ext');
-        await ref
-            .putData(bytes, SettableMetadata(contentType: contentType))
-            .timeout(const Duration(seconds: 5));
-        url = await ref.getDownloadURL().timeout(const Duration(seconds: 5));
-      } catch (_) {
-        // Fallback sem CORS via Firestore Inbox -> mavis_bot sobe ao Storage
-        if (bytes.length <= 700 * 1024) {
+      // Comprime imagens grandes (> 450 KB) para JPEG leve e nítido
+      if (uploadBytes.length > 450 * 1024) {
+        final decoded = img.decodeImage(uploadBytes);
+        if (decoded != null) {
+          final resized = decoded.width > 1280
+              ? img.copyResize(decoded, width: 1280)
+              : decoded;
+          uploadBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 80));
+          uploadExt = 'jpg';
+          contentType = 'image/jpeg';
+        }
+      }
+
+      if (kIsWeb) {
+        // No Web usa relay direto sem CORS (Firestore -> mavis_bot -> Storage)
+        if (uploadBytes.length <= 700 * 1024) {
           await _enqueueMediaRelay(
-            bytes: bytes,
+            bytes: uploadBytes,
             contentType: contentType,
             mediaType: 'image',
-            ext: ext,
+            ext: uploadExt,
             text: '📷 Imagem enviada',
           );
           if (mounted) setState(() => _sending = false);
           _scrollToBottom();
           return;
         }
-        rethrow;
       }
+
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final ref = FirebaseStorage.instance
+          .ref('support_chats/${widget.currentUser.uid}/img_$ts.$uploadExt');
+      await ref
+          .putData(uploadBytes, SettableMetadata(contentType: contentType))
+          .timeout(const Duration(seconds: 12));
+      final url = await ref.getDownloadURL().timeout(const Duration(seconds: 8));
 
       setState(() => _sending = false);
       await _sendMessage(
         customText: '📷 Imagem enviada',
         mediaType: 'image',
         mediaUrl: url,
-        mediaSizeBytes: bytes.length,
+        mediaSizeBytes: uploadBytes.length,
       );
     } catch (e) {
       if (mounted) setState(() => _sending = false);
@@ -467,30 +481,25 @@ class _SupportChatDialogState extends State<_SupportChatDialog> {
         final ts = DateTime.now().millisecondsSinceEpoch;
         final ext = kIsWeb ? 'webm' : 'ogg';
         final mime = kIsWeb ? 'audio/webm' : 'audio/ogg';
-        String? url;
-        try {
-          final ref = FirebaseStorage.instance
-              .ref('support_chats/${widget.currentUser.uid}/aud_$ts.$ext');
-          await ref
-              .putData(bytes, SettableMetadata(contentType: mime))
-              .timeout(const Duration(seconds: 5));
-          url =
-              await ref.getDownloadURL().timeout(const Duration(seconds: 5));
-        } catch (_) {
-          if (bytes.length <= 700 * 1024) {
-            await _enqueueMediaRelay(
-              bytes: bytes,
-              contentType: mime,
-              mediaType: 'audio',
-              ext: ext,
-              text: '🎙️ Áudio (${_recordSeconds}s)',
-            );
-            if (mounted) setState(() => _sending = false);
-            _scrollToBottom();
-            return;
-          }
-          rethrow;
+        if (kIsWeb && bytes.length <= 700 * 1024) {
+          await _enqueueMediaRelay(
+            bytes: bytes,
+            contentType: mime,
+            mediaType: 'audio',
+            ext: ext,
+            text: '🎙️ Áudio (${_recordSeconds}s)',
+          );
+          if (mounted) setState(() => _sending = false);
+          _scrollToBottom();
+          return;
         }
+
+        final ref = FirebaseStorage.instance
+            .ref('support_chats/${widget.currentUser.uid}/aud_$ts.$ext');
+        await ref
+            .putData(bytes, SettableMetadata(contentType: mime))
+            .timeout(const Duration(seconds: 12));
+        final url = await ref.getDownloadURL().timeout(const Duration(seconds: 8));
 
         setState(() => _sending = false);
         await _sendMessage(
