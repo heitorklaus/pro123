@@ -17,6 +17,7 @@ import 'widgets/solar_cover_divider_painter.dart';
 import 'widgets/solar_vertical_split_painter.dart';
 import 'widgets/solar_cover_customizer_dialog.dart';
 import 'widgets/corporate_wave_cover_view.dart';
+import 'widgets/cover_header_footer_widgets.dart';
 import 'widgets/taos_loading_popup.dart';
 
 class SolarSettingsView extends StatefulWidget {
@@ -150,6 +151,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     if (clean.length == 8) return int.tryParse(clean, radix: 16) ?? fallback;
     return fallback;
   }
+
+  final ValueNotifier<int> _editorTick = ValueNotifier<int>(0);
+  final ScrollController _coverCarouselCtrl = ScrollController();
+  final ScrollController _webBgCarouselCtrl = ScrollController();
+  bool _panelCoverModelsExpanded = true;
+  bool _panelWebBgExpanded = false;
 
   @override
   void initState() {
@@ -297,10 +304,18 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   }
 
   Future<void> _saveSettings() async {
+    if (_isSaving) return;
     setState(() {
       _isSaving = true;
       _errorMessage = null;
     });
+    _editorTick.value++;
+    bool popupOpen = false;
+    if (mounted) {
+      popupOpen = true;
+      TaosLoadingPopup.show(context, message: 'Salvando Alterações...');
+      await Future.delayed(const Duration(milliseconds: 30));
+    }
 
     try {
       double parseD(String text, double fallback) =>
@@ -371,13 +386,17 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       await SolarSettingsService.saveSettings(updated);
       _settings = updated;
 
-      // Sincroniza também o Fator de Geração com as configurações do Agente de IA
-      try {
-        final aiSettings = await AiAgentSettingsService.getSettings();
-        await AiAgentSettingsService.saveSettings(
+      // Sincroniza também o Fator de Geração em segundo plano sem travar o botão
+      AiAgentSettingsService.getSettings().then((aiSettings) {
+        return AiAgentSettingsService.saveSettings(
           aiSettings.copyWith(defaultGenerationFactor: updated.generationFactor),
         );
-      } catch (_) {}
+      }).catchError((_) {});
+
+      if (mounted && popupOpen) {
+        popupOpen = false;
+        TaosLoadingPopup.hide(context);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -387,6 +406,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         ));
       }
     } catch (e) {
+      if (mounted && popupOpen) {
+        popupOpen = false;
+        TaosLoadingPopup.hide(context);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Erro ao salvar: $e'),
@@ -395,7 +418,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         ));
       }
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted && popupOpen) {
+        TaosLoadingPopup.hide(context);
+      }
+      if (mounted) {
+        setState(() => _isSaving = false);
+        _editorTick.value++;
+      }
     }
   }
 
@@ -569,6 +598,8 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   allowPrinting: true,
                   allowSharing: true,
                   canChangePageFormat: false,
+                  scrollViewDecoration: TaosLoadingPopup.pdfBackdropDecoration,
+                  loadingWidget: TaosLoadingPopup.pdfLoadingWidget(),
                 ),
               ),
             ],
@@ -728,6 +759,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 ),
                 child: TabBar(
                   controller: _tabController,
+                  onTap: (index) {
+                    if (index == 4) {
+                      final prev = _tabController.previousIndex;
+                      _tabController.index = prev == 4 ? 0 : prev;
+                      _openFullscreenProposalEditor();
+                    }
+                  },
                   isScrollable: true,
                   labelColor: const Color(0xFFD97706),
                   unselectedLabelColor: const Color(0xFF64748B),
@@ -1787,6 +1825,277 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
   // ───────────────────────────────────────────────────────────────────────────
   // ABA 5: MODELO DE PROPOSTA COMERCIAL (EDITOR EM TEMPO REAL + 100 CAPAS)
   // ───────────────────────────────────────────────────────────────────────────
+  Future<void> _openFullscreenProposalEditor() async {
+    TaosLoadingPopup.show(
+      context,
+      message: 'Aguarde... Carregando o Editor de Propostas',
+    );
+    await Future.delayed(const Duration(milliseconds: 550));
+    if (!mounted) return;
+    TaosLoadingPopup.hide(context);
+
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ValueListenableBuilder<int>(
+          valueListenable: _editorTick,
+          builder: (ctx, _, __) => Scaffold(
+            backgroundColor: const Color(0xFF0F172A),
+            appBar: AppBar(
+              backgroundColor: const Color(0xFF0F172A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Voltar para Configurações',
+                onPressed: () =>
+                    Navigator.of(context, rootNavigator: true).pop(),
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Editor de Propostas TAOS',
+                    style: GoogleFonts.outfit(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white),
+                  ),
+                  Text(
+                    'Capas, estilos, papel de parede web e identidade visual',
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: const Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton.icon(
+                  onPressed: _previewWebProposal,
+                  icon: const Icon(Icons.language_rounded,
+                      size: 17, color: Color(0xFF34D399)),
+                  label: Text('PRÉVIA WEB',
+                      style: GoogleFonts.inter(
+                          color: const Color(0xFF34D399),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 6),
+                TextButton.icon(
+                  onPressed: _previewProposalPdf,
+                  icon: const Icon(Icons.picture_as_pdf_rounded,
+                      size: 17, color: Color(0xFFF87171)),
+                  label: Text('PRÉVIA PDF',
+                      style: GoogleFonts.inter(
+                          color: const Color(0xFFF87171),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _saveSettings,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_rounded, size: 17),
+                    label:
+                        Text(_isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      textStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildProposalTemplateTab(false),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollapsiblePanel({
+    required IconData icon,
+    required Color accentColor,
+    required String title,
+    required String subtitle,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isExpanded
+              ? accentColor.withValues(alpha: 0.45)
+              : AppColors.border,
+          width: isExpanded ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(15),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: accentColor, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFF64748B),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1, color: AppColors.divider),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: child,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHorizontalCarousel({
+    required ScrollController controller,
+    required double height,
+    required int itemCount,
+    required IndexedWidgetBuilder itemBuilder,
+    double itemWidth = 175,
+  }) {
+    void scrollBy(double delta) {
+      if (!controller.hasClients) return;
+      final target = (controller.offset + delta)
+          .clamp(0.0, controller.position.maxScrollExtent);
+      controller.animateTo(
+        target,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
+    }
+
+    return SizedBox(
+      height: height,
+      child: Stack(
+        children: [
+          Scrollbar(
+            controller: controller,
+            thumbVisibility: true,
+            child: ListView.separated(
+              controller: controller,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              itemCount: itemCount,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (ctx, idx) => SizedBox(
+                width: itemWidth,
+                child: itemBuilder(ctx, idx),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 2,
+            top: (height - 36) / 2,
+            child: Material(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+              shape: const CircleBorder(),
+              elevation: 4,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => scrollBy(-(itemWidth * 2)),
+                child: const Padding(
+                  padding: EdgeInsets.all(7),
+                  child: Icon(Icons.chevron_left_rounded,
+                      color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 2,
+            top: (height - 36) / 2,
+            child: Material(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+              shape: const CircleBorder(),
+              elevation: 4,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => scrollBy(itemWidth * 2),
+                child: const Padding(
+                  padding: EdgeInsets.all(7),
+                  child: Icon(Icons.chevron_right_rounded,
+                      color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProposalTemplateTab(bool isMobile) {
     final availableThemes = SolarSettingsService.getAvailableSvgThemes();
     return SingleChildScrollView(
@@ -1856,9 +2165,22 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       ),
                       const SizedBox(width: 24),
 
-                      // COLUNA DIREITA: CONTROLES, 100 CAPAS & CRIADOR
+                      // COLUNA DIREITA: PAINEL COLAPSÁVEL DE CAPAS & CONTROLES
                       Expanded(
-                        child: _buildCoverStudioControls(),
+                        child: _buildCollapsiblePanel(
+                          icon: Icons.layers_rounded,
+                          accentColor: const Color(0xFF6366F1),
+                          title: '1. Modelos de Capa & Estilo da Proposta',
+                          subtitle:
+                              'Escolha o estilo e deslize horizontalmente pelos modelos de capa',
+                          isExpanded: _panelCoverModelsExpanded,
+                          onToggle: () {
+                            setState(() => _panelCoverModelsExpanded =
+                                !_panelCoverModelsExpanded);
+                            _editorTick.value++;
+                          },
+                          child: _buildCoverStudioControls(),
+                        ),
                       ),
                     ],
                   );
@@ -1880,127 +2202,135 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               },
             ),
 
-            const SizedBox(height: 28),
-            const Divider(color: AppColors.divider),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
-            // ── 2. Seletor de Papel de Parede da Proposta Web (34 Modelos) ───
-            _label('2. Papel de Parede da Proposta Web Interativa (34 Modelos em Alta Resolução)'),
-            const SizedBox(height: 6),
-            Text(
-              'Escolha a imagem de fundo que o seu cliente verá ao abrir o link da proposta no navegador:',
-              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 12),
-
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth > 900
-                    ? 5
-                    : constraints.maxWidth > 600
-                        ? 3
-                        : 2;
-
-                final backgrounds = SolarSettingsModel.availableWebBackgrounds;
-
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 1.4,
-                  ),
-                  itemCount: backgrounds.length,
-                  itemBuilder: (context, idx) {
-                    final bgName = backgrounds[idx];
-                    final isSelected = _selectedWebBg == bgName;
-
-                    return InkWell(
-                      onTap: () => setState(() => _selectedWebBg = bgName),
-                      borderRadius: BorderRadius.circular(12),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
-                            width: isSelected ? 3 : 1,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(isSelected ? 9 : 11),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.network(
-                                SolarSettingsService.getWebBackgroundUrl(bgName),
-                                fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, stack) => Container(
-                                  color: const Color(0xFF0F172A),
-                                  child: Center(
-                                    child: Text(
-                                      'Fundo ${idx + 1}',
-                                      style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (isSelected)
-                                Positioned(
-                                  top: 6,
-                                  right: 6,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
-                                        SizedBox(width: 3),
-                                        Text(
-                                          'WEB ATIVO',
-                                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
-                                  color: Colors.black.withValues(alpha: 0.6),
-                                  child: Text(
-                                    'Modelo ${idx + 1}',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.inter(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
+            // ── 2. Painel Colapsável: Papel de Parede da Proposta Web (Scroll Horizontal) ──
+            _buildCollapsiblePanel(
+              icon: Icons.wallpaper_rounded,
+              accentColor: const Color(0xFF10B981),
+              title: '2. Papel de Parede da Proposta Web Interativa (34 Modelos)',
+              subtitle:
+                  'Escolha em scroll horizontal a imagem de fundo do link web da proposta',
+              isExpanded: _panelWebBgExpanded,
+              onToggle: () {
+                setState(() => _panelWebBgExpanded = !_panelWebBgExpanded);
+                _editorTick.value++;
               },
+              child: Builder(
+                builder: (context) {
+                  final backgrounds = SolarSettingsModel.availableWebBackgrounds;
+                  return _buildHorizontalCarousel(
+                    controller: _webBgCarouselCtrl,
+                    height: 155,
+                    itemWidth: 210,
+                    itemCount: backgrounds.length,
+                    itemBuilder: (context, idx) {
+                      final bgName = backgrounds[idx];
+                      final isSelected = _selectedWebBg == bgName;
+
+                      return InkWell(
+                        onTap: () {
+                          setState(() => _selectedWebBg = bgName);
+                          _editorTick.value++;
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFCBD5E1),
+                              width: isSelected ? 3 : 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF10B981)
+                                          .withValues(alpha: 0.35),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(isSelected ? 9 : 11),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.network(
+                                  SolarSettingsService.getWebBackgroundUrl(bgName),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (ctx, err, stack) => Container(
+                                    color: const Color(0xFF0F172A),
+                                    child: Center(
+                                      child: Text(
+                                        'Fundo ${idx + 1}',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            color: const Color(0xFF94A3B8)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Positioned(
+                                    top: 6,
+                                    right: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          Icon(Icons.check_circle_rounded,
+                                              size: 12, color: Colors.white),
+                                          SizedBox(width: 3),
+                                          Text(
+                                            'WEB ATIVO',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 3, horizontal: 4),
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    child: Text(
+                                      'Modelo ${idx + 1}',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                          fontSize: 9.5,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
 
             const SizedBox(height: 24),
@@ -2046,7 +2376,8 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: availableThemes.map((theme) {
+                      children: [
+                        ...availableThemes.map((theme) {
                         final fileName = theme['fileName'] as String;
                         final name = theme['name'] as String;
                         final colorValue = (theme['color'] as num?)?.toInt() ?? 0xFF2563EB;
@@ -2064,21 +2395,42 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                           ),
                           label: Text(name),
                           selected: isSelected,
-                          selectedColor: Color(colorValue).withValues(alpha: 0.2),
+                          backgroundColor: const Color(0xFF1E293B),
+                          selectedColor: Color(colorValue).withValues(alpha: 0.35),
+                          checkmarkColor: Colors.white,
                           side: BorderSide(
-                            color: isSelected ? Color(colorValue) : const Color(0xFFCBD5E1),
+                            color: isSelected ? Color(colorValue) : const Color(0xFF475569),
                             width: isSelected ? 2 : 1,
                           ),
                           labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF334155),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? Colors.white : const Color(0xFFE2E8F0),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                             fontSize: 12,
                           ),
                           onSelected: (val) {
-                            if (val) setState(() => _selectedSvgTheme = fileName);
+                            if (val) {
+                              setState(() => _selectedSvgTheme = fileName);
+                              _editorTick.value++;
+                            }
                           },
                         );
-                      }).toList(),
+                      }),
+                        ActionChip(
+                          avatar: const Icon(Icons.colorize_rounded, size: 15, color: Color(0xFF38BDF8)),
+                          label: const Text('Cor Personalizada'),
+                          backgroundColor: const Color(0xFF0F172A),
+                          side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+                          labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                          onPressed: () => _openCustomTonePickerDialog(
+                            title: 'Cor Principal Personalizada',
+                            initialColor: primaryColor,
+                            onPickHex: (hex) {
+                              setState(() => _selectedSvgTheme = hex);
+                              _editorTick.value++;
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 18),
                     Row(
@@ -2104,14 +2456,21 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                       spacing: 8,
                       runSpacing: 8,
                       children: [
+                        ...[
                         {'name': 'Azul Marinho (Padrão)', 'hex': '#102C49', 'color': 0xFF102C49},
                         {'name': 'Azul Noite', 'hex': '#041E42', 'color': 0xFF041E42},
                         {'name': 'Ardósia Escuro', 'hex': '#0F172A', 'color': 0xFF0F172A},
                         {'name': 'Petróleo Escuro', 'hex': '#0C4A6E', 'color': 0xFF0C4A6E},
+                        {'name': 'Turquesa Profundo', 'hex': '#115E59', 'color': 0xFF115E59},
                         {'name': 'Verde Floresta', 'hex': '#064E3B', 'color': 0xFF064E3B},
+                        {'name': 'Verde Musgo', 'hex': '#14532D', 'color': 0xFF14532D},
                         {'name': 'Índigo Profundo', 'hex': '#1E1B4B', 'color': 0xFF1E1B4B},
+                        {'name': 'Roxo Executivo', 'hex': '#3B0764', 'color': 0xFF3B0764},
                         {'name': 'Grafite Solar', 'hex': '#1E293B', 'color': 0xFF1E293B},
+                        {'name': 'Carvão Neutro', 'hex': '#18181B', 'color': 0xFF18181B},
                         {'name': 'Terracota Escuro', 'hex': '#450A0A', 'color': 0xFF450A0A},
+                        {'name': 'Vinho Borgonha', 'hex': '#500724', 'color': 0xFF500724},
+                        {'name': 'Bronze Escuro', 'hex': '#431407', 'color': 0xFF431407},
                       ].map((item) {
                         final hex = item['hex'] as String;
                         final name = item['name'] as String;
@@ -2130,21 +2489,42 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                           ),
                           label: Text(name),
                           selected: isSelected,
-                          selectedColor: Color(colorValue).withValues(alpha: 0.16),
+                          backgroundColor: const Color(0xFF1E293B),
+                          selectedColor: Color(colorValue).withValues(alpha: 0.45),
+                          checkmarkColor: Colors.white,
                           side: BorderSide(
-                            color: isSelected ? Color(colorValue) : const Color(0xFFCBD5E1),
+                            color: isSelected ? const Color(0xFF38BDF8) : const Color(0xFF475569),
                             width: isSelected ? 2 : 1,
                           ),
                           labelStyle: TextStyle(
-                            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF334155),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? Colors.white : const Color(0xFFE2E8F0),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                             fontSize: 12,
                           ),
                           onSelected: (val) {
-                            if (val) setState(() => _secondaryThemeColor = hex);
+                            if (val) {
+                              setState(() => _secondaryThemeColor = hex);
+                              _editorTick.value++;
+                            }
                           },
                         );
-                      }).toList(),
+                      }),
+                        ActionChip(
+                          avatar: const Icon(Icons.colorize_rounded, size: 15, color: Color(0xFF38BDF8)),
+                          label: const Text('Cor Personalizada'),
+                          backgroundColor: const Color(0xFF0F172A),
+                          side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+                          labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                          onPressed: () => _openCustomTonePickerDialog(
+                            title: 'Cor Secundária Personalizada',
+                            initialColor: secondaryColor,
+                            onPickHex: (hex) {
+                              setState(() => _secondaryThemeColor = hex);
+                              _editorTick.value++;
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Container(
@@ -2171,6 +2551,8 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                         ],
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    _buildQuickHeaderFooterColorControls(),
                   ],
                 );
 
@@ -2180,13 +2562,9 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 );
 
                 if (isWide) {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 5, child: controls),
-                      const SizedBox(width: 24),
-                      Expanded(flex: 5, child: liveInternalPreview),
-                    ],
+                  return _StickySectionPreviewRow(
+                    controls: controls,
+                    preview: liveInternalPreview,
                   );
                 }
 
@@ -2201,113 +2579,164 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               },
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // ── 4. Live Preview Card ──────────────────────────────────────────
-            _label('4. Prévia Visual da Identidade Minimalista'),
-            const SizedBox(height: 10),
-            Container(
-              constraints: const BoxConstraints(maxWidth: 700),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
-              ),
+  Future<void> _openCustomTonePickerDialog({
+    required String title,
+    required Color initialColor,
+    required ValueChanged<String> onPickHex,
+  }) async {
+    HSVColor hsv = HSVColor.fromColor(initialColor);
+    String toHex(Color c) {
+      final r = (c.r * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+      final g = (c.g * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+      final b = (c.b * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+      return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}';
+    }
+
+    final hexCtrl = TextEditingController(text: toHex(initialColor));
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final currentColor = hsv.toColor();
+          return Dialog(
+            backgroundColor: const Color(0xFF0F172A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: const BorderSide(color: Color(0xFF334155)),
+            ),
+            child: Container(
+              width: 390,
+              padding: const EdgeInsets.all(22),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header Preview
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 3.5,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
-                              borderRadius: BorderRadius.circular(1.5),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'PROPOSTA COMERCIAL',
-                            style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), letterSpacing: 0.8),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'PROP-2026/001',
-                        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Stack(
-                    children: [
-                      Container(height: 1, color: const Color(0xFFE2E8F0)),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          height: 2,
-                          width: 80,
-                          color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: currentColor,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                      ),
                     ],
                   ),
-
-                  // Content Placeholder
-                  Container(
-                    height: 60,
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Conteúdo interno da proposta (Ficha Técnica, Escopo, Análise de Investimento)',
-                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8), fontStyle: FontStyle.italic),
+                  const SizedBox(height: 16),
+                  Text('Matiz (Cor)', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: hsv.hue,
+                    min: 0,
+                    max: 360,
+                    activeColor: currentColor,
+                    onChanged: (v) {
+                      setDialogState(() {
+                        hsv = hsv.withHue(v);
+                        hexCtrl.text = toHex(hsv.toColor());
+                      });
+                    },
+                  ),
+                  Text('Saturação', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: hsv.saturation,
+                    min: 0,
+                    max: 1,
+                    activeColor: currentColor,
+                    onChanged: (v) {
+                      setDialogState(() {
+                        hsv = hsv.withSaturation(v);
+                        hexCtrl.text = toHex(hsv.toColor());
+                      });
+                    },
+                  ),
+                  Text('Luminosidade / Brilho', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: hsv.value,
+                    min: 0.05,
+                    max: 1,
+                    activeColor: currentColor,
+                    onChanged: (v) {
+                      setDialogState(() {
+                        hsv = hsv.withValue(v);
+                        hexCtrl.text = toHex(hsv.toColor());
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: hexCtrl,
+                    style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700),
+                    decoration: InputDecoration(
+                      labelText: 'Código Hexadecimal (#RRGGBB)',
+                      labelStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                      filled: true,
+                      fillColor: const Color(0xFF1E293B),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
+                    onChanged: (val) {
+                      final cleaned = val.replaceAll('#', '').trim();
+                      if (cleaned.length == 6) {
+                        final parsed = int.tryParse('FF$cleaned', radix: 16);
+                        if (parsed != null) {
+                          setDialogState(() => hsv = HSVColor.fromColor(Color(parsed)));
+                        }
+                      }
+                    },
                   ),
-
-                  // Footer Preview
-                  Stack(
-                    children: [
-                      Container(height: 1, color: const Color(0xFFE2E8F0)),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          height: 2,
-                          width: 80,
-                          color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 18),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.solar_power_rounded, size: 16, color: Color(_settings.copyWith(selectedSvgTheme: _selectedSvgTheme).themeColorValue)),
-                          const SizedBox(width: 6),
-                          Text(
-                            _companySloganCtrl.text.trim().isNotEmpty ? _companySloganCtrl.text.trim().toUpperCase() : 'ENERGIA QUE TRANSFORMA',
-                            style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF64748B), letterSpacing: 1.2),
-                          ),
-                        ],
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Cancelar', style: TextStyle(color: Color(0xFF94A3B8))),
                       ),
-                      Text(
-                        'Página 2 de 6',
-                        style: GoogleFonts.inter(fontSize: 9.5, color: const Color(0xFF64748B)),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          onPickHex(toHex(hsv.toColor()));
+                          Navigator.of(ctx).pop();
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 17),
+                        label: const Text('Aplicar Tom'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -2323,12 +2752,298 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
     return Color(fallback);
   }
 
+  Widget _buildQuickHeaderFooterColorControls() {
+    const bgPresets = <Map<String, String>>[
+      {'label': 'Azul Marinho', 'hex': '#0F172A'},
+      {'label': 'Azul Corp.', 'hex': '#0284C7'},
+      {'label': 'Esmeralda', 'hex': '#10B981'},
+      {'label': 'Laranja', 'hex': '#F97316'},
+      {'label': 'Dourado', 'hex': '#F59E0B'},
+      {'label': 'Roxo', 'hex': '#7C3AED'},
+      {'label': 'Vinho', 'hex': '#500724'},
+      {'label': 'Branco', 'hex': '#FFFFFF'},
+    ];
+    const textPresets = <Map<String, String>>[
+      {'label': 'Branco', 'hex': '#FFFFFF'},
+      {'label': 'Gelo', 'hex': '#E2E8F0'},
+      {'label': 'Grafite', 'hex': '#0F172A'},
+      {'label': 'Ardósia', 'hex': '#334155'},
+      {'label': 'Dourado', 'hex': '#FBBF24'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.view_day_outlined, size: 16, color: Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              Text(
+                'Cabeçalho e Rodapé (Modo Rápido)',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildQuickColorPickerRow(
+            title: 'Cabeçalho — Fundo (${_settings.coverHeaderBgColor.toUpperCase()})',
+            selectedHex: _settings.coverHeaderBgColor,
+            presets: bgPresets,
+            dialogTitle: 'Cor de Fundo do Cabeçalho',
+            onSelectHex: (hex) {
+              setState(() {
+                _settings = _settings.copyWith(coverHeaderBgColor: hex);
+                _editorTick.value++;
+              });
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildQuickColorPickerRow(
+            title: 'Cabeçalho — Texto (${_settings.coverHeaderTextColor.toUpperCase()})',
+            selectedHex: _settings.coverHeaderTextColor,
+            presets: textPresets,
+            dialogTitle: 'Cor do Texto do Cabeçalho',
+            onSelectHex: (hex) {
+              setState(() {
+                _settings = _settings.copyWith(coverHeaderTextColor: hex);
+                _editorTick.value++;
+              });
+            },
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+          ),
+          _buildQuickColorPickerRow(
+            title: 'Rodapé — Fundo (${_settings.coverFooterBgColor.toUpperCase()})',
+            selectedHex: _settings.coverFooterBgColor,
+            presets: bgPresets,
+            dialogTitle: 'Cor de Fundo do Rodapé',
+            onSelectHex: (hex) {
+              setState(() {
+                _settings = _settings.copyWith(coverFooterBgColor: hex);
+                _editorTick.value++;
+              });
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildQuickColorPickerRow(
+            title: 'Rodapé — Texto (${_settings.coverFooterTextColor.toUpperCase()})',
+            selectedHex: _settings.coverFooterTextColor,
+            presets: textPresets,
+            dialogTitle: 'Cor do Texto do Rodapé',
+            onSelectHex: (hex) {
+              setState(() {
+                _settings = _settings.copyWith(coverFooterTextColor: hex);
+                _editorTick.value++;
+              });
+            },
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Mostrar Slogan / Rodapé Minimalista (PDF)',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            'Quando desligado, oculta texto, linha e "Página X de X" no PDF',
+                            style: GoogleFonts.inter(
+                              fontSize: 10.5,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: _settings.showPdfSloganFooter,
+                      activeTrackColor: const Color(0xFF10B981),
+                      onChanged: (val) {
+                        setState(() {
+                          _settings = _settings.copyWith(showPdfSloganFooter: val);
+                          _editorTick.value++;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                if (_settings.showPdfSloganFooter) ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _companySloganCtrl,
+                    onChanged: (val) {
+                      _settings = _settings.copyWith(companySlogan: val.trim());
+                      _editorTick.value++;
+                    },
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      color: const Color(0xFF0F172A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Slogan / Frase do Rodapé',
+                      hintText: 'Ex: ENERGIA QUE TRANSFORMA',
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickColorPickerRow({
+    required String title,
+    required String selectedHex,
+    required List<Map<String, String>> presets,
+    required String dialogTitle,
+    required ValueChanged<String> onSelectHex,
+  }) {
+    final normalizedSelected = selectedHex.trim().toUpperCase();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF334155),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ...presets.map((item) {
+              final hex = item['hex']!;
+              final label = item['label']!;
+              final isSelected = normalizedSelected == hex.toUpperCase();
+              final chipColor = _parseHexColor(hex, 0xFF0F172A);
+              return ChoiceChip(
+                label: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                avatar: CircleAvatar(
+                  backgroundColor: chipColor,
+                  radius: 7,
+                  child: isSelected
+                      ? Icon(
+                          Icons.check,
+                          size: 9,
+                          color: chipColor.computeLuminance() > 0.6 ? Colors.black : Colors.white,
+                        )
+                      : null,
+                ),
+                selected: isSelected,
+                selectedColor: const Color(0xFF0F172A),
+                backgroundColor: const Color(0xFF1E293B),
+                side: BorderSide(
+                  color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF334155),
+                  width: isSelected ? 1.5 : 1,
+                ),
+                onSelected: (_) => onSelectHex(hex),
+              );
+            }),
+            ActionChip(
+              avatar: const Icon(Icons.colorize_rounded, size: 14, color: Color(0xFF38BDF8)),
+              label: Text(
+                'Cor Personalizada',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              backgroundColor: const Color(0xFF0F172A),
+              side: const BorderSide(color: Color(0xFF0284C7), width: 1.2),
+              onPressed: () => _openCustomTonePickerDialog(
+                title: dialogTitle,
+                initialColor: _parseHexColor(selectedHex, 0xFF0F172A),
+                onPickHex: onSelectHex,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildInternalPageColorPreview({
     required Color primaryColor,
     required Color secondaryColor,
   }) {
-    return Container(
-      decoration: BoxDecoration(
+    final headerBgColor = _settings.coverHeaderBgColor.trim().isNotEmpty
+        ? _parseHexColor(_settings.coverHeaderBgColor, 0xFF0284C7)
+        : primaryColor;
+    final headerTextColor = _settings.coverHeaderTextColor.trim().isNotEmpty
+        ? _parseHexColor(_settings.coverHeaderTextColor, 0xFFFFFFFF)
+        : Colors.white;
+    final footerBgColor = _settings.coverFooterBgColor.trim().isNotEmpty
+        ? _parseHexColor(_settings.coverFooterBgColor, 0xFF0F172A)
+        : secondaryColor;
+    final footerTextColor = _settings.coverFooterTextColor.trim().isNotEmpty
+        ? _parseHexColor(_settings.coverFooterTextColor, 0xFFFFFFFF)
+        : Colors.white;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1)),
@@ -2344,29 +3059,29 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top Ribbon (Cor Principal)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            color: primaryColor,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'PROPOSTA COMERCIAL',
-                  style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
-                ),
-                Text(
-                  'ENERGIA SOLAR FOTOVOLTAICA',
-                  style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
-                ),
-                Text(
-                  'ALTA PERFORMANCE',
-                  style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w700, color: Colors.white),
-                ),
-              ],
+          // Top Ribbon (Cabeçalho idêntico ao editor da popup)
+          if (_settings.coverShowHeader)
+            CoverHeaderWidget(
+              styleId: _settings.coverHeaderStyle,
+              text1: _settings.coverHeaderStyle == 11
+                  ? (_settings.pdfPageTitle2.trim().isNotEmpty
+                      ? _settings.pdfPageTitle2.trim().toUpperCase()
+                      : 'PROPOSTA COMERCIAL')
+                  : (_settings.coverHeaderText1.isNotEmpty
+                      ? _settings.coverHeaderText1
+                      : 'PROPOSTA COMERCIAL'),
+              text2: _settings.coverHeaderText2.isNotEmpty
+                  ? _settings.coverHeaderText2
+                  : 'ENERGIA SOLAR FOTOVOLTAICA',
+              text3: _settings.coverHeaderText3.isNotEmpty
+                  ? _settings.coverHeaderText3
+                  : 'ALTA PERFORMANCE',
+              accentColor: primaryColor,
+              scale: 0.72,
+              customBgColorHex: _settings.coverHeaderBgColor,
+              customTextColorHex: _settings.coverHeaderTextColor,
+              customIconColorHex: _settings.coverHeaderIconColor,
             ),
-          ),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -2522,7 +3237,108 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               ],
             ),
           ),
+          // Bottom Ribbon (Rodapé idêntico ao editor da popup ou Slogan Minimalista)
+          if (_settings.coverShowFooter)
+            CoverFooterWidget(
+              styleId: _settings.coverFooterStyle,
+              text1: _settings.coverFooterText1,
+              text2: _settings.coverFooterText2,
+              text3: _settings.coverFooterText3,
+              text4: _settings.coverFooterText4,
+              accentColor: primaryColor,
+              scale: 0.72,
+              customBgColorHex: _settings.coverFooterBgColor,
+              customTextColorHex: _settings.coverFooterTextColor,
+              customIconColorHex: _settings.coverFooterIconColor,
+            )
+          else if (_settings.showPdfSloganFooter)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Stack(
+                    children: [
+                      Container(
+                        height: 1,
+                        width: double.infinity,
+                        color: const Color(0xFFE2E8F0),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Container(
+                          height: 2,
+                          width: 48,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.solar_power_outlined, size: 11, color: primaryColor),
+                          const SizedBox(width: 5),
+                          Text(
+                            _companySloganCtrl.text.trim().isNotEmpty
+                                ? _companySloganCtrl.text.trim().toUpperCase()
+                                : 'ENERGIA QUE TRANSFORMA',
+                            style: GoogleFonts.inter(
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF64748B),
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        'Página 2 de 6',
+                        style: GoogleFonts.inter(
+                          fontSize: 7.5,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
         ],
+      ),
+    ),
+    const SizedBox(height: 12),
+    Align(
+      alignment: Alignment.centerRight,
+      child: _buildPersonalizeProposalButton(compact: true),
+    ),
+  ],
+);
+  }
+
+  Widget _buildPersonalizeProposalButton({bool compact = false}) {
+    return ElevatedButton.icon(
+      onPressed: _openCoverCustomizer,
+      icon: const Icon(Icons.palette_rounded, size: 18),
+      label: const Text('PERSONALIZAR + PROPOSTA'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFEAB308),
+        foregroundColor: const Color(0xFF0F172A),
+        elevation: 4,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 18 : 12,
+          vertical: compact ? 12 : 14,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: GoogleFonts.outfit(
+          fontWeight: FontWeight.w900,
+          fontSize: compact ? 12.5 : 13.5,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -2667,6 +3483,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           _customDividerColor = val.customDividerColor;
           _selectedCover = val.selectedCoverTemplate;
         });
+        _editorTick.value++;
       },
     );
     if (updated != null && mounted) {
@@ -2709,6 +3526,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
         _customDividerColor = updated.customDividerColor;
         _selectedCover = updated.selectedCoverTemplate;
       });
+      _editorTick.value++;
     }
   }
 
@@ -2751,19 +3569,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           ),
         ),
         const SizedBox(height: 10),
-        ElevatedButton.icon(
-          onPressed: _openCoverCustomizer,
-          icon: const Icon(Icons.palette_rounded, size: 18),
-          label: const Text('🎨 PERSONALIZAR CAPA & VISUAL'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFEAB308),
-            foregroundColor: const Color(0xFF0F172A),
-            elevation: 4,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            textStyle: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13.5, letterSpacing: 0.5),
-          ),
-        ),
+        _buildPersonalizeProposalButton(),
         const SizedBox(height: 12),
 
         // Header com Badge de Modo Interativo
@@ -3364,10 +4170,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
             children: [
               Expanded(
                 child: InkWell(
-                  onTap: () => setState(() {
-                    _coverSubTab = 0;
-                    _isCustomCoverMode = false;
-                  }),
+                  onTap: () {
+                    setState(() {
+                      _coverSubTab = 0;
+                      _isCustomCoverMode = false;
+                    });
+                    _editorTick.value++;
+                  },
                   borderRadius: BorderRadius.circular(9),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
@@ -3398,10 +4207,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               ),
               Expanded(
                 child: InkWell(
-                  onTap: () => setState(() {
-                    _coverSubTab = 1;
-                    _isCustomCoverMode = true;
-                  }),
+                  onTap: () {
+                    setState(() {
+                      _coverSubTab = 1;
+                      _isCustomCoverMode = true;
+                    });
+                    _editorTick.value++;
+                  },
                   borderRadius: BorderRadius.circular(9),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
@@ -3474,15 +4286,10 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           _buildSearchAndPaginationBar(1, 1, 'Buscar modelo corporate wave...'),
           const SizedBox(height: 14),
 
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.72,
-            ),
+          _buildHorizontalCarousel(
+            controller: _coverCarouselCtrl,
+            height: 255,
+            itemWidth: 180,
             itemCount: filteredWave.length,
             itemBuilder: (context, idx) {
               final model = filteredWave[idx];
@@ -3492,29 +4299,32 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   _selectedCover == imgName;
 
               return InkWell(
-                onTap: () => setState(() {
-                  final modelColor =
-                      (model['primaryColor'] as String?) ?? '#0284C7';
-                  _proposalStyle = 'corporateWave';
-                  _selectedCover = imgName;
-                  _isCustomCoverMode = false;
-                  _customDividerStyle = -1;
-                  _customCoverImageBase64 = null;
-                  _verticalSplitAccentColor = modelColor;
-                  _selectedSvgTheme = modelColor;
-                  _secondaryThemeColor = modelColor;
-                  _settings = _settings.copyWith(
-                    selectedCoverTemplate: imgName,
-                    webBackgroundTemplate: imgName,
-                    clearCustomCoverImage: true,
-                    isCustomCoverMode: false,
-                    customDividerStyle: -1,
-                    proposalStyle: 'corporateWave',
-                    verticalSplitAccentColor: modelColor,
-                    selectedSvgTheme: modelColor,
-                    secondaryThemeColor: modelColor,
-                  );
-                }),
+                onTap: () {
+                  setState(() {
+                    final modelColor =
+                        (model['primaryColor'] as String?) ?? '#0284C7';
+                    _proposalStyle = 'corporateWave';
+                    _selectedCover = imgName;
+                    _isCustomCoverMode = false;
+                    _customDividerStyle = -1;
+                    _customCoverImageBase64 = null;
+                    _verticalSplitAccentColor = modelColor;
+                    _selectedSvgTheme = modelColor;
+                    _secondaryThemeColor = modelColor;
+                    _settings = _settings.copyWith(
+                      selectedCoverTemplate: imgName,
+                      webBackgroundTemplate: imgName,
+                      clearCustomCoverImage: true,
+                      isCustomCoverMode: false,
+                      customDividerStyle: -1,
+                      proposalStyle: 'corporateWave',
+                      verticalSplitAccentColor: modelColor,
+                      selectedSvgTheme: modelColor,
+                      secondaryThemeColor: modelColor,
+                    );
+                  });
+                  _editorTick.value++;
+                },
                 borderRadius: BorderRadius.circular(10),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
@@ -3598,16 +4408,11 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           _buildSearchAndPaginationBar(currentPage, totalPages, 'Buscar modelo vertical...'),
           const SizedBox(height: 14),
 
-          // Grade com 50 modelos verticais por página
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.72,
-            ),
+          // Carrossel horizontal de modelos verticais
+          _buildHorizontalCarousel(
+            controller: _coverCarouselCtrl,
+            height: 255,
+            itemWidth: 180,
             itemCount: pagedVertical.length,
             itemBuilder: (context, idx) {
               final model = pagedVertical[idx];
@@ -3616,36 +4421,39 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                   _selectedVerticalSplit == model.id;
 
               return InkWell(
-                onTap: () => setState(() {
-                  _proposalStyle = 'verticalSplit';
-                  _selectedVerticalSplit = model.id;
-                  _verticalSplitDividerType = model.dividerType;
-                  _selectedWebBg = model.imageName;
-                  _selectedCover = model.imageName;
-                  _verticalSplitHeadlineCtrl.text = model.headline;
-                  _verticalSplitSubheadlineCtrl.text = model.subheadline;
-                  _verticalSplitRightTaglineCtrl.text = model.rightTagline;
-                  _verticalSplitRightFooterCtrl.text = model.rightFooter;
-                  _verticalSplitAccentColor = model.accentColor;
-                  _selectedSvgTheme = model.accentColor;
-                  _secondaryThemeColor = model.accentColor;
-                  _isCustomCoverMode = false;
-                  _customDividerStyle = -1;
-                  _customCoverImageBase64 = null;
-                  _settings = _settings.copyWith(
-                    proposalStyle: 'verticalSplit',
-                    selectedVerticalSplitTemplate: model.id,
-                    verticalSplitDividerType: model.dividerType,
-                    selectedCoverTemplate: model.imageName,
-                    webBackgroundTemplate: model.imageName,
-                    clearCustomCoverImage: true,
-                    isCustomCoverMode: false,
-                    customDividerStyle: -1,
-                    verticalSplitAccentColor: model.accentColor,
-                    selectedSvgTheme: model.accentColor,
-                    secondaryThemeColor: model.accentColor,
-                  );
-                }),
+                onTap: () {
+                  setState(() {
+                    _proposalStyle = 'verticalSplit';
+                    _selectedVerticalSplit = model.id;
+                    _verticalSplitDividerType = model.dividerType;
+                    _selectedWebBg = model.imageName;
+                    _selectedCover = model.imageName;
+                    _verticalSplitHeadlineCtrl.text = model.headline;
+                    _verticalSplitSubheadlineCtrl.text = model.subheadline;
+                    _verticalSplitRightTaglineCtrl.text = model.rightTagline;
+                    _verticalSplitRightFooterCtrl.text = model.rightFooter;
+                    _verticalSplitAccentColor = model.accentColor;
+                    _selectedSvgTheme = model.accentColor;
+                    _secondaryThemeColor = model.accentColor;
+                    _isCustomCoverMode = false;
+                    _customDividerStyle = -1;
+                    _customCoverImageBase64 = null;
+                    _settings = _settings.copyWith(
+                      proposalStyle: 'verticalSplit',
+                      selectedVerticalSplitTemplate: model.id,
+                      verticalSplitDividerType: model.dividerType,
+                      selectedCoverTemplate: model.imageName,
+                      webBackgroundTemplate: model.imageName,
+                      clearCustomCoverImage: true,
+                      isCustomCoverMode: false,
+                      customDividerStyle: -1,
+                      verticalSplitAccentColor: model.accentColor,
+                      selectedSvgTheme: model.accentColor,
+                      secondaryThemeColor: model.accentColor,
+                    );
+                  });
+                  _editorTick.value++;
+                },
                 borderRadius: BorderRadius.circular(10),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
@@ -3811,16 +4619,11 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
             child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
           )
         else
-          // Grid com 50 capas por página
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.72,
-            ),
+          // Carrossel horizontal de capas Modern
+          _buildHorizontalCarousel(
+            controller: _coverCarouselCtrl,
+            height: 255,
+            itemWidth: 180,
             itemCount: pagedCovers.length,
             itemBuilder: (context, idx) {
               final coverName = pagedCovers[idx];
@@ -3828,25 +4631,28 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
               final numStr = coverName.replaceAll(RegExp(r'\D'), '');
 
               return InkWell(
-                onTap: () => setState(() {
-                  _selectedCover = coverName;
-                  _proposalStyle = 'modern';
-                  _isCustomCoverMode = false;
-                  _customDividerStyle = -1;
-                  _customCoverImageBase64 = null;
-                  _selectedSvgTheme = '#2563EB';
-                  _secondaryThemeColor = '#102C49';
-                  _settings = _settings.copyWith(
-                    selectedCoverTemplate: coverName,
-                    webBackgroundTemplate: coverName,
-                    clearCustomCoverImage: true,
-                    isCustomCoverMode: false,
-                    customDividerStyle: -1,
-                    proposalStyle: 'modern',
-                    selectedSvgTheme: '#2563EB',
-                    secondaryThemeColor: '#102C49',
-                  );
-                }),
+                onTap: () {
+                  setState(() {
+                    _selectedCover = coverName;
+                    _proposalStyle = 'modern';
+                    _isCustomCoverMode = false;
+                    _customDividerStyle = -1;
+                    _customCoverImageBase64 = null;
+                    _selectedSvgTheme = '#2563EB';
+                    _secondaryThemeColor = '#102C49';
+                    _settings = _settings.copyWith(
+                      selectedCoverTemplate: coverName,
+                      webBackgroundTemplate: coverName,
+                      clearCustomCoverImage: true,
+                      isCustomCoverMode: false,
+                      customDividerStyle: -1,
+                      proposalStyle: 'modern',
+                      selectedSvgTheme: '#2563EB',
+                      secondaryThemeColor: '#102C49',
+                    );
+                  });
+                  _editorTick.value++;
+                },
                 borderRadius: BorderRadius.circular(10),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
@@ -4012,6 +4818,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                           _coverPage = 1;
                           _isCustomCoverMode = false;
                         });
+                        _editorTick.value++;
                       }
                     },
                   ),
@@ -4054,10 +4861,13 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           child: SizedBox(
             height: 38,
             child: TextField(
-              onChanged: (v) => setState(() {
-                _coverSearchQuery = v;
-                _coverPage = 1;
-              }),
+              onChanged: (v) {
+                setState(() {
+                  _coverSearchQuery = v;
+                  _coverPage = 1;
+                });
+                _editorTick.value++;
+              },
               decoration: InputDecoration(
                 hintText: hint,
                 hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
@@ -4088,7 +4898,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 icon: const Icon(Icons.chevron_left_rounded, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onPressed: currentPage > 1 ? () => setState(() => _coverPage = currentPage - 1) : null,
+                onPressed: currentPage > 1
+                    ? () {
+                        setState(() => _coverPage = currentPage - 1);
+                        _editorTick.value++;
+                      }
+                    : null,
               ),
               const SizedBox(width: 6),
               Text(
@@ -4100,7 +4915,12 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 icon: const Icon(Icons.chevron_right_rounded, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onPressed: currentPage < totalPages ? () => setState(() => _coverPage = currentPage + 1) : null,
+                onPressed: currentPage < totalPages
+                    ? () {
+                        setState(() => _coverPage = currentPage + 1);
+                        _editorTick.value++;
+                      }
+                    : null,
               ),
             ],
           ),
@@ -4379,6 +5199,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
                 isCustomCoverMode: true,
               );
             });
+            _editorTick.value++;
           }
         } finally {
           if (mounted) {
@@ -4430,6 +5251,7 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
           _companyLogoBase64 = b64;
           _coverShowLogo = true;
         });
+        _editorTick.value++;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -4457,5 +5279,101 @@ class _SolarSettingsViewState extends State<SolarSettingsView> with SingleTicker
 
   Widget _label(String text) {
     return Text(text, style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF334155)));
+  }
+}
+
+class _StickySectionPreviewRow extends StatefulWidget {
+  final Widget controls;
+  final Widget preview;
+
+  const _StickySectionPreviewRow({
+    required this.controls,
+    required this.preview,
+  });
+
+  @override
+  State<_StickySectionPreviewRow> createState() => _StickySectionPreviewRowState();
+}
+
+class _StickySectionPreviewRowState extends State<_StickySectionPreviewRow> {
+  final GlobalKey _rowKey = GlobalKey();
+  final GlobalKey _previewKey = GlobalKey();
+  final ValueNotifier<double> _offsetNotifier = ValueNotifier<double>(0.0);
+  ScrollPosition? _scrollPosition;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newPosition = Scrollable.maybeOf(context)?.position;
+    if (newPosition != _scrollPosition) {
+      _scrollPosition?.removeListener(_updateStickyOffset);
+      _scrollPosition = newPosition;
+      _scrollPosition?.addListener(_updateStickyOffset);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateStickyOffset());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _StickySectionPreviewRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateStickyOffset());
+  }
+
+  void _updateStickyOffset() {
+    if (!mounted) return;
+    final rowCtx = _rowKey.currentContext;
+    final previewCtx = _previewKey.currentContext;
+    final scrollableCtx = _scrollPosition?.context.storageContext;
+    if (rowCtx == null || previewCtx == null || scrollableCtx == null) return;
+
+    final rowBox = rowCtx.findRenderObject() as RenderBox?;
+    final previewBox = previewCtx.findRenderObject() as RenderBox?;
+    final viewportBox = scrollableCtx.findRenderObject() as RenderBox?;
+    if (rowBox == null || previewBox == null || viewportBox == null) return;
+    if (!rowBox.hasSize || !previewBox.hasSize || !viewportBox.hasSize) return;
+
+    final rowTopInViewport = rowBox.localToGlobal(Offset.zero, ancestor: viewportBox).dy;
+    final maxOffset = (rowBox.size.height - previewBox.size.height).clamp(0.0, double.infinity);
+    final desiredOffset = rowTopInViewport < 16.0 ? (16.0 - rowTopInViewport) : 0.0;
+    final nextOffset = desiredOffset.clamp(0.0, maxOffset);
+
+    if ((nextOffset - _offsetNotifier.value).abs() > 0.5) {
+      _offsetNotifier.value = nextOffset;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_updateStickyOffset);
+    _offsetNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: _rowKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 5, child: widget.controls),
+        const SizedBox(width: 24),
+        Expanded(
+          flex: 5,
+          child: ValueListenableBuilder<double>(
+            valueListenable: _offsetNotifier,
+            builder: (context, offset, child) {
+              return Transform.translate(
+                offset: Offset(0, offset),
+                child: child,
+              );
+            },
+            child: KeyedSubtree(
+              key: _previewKey,
+              child: widget.preview,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../app/layout/app_sidebar.dart';
+import '../../app/services/push_notification_service.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/widgets/taos_logo.dart';
@@ -26,6 +27,7 @@ import '../../contracts/data/repositories/contract_repository.dart';
 import '../../contracts/domain/models/contract_model.dart';
 import '../../contracts/presentation/contracts_view.dart';
 import '../../solar_credits/presentation/solar_credits_view.dart';
+import '../../solar_credits/presentation/widgets/solar_credit_due_alert_dialog.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
 import '../../users/presentation/users_view.dart';
 import '../../users/presentation/widgets/ai_usage_badge.dart';
@@ -56,6 +58,9 @@ class _DashboardPageState extends State<DashboardPage> {
   StreamSubscription<UserModel?>? _userSub;
   UserModel? _currentUser;
   bool _profitAlertChecked = false;
+  bool _solarCreditAlertChecked = false;
+  bool _pushInitialized = false;
+  bool _usersSortByHighestConsumption = false;
 
   AppSidebarItem _activeItem = AppSidebarItem.dashboard;
   bool _isSidebarCollapsed = false;
@@ -109,7 +114,59 @@ class _DashboardPageState extends State<DashboardPage> {
                 currentUser: user,
                 onGoToUsers: () {
                   if (mounted) {
-                    setState(() => _activeItem = AppSidebarItem.users);
+                    setState(() {
+                      _usersSortByHighestConsumption = true;
+                      _activeItem = AppSidebarItem.users;
+                    });
+                  }
+                },
+              );
+            });
+          }
+          if (!_pushInitialized) {
+            _pushInitialized = true;
+            PushNotificationService.initializeForUser(
+              user: user,
+              onSolarCreditPushOpened: (billId) {
+                if (!mounted) return;
+                SolarCreditDueAlertDialog.checkAndShowIfNeeded(
+                  context,
+                  currentUser: user,
+                  focusBillId: billId,
+                  forceShow: true,
+                  onOpenSolarCredits: () {
+                    if (mounted) {
+                      setState(() => _activeItem = AppSidebarItem.solarCredits);
+                    }
+                  },
+                );
+              },
+              onForegroundSolarCreditPush: (title, body, billId) {
+                if (!mounted) return;
+                SolarCreditDueAlertDialog.checkAndShowIfNeeded(
+                  context,
+                  currentUser: user,
+                  focusBillId: billId,
+                  forceShow: true,
+                  onOpenSolarCredits: () {
+                    if (mounted) {
+                      setState(() => _activeItem = AppSidebarItem.solarCredits);
+                    }
+                  },
+                );
+              },
+            );
+          }
+          if (!_solarCreditAlertChecked) {
+            _solarCreditAlertChecked = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              SolarCreditDueAlertDialog.checkAndShowIfNeeded(
+                context,
+                currentUser: user,
+                onOpenSolarCredits: () {
+                  if (mounted) {
+                    setState(() => _activeItem = AppSidebarItem.solarCredits);
                   }
                 },
               );
@@ -388,9 +445,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             onTap: _openGlobalSearch,
                             borderRadius: BorderRadius.circular(11),
                             child: Container(
-                              width: 330,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 10),
+                                  horizontal: 14, vertical: 9),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -407,22 +463,20 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ),
                               ),
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.auto_awesome_rounded,
+                                  const Icon(Icons.search_rounded,
                                       color: Color(0xFFFBBF24), size: 17),
-                                  const SizedBox(width: 9),
-                                  Expanded(
-                                    child: Text(
-                                      'Busca rápida...',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(
-                                        color: const Color(0xFFE2E8F0),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Busca',
+                                    style: GoogleFonts.inter(
+                                      color: const Color(0xFFE2E8F0),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 7, vertical: 3),
@@ -432,10 +486,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      'Ctrl+K',
+                                      'CTRL K',
                                       style: GoogleFonts.inter(
                                         color: const Color(0xFFFBBF24),
-                                        fontSize: 11,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
@@ -830,7 +884,10 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           );
         }
-        return UsersView(currentUser: _currentUser);
+        return UsersView(
+          currentUser: _currentUser,
+          initialSortByHighestConsumption: _usersSortByHighestConsumption,
+        );
       case AppSidebarItem.settings:
         if (!canManageSettings) {
           return const Center(
@@ -2722,7 +2779,7 @@ class _TopDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 22,
+      height: 26,
       margin: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF334155),
     );
@@ -2750,7 +2807,7 @@ class _QuickTopButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(11),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(11),
@@ -2767,7 +2824,7 @@ class _QuickTopButton extends StatelessWidget {
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
-                  letterSpacing: 0.3,
+                  letterSpacing: 0.4,
                 ),
               ),
             ],

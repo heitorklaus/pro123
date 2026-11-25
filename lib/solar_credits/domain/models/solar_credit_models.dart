@@ -640,6 +640,8 @@ class SolarCreditBillModel {
   // Datas e Referência
   final String referenceMonth; // Ex: Outubro / 2026
   final String dueDate; // Ex: 03/11/2026
+  final String? promisedPaymentDate; // Nova data combinada somente para esta fatura (dd/MM/yyyy)
+  final String? lastPushAlertDate; // Controle de envio diário de push (yyyy-MM-dd)
   final String? readingPreviousDate; // Ex: 18/09/2026
   final String? readingCurrentDate; // Ex: 20/10/2026
   final int billingDays; // Ex: 32
@@ -710,6 +712,8 @@ class SolarCreditBillModel {
     required this.clientDiscountPercent,
     required this.referenceMonth,
     required this.dueDate,
+    this.promisedPaymentDate,
+    this.lastPushAlertDate,
     this.readingPreviousDate,
     this.readingCurrentDate,
     this.billingDays = 30,
@@ -774,6 +778,8 @@ class SolarCreditBillModel {
       ),
       referenceMonth: map['referenceMonth'] as String? ?? '',
       dueDate: map['dueDate'] as String? ?? '',
+      promisedPaymentDate: map['promisedPaymentDate'] as String?,
+      lastPushAlertDate: map['lastPushAlertDate'] as String?,
       readingPreviousDate: map['readingPreviousDate'] as String?,
       readingCurrentDate: map['readingCurrentDate'] as String?,
       billingDays: (map['billingDays'] as num?)?.toInt() ?? 30,
@@ -859,6 +865,8 @@ class SolarCreditBillModel {
       'clientDiscountPercent': clientDiscountPercent,
       'referenceMonth': referenceMonth,
       'dueDate': dueDate,
+      if (promisedPaymentDate != null) 'promisedPaymentDate': promisedPaymentDate,
+      if (lastPushAlertDate != null) 'lastPushAlertDate': lastPushAlertDate,
       'readingPreviousDate': readingPreviousDate,
       'readingCurrentDate': readingCurrentDate,
       'billingDays': billingDays,
@@ -897,6 +905,50 @@ class SolarCreditBillModel {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
+  }
+
+  /// Data efetiva considerada para alerta (prioriza data combinada somente desta fatura)
+  String get effectiveDueDateStr =>
+      (promisedPaymentDate != null && promisedPaymentDate!.trim().isNotEmpty)
+          ? promisedPaymentDate!.trim()
+          : dueDate.trim();
+
+  /// Converte `effectiveDueDateStr` (dd/MM/yyyy ou yyyy-MM-dd) para DateTime à meia-noite
+  DateTime? get effectiveDueDate => parseBrOrIsoDate(effectiveDueDateStr);
+
+  /// Dias restantes até o vencimento efetivo (negativo = vencida, 0 = vence hoje)
+  int? get daysUntilDue {
+    final target = effectiveDueDate;
+    if (target == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDay = DateTime(target.year, target.month, target.day);
+    return dueDay.difference(today).inDays;
+  }
+
+  /// Retorna true se a fatura estiver pendente e faltar 10 dias ou menos (ou já vencida)
+  bool get isDueWithinAlertWindow {
+    if (paymentStatus.toLowerCase() == 'paid') return false;
+    final days = daysUntilDue;
+    return days != null && days <= 10;
+  }
+
+  static DateTime? parseBrOrIsoDate(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+    final br = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{2,4})$').firstMatch(s);
+    if (br != null) {
+      final d = int.tryParse(br.group(1)!);
+      final m = int.tryParse(br.group(2)!);
+      var y = int.tryParse(br.group(3)!);
+      if (d != null && m != null && y != null) {
+        if (y < 100) y += 2000;
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+          return DateTime(y, m, d);
+        }
+      }
+    }
+    return DateTime.tryParse(s);
   }
 }
 

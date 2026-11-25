@@ -207,16 +207,43 @@ class _WebProposalPageState extends State<WebProposalPage> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Investimento Total:', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
-                      Text(
-                        _currencyFormat.format(_proposal?.totalAmount ?? 0),
-                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF059669)),
-                      ),
-                    ],
-                  ),
+                  child: Builder(builder: (context) {
+                    final showSep = _proposal?.showSeparatedPricing == true;
+                    final sItem = _proposal?.items.where((i) => i.isSolarPlant).firstOrNull;
+                    final eq = sItem?.solarEquipmentPrice;
+                    final sv = sItem?.solarServicePrice;
+                    if (showSep && eq != null && sv != null) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            Text('📦 Equipamentos:', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B))),
+                            Text(_currencyFormat.format(eq), style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7))),
+                          ]),
+                          const SizedBox(height: 4),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            Text('🛠️ Serviços:', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B))),
+                            Text(_currencyFormat.format(sv), style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF7C3AED))),
+                          ]),
+                          const Divider(height: 12),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            Text('Total:', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+                            Text(_currencyFormat.format(_proposal?.totalAmount ?? 0), style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
+                          ]),
+                        ],
+                      );
+                    }
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Investimento Total:', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                        Text(
+                          _currencyFormat.format(_proposal?.totalAmount ?? 0),
+                          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF059669)),
+                        ),
+                      ],
+                    );
+                  }),
                 ),
                 const SizedBox(height: 14),
                 Text('Nome do Responsável / Titular:', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -1501,6 +1528,10 @@ class _WebProposalPageState extends State<WebProposalPage> {
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildBottomStickyBar() {
     final total = _proposal?.totalAmount ?? 0.0;
+    final showSeparated = _proposal?.showSeparatedPricing == true;
+    final solarItem = _proposal?.items.where((i) => i.isSolarPlant).firstOrNull;
+    final equipPrice = solarItem?.solarEquipmentPrice;
+    final servPrice = solarItem?.solarServicePrice;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1525,11 +1556,20 @@ class _WebProposalPageState extends State<WebProposalPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Investimento da Usina', style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8))),
-                  Text(
-                    _currencyFormat.format(total),
-                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF34D399)),
-                  ),
+                  if (showSeparated && equipPrice != null && servPrice != null) ...[
+                    Text('Equipamentos: ${_currencyFormat.format(equipPrice)}  •  Serviços: ${_currencyFormat.format(servPrice)}',
+                        style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8))),
+                    Text(
+                      'Total: ${_currencyFormat.format(total)}',
+                      style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF34D399)),
+                    ),
+                  ] else ...[
+                    Text('Investimento da Usina', style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8))),
+                    Text(
+                      _currencyFormat.format(total),
+                      style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF34D399)),
+                    ),
+                  ],
                 ],
               ),
               Row(

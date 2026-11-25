@@ -2,6 +2,78 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'proposal_pages_models.dart';
 
+/// Item de Portfólio / Obra Executada para a Página de Portfólio do PDF Solar
+class SolarPortfolioItem {
+  final String id;
+  final String title;
+  final String powerBadge;
+  final String modules;
+  final String inverter;
+  final String generation;
+  final String extraInfo;
+  final String? imageBase64;
+
+  const SolarPortfolioItem({
+    required this.id,
+    required this.title,
+    this.powerBadge = '',
+    this.modules = '',
+    this.inverter = '',
+    this.generation = '',
+    this.extraInfo = '',
+    this.imageBase64,
+  });
+
+  SolarPortfolioItem copyWith({
+    String? id,
+    String? title,
+    String? powerBadge,
+    String? modules,
+    String? inverter,
+    String? generation,
+    String? extraInfo,
+    String? imageBase64,
+    bool clearImage = false,
+  }) {
+    return SolarPortfolioItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      powerBadge: powerBadge ?? this.powerBadge,
+      modules: modules ?? this.modules,
+      inverter: inverter ?? this.inverter,
+      generation: generation ?? this.generation,
+      extraInfo: extraInfo ?? this.extraInfo,
+      imageBase64: clearImage ? null : (imageBase64 ?? this.imageBase64),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'powerBadge': powerBadge,
+      'modules': modules,
+      'inverter': inverter,
+      'generation': generation,
+      'extraInfo': extraInfo,
+      'imageBase64': imageBase64,
+    };
+  }
+
+  factory SolarPortfolioItem.fromMap(Map<String, dynamic> map) {
+    return SolarPortfolioItem(
+      id: map['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: map['title'] as String? ?? '',
+      powerBadge: map['powerBadge'] as String? ?? '',
+      modules: map['modules'] as String? ?? '',
+      inverter: map['inverter'] as String? ?? '',
+      generation: map['generation'] as String? ?? '',
+      extraInfo: map['extraInfo'] as String? ?? '',
+      imageBase64: map['imageBase64'] as String?,
+    );
+  }
+}
+
 /// Modelo de Banco / Financeira para simulação de financiamento solar
 class SolarFinancingBank {
   final String id;
@@ -475,6 +547,13 @@ class SolarSettingsModel {
 
   final int coverFooterStyle; // 0 = Desativado, 1 a 10 = Estilos
   final bool coverShowFooter;
+  final bool showPdfSloganFooter;
+  final String pdfPageTitle2;
+  final String pdfPageTitle3;
+  final String pdfPageTitleRoof;
+  final String pdfPageTitle4;
+  final String pdfPageTitle5;
+  final String pdfPageTitle6;
   final String coverFooterText1;
   final String coverFooterText2;
   final String coverFooterText3;
@@ -491,6 +570,56 @@ class SolarSettingsModel {
   final String? hiddenPagesJson;
   final String? customPagesJson;
   final String internalPagesLayoutPreset;
+  final bool showPortfolioPage;
+  final String portfolioTitle;
+  final String portfolioSubtitle;
+  final String portfolioFooterNote;
+  final String? portfolioItemsJson;
+  final String? pageOrderJson;
+
+  static const List<String> defaultPageOrder = [
+    'portfolio',
+    'page_2',
+    'page_3',
+    'page_4',
+    'page_5',
+    'page_6',
+    'page_7',
+  ];
+
+  List<String> get effectivePageOrder {
+    final allIds = <String>[
+      ...defaultPageOrder,
+      ...customPages.map((c) => c.id),
+    ];
+    if (pageOrderJson == null || pageOrderJson!.isEmpty) {
+      return allIds;
+    }
+    try {
+      final parsed = (jsonDecode(pageOrderJson!) as List<dynamic>)
+          .map((e) => e.toString())
+          .where((id) => allIds.contains(id))
+          .toList();
+      for (final id in allIds) {
+        if (!parsed.contains(id)) parsed.add(id);
+      }
+      return parsed;
+    } catch (_) {
+      return allIds;
+    }
+  }
+
+  List<SolarPortfolioItem> get portfolioItems {
+    if (portfolioItemsJson != null && portfolioItemsJson!.isNotEmpty) {
+      try {
+        final list = jsonDecode(portfolioItemsJson!) as List<dynamic>;
+        return list
+            .map((e) => SolarPortfolioItem.fromMap(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      } catch (_) {}
+    }
+    return const [];
+  }
 
   List<ProposalPageCard> get page2Cards {
     if (page2CardsJson != null && page2CardsJson!.isNotEmpty) {
@@ -793,6 +922,13 @@ class SolarSettingsModel {
     this.coverHeaderIconColor = '#38BDF8',
     this.coverFooterStyle = 1,
     this.coverShowFooter = true,
+    this.showPdfSloganFooter = true,
+    this.pdfPageTitle2 = 'PROPOSTA COMERCIAL',
+    this.pdfPageTitle3 = 'SUA USINA SOLAR',
+    this.pdfPageTitleRoof = 'ESTUDO DE TELHADO & SOMBREAMENTO',
+    this.pdfPageTitle4 = 'ITENS DA USINA & PAGAMENTO',
+    this.pdfPageTitle5 = 'ANÁLISE DE INVESTIMENTO',
+    this.pdfPageTitle6 = 'FINANCIAMENTO & CONDIÇÕES',
     this.coverFooterText1 = 'ENERGIA LIMPA • ECONOMIA REAL • VALORIZAÇÃO',
     this.coverFooterText2 = '(11) 00000-0000 • contato@suaempresa.com.br',
     this.coverFooterText3 = 'www.suaempresa.com.br',
@@ -807,6 +943,12 @@ class SolarSettingsModel {
     this.hiddenPagesJson,
     this.customPagesJson,
     this.internalPagesLayoutPreset = 'preset_01',
+    this.showPortfolioPage = false,
+    this.portfolioTitle = 'Portfólio de clientes',
+    this.portfolioSubtitle = 'Instalações residenciais, comerciais e rurais',
+    this.portfolioFooterNote = 'Projetos executados com engenharia própria e homologação completa.',
+    this.portfolioItemsJson,
+    this.pageOrderJson,
   });
 
   double availabilityKwhForType(String? type) {
@@ -993,6 +1135,13 @@ class SolarSettingsModel {
     String? coverHeaderIconColor,
     int? coverFooterStyle,
     bool? coverShowFooter,
+    bool? showPdfSloganFooter,
+    String? pdfPageTitle2,
+    String? pdfPageTitle3,
+    String? pdfPageTitleRoof,
+    String? pdfPageTitle4,
+    String? pdfPageTitle5,
+    String? pdfPageTitle6,
     String? coverFooterText1,
     String? coverFooterText2,
     String? coverFooterText3,
@@ -1007,6 +1156,12 @@ class SolarSettingsModel {
     String? hiddenPagesJson,
     String? customPagesJson,
     String? internalPagesLayoutPreset,
+    bool? showPortfolioPage,
+    String? portfolioTitle,
+    String? portfolioSubtitle,
+    String? portfolioFooterNote,
+    String? portfolioItemsJson,
+    String? pageOrderJson,
   }) {
     return SolarSettingsModel(
       utilityCompany: utilityCompany ?? this.utilityCompany,
@@ -1123,6 +1278,13 @@ class SolarSettingsModel {
       coverHeaderIconColor: coverHeaderIconColor ?? this.coverHeaderIconColor,
       coverFooterStyle: coverFooterStyle ?? this.coverFooterStyle,
       coverShowFooter: coverShowFooter ?? this.coverShowFooter,
+      showPdfSloganFooter: showPdfSloganFooter ?? this.showPdfSloganFooter,
+      pdfPageTitle2: pdfPageTitle2 ?? this.pdfPageTitle2,
+      pdfPageTitle3: pdfPageTitle3 ?? this.pdfPageTitle3,
+      pdfPageTitleRoof: pdfPageTitleRoof ?? this.pdfPageTitleRoof,
+      pdfPageTitle4: pdfPageTitle4 ?? this.pdfPageTitle4,
+      pdfPageTitle5: pdfPageTitle5 ?? this.pdfPageTitle5,
+      pdfPageTitle6: pdfPageTitle6 ?? this.pdfPageTitle6,
       coverFooterText1: coverFooterText1 ?? this.coverFooterText1,
       coverFooterText2: coverFooterText2 ?? this.coverFooterText2,
       coverFooterText3: coverFooterText3 ?? this.coverFooterText3,
@@ -1137,6 +1299,12 @@ class SolarSettingsModel {
       hiddenPagesJson: hiddenPagesJson ?? this.hiddenPagesJson,
       customPagesJson: customPagesJson ?? this.customPagesJson,
       internalPagesLayoutPreset: internalPagesLayoutPreset ?? this.internalPagesLayoutPreset,
+      showPortfolioPage: showPortfolioPage ?? this.showPortfolioPage,
+      portfolioTitle: portfolioTitle ?? this.portfolioTitle,
+      portfolioSubtitle: portfolioSubtitle ?? this.portfolioSubtitle,
+      portfolioFooterNote: portfolioFooterNote ?? this.portfolioFooterNote,
+      portfolioItemsJson: portfolioItemsJson ?? this.portfolioItemsJson,
+      pageOrderJson: pageOrderJson ?? this.pageOrderJson,
     );
   }
 
@@ -1149,6 +1317,12 @@ class SolarSettingsModel {
       'hiddenPagesJson': hiddenPagesJson,
       'customPagesJson': customPagesJson,
       'internalPagesLayoutPreset': internalPagesLayoutPreset,
+      'showPortfolioPage': showPortfolioPage,
+      'portfolioTitle': portfolioTitle,
+      'portfolioSubtitle': portfolioSubtitle,
+      'portfolioFooterNote': portfolioFooterNote,
+      'portfolioItemsJson': portfolioItemsJson,
+      'pageOrderJson': pageOrderJson,
       'utilityCompany': utilityCompany,
       'energyTariff': energyTariff,
       'fioBTariff': fioBTariff,
@@ -1262,6 +1436,13 @@ class SolarSettingsModel {
       'coverHeaderIconColor': coverHeaderIconColor,
       'coverFooterStyle': coverFooterStyle,
       'coverShowFooter': coverShowFooter,
+      'showPdfSloganFooter': showPdfSloganFooter,
+      'pdfPageTitle2': pdfPageTitle2,
+      'pdfPageTitle3': pdfPageTitle3,
+      'pdfPageTitleRoof': pdfPageTitleRoof,
+      'pdfPageTitle4': pdfPageTitle4,
+      'pdfPageTitle5': pdfPageTitle5,
+      'pdfPageTitle6': pdfPageTitle6,
       'coverFooterText1': coverFooterText1,
       'coverFooterText2': coverFooterText2,
       'coverFooterText3': coverFooterText3,
@@ -1412,6 +1593,13 @@ class SolarSettingsModel {
       coverHeaderIconColor: map['coverHeaderIconColor'] as String? ?? '#38BDF8',
       coverFooterStyle: (map['coverFooterStyle'] as num?)?.toInt() ?? 1,
       coverShowFooter: map['coverShowFooter'] as bool? ?? true,
+      showPdfSloganFooter: map['showPdfSloganFooter'] as bool? ?? true,
+      pdfPageTitle2: map['pdfPageTitle2'] as String? ?? 'PROPOSTA COMERCIAL',
+      pdfPageTitle3: map['pdfPageTitle3'] as String? ?? 'SUA USINA SOLAR',
+      pdfPageTitleRoof: map['pdfPageTitleRoof'] as String? ?? 'ESTUDO DE TELHADO & SOMBREAMENTO',
+      pdfPageTitle4: map['pdfPageTitle4'] as String? ?? 'ITENS DA USINA & PAGAMENTO',
+      pdfPageTitle5: map['pdfPageTitle5'] as String? ?? 'ANÁLISE DE INVESTIMENTO',
+      pdfPageTitle6: map['pdfPageTitle6'] as String? ?? 'FINANCIAMENTO & CONDIÇÕES',
       coverFooterText1: map['coverFooterText1'] as String? ?? 'ENERGIA LIMPA • ECONOMIA REAL • VALORIZAÇÃO',
       coverFooterText2: map['coverFooterText2'] as String? ?? '(11) 00000-0000 • contato@suaempresa.com.br',
       coverFooterText3: map['coverFooterText3'] as String? ?? 'www.suaempresa.com.br',
@@ -1426,6 +1614,12 @@ class SolarSettingsModel {
       hiddenPagesJson: map['hiddenPagesJson'] as String?,
       customPagesJson: map['customPagesJson'] as String?,
       internalPagesLayoutPreset: map['internalPagesLayoutPreset'] as String? ?? 'preset_01',
+      showPortfolioPage: map['showPortfolioPage'] as bool? ?? false,
+      portfolioTitle: map['portfolioTitle'] as String? ?? 'Portfólio de clientes',
+      portfolioSubtitle: map['portfolioSubtitle'] as String? ?? 'Instalações residenciais, comerciais e rurais',
+      portfolioFooterNote: map['portfolioFooterNote'] as String? ?? 'Projetos executados com engenharia própria e homologação completa.',
+      portfolioItemsJson: map['portfolioItemsJson'] as String?,
+      pageOrderJson: map['pageOrderJson'] as String?,
     );
   }
 

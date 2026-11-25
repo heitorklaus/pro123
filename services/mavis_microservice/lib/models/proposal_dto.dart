@@ -13,6 +13,8 @@ class ProposalItemDTO {
   final List<String>? solarComponents;
   final double? moduleWatts;
   final double? estimatedMonthlyKwh;
+  final double? solarEquipmentPrice;
+  final double? solarServicePrice;
 
   const ProposalItemDTO({
     this.productId,
@@ -29,6 +31,8 @@ class ProposalItemDTO {
     this.solarComponents,
     this.moduleWatts,
     this.estimatedMonthlyKwh,
+    this.solarEquipmentPrice,
+    this.solarServicePrice,
   });
 
   double? get effectiveModuleWatts {
@@ -63,6 +67,14 @@ class ProposalItemDTO {
         (map['monthlyKwh'] as num?)?.toDouble() ??
         (map['specificAttributes'] != null ? (map['specificAttributes']['estimatedMonthlyKwh'] as num?)?.toDouble() : null);
 
+    final equipPrice = (map['solarEquipmentPrice'] as num?)?.toDouble() ??
+        (map['productsPrice'] as num?)?.toDouble() ??
+        (map['specificAttributes'] != null ? (map['specificAttributes']['productsPrice'] as num?)?.toDouble() : null);
+
+    final servPrice = (map['solarServicePrice'] as num?)?.toDouble() ??
+        (map['servicePrice'] as num?)?.toDouble() ??
+        (map['specificAttributes'] != null ? (map['specificAttributes']['servicePrice'] as num?)?.toDouble() : null);
+
     return ProposalItemDTO(
       productId: map['productId']?.toString(),
       name: map['name']?.toString() ?? map['title']?.toString() ?? 'Item',
@@ -78,6 +90,8 @@ class ProposalItemDTO {
       solarComponents: components,
       moduleWatts: watts,
       estimatedMonthlyKwh: kwh,
+      solarEquipmentPrice: equipPrice,
+      solarServicePrice: servPrice,
     );
   }
 
@@ -112,6 +126,7 @@ class ProposalDTO {
   final String? connectionType;
   final double? availabilityKwh;
   final double? publicLightingValueRs;
+  final bool showSeparatedPricing;
   final DateTime createdAt;
 
   const ProposalDTO({
@@ -143,6 +158,7 @@ class ProposalDTO {
     this.connectionType,
     this.availabilityKwh,
     this.publicLightingValueRs,
+    this.showSeparatedPricing = false,
     required this.createdAt,
   });
 
@@ -189,6 +205,7 @@ class ProposalDTO {
       connectionType: map['connectionType']?.toString(),
       availabilityKwh: (map['availabilityKwh'] as num?)?.toDouble(),
       publicLightingValueRs: (map['publicLightingValueRs'] as num?)?.toDouble(),
+      showSeparatedPricing: map['showSeparatedPricing'] == true,
       createdAt: parseDate(map['createdAt']),
     );
   }

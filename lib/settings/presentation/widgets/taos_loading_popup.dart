@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../app/widgets/taos_logo.dart';
 
 /// Popup flutuante de carregamento no mesmo estilo visual da tela inicial (Splash TAOS).
 class TaosLoadingPopup extends StatefulWidget {
@@ -9,6 +10,29 @@ class TaosLoadingPopup extends StatefulWidget {
     super.key,
     this.message = 'Carregando Imagem',
   });
+
+  static const BoxDecoration pdfBackdropDecoration = BoxDecoration(
+    gradient: RadialGradient(
+      center: Alignment(0, -0.2),
+      radius: 1.35,
+      colors: [
+        Color(0xFF1E293B),
+        Color(0xFF0F172A),
+        Color(0xFF070B14),
+      ],
+    ),
+  );
+
+  static Widget pdfLoadingWidget({
+    String message = 'Proposta sendo gerada...',
+  }) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: pdfBackdropDecoration,
+      child: TaosLoadingPopup(message: message),
+    );
+  }
 
   static Future<void> show(
     BuildContext context, {
@@ -89,24 +113,9 @@ class _TaosLoadingPopupState extends State<TaosLoadingPopup>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Image.asset(
-                  'assets/images/taos_full_logo.png',
-                  width: 185,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Image.asset(
-                    'assets/images/taos_logo_dark_bg.png',
-                    width: 160,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Text(
-                      'TAOS CRM',
-                      style: GoogleFonts.outfit(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
+                const TaosLoginLogo(
+                  width: 190,
+                  isDarkBackground: true,
                 ),
                 const SizedBox(height: 20),
                 Container(

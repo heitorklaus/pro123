@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../data/services/solar_settings_service.dart';
 import '../../domain/models/proposal_pages_models.dart';
+import '../../domain/models/solar_settings_model.dart';
 import 'cover_header_footer_widgets.dart';
 
 /// Aba "Páginas": Gerenciamento multipáginas, mini-previews, 20 templates de Página 2,
@@ -66,6 +68,20 @@ class CoverPagesManagerTab extends StatefulWidget {
   final ValueChanged<String>? onUpdatePage4AccentColor;
   final VoidCallback? onResetPage4Colors;
 
+  // Portfólio Solar (Página 2 opcional após a capa)
+  final bool showSolarPortfolio;
+  final ValueChanged<bool>? onToggleSolarPortfolio;
+  final String solarPortfolioTitle;
+  final ValueChanged<String>? onSolarPortfolioTitleChanged;
+  final String solarPortfolioSubtitle;
+  final ValueChanged<String>? onSolarPortfolioSubtitleChanged;
+  final String solarPortfolioFooterNote;
+  final ValueChanged<String>? onSolarPortfolioFooterNoteChanged;
+  final List<SolarPortfolioItem> solarPortfolioItems;
+  final ValueChanged<List<SolarPortfolioItem>>? onUpdateSolarPortfolioItems;
+  final List<String> pageOrder;
+  final ValueChanged<List<String>>? onUpdatePageOrder;
+
   const CoverPagesManagerTab({
     super.key,
     required this.isSolar,
@@ -120,6 +136,18 @@ class CoverPagesManagerTab extends StatefulWidget {
     this.page4AccentColor = '#00E5FF',
     this.onUpdatePage4AccentColor,
     this.onResetPage4Colors,
+    this.showSolarPortfolio = false,
+    this.onToggleSolarPortfolio,
+    this.solarPortfolioTitle = 'Portfólio de clientes',
+    this.onSolarPortfolioTitleChanged,
+    this.solarPortfolioSubtitle = 'Instalações residenciais, comerciais e rurais',
+    this.onSolarPortfolioSubtitleChanged,
+    this.solarPortfolioFooterNote = 'Projetos executados com engenharia própria e homologação completa.',
+    this.onSolarPortfolioFooterNoteChanged,
+    this.solarPortfolioItems = const [],
+    this.onUpdateSolarPortfolioItems,
+    this.pageOrder = const [],
+    this.onUpdatePageOrder,
   });
 
   @override
@@ -158,6 +186,8 @@ class _CoverPagesManagerTabState extends State<CoverPagesManagerTab> {
       editingLabel = 'Portfólio & Clientes (Editando)';
     } else if (_currentSection == 3) {
       editingLabel = 'Ambientes & Cards (Editando)';
+    } else if (_currentSection == 4) {
+      editingLabel = 'Portfólio Solar (Editando)';
     }
 
     return Container(
@@ -268,6 +298,8 @@ class _CoverPagesManagerTabState extends State<CoverPagesManagerTab> {
         return _buildPage3PortfolioEditor();
       case 3:
         return _buildPage4EditorSection();
+      case 4:
+        return _buildSolarPortfolioEditorSection();
       default:
         return _buildAllPagesOverview();
     }
@@ -374,13 +406,16 @@ class _CoverPagesManagerTabState extends State<CoverPagesManagerTab> {
         const SizedBox(height: 16),
 
         // Lista de Páginas Padrão
+        if (widget.isSolar && widget.onUpdatePageOrder != null)
+          ..._buildSolarReorderablePagesList()
+        else
         ...standardPages.map((p) {
           final pageId = p['id'] as String;
           final isHidden = widget.hiddenPageIds.contains(pageId);
           final isSelected = widget.activePageId == pageId;
           final canDelete = p['canDelete'] as bool;
 
-          return Container(
+          final card = Container(
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
               color: isSelected
@@ -564,10 +599,20 @@ class _CoverPagesManagerTabState extends State<CoverPagesManagerTab> {
               ),
             ),
           );
+          if (widget.isSolar && pageId == 'page_1') {
+            return Column(
+              children: [
+                card,
+                _buildSolarPortfolioOverviewCard(),
+              ],
+            );
+          }
+          return card;
         }),
 
         // Páginas Personalizadas Adicionadas pelo Usuário
-        if (widget.customPages.isNotEmpty) ...[
+        if (!(widget.isSolar && widget.onUpdatePageOrder != null) &&
+            widget.customPages.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(
             'Páginas Personalizadas Criadas (${widget.customPages.length})',
@@ -2696,6 +2741,805 @@ class _CoverPagesManagerTabState extends State<CoverPagesManagerTab> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildSolarReorderablePagesList() {
+    final order = widget.pageOrder.isNotEmpty
+        ? List<String>.from(widget.pageOrder)
+        : List<String>.from(SolarSettingsModel.defaultPageOrder);
+    for (final cp in widget.customPages) {
+      if (!order.contains(cp.id)) order.add(cp.id);
+    }
+
+    void moveItem(int idx, int delta) {
+      final target = idx + delta;
+      if (target < 0 || target >= order.length) return;
+      final next = List<String>.from(order);
+      final moved = next.removeAt(idx);
+      next.insert(target, moved);
+      widget.onUpdatePageOrder?.call(next);
+    }
+
+    Widget buildMoveButtons(int idx) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Mover página para cima',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            icon: Icon(
+              Icons.arrow_upward_rounded,
+              size: 18,
+              color: idx > 0 ? const Color(0xFF38BDF8) : Colors.white24,
+            ),
+            onPressed: idx > 0 ? () => moveItem(idx, -1) : null,
+          ),
+          IconButton(
+            tooltip: 'Mover página para baixo',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            icon: Icon(
+              Icons.arrow_downward_rounded,
+              size: 18,
+              color: idx < order.length - 1 ? const Color(0xFF38BDF8) : Colors.white24,
+            ),
+            onPressed: idx < order.length - 1 ? () => moveItem(idx, 1) : null,
+          ),
+        ],
+      );
+    }
+
+    final coverSelected = widget.activePageId == 'page_1';
+    final widgets = <Widget>[
+      Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: coverSelected ? const Color(0xFF0C4A6E) : const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: coverSelected ? const Color(0xFF38BDF8) : const Color(0xFF334155),
+            width: coverSelected ? 1.8 : 1,
+          ),
+        ),
+        child: ListTile(
+          onTap: () => widget.onSelectPage('page_1'),
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              shape: BoxShape.circle,
+              border: Border.all(color: coverSelected ? const Color(0xFF38BDF8) : const Color(0xFF475569)),
+            ),
+            child: Center(
+              child: Text('1', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ),
+          title: Row(
+            children: [
+              Text('Capa Oficial', style: GoogleFonts.outfit(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('FIXA 1ª', style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8))),
+              ),
+            ],
+          ),
+          subtitle: Text(
+            'Capa executiva, logo, foto da usina e dados da proposta solar',
+            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+          ),
+        ),
+      ),
+    ];
+
+    final metaMap = <String, Map<String, String>>{
+      'page_2': {
+        'title': 'Escopo & Diferenciais',
+        'subtitle': 'Componentes da usina, tecnologia dos módulos e diferenciais',
+      },
+      'page_3': {
+        'title': 'Sua Usina Solar',
+        'subtitle': 'Ficha técnica, potência estimada, geração mensal e área',
+      },
+      'page_4': {
+        'title': 'Estudo de Telhado & Sombreamento (3D)',
+        'subtitle': 'Incluída automaticamente quando houver estudo solar vinculado',
+      },
+      'page_5': {
+        'title': 'Itens da Usina & Pagamento',
+        'subtitle': 'Equipamentos detalhados, investimento e condições comerciais',
+      },
+      'page_6': {
+        'title': 'Análise de Investimento (20 Anos)',
+        'subtitle': 'Gráfico de retorno, payback e projeção de economia anual',
+      },
+      'page_7': {
+        'title': 'Financiamento & Condições',
+        'subtitle': 'Simulação de parcelas bancárias e opções de cartão',
+      },
+    };
+
+    for (int i = 0; i < order.length; i++) {
+      final key = order[i];
+      final posNumber = i + 2;
+
+      if (key == 'portfolio') {
+        widgets.add(
+          _buildSolarPortfolioOverviewCard(
+            positionNumber: posNumber,
+            moveControls: buildMoveButtons(i),
+          ),
+        );
+        continue;
+      }
+
+      final cpMatch = widget.customPages.where((c) => c.id == key);
+      if (cpMatch.isNotEmpty) {
+        final cp = cpMatch.first;
+        final isSelected = widget.activePageId == cp.id;
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF064E3B) : const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? const Color(0xFF10B981) : const Color(0xFF334155),
+                width: isSelected ? 1.8 : 1,
+              ),
+            ),
+            child: ListTile(
+              onTap: () => widget.onSelectPage(cp.id),
+              leading: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF10B981)),
+                ),
+                child: Center(
+                  child: Text('$posNumber', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF10B981))),
+                ),
+              ),
+              title: Text(cp.title, style: GoogleFonts.outfit(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white)),
+              subtitle: Text('${cp.cards.length} cards inseridos • Fundo: ${cp.bgType}', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  buildMoveButtons(i),
+                  IconButton(
+                    tooltip: 'Remover Página Personalizada',
+                    icon: const Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 20),
+                    onPressed: () {
+                      final updated = List<ProposalCustomPage>.from(widget.customPages)..removeWhere((c) => c.id == cp.id);
+                      widget.onUpdateCustomPages(updated);
+                      final nextOrder = List<String>.from(order)..remove(cp.id);
+                      widget.onUpdatePageOrder?.call(nextOrder);
+                      if (widget.activePageId == cp.id) widget.onSelectPage('page_1');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
+
+      final meta = metaMap[key];
+      if (meta == null) continue;
+      final isHidden = widget.hiddenPageIds.contains(key);
+      final isSelected = widget.activePageId == key;
+
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF0C4A6E) : const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF38BDF8)
+                  : isHidden
+                      ? const Color(0xFF475569).withValues(alpha: 0.5)
+                      : const Color(0xFF334155),
+              width: isSelected ? 1.8 : 1,
+            ),
+          ),
+          child: ListTile(
+            onTap: () => widget.onSelectPage(key),
+            leading: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: isHidden ? const Color(0xFF334155) : const Color(0xFF1E293B),
+                shape: BoxShape.circle,
+                border: Border.all(color: isSelected ? const Color(0xFF38BDF8) : const Color(0xFF475569)),
+              ),
+              child: Center(
+                child: Text(
+                  '$posNumber',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isHidden ? const Color(0xFF94A3B8) : Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    meta['title']!,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.bold,
+                      color: isHidden ? const Color(0xFF94A3B8) : Colors.white,
+                      decoration: isHidden ? TextDecoration.lineThrough : null,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (key == 'page_2') ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('EDITÁVEL', style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8))),
+                  ),
+                ],
+                if (isHidden) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('OCULTA', style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFFF87171))),
+                  ),
+                ],
+              ],
+            ),
+            subtitle: Text(
+              meta['subtitle']!,
+              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                buildMoveButtons(i),
+                if (key == 'page_2')
+                  IconButton(
+                    tooltip: 'Editar Conteúdo da Página',
+                    icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF38BDF8), size: 22),
+                    onPressed: () {
+                      widget.onSelectPage('page_2');
+                      setState(() => _currentSection = 1);
+                    },
+                  ),
+                IconButton(
+                  tooltip: isHidden ? 'Restaurar Página no PDF' : 'Ocultar Página do PDF',
+                  icon: Icon(
+                    isHidden ? Icons.visibility_off_rounded : Icons.delete_outline_rounded,
+                    color: isHidden ? const Color(0xFF94A3B8) : const Color(0xFFEF4444),
+                    size: 20,
+                  ),
+                  onPressed: () => _toggleHidePage(key),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  Widget _buildSolarPortfolioOverviewCard({
+    int positionNumber = 2,
+    Widget? moveControls,
+  }) {
+    final active = widget.showSolarPortfolio;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: active ? const Color(0xFF10B981) : const Color(0xFF334155),
+          width: active ? 1.5 : 1,
+        ),
+      ),
+      child: ListTile(
+        onTap: () => setState(() => _currentSection = 4),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: active ? const Color(0xFF059669) : const Color(0xFF1E293B),
+            shape: BoxShape.circle,
+            border: Border.all(color: active ? const Color(0xFF34D399) : const Color(0xFF475569)),
+          ),
+          child: Center(
+            child: Text(
+              '$positionNumber',
+              style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                'Portfólio de Clientes',
+                style: GoogleFonts.outfit(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: (active ? const Color(0xFF10B981) : const Color(0xFF64748B)).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                active ? 'ATIVA (${widget.solarPortfolioItems.length} OBRAS)' : 'DESATIVADA',
+                style: GoogleFonts.inter(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  color: active ? const Color(0xFF34D399) : const Color(0xFF94A3B8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          'Segunda página após a capa. Ative para enviar fotos de obras e textos (cliente, potência, geração, placas, inversores).',
+          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (moveControls != null) moveControls,
+            IconButton(
+              tooltip: 'Editar Fotos e Textos do Portfólio',
+              icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF34D399), size: 22),
+              onPressed: () => setState(() => _currentSection = 4),
+            ),
+            Switch.adaptive(
+              value: active,
+              activeTrackColor: const Color(0xFF10B981),
+              onChanged: (val) {
+                widget.onToggleSolarPortfolio?.call(val);
+                if (val && widget.solarPortfolioItems.isEmpty) {
+                  setState(() => _currentSection = 4);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSolarPortfolioEditorSection() {
+    final items = widget.solarPortfolioItems;
+
+    void updateItems(List<SolarPortfolioItem> next) {
+      widget.onUpdateSolarPortfolioItems?.call(next);
+    }
+
+    Future<void> pickPhotoForItem(int index) async {
+      try {
+        final files = await FilePicker.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        );
+        if (files.isEmpty) return;
+        final bytes = await files.first.readAsBytes();
+        final b64 = SolarSettingsService.compressImageBytesForFirestore(
+          bytes,
+          maxWidth: 800,
+          maxBase64Chars: 120000,
+        );
+        final next = List<SolarPortfolioItem>.from(items);
+        next[index] = next[index].copyWith(imageBase64: b64);
+        updateItems(next);
+      } catch (e) {
+        debugPrint('[CoverPagesManagerTab] Erro ao enviar foto do portfólio: $e');
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Editor da Página de Portfólio (2ª Página do PDF)',
+                    style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  Text(
+                    'Ative a página, envie fotos reais das suas obras e preencha apenas os dados que desejar exibir (até 6 cards por página).',
+                    style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: () {
+                final next = List<SolarPortfolioItem>.from(items)
+                  ..add(
+                    SolarPortfolioItem(
+                      id: DateTime.now().microsecondsSinceEpoch.toString(),
+                      title: 'Projeto ${items.length + 1}',
+                    ),
+                  );
+                updateItems(next);
+                if (!widget.showSolarPortfolio) {
+                  widget.onToggleSolarPortfolio?.call(true);
+                }
+              },
+              icon: const Icon(Icons.add_photo_alternate_rounded, size: 16),
+              label: const Text('ADICIONAR OBRA'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: widget.showSolarPortfolio ? const Color(0xFF10B981) : const Color(0xFF334155)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mostrar Página de Portfólio no PDF (após a Capa)',
+                      style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    Text(
+                      'Desativada por padrão em novas contas até você ativar aqui.',
+                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8)),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: widget.showSolarPortfolio,
+                activeTrackColor: const Color(0xFF10B981),
+                onChanged: (val) => widget.onToggleSolarPortfolio?.call(val),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF334155)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TEXTOS DO BANNER E RODAPÉ DO PORTFÓLIO',
+                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF38BDF8), letterSpacing: 0.8),
+              ),
+              const SizedBox(height: 10),
+              _buildDarkTextField(
+                label: 'Título do Banner',
+                initialValue: widget.solarPortfolioTitle,
+                hint: 'Ex: Portfólio de clientes',
+                onChanged: (v) => widget.onSolarPortfolioTitleChanged?.call(v),
+              ),
+              const SizedBox(height: 10),
+              _buildDarkTextField(
+                label: 'Subtítulo do Banner',
+                initialValue: widget.solarPortfolioSubtitle,
+                hint: 'Ex: Instalações residenciais, comerciais e rurais',
+                onChanged: (v) => widget.onSolarPortfolioSubtitleChanged?.call(v),
+              ),
+              const SizedBox(height: 10),
+              _buildDarkTextField(
+                label: 'Nota de Rodapé da Página',
+                initialValue: widget.solarPortfolioFooterNote,
+                hint: 'Ex: Projetos executados com engenharia própria e homologação completa.',
+                onChanged: (v) => widget.onSolarPortfolioFooterNoteChanged?.call(v),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'PROJETOS / OBRAS NO PORTFÓLIO (${items.length})',
+          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFFCBD5E1), letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 10),
+        if (items.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: Center(
+              child: Text(
+                'Nenhuma obra cadastrada ainda. Clique em "ADICIONAR OBRA" acima para enviar fotos e dados dos seus clientes.',
+                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else
+          ...items.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            return Container(
+              key: ValueKey('solar_portfolio_card_${item.id}'),
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 13,
+                        backgroundColor: const Color(0xFF0284C7),
+                        child: Text('${idx + 1}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          item.title.isNotEmpty ? item.title : 'Obra #${idx + 1}',
+                          style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Remover Obra',
+                        icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                        onPressed: () {
+                          final next = List<SolarPortfolioItem>.from(items)..removeAt(idx);
+                          updateItems(next);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Container(
+                        width: 110,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF334155)),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: (item.imageBase64 != null && item.imageBase64!.isNotEmpty)
+                            ? Image.memory(base64Decode(item.imageBase64!), fit: BoxFit.cover)
+                            : const Icon(Icons.solar_power_rounded, color: Colors.white38, size: 28),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => pickPhotoForItem(idx),
+                              icon: const Icon(Icons.upload_rounded, size: 15),
+                              label: Text(item.imageBase64 != null ? 'TROCAR FOTO' : 'ENVIAR FOTO'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                            if (item.imageBase64 != null && item.imageBase64!.isNotEmpty)
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  final next = List<SolarPortfolioItem>.from(items);
+                                  next[idx] = next[idx].copyWith(clearImage: true);
+                                  updateItems(next);
+                                },
+                                icon: const Icon(Icons.close_rounded, size: 15, color: Color(0xFFF87171)),
+                                label: const Text('REMOVER FOTO', style: TextStyle(color: Color(0xFFF87171))),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFEF4444)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildDarkTextField(
+                          fieldKey: ValueKey('sp_title_${item.id}'),
+                          label: 'Cliente / Nome da Obra',
+                          initialValue: item.title,
+                          hint: 'Ex: Residência Almeida',
+                          onChanged: (v) {
+                            final next = List<SolarPortfolioItem>.from(items);
+                            next[idx] = next[idx].copyWith(title: v);
+                            updateItems(next);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: _buildDarkTextField(
+                          fieldKey: ValueKey('sp_power_${item.id}'),
+                          label: 'Potência (Badge)',
+                          initialValue: item.powerBadge,
+                          hint: 'Ex: 13,64 kWp',
+                          onChanged: (v) {
+                            final next = List<SolarPortfolioItem>.from(items);
+                            next[idx] = next[idx].copyWith(powerBadge: v);
+                            updateItems(next);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDarkTextField(
+                          fieldKey: ValueKey('sp_mod_${item.id}'),
+                          label: 'Placas / Módulos',
+                          initialValue: item.modules,
+                          hint: 'Ex: 22 × Osda N-Type 620 W',
+                          onChanged: (v) {
+                            final next = List<SolarPortfolioItem>.from(items);
+                            next[idx] = next[idx].copyWith(modules: v);
+                            updateItems(next);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildDarkTextField(
+                          fieldKey: ValueKey('sp_inv_${item.id}'),
+                          label: 'Inversor(es)',
+                          initialValue: item.inverter,
+                          hint: 'Ex: Auxsol 10 kW',
+                          onChanged: (v) {
+                            final next = List<SolarPortfolioItem>.from(items);
+                            next[idx] = next[idx].copyWith(inverter: v);
+                            updateItems(next);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDarkTextField(
+                          fieldKey: ValueKey('sp_gen_${item.id}'),
+                          label: 'Geração (opcional)',
+                          initialValue: item.generation,
+                          hint: 'Ex: 1.650 kWh/mês',
+                          onChanged: (v) {
+                            final next = List<SolarPortfolioItem>.from(items);
+                            next[idx] = next[idx].copyWith(generation: v);
+                            updateItems(next);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildDarkTextField(
+                          fieldKey: ValueKey('sp_ext_${item.id}'),
+                          label: 'Local / Detalhes (opcional)',
+                          initialValue: item.extraInfo,
+                          hint: 'Ex: Goiânia - GO',
+                          onChanged: (v) {
+                            final next = List<SolarPortfolioItem>.from(items);
+                            next[idx] = next[idx].copyWith(extraInfo: v);
+                            updateItems(next);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  Widget _buildDarkTextField({
+    Key? fieldKey,
+    required String label,
+    required String initialValue,
+    required String hint,
+    required ValueChanged<String> onChanged,
+  }) {
+    return TextFormField(
+      key: fieldKey,
+      initialValue: initialValue,
+      onChanged: onChanged,
+      style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(fontSize: 11.5, color: Colors.white24),
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0xFF1E293B),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF334155)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF334155)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF38BDF8)),
         ),
       ),
     );

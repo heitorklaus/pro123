@@ -111,6 +111,7 @@ class ProposalRepository {
     String? connectionType,
     double? availabilityKwh,
     double? publicLightingValueRs,
+    bool showSeparatedPricing = false,
     bool isPublicForCompany = false,
     List<String> sharedWithUserIds = const [],
   }) async {
@@ -152,6 +153,7 @@ class ProposalRepository {
       connectionType: connectionType,
       availabilityKwh: availabilityKwh,
       publicLightingValueRs: publicLightingValueRs,
+      showSeparatedPricing: showSeparatedPricing,
       createdAt: now,
       updatedAt: now,
     );

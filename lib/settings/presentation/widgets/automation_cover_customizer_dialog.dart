@@ -18,6 +18,7 @@ import 'cover_header_footer_widgets.dart';
 import '../../domain/models/proposal_pages_models.dart';
 import 'cover_pages_manager_tab.dart';
 import 'cover_page2_interactive_canvas.dart';
+import 'taos_loading_popup.dart';
 import 'cover_custom_page_interactive_canvas.dart';
 
 /// Modal amplo de estúdio visual para personalização interativa em tempo real da capa da proposta
@@ -1172,6 +1173,8 @@ class _AutomationCoverCustomizerDialogState extends State<AutomationCoverCustomi
                   allowPrinting: true,
                   allowSharing: true,
                   canChangePageFormat: false,
+                  scrollViewDecoration: TaosLoadingPopup.pdfBackdropDecoration,
+                  loadingWidget: TaosLoadingPopup.pdfLoadingWidget(),
                 ),
               ),
             ],

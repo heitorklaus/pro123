@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../settings/presentation/widgets/taos_loading_popup.dart';
 import '../../../solar_designer/domain/models/roof_study_model.dart';
 import '../../data/services/solar_proposal_pdf_service.dart';
 import '../../data/services/proposal_pdf_service.dart';
@@ -156,9 +157,8 @@ class ProposalPdfPreviewDialog extends StatelessWidget {
                   canDebug: false,
                   dynamicLayout: false,
                   pdfFileName: 'Proposta_${proposal.proposalNumber}.pdf',
-                  loadingWidget: const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
+                  scrollViewDecoration: TaosLoadingPopup.pdfBackdropDecoration,
+                  loadingWidget: TaosLoadingPopup.pdfLoadingWidget(),
                 ),
               ),
             ),

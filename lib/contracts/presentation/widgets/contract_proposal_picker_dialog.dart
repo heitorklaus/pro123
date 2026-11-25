@@ -169,6 +169,13 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
         String filter = '';
         return StatefulBuilder(
           builder: (context, setDlgState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+            final innerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+            final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+            final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+            final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
             final filtered = clients.where((c) {
               final q = filter.toLowerCase().trim();
               if (q.isEmpty) return true;
@@ -178,7 +185,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
             }).toList();
 
             return Dialog(
-              backgroundColor: const Color(0xFF1E293B),
+              backgroundColor: cardBg,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Container(
                 width: 520,
@@ -195,25 +202,25 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                           style: GoogleFonts.outfit(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: textPrimary,
                           ),
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                          icon: Icon(Icons.close_rounded, color: textSecondary),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
                     TextField(
                       onChanged: (val) => setDlgState(() => filter = val),
-                      style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
+                      style: GoogleFonts.inter(color: textPrimary, fontSize: 13),
                       decoration: InputDecoration(
                         hintText: 'Buscar por nome, CPF/CNPJ ou telefone...',
-                        hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
-                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 20),
+                        hintStyle: GoogleFonts.inter(color: textSecondary, fontSize: 13),
+                        prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 20),
                         filled: true,
-                        fillColor: const Color(0xFF0F172A),
+                        fillColor: innerBg,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                       ),
                     ),
@@ -223,29 +230,29 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                           ? Center(
                               child: Text(
                                 'Nenhum cliente encontrado',
-                                style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+                                style: GoogleFonts.inter(color: textSecondary),
                               ),
                             )
                           : ListView.separated(
                               itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const Divider(color: Color(0xFF334155), height: 1),
+                              separatorBuilder: (_, __) => Divider(color: borderColor, height: 1),
                               itemBuilder: (context, index) {
                                 final c = filtered[index];
                                 return ListTile(
                                   onTap: () => Navigator.pop(ctx, c),
                                   leading: CircleAvatar(
                                     backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
-                                    child: const Icon(Icons.person_rounded, color: Color(0xFF818CF8)),
+                                    child: Icon(Icons.person_rounded, color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5)),
                                   ),
                                   title: Text(
                                     c.name,
-                                    style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
+                                    style: GoogleFonts.inter(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 13.5),
                                   ),
                                   subtitle: Text(
                                     '${c.document ?? "Sem documento"} • ${c.city ?? "Cidade não inf."}/${c.state ?? ""}',
-                                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12),
+                                    style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
                                   ),
-                                  trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 14),
+                                  trailing: Icon(Icons.arrow_forward_ios_rounded, color: textSecondary, size: 14),
                                 );
                               },
                             ),
@@ -276,9 +283,18 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final innerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textBody = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155);
+    final indigoAccent = isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5);
 
     return Dialog(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: dialogBg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         width: 880,
@@ -296,7 +312,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                     color: const Color(0xFF6366F1).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.history_edu_rounded, color: Color(0xFF818CF8), size: 26),
+                  child: Icon(Icons.history_edu_rounded, color: indigoAccent, size: 26),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -308,19 +324,19 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                         style: GoogleFonts.outfit(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: textPrimary,
                         ),
                       ),
                       Text(
                         'Passo 1: Selecione a Proposta Comercial base para herdar usina, valores e cliente',
-                        style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF94A3B8)),
+                        style: GoogleFonts.inter(fontSize: 12.5, color: textSecondary),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                  icon: Icon(Icons.close_rounded, color: textSecondary),
                 ),
               ],
             ),
@@ -337,9 +353,9 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,20 +366,20 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.1,
-                              color: const Color(0xFF94A3B8),
+                              color: textSecondary,
                             ),
                           ),
                           const SizedBox(height: 10),
                           TextField(
                             controller: _searchCtrl,
                             onChanged: (val) => setState(() => _searchQuery = val),
-                            style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5),
+                            style: GoogleFonts.inter(color: textPrimary, fontSize: 12.5),
                             decoration: InputDecoration(
                               hintText: 'Buscar proposta por nº ou cliente...',
-                              hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12.5),
-                              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 18),
+                              hintStyle: GoogleFonts.inter(color: textSecondary, fontSize: 12.5),
+                              prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 18),
                               filled: true,
-                              fillColor: const Color(0xFF0F172A),
+                              fillColor: innerBg,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                             ),
@@ -394,7 +410,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                   return Center(
                                     child: Text(
                                       'Nenhuma proposta encontrada.',
-                                      style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+                                      style: GoogleFonts.inter(color: textSecondary, fontSize: 13),
                                     ),
                                   );
                                 }
@@ -412,10 +428,12 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                       child: Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: isSelected ? const Color(0xFF6366F1).withValues(alpha: 0.15) : const Color(0xFF0F172A),
+                                          color: isSelected
+                                              ? const Color(0xFF6366F1).withValues(alpha: isDark ? 0.15 : 0.1)
+                                              : innerBg,
                                           borderRadius: BorderRadius.circular(10),
                                           border: Border.all(
-                                            color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF334155),
+                                            color: isSelected ? const Color(0xFF6366F1) : borderColor,
                                             width: isSelected ? 1.5 : 1,
                                           ),
                                         ),
@@ -430,7 +448,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                                   style: GoogleFonts.inter(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 12.5,
-                                                    color: isSelected ? const Color(0xFF818CF8) : const Color(0xFFE2E8F0),
+                                                    color: isSelected ? indigoAccent : textBody,
                                                   ),
                                                 ),
                                                 Text(
@@ -454,7 +472,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                                 style: GoogleFonts.inter(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w600,
-                                                  color: Colors.white,
+                                                  color: textPrimary,
                                                 ),
                                               ),
                                             ),
@@ -465,7 +483,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                               overflow: TextOverflow.ellipsis,
                                               style: GoogleFonts.inter(
                                                 fontSize: 11.5,
-                                                color: const Color(0xFF94A3B8),
+                                                color: textSecondary,
                                               ),
                                             ),
                                           ],
@@ -491,12 +509,12 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.arrow_back_rounded, color: Color(0xFF64748B), size: 36),
+                                Icon(Icons.arrow_back_rounded, color: textSecondary, size: 36),
                                 const SizedBox(height: 10),
                                 Text(
                                   'Selecione uma proposta ao lado para visualizar os dados e avançar.',
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
+                                  style: GoogleFonts.inter(color: textSecondary, fontSize: 13),
                                 ),
                               ],
                             ),
@@ -509,9 +527,9 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1E293B),
+                                    color: cardBg,
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: const Color(0xFF334155)),
+                                    border: Border.all(color: borderColor),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,7 +543,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
                                               letterSpacing: 1.1,
-                                              color: const Color(0xFF94A3B8),
+                                              color: textSecondary,
                                             ),
                                           ),
                                           Container(
@@ -551,7 +569,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                         style: GoogleFonts.inter(
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.w600,
-                                          color: Colors.white,
+                                          color: textPrimary,
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -561,7 +579,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                           const SizedBox(width: 6),
                                           Text(
                                             'Total do Projeto: ${currency.format(_selectedProposal!.totalAmount)}',
-                                            style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFFE2E8F0)),
+                                            style: GoogleFonts.inter(fontSize: 12.5, color: textBody),
                                           ),
                                         ],
                                       ),
@@ -574,7 +592,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                             Expanded(
                                               child: Text(
                                                 'Condições: ${_selectedProposal!.paymentTerms}',
-                                                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                                                style: GoogleFonts.inter(fontSize: 12, color: textSecondary),
                                               ),
                                             ),
                                           ],
@@ -589,7 +607,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1E293B),
+                                    color: cardBg,
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
                                       color: _isClientComplete ? const Color(0xFF059669) : const Color(0xFFD97706),
@@ -624,12 +642,12 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                       else if (_resolvedClient == null) ...[
                                         Text(
                                           '⚠️ Esta proposta não possui um cliente completo associado na base.',
-                                          style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFFCBD5E1)),
+                                          style: GoogleFonts.inter(fontSize: 12.5, color: textBody),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           'Para emitir o contrato oficial com validade jurídica, selecione um cliente cadastrado ou adicione um novo agora.',
-                                          style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF94A3B8)),
+                                          style: GoogleFonts.inter(fontSize: 11.5, color: textSecondary),
                                         ),
                                         const SizedBox(height: 14),
                                         Row(
@@ -640,7 +658,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                                 icon: const Icon(Icons.people_outline_rounded, size: 16),
                                                 label: const Text('VINCULAR EXISTENTE', style: TextStyle(fontSize: 11.5)),
                                                 style: OutlinedButton.styleFrom(
-                                                  foregroundColor: Colors.white,
+                                                  foregroundColor: isDark ? Colors.white : const Color(0xFF4F46E5),
                                                   side: const BorderSide(color: Color(0xFF6366F1)),
                                                   padding: const EdgeInsets.symmetric(vertical: 10),
                                                 ),
@@ -665,17 +683,17 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                         // Cliente Selecionado / Resolvido
                                         Text(
                                           _resolvedClient!.name,
-                                          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           '${_resolvedClient!.type == ClientType.company ? "CNPJ" : "CPF"}: ${_resolvedClient!.document ?? "Não informado"}',
-                                          style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFFE2E8F0)),
+                                          style: GoogleFonts.inter(fontSize: 12.5, color: textBody),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
                                           'Endereço: ${_resolvedClient!.street ?? ""}${_resolvedClient!.addressNumber != null ? ", ${_resolvedClient!.addressNumber}" : ""} - ${_resolvedClient!.city ?? ""}/${_resolvedClient!.state ?? ""}',
-                                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                                          style: GoogleFonts.inter(fontSize: 12, color: textSecondary),
                                         ),
                                         const SizedBox(height: 12),
                                         Row(
@@ -684,12 +702,12 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                                               onPressed: _openEditClient,
                                               icon: const Icon(Icons.edit_outlined, size: 16),
                                               label: const Text('Completar / Editar Dados'),
-                                              style: TextButton.styleFrom(foregroundColor: const Color(0xFF818CF8)),
+                                              style: TextButton.styleFrom(foregroundColor: indigoAccent),
                                             ),
                                             const Spacer(),
                                             TextButton(
                                               onPressed: _openSelectExistingClient,
-                                              child: const Text('Trocar Cliente', style: TextStyle(color: Color(0xFF94A3B8))),
+                                              child: Text('Trocar Cliente', style: TextStyle(color: textSecondary)),
                                             ),
                                           ],
                                         ),
@@ -712,7 +730,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('CANCELAR', style: GoogleFonts.inter(color: const Color(0xFF94A3B8))),
+                  child: Text('CANCELAR', style: GoogleFonts.inter(color: textSecondary)),
                 ),
                 const SizedBox(width: 14),
                 ElevatedButton.icon(
@@ -729,7 +747,7 @@ class _ContractProposalPickerDialogState extends State<ContractProposalPickerDia
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFF334155),
+                    disabledBackgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
                     padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),

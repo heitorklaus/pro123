@@ -135,19 +135,34 @@ class _ContractsViewState extends State<ContractsView> {
 
   /// Exclui um contrato com confirmação
   Future<void> _handleDeleteContract(ContractModel contract) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text('Excluir Contrato?', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        title: Text(
+          'Excluir Contrato?',
+          style: GoogleFonts.outfit(
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: Text(
           'Deseja realmente excluir o contrato "${contract.contractNumber}" de ${contract.clientName}? Esta ação não pode ser desfeita.',
-          style: GoogleFonts.inter(color: const Color(0xFFCBD5E1), fontSize: 13),
+          style: GoogleFonts.inter(
+            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+            fontSize: 13,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('CANCELAR', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text(
+              'CANCELAR',
+              style: TextStyle(
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -201,13 +216,22 @@ class _ContractsViewState extends State<ContractsView> {
     }
 
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pageBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final innerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textBody = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
+    final indigoAccent = isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
           width: constraints.maxWidth,
           height: constraints.maxHeight,
-          color: const Color(0xFF0F172A),
+          color: pageBg,
           padding: const EdgeInsets.all(24),
           child: StreamBuilder<List<ContractModel>>(
             stream: _contractRepo.getContractsStream(currentUser: widget.currentUser),
@@ -258,14 +282,14 @@ class _ContractsViewState extends State<ContractsView> {
                                 style: GoogleFonts.outfit(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: textPrimary,
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                                  color: const Color(0xFF6366F1).withValues(alpha: isDark ? 0.2 : 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5)),
                                 ),
@@ -274,7 +298,7 @@ class _ContractsViewState extends State<ContractsView> {
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF818CF8),
+                                    color: indigoAccent,
                                   ),
                                 ),
                               ),
@@ -283,7 +307,7 @@ class _ContractsViewState extends State<ContractsView> {
                           const SizedBox(height: 4),
                           Text(
                             'Gere, edite e imprima contratos jurídicos fotovoltaicos a partir de propostas comerciais',
-                            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+                            style: GoogleFonts.inter(fontSize: 13, color: textSecondary),
                           ),
                         ],
                       ),
@@ -349,9 +373,9 @@ class _ContractsViewState extends State<ContractsView> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: cardBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: borderColor),
                     ),
                     child: Row(
                       children: [
@@ -361,14 +385,14 @@ class _ContractsViewState extends State<ContractsView> {
                           child: TextField(
                             controller: _searchCtrl,
                             onChanged: (val) => setState(() => _searchQuery = val),
-                            style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
+                            style: GoogleFonts.inter(color: textPrimary, fontSize: 13),
                             decoration: InputDecoration(
                               hintText: 'Buscar por nº do contrato, cliente, CPF ou proposta...',
-                              hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13),
-                              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 20),
+                              hintStyle: GoogleFonts.inter(color: textSecondary, fontSize: 13),
+                              prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 20),
                               suffixIcon: _searchQuery.isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded, color: Color(0xFF94A3B8), size: 18),
+                                      icon: Icon(Icons.clear_rounded, color: textSecondary, size: 18),
                                       onPressed: () {
                                         _searchCtrl.clear();
                                         setState(() => _searchQuery = '');
@@ -376,7 +400,7 @@ class _ContractsViewState extends State<ContractsView> {
                                     )
                                   : null,
                               filled: true,
-                              fillColor: const Color(0xFF0F172A),
+                              fillColor: innerBg,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                             ),
@@ -406,24 +430,24 @@ class _ContractsViewState extends State<ContractsView> {
                             height: 38,
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
+                              color: innerBg,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF334155)),
+                              border: Border.all(color: borderColor),
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String?>(
                                 value: _selectedSellerId,
-                                dropdownColor: const Color(0xFF1E293B),
-                                icon: const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF94A3B8)),
-                                hint: Text('Vendedor', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8))),
+                                dropdownColor: cardBg,
+                                icon: Icon(Icons.person_outline_rounded, size: 16, color: textSecondary),
+                                hint: Text('Vendedor', style: GoogleFonts.inter(fontSize: 12, color: textSecondary)),
                                 items: [
                                   DropdownMenuItem<String?>(
                                     value: null,
-                                    child: Text('👥 Todos Vendedores', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    child: Text('👥 Todos Vendedores', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary)),
                                   ),
                                   ..._sellersList.map((u) => DropdownMenuItem<String?>(
                                         value: u.uid,
-                                        child: Text(u.name, style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
+                                        child: Text(u.name, style: GoogleFonts.inter(fontSize: 12, color: textPrimary)),
                                       )),
                                 ],
                                 onChanged: (val) => setState(() => _selectedSellerId = val),
@@ -441,25 +465,25 @@ class _ContractsViewState extends State<ContractsView> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: cardBg,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF334155)),
+                        border: Border.all(color: borderColor),
                       ),
                       child: filtered.isEmpty
                           ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.history_edu_rounded, size: 54, color: const Color(0xFF475569)),
+                                  Icon(Icons.history_edu_rounded, size: 54, color: textSecondary.withValues(alpha: 0.6)),
                                   const SizedBox(height: 14),
                                   Text(
                                     'Nenhum contrato encontrado',
-                                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
                                     'Clique em "NOVO CONTRATO" para emitir seu primeiro contrato fotovoltaico.',
-                                    style: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
+                                    style: GoogleFonts.inter(color: textSecondary, fontSize: 13),
                                   ),
                                 ],
                               ),
@@ -471,10 +495,12 @@ class _ContractsViewState extends State<ContractsView> {
                                 child: DataTable(
                                   dataRowMinHeight: 58,
                                   dataRowMaxHeight: 68,
-                                  headingRowColor: WidgetStateProperty.all(const Color(0xFF0F172A)),
+                                  headingRowColor: WidgetStateProperty.all(innerBg),
                                   dataRowColor: WidgetStateProperty.resolveWith((states) {
                                     if (states.contains(WidgetState.hovered)) {
-                                      return const Color(0xFF334155).withValues(alpha: 0.5);
+                                      return isDark
+                                          ? const Color(0xFF334155).withValues(alpha: 0.5)
+                                          : const Color(0xFFF1F5F9);
                                     }
                                     return Colors.transparent;
                                   }),
@@ -484,49 +510,49 @@ class _ContractsViewState extends State<ContractsView> {
                                     DataColumn(
                                       label: Text(
                                         'CONTRATO',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                     DataColumn(
                                       label: Text(
                                         'CLIENTE / CONTRATANTE',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                     DataColumn(
                                       label: Text(
                                         'PROPOSTA',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                     DataColumn(
                                       label: Text(
                                         'POTÊNCIA',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                     DataColumn(
                                       label: Text(
                                         'VALOR TOTAL',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                     DataColumn(
                                       label: Text(
                                         'STATUS',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                     DataColumn(
                                       label: Text(
                                         'DATA',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                     DataColumn(
                                       label: Text(
                                         'AÇÕES',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: textSecondary),
                                       ),
                                     ),
                                   ],
@@ -540,7 +566,7 @@ class _ContractsViewState extends State<ContractsView> {
                                             style: GoogleFonts.inter(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 13,
-                                              color: const Color(0xFF818CF8),
+                                              color: indigoAccent,
                                             ),
                                           ),
                                         ),
@@ -563,7 +589,7 @@ class _ContractsViewState extends State<ContractsView> {
                                                     style: GoogleFonts.inter(
                                                       fontWeight: FontWeight.w600,
                                                       fontSize: 13,
-                                                      color: Colors.white,
+                                                      color: textPrimary,
                                                     ),
                                                   ),
                                                 ),
@@ -574,7 +600,7 @@ class _ContractsViewState extends State<ContractsView> {
                                                     overflow: TextOverflow.ellipsis,
                                                     style: GoogleFonts.inter(
                                                       fontSize: 11.5,
-                                                      color: const Color(0xFF94A3B8),
+                                                      color: textSecondary,
                                                     ),
                                                   ),
                                                 if (c.createdByUserName != null && c.createdByUserName!.isNotEmpty)
@@ -583,7 +609,7 @@ class _ContractsViewState extends State<ContractsView> {
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        const Icon(Icons.person_pin_rounded, size: 11, color: Color(0xFF818CF8)),
+                                                        Icon(Icons.person_pin_rounded, size: 11, color: indigoAccent),
                                                         const SizedBox(width: 3),
                                                         Flexible(
                                                           child: Text(
@@ -593,7 +619,7 @@ class _ContractsViewState extends State<ContractsView> {
                                                             style: GoogleFonts.inter(
                                                               fontSize: 10.5,
                                                               fontWeight: FontWeight.w600,
-                                                              color: const Color(0xFF818CF8),
+                                                              color: indigoAccent,
                                                             ),
                                                           ),
                                                         ),
@@ -611,7 +637,7 @@ class _ContractsViewState extends State<ContractsView> {
                                             c.proposalNumber.isNotEmpty ? c.proposalNumber : '—',
                                             style: GoogleFonts.inter(
                                               fontSize: 12.5,
-                                              color: const Color(0xFFCBD5E1),
+                                              color: textBody,
                                             ),
                                           ),
                                         ),
@@ -644,7 +670,7 @@ class _ContractsViewState extends State<ContractsView> {
                                         DataCell(
                                           PopupMenuButton<ContractStatus>(
                                             tooltip: 'Alterar Status',
-                                            color: const Color(0xFF1E293B),
+                                            color: cardBg,
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                             onSelected: (st) => _handleChangeStatus(c, st),
                                             itemBuilder: (_) => ContractStatus.values.map((st) {
@@ -654,7 +680,7 @@ class _ContractsViewState extends State<ContractsView> {
                                                   children: [
                                                     Icon(st.icon, size: 16, color: st.textColor),
                                                     const SizedBox(width: 8),
-                                                    Text(st.label, style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5)),
+                                                    Text(st.label, style: GoogleFonts.inter(color: textPrimary, fontSize: 12.5)),
                                                   ],
                                                 ),
                                               );
@@ -690,7 +716,7 @@ class _ContractsViewState extends State<ContractsView> {
                                         DataCell(
                                           Text(
                                             DateFormat('dd/MM/yyyy').format(c.createdAt),
-                                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                                            style: GoogleFonts.inter(fontSize: 12, color: textSecondary),
                                           ),
                                         ),
 
@@ -700,7 +726,7 @@ class _ContractsViewState extends State<ContractsView> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               IconButton(
-                                                icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF818CF8), size: 20),
+                                                icon: Icon(Icons.edit_note_rounded, color: indigoAccent, size: 20),
                                                 tooltip: 'Editar Contrato no Editor Word',
                                                 onPressed: () => _openEditContract(c),
                                               ),
@@ -741,13 +767,16 @@ class _ContractsViewState extends State<ContractsView> {
     required IconData icon,
     required Color color,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF334155)),
+          border: Border.all(
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          ),
         ),
         child: Row(
           children: [
@@ -770,7 +799,7 @@ class _ContractsViewState extends State<ContractsView> {
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
-                      color: const Color(0xFF94A3B8),
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -781,7 +810,7 @@ class _ContractsViewState extends State<ContractsView> {
                     style: GoogleFonts.outfit(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
                   ),
                 ],
@@ -799,6 +828,7 @@ class _ContractsViewState extends State<ContractsView> {
     Color? color,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeColor = color ?? const Color(0xFF6366F1);
 
     return InkWell(
@@ -807,10 +837,14 @@ class _ContractsViewState extends State<ContractsView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withValues(alpha: 0.2) : const Color(0xFF0F172A),
+          color: isSelected
+              ? activeColor.withValues(alpha: isDark ? 0.2 : 0.12)
+              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? activeColor : const Color(0xFF334155),
+            color: isSelected
+                ? activeColor
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
           ),
         ),
         child: Text(
@@ -818,7 +852,9 @@ class _ContractsViewState extends State<ContractsView> {
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? (color ?? Colors.white) : const Color(0xFF94A3B8),
+            color: isSelected
+                ? (color ?? (isDark ? Colors.white : const Color(0xFF4F46E5)))
+                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
           ),
         ),
       ),

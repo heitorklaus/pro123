@@ -43,6 +43,8 @@ class ProposalItemDTO {
   final List<String>? solarComponents;
   final double? moduleWatts;
   final double? estimatedMonthlyKwh;
+  final double? solarEquipmentPrice;
+  final double? solarServicePrice;
 
   const ProposalItemDTO({
     this.productId,
@@ -59,6 +61,8 @@ class ProposalItemDTO {
     this.solarComponents,
     this.moduleWatts,
     this.estimatedMonthlyKwh,
+    this.solarEquipmentPrice,
+    this.solarServicePrice,
   });
 
   double? get effectiveModuleWatts {
@@ -91,7 +95,14 @@ class ProposalItemDTO {
 
     final kwh = (map['estimatedMonthlyKwh'] as num?)?.toDouble() ??
         (map['monthlyKwh'] as num?)?.toDouble() ??
-        (map['specificAttributes'] != null ? (map['specificAttributes']['estimatedMonthlyKwh'] as num?)?.toDouble() : null);
+        (map['specificAttributes'] != null ? (map['specificAttributes']['estimatedMonthlyKwh'] as num?)?.toDouble() : null) ??
+        (map['specificAttributes'] != null ? (map['specificAttributes']['generationKwh'] as num?)?.toDouble() : null);
+
+    final eqPrice = (map['solarEquipmentPrice'] as num?)?.toDouble() ??
+        (map['specificAttributes'] != null ? (map['specificAttributes']['productsPrice'] as num?)?.toDouble() : null);
+
+    final svPrice = (map['solarServicePrice'] as num?)?.toDouble() ??
+        (map['specificAttributes'] != null ? (map['specificAttributes']['servicePrice'] as num?)?.toDouble() : null);
 
     return ProposalItemDTO(
       productId: map['productId']?.toString(),
@@ -108,6 +119,8 @@ class ProposalItemDTO {
       solarComponents: components,
       moduleWatts: watts,
       estimatedMonthlyKwh: kwh,
+      solarEquipmentPrice: eqPrice,
+      solarServicePrice: svPrice,
     );
   }
 
@@ -143,6 +156,7 @@ class ProposalDTO {
   final double? availabilityKwh;
   final double? publicLightingValueRs;
   final DateTime createdAt;
+  final bool showSeparatedPricing;
 
   const ProposalDTO({
     required this.id,
@@ -174,6 +188,7 @@ class ProposalDTO {
     this.availabilityKwh,
     this.publicLightingValueRs,
     required this.createdAt,
+    this.showSeparatedPricing = false,
   });
 
   factory ProposalDTO.fromMap(Map<String, dynamic> map, [String? id]) {
@@ -220,6 +235,7 @@ class ProposalDTO {
       availabilityKwh: (map['availabilityKwh'] as num?)?.toDouble(),
       publicLightingValueRs: (map['publicLightingValueRs'] as num?)?.toDouble(),
       createdAt: parseDate(map['createdAt']),
+      showSeparatedPricing: map['showSeparatedPricing'] == true,
     );
   }
 }
@@ -3377,18 +3393,20 @@ class SolarCreditBoletoEngine {
                       pw.Expanded(
                         flex: 62,
                         child: pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           decoration: const pw.BoxDecoration(
                             border: pw.Border(
                               right: pw.BorderSide(color: slateDark, width: 1),
                             ),
                           ),
-                          child: pw.Column(
-                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Column(
-                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          child: pw.FittedBox(
+                            fit: pw.BoxFit.scaleDown,
+                            alignment: pw.Alignment.centerLeft,
+                            child: pw.SizedBox(
+                              width: 445,
+                              child: pw.Column(
+                                mainAxisSize: pw.MainAxisSize.min,
+                                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                                 children: [
                                   pw.Container(
                                     padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -3476,11 +3494,10 @@ class SolarCreditBoletoEngine {
                                       ],
                                     ),
                                   ),
-                                ],
-                              ),
 
+                                  pw.SizedBox(height: 10),
                               pw.Container(
-                                padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                                 decoration: pw.BoxDecoration(
                                   color: const PdfColor.fromInt(0xFFECFDF5),
                                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
@@ -3515,6 +3532,8 @@ class SolarCreditBoletoEngine {
                           ),
                         ),
                       ),
+                    ),
+                  ),
 
                       // COLUNA DIREITA: ÁREA DE PAGAMENTO OPCIONAL (QR CODE / LINK / PIX)
                       pw.Expanded(
@@ -3681,9 +3700,6 @@ class SolarCreditBoletoEngine {
                         ),
                         textAlign: pw.TextAlign.center,
                       ),
-EOF
-
-RUN cat <<'EOF' >> /app/lib/generator/solar_credit_boleto_engine.dart
                       pw.SizedBox(height: 6),
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -6657,25 +6673,63 @@ RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(
-                      'Investimento total da usina',
-                      style: const pw.TextStyle(
-                        fontSize: 9.5,
-                        color: PdfColor.fromInt(0xFFC3E6F4),
+                    if (proposal.showSeparatedPricing) ...() {
+                      final eq = solarItem?.solarEquipmentPrice;
+                      final sv = solarItem?.solarServicePrice;
+                      return [
+                        if (eq != null) ...[
+                          pw.Row(
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              pw.Text(
+                                '\u25A0 Equipamentos: ${_currencyFormat.format(eq)}',
+                                style: const pw.TextStyle(fontSize: 9.0, color: PdfColor.fromInt(0xFF38BDF8)),
+                              ),
+                            ],
+                          ),
+                          pw.SizedBox(height: 4),
+                        ],
+                        if (sv != null) ...[
+                          pw.Row(
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              pw.Text(
+                                '\u25A0 Serviços: ${_currencyFormat.format(sv)}',
+                                style: const pw.TextStyle(fontSize: 9.0, color: PdfColor.fromInt(0xFF34D399)),
+                              ),
+                            ],
+                          ),
+                          pw.SizedBox(height: 6),
+                        ],
+                        pw.Container(
+                          width: 110,
+                          height: 1,
+                          color: const PdfColor.fromInt(0x33FFFFFF),
+                          margin: const pw.EdgeInsets.only(bottom: 5),
+                        ),
+                        pw.Text(
+                          'Total: ${_currencyFormat.format(proposal.totalAmount)}',
+                          style: pw.TextStyle(fontSize: 18.0, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                        ),
+                      ];
+                    }() else ...[
+                      pw.Text(
+                        'Investimento total da usina',
+                        style: const pw.TextStyle(
+                          fontSize: 9.5,
+                          color: PdfColor.fromInt(0xFFC3E6F4),
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      _currencyFormat.format(proposal.totalAmount),
-                      style: pw.TextStyle(
-                        fontSize: 20.5,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        _currencyFormat.format(proposal.totalAmount),
+                        style: pw.TextStyle(
+                          fontSize: 20.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
                       ),
-EOF
-
-RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
-                    ),
+                    ],
                   ],
                 ),
                 if (proposal.deliveryTime != null &&
@@ -7803,13 +7857,6 @@ RUN cat <<'EOF' >> /app/lib/generator/solar_proposal_pdf_engine.dart
         color: primaryColor,
       ),
     );
-  }
-
-  static String _pdfColorToHex(PdfColor color) {
-    final r = (color.red * 255).round().toRadixString(16).padLeft(2, '0');
-    final g = (color.green * 255).round().toRadixString(16).padLeft(2, '0');
-    final b = (color.blue * 255).round().toRadixString(16).padLeft(2, '0');
-    return '#$r$g$b';
   }
 
   static String _getComponentIcon(String item, String hex) {

@@ -1924,6 +1924,9 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
   // Switch para exibir apenas Inversor e Módulo na Composição da Usina Solar
   bool _showOnlyModulesAndInverters = false;
 
+  // Switch para exibir valores de Equipamento e Serviços separados
+  bool _showSeparatedPricing = false;
+
   bool _isModuleOrInverterComponent(String text) {
     final lower = text.toLowerCase();
 
@@ -2039,6 +2042,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       _connectionType = p.connectionType;
       _availabilityKwh = p.availabilityKwh;
       _publicLightingValueRs = p.publicLightingValueRs;
+      _showSeparatedPricing = p.showSeparatedPricing;
       _isPublicForCompany = p.isPublicForCompany;
       _sharedWithUserIds = List<String>.from(p.sharedWithUserIds);
       if (p.roofStudyId != null && p.roofStudyId!.isNotEmpty) {
@@ -2762,6 +2766,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
       connectionType: _connectionType,
       availabilityKwh: _availabilityKwh,
       publicLightingValueRs: _publicLightingValueRs,
+      showSeparatedPricing: _showSeparatedPricing,
       createdAt: widget.proposal?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -3065,6 +3070,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           connectionType: _connectionType,
           availabilityKwh: _availabilityKwh,
           publicLightingValueRs: _publicLightingValueRs,
+          showSeparatedPricing: _showSeparatedPricing,
           isPublicForCompany: _isPublicForCompany,
           sharedWithUserIds: _sharedWithUserIds,
         );
@@ -3096,6 +3102,7 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
           connectionType: _connectionType,
           availabilityKwh: _availabilityKwh,
           publicLightingValueRs: _publicLightingValueRs,
+          showSeparatedPricing: _showSeparatedPricing,
           isPublicForCompany: _isPublicForCompany,
           sharedWithUserIds: _sharedWithUserIds,
         );
@@ -4961,6 +4968,79 @@ class _ProposalFormCardState extends State<_ProposalFormCard> {
                         value: _showOnlyModulesAndInverters,
                         onChanged: _onCleanModeChanged,
                         activeTrackColor: const Color(0xFFD97706),
+                        activeThumbColor: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // ── SWITCH: MOSTRAR VALORES DE EQUIPAMENTO E SERVIÇOS SEPARADOS ──
+              if (_items.any((it) => it.isSolarPlant)) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: EdgeInsets.all(isMobile ? 12 : 14),
+                  decoration: BoxDecoration(
+                    color: _showSeparatedPricing
+                        ? (isDark ? const Color(0xFF042F2E).withValues(alpha: 0.4) : const Color(0xFFF0FDF4))
+                        : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _showSeparatedPricing
+                          ? const Color(0xFF10B981)
+                          : (isDark ? const Color(0xFF334155) : AppColors.border),
+                      width: _showSeparatedPricing ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _showSeparatedPricing
+                              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5))
+                              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.receipt_long_rounded,
+                          color: _showSeparatedPricing ? const Color(0xFF10B981) : const Color(0xFF6366F1),
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mostrar Valores de Equipamento e Serviços Separados',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: _showSeparatedPricing
+                                    ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46))
+                                    : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                              ),
+                            ),
+                            Text(
+                              _showSeparatedPricing
+                                  ? 'PDF exibirá: Equipamentos + Serviços = Total'
+                                  : 'PDF exibirá apenas o valor total do projeto.',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: _showSeparatedPricing
+                                    ? const Color(0xFF10B981)
+                                    : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: _showSeparatedPricing,
+                        onChanged: (val) => setState(() => _showSeparatedPricing = val),
+                        activeTrackColor: const Color(0xFF10B981),
                         activeThumbColor: Colors.white,
                       ),
                     ],

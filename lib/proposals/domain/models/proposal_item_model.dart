@@ -19,6 +19,8 @@ class ProposalItemModel {
   final List<String>? solarComponents;
   final double? moduleWatts; // Potência em Watts se for módulo solar (ex: 550W)
   final String? roofStudyId; // Vínculo com o Estudo Fotovoltaico de origem
+  final double? solarEquipmentPrice; // Valor específico dos equipamentos fotovoltaicos
+  final double? solarServicePrice; // Valor específico do serviço/instalação/engenharia
 
   // ⚡ Propriedades exclusivas para Estudos de Solução em Automação
   final bool isAutomationStudy;
@@ -44,6 +46,8 @@ class ProposalItemModel {
     this.solarComponents,
     this.moduleWatts,
     this.roofStudyId,
+    this.solarEquipmentPrice,
+    this.solarServicePrice,
     this.isAutomationStudy = false,
     this.automationEnvironments,
     this.automationEquipmentTotal,
@@ -125,9 +129,12 @@ class ProposalItemModel {
     bool? isSolarPlant,
     String? solarRoofType,
     double? solarKilowatts,
+    double? estimatedMonthlyKwh,
     List<String>? solarComponents,
     double? moduleWatts,
     String? roofStudyId,
+    double? solarEquipmentPrice,
+    double? solarServicePrice,
     bool? isAutomationStudy,
     List<String>? automationEnvironments,
     double? automationEquipmentTotal,
@@ -150,9 +157,12 @@ class ProposalItemModel {
       isSolarPlant: isSolarPlant ?? this.isSolarPlant,
       solarRoofType: solarRoofType ?? this.solarRoofType,
       solarKilowatts: solarKilowatts ?? this.solarKilowatts,
+      estimatedMonthlyKwh: estimatedMonthlyKwh ?? this.estimatedMonthlyKwh,
       solarComponents: solarComponents ?? this.solarComponents,
       moduleWatts: moduleWatts ?? this.moduleWatts,
       roofStudyId: roofStudyId ?? this.roofStudyId,
+      solarEquipmentPrice: solarEquipmentPrice ?? this.solarEquipmentPrice,
+      solarServicePrice: solarServicePrice ?? this.solarServicePrice,
       isAutomationStudy: isAutomationStudy ?? this.isAutomationStudy,
       automationEnvironments: automationEnvironments ?? this.automationEnvironments,
       automationEquipmentTotal: automationEquipmentTotal ?? this.automationEquipmentTotal,
@@ -179,6 +189,8 @@ class ProposalItemModel {
       'solarComponents': solarComponents,
       'moduleWatts': moduleWatts,
       if (roofStudyId != null) 'roofStudyId': roofStudyId,
+      if (solarEquipmentPrice != null) 'solarEquipmentPrice': solarEquipmentPrice,
+      if (solarServicePrice != null) 'solarServicePrice': solarServicePrice,
       'isAutomationStudy': isAutomationStudy,
       if (automationEnvironments != null) 'automationEnvironments': automationEnvironments,
       if (automationEquipmentTotal != null) 'automationEquipmentTotal': automationEquipmentTotal,
@@ -292,6 +304,8 @@ class ProposalItemModel {
       solarComponents: components.isNotEmpty ? components : null,
       moduleWatts: modWatts,
       roofStudyId: studyId,
+      solarEquipmentPrice: isSolar ? p.solarProductsPrice : null,
+      solarServicePrice: isSolar ? p.solarServicePrice : null,
       isAutomationStudy: isAutomation,
       automationEnvironments: envNames,
       automationEquipmentTotal: equipTotal,
@@ -317,6 +331,14 @@ class ProposalItemModel {
       envs = (map['automationEnvironments'] as List).map((e) => e.toString()).toList();
     }
 
+    final equipPrice = (map['solarEquipmentPrice'] as num?)?.toDouble() ??
+        (map['productsPrice'] as num?)?.toDouble() ??
+        (map['specificAttributes'] != null ? (map['specificAttributes']['productsPrice'] as num?)?.toDouble() : null);
+
+    final servPrice = (map['solarServicePrice'] as num?)?.toDouble() ??
+        (map['servicePrice'] as num?)?.toDouble() ??
+        (map['specificAttributes'] != null ? (map['specificAttributes']['servicePrice'] as num?)?.toDouble() : null);
+
     return ProposalItemModel(
       productId: map['productId'] as String?,
       name: map['name'] as String? ?? map['title'] as String? ?? 'Item sem descrição',
@@ -333,6 +355,8 @@ class ProposalItemModel {
       solarComponents: components,
       moduleWatts: (map['moduleWatts'] as num?)?.toDouble(),
       roofStudyId: map['roofStudyId'] as String?,
+      solarEquipmentPrice: equipPrice,
+      solarServicePrice: servPrice,
       isAutomationStudy: map['isAutomationStudy'] as bool? ?? false,
       automationEnvironments: envs,
       automationEquipmentTotal: (map['automationEquipmentTotal'] as num?)?.toDouble(),

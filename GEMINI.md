@@ -549,6 +549,10 @@ Arquitetura completa em 3 pilares para que o Administrador da Empresa tenha cont
    - AndroidManifest.xml configurado com ndroid.permission.INTERNET e ACCESS_NETWORK_STATE.
    - uild.gradle.kts com minSdk = 21 para Firebase e google_sign_in.
 
+6. **Deploy Easypanel (`Dockerfile.easypanel`) — CRÍTICO:**
+   - Os arquivos `services/mavis_microservice/Dockerfile.easypanel` e `services/mavis_bot/Dockerfile.easypanel` **NÃO copiam os arquivos fonte com `COPY`** — eles geram os códigos embutidos diretamente via heredocs (`RUN cat <<'EOF' > /app/...`).
+   - **Regra obrigatória:** Sempre que alterar qualquer arquivo em `services/mavis_microservice/` (ex: `solar_credit_boleto_engine.dart`, `solar_proposal_pdf_engine.dart`, `server.dart`, serviços) ou `services/mavis_bot/`, **atualize também o código embutido dentro do respectivo `Dockerfile.easypanel`**!
+
 ---
 
 ## ⏳ 8. Funcionalidades Concluídas e Backlog

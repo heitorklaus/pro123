@@ -190,6 +190,7 @@ class ProposalModel {
   final String? connectionType; // 'Monofásico' | 'Bifásico' | 'Trifásico'
   final double? availabilityKwh; // Override de disponibilidade (30 / 50 / 100 kWh)
   final double? publicLightingValueRs; // Override de Iluminação Pública (R$)
+  final bool showSeparatedPricing; // Se true, exibe valores de Equipamento e Serviço separados na proposta
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -226,6 +227,7 @@ class ProposalModel {
     this.connectionType,
     this.availabilityKwh,
     this.publicLightingValueRs,
+    this.showSeparatedPricing = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -269,6 +271,7 @@ class ProposalModel {
     String? connectionType,
     double? availabilityKwh,
     double? publicLightingValueRs,
+    bool? showSeparatedPricing,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -305,6 +308,7 @@ class ProposalModel {
       connectionType: connectionType ?? this.connectionType,
       availabilityKwh: availabilityKwh ?? this.availabilityKwh,
       publicLightingValueRs: publicLightingValueRs ?? this.publicLightingValueRs,
+      showSeparatedPricing: showSeparatedPricing ?? this.showSeparatedPricing,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -342,6 +346,7 @@ class ProposalModel {
       if (connectionType != null) 'connectionType': connectionType,
       if (availabilityKwh != null) 'availabilityKwh': availabilityKwh,
       if (publicLightingValueRs != null) 'publicLightingValueRs': publicLightingValueRs,
+      'showSeparatedPricing': showSeparatedPricing,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -393,6 +398,7 @@ class ProposalModel {
       connectionType: map['connectionType'] as String?,
       availabilityKwh: (map['availabilityKwh'] as num?)?.toDouble(),
       publicLightingValueRs: (map['publicLightingValueRs'] as num?)?.toDouble(),
+      showSeparatedPricing: map['showSeparatedPricing'] == true,
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
     );

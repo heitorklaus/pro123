@@ -163,75 +163,120 @@ class SuperAdminProfitAlertDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: alerts.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) {
-                  final item = alerts[i];
-                  final isExceeded = item.ratio >= 1.0;
-                  final color = isExceeded
-                      ? const Color(0xFFEF4444)
-                      : const Color(0xFFF59E0B);
-                  final pct = (item.ratio * 100).toStringAsFixed(0);
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: color.withValues(alpha: 0.4)),
+            if (alerts.length > 5)
+              InkWell(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onGoToUsers();
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.45),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.user.name.isNotEmpty
-                                    ? item.user.name
-                                    : item.user.email,
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Consumindo ${PlanCostPolicy.formatBrl(item.usedBrl)} do plano de ${PlanCostPolicy.formatBrl(item.planPriceBrl)} (teto ${PlanCostPolicy.formatBrl(item.maxCostBrl)})',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11.5,
-                                  color: const Color(0xFFCBD5E1),
-                                ),
-                              ),
-                            ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.people_alt_rounded,
+                        color: Color(0xFFF87171),
+                        size: 26,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Existem ${alerts.length} usuários estourando a cota. Clique para ver...',
+                          style: GoogleFonts.inter(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            isExceeded ? 'TRAVADO ($pct%)' : 'ALERTA ($pct%)',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: color,
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Color(0xFF94A3B8),
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: alerts.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) {
+                    final item = alerts[i];
+                    final isExceeded = item.ratio >= 1.0;
+                    final color = isExceeded
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFFF59E0B);
+                    final pct = (item.ratio * 100).toStringAsFixed(0);
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: color.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.user.name.isNotEmpty
+                                      ? item.user.name
+                                      : item.user.email,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Consumindo ${PlanCostPolicy.formatBrl(item.usedBrl)} do plano de ${PlanCostPolicy.formatBrl(item.planPriceBrl)} (teto ${PlanCostPolicy.formatBrl(item.maxCostBrl)})',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11.5,
+                                    color: const Color(0xFFCBD5E1),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isExceeded ? 'TRAVADO ($pct%)' : 'ALERTA ($pct%)',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: color,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
             const SizedBox(height: 18),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

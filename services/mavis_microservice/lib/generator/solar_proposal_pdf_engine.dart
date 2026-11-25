@@ -2878,22 +2878,66 @@ class SolarProposalPdfEngine {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(
-                      'Investimento total da usina',
-                      style: const pw.TextStyle(
-                        fontSize: 9.5,
-                        color: PdfColor.fromInt(0xFFC3E6F4),
+                    if (proposal.showSeparatedPricing) ...[
+                      () {
+                        final solarItem = proposal.items.firstWhere(
+                          (i) => i.isSolarPlant,
+                          orElse: () => proposal.items.first,
+                        );
+                        final eq = solarItem.solarEquipmentPrice;
+                        final sv = solarItem.solarServicePrice;
+                        return pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            if (eq != null) ...[
+                              pw.Text(
+                                'Equipamentos: ${_currencyFormat.format(eq)}',
+                                style: const pw.TextStyle(
+                                  fontSize: 8.5,
+                                  color: PdfColor.fromInt(0xFFC3E6F4),
+                                ),
+                              ),
+                              pw.SizedBox(height: 2),
+                            ],
+                            if (sv != null) ...[
+                              pw.Text(
+                                'Servicos / Instalacao: ${_currencyFormat.format(sv)}',
+                                style: const pw.TextStyle(
+                                  fontSize: 8.5,
+                                  color: PdfColor.fromInt(0xFFC3E6F4),
+                                ),
+                              ),
+                              pw.SizedBox(height: 4),
+                            ],
+                            pw.Text(
+                              'Total: ${_currencyFormat.format(proposal.totalAmount)}',
+                              style: pw.TextStyle(
+                                fontSize: 18.0,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.white,
+                              ),
+                            ),
+                          ],
+                        );
+                      }(),
+                    ] else ...[
+                      pw.Text(
+                        'Investimento total da usina',
+                        style: const pw.TextStyle(
+                          fontSize: 9.5,
+                          color: PdfColor.fromInt(0xFFC3E6F4),
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      _currencyFormat.format(proposal.totalAmount),
-                      style: pw.TextStyle(
-                        fontSize: 20.5,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        _currencyFormat.format(proposal.totalAmount),
+                        style: pw.TextStyle(
+                          fontSize: 20.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
                 if (proposal.deliveryTime != null &&
@@ -3047,7 +3091,20 @@ class SolarProposalPdfEngine {
               pw.Expanded(
                 child: _buildEconomyKpiCard(
                   label: 'Investimento',
-                  value: _currencyFormat.format(proposal.totalAmount),
+                  value: proposal.showSeparatedPricing
+                      ? (() {
+                          final solarItem = proposal.items.firstWhere(
+                            (i) => i.isSolarPlant,
+                            orElse: () => proposal.items.first,
+                          );
+                          final eq = solarItem.solarEquipmentPrice;
+                          final sv = solarItem.solarServicePrice;
+                          if (eq != null && sv != null) {
+                            return 'Equip: ${_currencyFormat.format(eq)}\nServ: ${_currencyFormat.format(sv)}';
+                          }
+                          return _currencyFormat.format(proposal.totalAmount);
+                        })()
+                      : _currencyFormat.format(proposal.totalAmount),
                   svgIcon: SolarPdfIcons.calendarTable('#FFFFFF'),
                   primaryColor: primaryColor,
                 ),
@@ -4018,13 +4075,6 @@ class SolarProposalPdfEngine {
         color: primaryColor,
       ),
     );
-  }
-
-  static String _pdfColorToHex(PdfColor color) {
-    final r = (color.red * 255).round().toRadixString(16).padLeft(2, '0');
-    final g = (color.green * 255).round().toRadixString(16).padLeft(2, '0');
-    final b = (color.blue * 255).round().toRadixString(16).padLeft(2, '0');
-    return '#$r$g$b';
   }
 
   static String _getComponentIcon(String item, String hex) {

@@ -92,6 +92,21 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
   String get _companyId =>
       widget.currentUser?.effectiveCompanyId ?? 'default_company';
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _pageBg =>
+      _isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+  Color get _cardBg => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _innerBg =>
+      _isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+  Color get _borderColor =>
+      _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+  Color get _textPrimary =>
+      _isDark ? Colors.white : const Color(0xFF0F172A);
+  Color get _textSecondary =>
+      _isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+  Color get _textBody =>
+      _isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
+
   @override
   void dispose() {
     _refMonthCtrl.dispose();
@@ -555,7 +570,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
 
                       final isMobileScreen = constraints.maxWidth < 680;
                       return Container(
-                        color: const Color(0xFF0F172A),
+                        color: _pageBg,
                         child: SingleChildScrollView(
                           padding: EdgeInsets.all(isMobileScreen ? 12 : 24),
                           child: Column(
@@ -628,13 +643,15 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+        gradient: LinearGradient(
+          colors: _isDark
+              ? const [Color(0xFF1E293B), Color(0xFF0F172A)]
+              : const [Colors.white, Color(0xFFF1F5F9)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: _borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -677,7 +694,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                               style: GoogleFonts.outfit(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: _textPrimary,
                               ),
                             ),
                             Container(
@@ -709,7 +726,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                           'Explosão de faturas Energisa com IA, cálculo automático de deságio/Ajuste GD, emissão de Boleto Solar 7 e controle de % de rateio por Usina',
                           style: GoogleFonts.inter(
                             fontSize: 12.5,
-                            color: const Color(0xFF94A3B8),
+                            color: _textSecondary,
                           ),
                         ),
                       ],
@@ -860,12 +877,12 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF0284C7)
-              : const Color(0xFF0F172A),
+              : _innerBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF38BDF8)
-                : const Color(0xFF334155),
+                : _borderColor,
           ),
         ),
         child: Row(
@@ -874,7 +891,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
             Icon(
               icon,
               size: 17,
-              color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+              color: isSelected ? Colors.white : _textSecondary,
             ),
             const SizedBox(width: 8),
             Text(
@@ -882,7 +899,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
               style: GoogleFonts.inter(
                 fontSize: 12.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                color: isSelected ? Colors.white : _textBody,
               ),
             ),
           ],
@@ -895,9 +912,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: _innerBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: _borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -906,7 +923,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
             label,
             style: GoogleFonts.inter(
               fontSize: 11.5,
-              color: const Color(0xFF94A3B8),
+              color: _textSecondary,
             ),
           ),
           const SizedBox(width: 6),
@@ -940,8 +957,8 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF0284C7).withValues(alpha: 0.18),
-                const Color(0xFF1E293B),
+                const Color(0xFF0284C7).withValues(alpha: _isDark ? 0.18 : 0.08),
+                _cardBg,
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -996,7 +1013,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                             style: GoogleFonts.outfit(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: _textPrimary,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1006,7 +1023,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                 : 'A IA identifica a UC e o endereço, soma todas as linhas de Energia Injetada (GDI e GDII), separa o Ajuste GDII, captura o Saldo Acumulado de créditos na Página 2 e já monta o Boleto Solar 7.',
                             style: GoogleFonts.inter(
                               fontSize: 12.5,
-                              color: const Color(0xFFCBD5E1),
+                              color: _textBody,
                             ),
                           ),
                         ],
@@ -1075,7 +1092,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                         'A UC "${_explodedBill!.ucNumber}" (${_explodedBill!.addressStreet}) ainda não está cadastrada na sua lista de clientes. Cadastre-a agora em 1 clique já com os dados preenchidos!',
                         style: GoogleFonts.inter(
                           fontSize: 12.5,
-                          color: Colors.white,
+                          color: _textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1097,7 +1114,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF59E0B),
-                    foregroundColor: const Color(0xFF0F172A),
+                    foregroundColor: _innerBg,
                   ),
                   icon: const Icon(Icons.person_add_alt_1_rounded, size: 17),
                   label: Text(
@@ -1154,9 +1171,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: _cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: _borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1166,7 +1183,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
             style: GoogleFonts.outfit(
               fontSize: 17,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: _textPrimary,
             ),
           ),
           const SizedBox(height: 14),
@@ -1178,9 +1195,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: _innerBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: _borderColor),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
@@ -1190,12 +1207,12 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                           ? _selectedBeneficiary?.id
                           : null,
                       isExpanded: true,
-                      dropdownColor: const Color(0xFF0F172A),
+                      dropdownColor: _cardBg,
                       hint: Text(
                         'Selecione o Cliente / UC Beneficiária (ou envie o PDF para auto-identificar)',
                         style: GoogleFonts.inter(
                           fontSize: 12.5,
-                          color: const Color(0xFF94A3B8),
+                          color: _textSecondary,
                         ),
                       ),
                       items: beneficiaries.map((b) {
@@ -1205,7 +1222,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                             '${b.clientName} • UC: ${b.ucNumber} • ${b.addressStreet} (Deságio: ${b.clientDiscountPercent.toStringAsFixed(0)}%)',
                             style: GoogleFonts.inter(
                               fontSize: 13,
-                              color: Colors.white,
+                              color: _textPrimary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1320,7 +1337,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                 style: GoogleFonts.outfit(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: _textPrimary,
                 ),
               ),
               if (_injectedLines.isNotEmpty)
@@ -1350,9 +1367,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: _innerBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF334155)),
+                border: Border.all(color: _borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1402,7 +1419,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                               line.description,
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                color: const Color(0xFFE2E8F0),
+                                color: _textBody,
                               ),
                             ),
                           ),
@@ -1411,7 +1428,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF94A3B8),
+                              color: _textSecondary,
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -1658,7 +1675,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
               style: GoogleFonts.inter(
                 fontSize: 11.5,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF94A3B8),
+                color: _textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -1670,15 +1687,15 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: _innerBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: _borderColor),
                   ),
                   child: Text(
                     '${h.monthYear}: ${_numFmt.format(h.consumptionKwh)} kWh',
                     style: GoogleFonts.inter(
                       fontSize: 11,
-                      color: const Color(0xFFCBD5E1),
+                      color: _textBody,
                     ),
                   ),
                 );
@@ -1694,7 +1711,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: _cardBg,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFF0284C7), width: 1.5),
       ),
@@ -1715,7 +1732,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   style: GoogleFonts.outfit(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: _textPrimary,
                   ),
                 ),
               ),
@@ -1727,9 +1744,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: _innerBg,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF334155)),
+              border: Border.all(color: _borderColor),
             ),
             child: Column(
               children: [
@@ -1754,7 +1771,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   '- ${_currencyFmt.format(_netCompensatedCreditRs - _calculatedSolarCompanyAmountRs)}',
                   valueColor: const Color(0xFF10B981),
                 ),
-                const Divider(color: Color(0xFF334155), height: 18),
+                Divider(color: _borderColor, height: 18),
 
                 // Valor a pagar para Solar 7
                 Row(
@@ -1802,7 +1819,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                         'Arredondar / Ajustar valor a pagar Solar 7 manualmente',
                         style: GoogleFonts.inter(
                           fontSize: 11.5,
-                          color: const Color(0xFF94A3B8),
+                          color: _textSecondary,
                         ),
                       ),
                     ),
@@ -1818,7 +1835,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                       ),
                   ],
                 ),
-                const Divider(color: Color(0xFF334155), height: 16),
+                Divider(color: _borderColor, height: 16),
 
                 _buildCalcSummaryRow(
                   'O valor a pagar para Energisa é de:',
@@ -1854,7 +1871,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: _textPrimary,
                             ),
                           ),
                           Text(
@@ -1900,9 +1917,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: _innerBg,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF334155)),
+              border: Border.all(color: _borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2157,9 +2174,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: _cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: _borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2178,14 +2195,14 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     style: GoogleFonts.outfit(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: _textPrimary,
                     ),
                   ),
                   Text(
                     'Organize seus clientes agrupados por Usina Geradora, acompanhe a soma de % na Energisa e o saldo no rodapé',
                     style: GoogleFonts.inter(
                       fontSize: 12,
-                      color: const Color(0xFF94A3B8),
+                      color: _textSecondary,
                     ),
                   ),
                 ],
@@ -2209,7 +2226,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                       decoration: BoxDecoration(
                         color: _groupClientsByPlant
                             ? const Color(0xFFF59E0B).withValues(alpha: 0.18)
-                            : const Color(0xFF0F172A),
+                            : _innerBg,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _groupClientsByPlant
@@ -2263,8 +2280,8 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                         });
                       },
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFCBD5E1),
-                        side: const BorderSide(color: Color(0xFF334155)),
+                        foregroundColor: _textBody,
+                        side: BorderSide(color: _borderColor),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 11,
@@ -2296,9 +2313,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
+                      color: _innerBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: _borderColor),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
@@ -2307,7 +2324,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                     .containsKey(_selectedClientPlantFilter)
                             ? _selectedClientPlantFilter
                             : 'all',
-                        dropdownColor: const Color(0xFF0F172A),
+                        dropdownColor: _cardBg,
                         icon: const Icon(
                           Icons.keyboard_arrow_down_rounded,
                           color: Color(0xFFF59E0B),
@@ -2321,7 +2338,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                               style: GoogleFonts.inter(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: _textPrimary,
                               ),
                             ),
                           ),
@@ -2332,7 +2349,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                 '☀️ ${entry.value}',
                                 style: GoogleFonts.inter(
                                   fontSize: 12.5,
-                                  color: Colors.white,
+                                  color: _textPrimary,
                                 ),
                               ),
                             );
@@ -2354,20 +2371,20 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                       controller: _clientSearchCtrl,
                       onChanged: (_) => setState(() {}),
                       style:
-                          GoogleFonts.inter(color: Colors.white, fontSize: 13),
+                          GoogleFonts.inter(color: _textPrimary, fontSize: 13),
                       decoration: InputDecoration(
                         hintText: 'Buscar cliente, UC, endereço ou usina...',
                         hintStyle: GoogleFonts.inter(
                           color: const Color(0xFF64748B),
                           fontSize: 12,
                         ),
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search_rounded,
-                          color: Color(0xFF94A3B8),
+                          color: _textSecondary,
                           size: 18,
                         ),
                         filled: true,
-                        fillColor: const Color(0xFF0F172A),
+                        fillColor: _innerBg,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
@@ -2375,7 +2392,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              const BorderSide(color: Color(0xFF334155)),
+                              BorderSide(color: _borderColor),
                         ),
                       ),
                     ),
@@ -2393,7 +2410,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                 child: Text(
                   'Nenhum cliente/UC encontrado. Clique em "+ NOVO CLIENTE / UC" no topo para cadastrar.',
                   style: GoogleFonts.inter(
-                    color: const Color(0xFF94A3B8),
+                    color: _textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -2448,7 +2465,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.65),
+                  color: _innerBg.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
@@ -2482,7 +2499,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                           gradient: LinearGradient(
                             colors: [
                               const Color(0xFFF59E0B).withValues(alpha: 0.16),
-                              const Color(0xFF1E293B),
+                              _cardBg,
                             ],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
@@ -2532,7 +2549,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                             style: GoogleFonts.outfit(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.white,
+                                              color: _textPrimary,
                                             ),
                                           ),
                                           Container(
@@ -2571,7 +2588,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFF0F172A),
+                                              color: _innerBg,
                                               borderRadius:
                                                   BorderRadius.circular(6),
                                             ),
@@ -2580,7 +2597,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                               style: GoogleFonts.inter(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
-                                                color: const Color(0xFFCBD5E1),
+                                                color: _textBody,
                                               ),
                                             ),
                                           ),
@@ -2597,7 +2614,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                             'Geração Estimada: ${_numFmt.format(matchedPlant.estimatedMonthlyGenerationKwh)} kWh/mês • Titular: ${matchedPlant.accountHolderName}',
                                             style: GoogleFonts.inter(
                                               fontSize: 11,
-                                              color: const Color(0xFF94A3B8),
+                                              color: _textSecondary,
                                             ),
                                           ),
                                         ),
@@ -2619,7 +2636,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                     vertical: 5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0F172A),
+                                    color: _innerBg,
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: isOver100
@@ -2671,7 +2688,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                     vertical: 5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0F172A),
+                                    color: _innerBg,
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: const Color(0xFF818CF8)
@@ -2800,9 +2817,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: _innerBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: _borderColor),
       ),
       child: Wrap(
         spacing: 12,
@@ -2824,7 +2841,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                         style: GoogleFonts.inter(
                           fontSize: 14.5,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: _textPrimary,
                         ),
                       ),
                     ),
@@ -2877,7 +2894,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xFFCBD5E1),
+                    color: _textBody,
                   ),
                 ),
                 Text(
@@ -2886,7 +2903,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
                     fontSize: 11.5,
-                    color: const Color(0xFF94A3B8),
+                    color: _textSecondary,
                   ),
                 ),
                 if (otherPlantsText.isNotEmpty)
@@ -3005,9 +3022,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: _cardBg,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF334155)),
+            border: Border.all(color: _borderColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3020,7 +3037,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     style: GoogleFonts.outfit(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: _textPrimary,
                     ),
                   ),
                   ElevatedButton.icon(
@@ -3031,7 +3048,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFF59E0B),
-                      foregroundColor: const Color(0xFF0F172A),
+                      foregroundColor: _innerBg,
                     ),
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: Text(
@@ -3050,7 +3067,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                   'Nenhuma usina geradora cadastrada ainda.',
                   style: GoogleFonts.inter(
                     fontSize: 13,
-                    color: const Color(0xFF94A3B8),
+                    color: _textSecondary,
                   ),
                 )
               else
@@ -3067,9 +3084,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
+                      color: _innerBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: _borderColor),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3083,7 +3100,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: _textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -3091,7 +3108,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                 'UC Geradora: ${p.generatorUcNumber.isEmpty ? "N/I" : p.generatorUcNumber} • Titular: ${p.accountHolderName} • Geração: ${_numFmt.format(p.estimatedMonthlyGenerationKwh)} kWh/mês • Rateio Alocado: ${_decFmt.format(allocatedPct)}% (${plantBen.length} clientes)',
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
-                                  color: const Color(0xFF94A3B8),
+                                  color: _textSecondary,
                                 ),
                               ),
                             ],
@@ -3133,9 +3150,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: _cardBg,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF334155)),
+            border: Border.all(color: _borderColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3156,7 +3173,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     child: Text(
                       'Nenhuma conta mensal lançada ainda.',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF94A3B8),
+                        color: _textSecondary,
                         fontSize: 13,
                       ),
                     ),
@@ -3169,7 +3186,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
+                      color: _innerBg,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isPaid
@@ -3193,7 +3210,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                   style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: _textPrimary,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -3203,11 +3220,11 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1E293B),
+                                    color: _cardBg,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    'Ref: ${bill.referenceMonth} • Venc: ${bill.dueDate}',
+                                    'Ref: ${bill.referenceMonth} • Venc: ${bill.effectiveDueDateStr}${bill.promisedPaymentDate != null && bill.promisedPaymentDate!.isNotEmpty ? " (combinado)" : ""}',
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
                                       color: const Color(0xFF38BDF8),
@@ -3221,7 +3238,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                               'UC: ${bill.ucNumber} • Consumo: ${_numFmt.format(bill.consumptionKwh)} kWh • Injetado: ${_numFmt.format(bill.totalInjectedKwh)} kWh • Saldo Rodapé: ${_numFmt.format(bill.accumulatedBalanceKwh)} kWh',
                               style: GoogleFonts.inter(
                                 fontSize: 12,
-                                color: const Color(0xFF94A3B8),
+                                color: _textSecondary,
                               ),
                             ),
                           ],
@@ -3320,9 +3337,9 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
                                 beneficiaries,
                                 plants,
                               ),
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.edit_outlined,
-                                color: Colors.white70,
+                                color: _textSecondary,
                               ),
                             ),
                             IconButton(
@@ -3364,7 +3381,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
           style: GoogleFonts.inter(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF94A3B8),
+            color: _textSecondary,
           ),
         ),
         const SizedBox(height: 4),
@@ -3374,31 +3391,31 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
           style: GoogleFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: _textPrimary,
           ),
           decoration: InputDecoration(
             prefixText: prefix,
             suffixText: suffix,
             prefixStyle: GoogleFonts.inter(
               fontSize: 12,
-              color: const Color(0xFF94A3B8),
+              color: _textSecondary,
             ),
             suffixStyle: GoogleFonts.inter(
               fontSize: 12,
-              color: const Color(0xFF94A3B8),
+              color: _textSecondary,
             ),
             filled: true,
-            fillColor: const Color(0xFF0F172A),
+            fillColor: _innerBg,
             isDense: true,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF334155)),
+              borderSide: BorderSide(color: _borderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF334155)),
+              borderSide: BorderSide(color: _borderColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -3427,7 +3444,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
               style: GoogleFonts.inter(
                 fontSize: 12.5,
                 fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                color: isBold ? Colors.white : const Color(0xFFCBD5E1),
+                color: isBold ? _textPrimary : _textBody,
               ),
             ),
           ),
@@ -3437,7 +3454,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
             style: GoogleFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: valueColor ?? Colors.white,
+              color: valueColor ?? _textPrimary,
             ),
           ),
         ],
@@ -3460,7 +3477,7 @@ class _SolarCreditsViewState extends State<SolarCreditsView> {
             label,
             style: GoogleFonts.inter(
               fontSize: 10,
-              color: const Color(0xFF94A3B8),
+              color: _textSecondary,
             ),
           ),
           Text(

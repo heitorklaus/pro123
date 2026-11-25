@@ -464,8 +464,9 @@ class SolarSettingsService {
     }
 
     try {
-      final decoded = img.decodeImage(bytes);
-      if (decoded == null) return initialB64;
+      final rawDecoded = img.decodeImage(bytes);
+      if (rawDecoded == null) return initialB64;
+      final decoded = img.bakeOrientation(rawDecoded);
 
       var current = decoded.width > maxWidth
           ? img.copyResize(decoded, width: maxWidth)
@@ -489,18 +490,32 @@ class SolarSettingsService {
         final work = current.width > targetW
             ? img.copyResize(decoded, width: targetW)
             : current;
+        final rgbWork = _toRgbUint8(work);
         for (final q in [82, 70, 56, 42]) {
-          final jpgBytes = Uint8List.fromList(img.encodeJpg(work, quality: q));
+          final jpgBytes = Uint8List.fromList(img.encodeJpg(rgbWork, quality: q));
           final b64 = base64Encode(jpgBytes);
           if (b64.length <= maxBase64Chars) return b64;
         }
       }
-      final fallback = img.copyResize(decoded, width: 640);
+      final fallback = _toRgbUint8(img.copyResize(decoded, width: 640));
       return base64Encode(Uint8List.fromList(img.encodeJpg(fallback, quality: 40)));
     } catch (e) {
       debugPrint('[SolarSettingsService] Falha ao comprimir imagem: $e');
       return initialB64;
     }
+  }
+
+  /// Normaliza qualquer imagem (RGBA, paleta, 16-bit) para RGB uint8 sobre fundo branco antes de codificar JPG.
+  static img.Image _toRgbUint8(img.Image src) {
+    final rgb = img.Image(
+      width: src.width,
+      height: src.height,
+      numChannels: 3,
+      format: img.Format.uint8,
+    );
+    rgb.clear(img.ColorRgb8(255, 255, 255));
+    img.compositeImage(rgb, src);
+    return rgb;
   }
 
   /// Salva as configurações de Usina Solar no Firestore e no cache local

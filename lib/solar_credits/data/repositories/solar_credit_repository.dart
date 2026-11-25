@@ -301,6 +301,36 @@ class SolarCreditRepository {
     });
   }
 
+  /// Atualiza a data combinada de pagamento SOMENTE desta fatura específica (sem afetar outras)
+  Future<void> updateBillPromisedPaymentDate(
+    String billId,
+    String promisedDateDdMmYyyy,
+  ) async {
+    await _billsRef.doc(billId).update({
+      'promisedPaymentDate': promisedDateDdMmYyyy,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+  }
+
+  /// Busca todas as faturas pendentes da empresa que vencem em até [maxDays] dias (ou já vencidas)
+  Future<List<SolarCreditBillModel>> getPendingBillsNearDue({
+    required String companyId,
+    int maxDays = 10,
+  }) async {
+    final cid = _resolveCompanyId(companyId);
+    final snap = await _billsRef.where('companyId', isEqualTo: cid).get();
+    final bills = snap.docs
+        .map((doc) => SolarCreditBillModel.fromMap(doc.data(), doc.id))
+        .where((b) {
+          if (b.paymentStatus.toLowerCase() == 'paid') return false;
+          final d = b.daysUntilDue;
+          return d != null && d <= maxDays;
+        })
+        .toList();
+    bills.sort((a, b) => (a.daysUntilDue ?? 999).compareTo(b.daysUntilDue ?? 999));
+    return bills;
+  }
+
   Future<void> deleteBill(String billId) async {
     await _billsRef.doc(billId).delete();
   }

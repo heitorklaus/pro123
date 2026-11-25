@@ -394,18 +394,20 @@ class SolarCreditBoletoEngine {
                       pw.Expanded(
                         flex: 62,
                         child: pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           decoration: const pw.BoxDecoration(
                             border: pw.Border(
                               right: pw.BorderSide(color: slateDark, width: 1),
                             ),
                           ),
-                          child: pw.Column(
-                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Column(
-                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          child: pw.FittedBox(
+                            fit: pw.BoxFit.scaleDown,
+                            alignment: pw.Alignment.centerLeft,
+                            child: pw.SizedBox(
+                              width: 445,
+                              child: pw.Column(
+                                mainAxisSize: pw.MainAxisSize.min,
+                                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                                 children: [
                                   pw.Container(
                                     padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -493,11 +495,10 @@ class SolarCreditBoletoEngine {
                                       ],
                                     ),
                                   ),
-                                ],
-                              ),
 
+                                  pw.SizedBox(height: 10),
                               pw.Container(
-                                padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                                 decoration: pw.BoxDecoration(
                                   color: const PdfColor.fromInt(0xFFECFDF5),
                                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
@@ -532,6 +533,8 @@ class SolarCreditBoletoEngine {
                           ),
                         ),
                       ),
+                    ),
+                  ),
 
                       // COLUNA DIREITA: ÁREA DE PAGAMENTO OPCIONAL (QR CODE / LINK / PIX)
                       pw.Expanded(

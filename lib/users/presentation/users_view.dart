@@ -22,8 +22,13 @@ import 'widgets/user_dossier_dialog.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 class UsersView extends StatefulWidget {
   final UserModel? currentUser;
+  final bool initialSortByHighestConsumption;
 
-  const UsersView({super.key, this.currentUser});
+  const UsersView({
+    super.key,
+    this.currentUser,
+    this.initialSortByHighestConsumption = false,
+  });
 
   @override
   State<UsersView> createState() => _UsersViewState();
@@ -51,6 +56,7 @@ class _UsersViewState extends State<UsersView> {
 
     return _TableView(
       currentUser: widget.currentUser,
+      initialSortByHighestConsumption: widget.initialSortByHighestConsumption,
       onAddNewUser: () => setState(() => _showForm = true),
     );
   }
@@ -61,9 +67,14 @@ class _UsersViewState extends State<UsersView> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _TableView extends StatefulWidget {
   final UserModel? currentUser;
+  final bool initialSortByHighestConsumption;
   final VoidCallback onAddNewUser;
 
-  const _TableView({this.currentUser, required this.onAddNewUser});
+  const _TableView({
+    this.currentUser,
+    this.initialSortByHighestConsumption = false,
+    required this.onAddNewUser,
+  });
 
   @override
   State<_TableView> createState() => _TableViewState();
@@ -79,10 +90,12 @@ class _TableViewState extends State<_TableView> {
   final Set<String> _expandedAdminUids = {};
   List<UserModel> _cachedUsersList = [];
   bool _showAllSystemUsers = true;
+  late bool _sortByHighestConsumption;
 
   @override
   void initState() {
     super.initState();
+    _sortByHighestConsumption = widget.initialSortByHighestConsumption;
     try {
       _repo = Modular.get<AuthRepository>();
     } catch (_) {
@@ -294,6 +307,14 @@ class _TableViewState extends State<_TableView> {
                       onTap: () =>
                           setState(() => _showAllSystemUsers = false),
                     ),
+                    _ScopeFilterBadge(
+                      label: 'Maior Consumo',
+                      icon: Icons.trending_up_rounded,
+                      selected: _sortByHighestConsumption,
+                      activeColor: const Color(0xFFF59E0B),
+                      onTap: () => setState(() =>
+                          _sortByHighestConsumption = !_sortByHighestConsumption),
+                    ),
                   ],
                 ],
               );
@@ -402,86 +423,34 @@ class _TableViewState extends State<_TableView> {
 
                             // ── Organização Hierárquica: Admins no Topo com Sanfona (+) para Subordinados ──
                             final admins = filtered.where((u) => u.isAdmin || u.isSuperAdmin).toList();
-                            final Map<String, List<UserModel>> subordinatesByAdmin = {};
-                            for (final a in admins) {
-                              subordinatesByAdmin[a.uid] = filtered.where((u) =>
-                                  u.uid != a.uid &&
-                                  (u.companyId == a.uid ||
-                                      (a.companyId != null &&
-                                          a.companyId!.isNotEmpty &&
-                                          u.companyId == a.companyId) ||
-                                      (u.companyId == null && !u.isAdmin && !u.isSuperAdmin))).toList();
-                            }
-                            final assignedUids = {
-                              ...admins.map((a) => a.uid),
-                              ...subordinatesByAdmin.values.expand((list) => list.map((u) => u.uid)),
-                            };
-                            final orphans = filtered.where((u) => !assignedUids.contains(u.uid)).toList();
-
-                            // Se não houver nenhum admin identificado (todos forem operators), exibe lista direta
-                            if (admins.isEmpty) {
-                              return ListView.separated(
-                                itemCount: filtered.length,
-                                separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
-                                itemBuilder: (_, i) => _UserRow(
-                                  user: filtered[i],
-                                  onViewDossier: () => _openUserDossierDialog(filtered[i]),
-                                  onEdit: () => _openEditUserDialog(filtered[i]),
-                                  onEditPermissions: () => _openPermissionsDialog(filtered[i]),
-                                  onDelete: () => _showDeleteDialog(filtered[i]),
-                                ),
+                            if (_sortByHighestConsumption) {
+                              final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
+                              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('ai_company_usage')
+                                    .snapshots(),
+                                builder: (context, usageSnap) {
+                                  final Map<String, double> costMap = {};
+                                  if (usageSnap.hasData) {
+                                    for (final doc in usageSnap.data!.docs) {
+                                      final data = doc.data();
+                                      if (data['monthKey'] == monthKey) {
+                                        costMap[doc.id] =
+                                            (data['monthCostBrl'] as num?)?.toDouble() ?? 0.0;
+                                      }
+                                    }
+                                  }
+                                  final sortedAdmins = List<UserModel>.from(admins)
+                                    ..sort((a, b) {
+                                      final costA = costMap[a.effectiveCompanyId] ?? 0.0;
+                                      final costB = costMap[b.effectiveCompanyId] ?? 0.0;
+                                      return costB.compareTo(costA);
+                                    });
+                                  return _buildHierarchyListView(sortedAdmins, filtered, isMobile);
+                                },
                               );
                             }
-
-                            return ListView(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              children: [
-                                ...admins.map((admin) {
-                                  final subs = subordinatesByAdmin[admin.uid] ?? [];
-                                  final isExpanded = _expandedAdminUids.contains(admin.uid) || _query.isNotEmpty;
-                                  return _AdminTreeGroup(
-                                    admin: admin,
-                                    subordinates: subs,
-                                    isExpanded: isExpanded,
-                                    isMobile: isMobile,
-                                    onToggleExpand: () {
-                                      setState(() {
-                                        if (_expandedAdminUids.contains(admin.uid)) {
-                                          _expandedAdminUids.remove(admin.uid);
-                                        } else {
-                                          _expandedAdminUids.add(admin.uid);
-                                        }
-                                      });
-                                    },
-                                    onViewDossier: _openUserDossierDialog,
-                                    onEditUser: _openEditUserDialog,
-                                    onEditPermissions: _openPermissionsDialog,
-                                    onDeleteUser: _showDeleteDialog,
-                                  );
-                                }),
-                                if (orphans.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  _OrphansGroup(
-                                    orphans: orphans,
-                                    isMobile: isMobile,
-                                    isExpanded: _expandedAdminUids.contains('__orphans__') || _query.isNotEmpty,
-                                    onToggleExpand: () {
-                                      setState(() {
-                                        if (_expandedAdminUids.contains('__orphans__')) {
-                                          _expandedAdminUids.remove('__orphans__');
-                                        } else {
-                                          _expandedAdminUids.add('__orphans__');
-                                        }
-                                      });
-                                    },
-                                    onViewDossier: _openUserDossierDialog,
-                                    onEditUser: _openEditUserDialog,
-                                    onEditPermissions: _openPermissionsDialog,
-                                    onDeleteUser: _showDeleteDialog,
-                                  ),
-                                ],
-                              ],
-                            );
+                            return _buildHierarchyListView(admins, filtered, isMobile);
                           },
                         );
                         }),
@@ -494,6 +463,96 @@ class _TableViewState extends State<_TableView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHierarchyListView(
+    List<UserModel> admins,
+    List<UserModel> filtered,
+    bool isMobile,
+  ) {
+    final Map<String, List<UserModel>> subordinatesByAdmin = {};
+    for (final a in admins) {
+      subordinatesByAdmin[a.uid] = filtered
+          .where((u) =>
+              u.uid != a.uid &&
+              (u.companyId == a.uid ||
+                  (a.companyId != null &&
+                      a.companyId!.isNotEmpty &&
+                      u.companyId == a.companyId) ||
+                  (u.companyId == null && !u.isAdmin && !u.isSuperAdmin)))
+          .toList();
+    }
+    final assignedUids = {
+      ...admins.map((a) => a.uid),
+      ...subordinatesByAdmin.values.expand((list) => list.map((u) => u.uid)),
+    };
+    final orphans = filtered.where((u) => !assignedUids.contains(u.uid)).toList();
+
+    if (admins.isEmpty) {
+      return ListView.separated(
+        itemCount: filtered.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
+        itemBuilder: (_, i) => _UserRow(
+          user: filtered[i],
+          onViewDossier: () => _openUserDossierDialog(filtered[i]),
+          onEdit: () => _openEditUserDialog(filtered[i]),
+          onEditPermissions: () => _openPermissionsDialog(filtered[i]),
+          onDelete: () => _showDeleteDialog(filtered[i]),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        ...admins.map((admin) {
+          final subs = subordinatesByAdmin[admin.uid] ?? [];
+          final isExpanded =
+              _expandedAdminUids.contains(admin.uid) || _query.isNotEmpty;
+          return _AdminTreeGroup(
+            admin: admin,
+            subordinates: subs,
+            isExpanded: isExpanded,
+            isMobile: isMobile,
+            onToggleExpand: () {
+              setState(() {
+                if (_expandedAdminUids.contains(admin.uid)) {
+                  _expandedAdminUids.remove(admin.uid);
+                } else {
+                  _expandedAdminUids.add(admin.uid);
+                }
+              });
+            },
+            onViewDossier: _openUserDossierDialog,
+            onEditUser: _openEditUserDialog,
+            onEditPermissions: _openPermissionsDialog,
+            onDeleteUser: _showDeleteDialog,
+          );
+        }),
+        if (orphans.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _OrphansGroup(
+            orphans: orphans,
+            isMobile: isMobile,
+            isExpanded:
+                _expandedAdminUids.contains('__orphans__') || _query.isNotEmpty,
+            onToggleExpand: () {
+              setState(() {
+                if (_expandedAdminUids.contains('__orphans__')) {
+                  _expandedAdminUids.remove('__orphans__');
+                } else {
+                  _expandedAdminUids.add('__orphans__');
+                }
+              });
+            },
+            onViewDossier: _openUserDossierDialog,
+            onEditUser: _openEditUserDialog,
+            onEditPermissions: _openPermissionsDialog,
+            onDeleteUser: _showDeleteDialog,
+          ),
+        ],
+      ],
     );
   }
 
@@ -600,6 +659,12 @@ class _PlanCostConsumptionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Exclusivo para o SuperAdmin / Master (heitorklaus@hotmail.com)
+    final currentViewerEmail = FirebaseAuth.instance.currentUser?.email;
+    if (!UserModel.isMasterEmail(currentViewerEmail)) {
+      return const SizedBox.shrink();
+    }
+
     final cid = user.effectiveCompanyId;
     final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
     final planPrice = PlanCostPolicy.planPriceBrl(user.aiPlanTier);
@@ -961,8 +1026,9 @@ class _AdminTreeGroup extends StatelessWidget {
                                 const SizedBox(width: 10),
                               ],
 
-                              // Consumo de IA Hoje + Custo Mensal do Plano (Margem 80%)
-                              if (!admin.isSuperAdmin) ...[
+                              // Consumo de IA Hoje + Custo Mensal do Plano (Margem 80% - Exclusivo SuperAdmin / heitorklaus@hotmail.com)
+                              if (!admin.isSuperAdmin &&
+                                  UserModel.isMasterEmail(FirebaseAuth.instance.currentUser?.email)) ...[
                                 _PlanCostConsumptionBadge(user: admin),
                                 const SizedBox(width: 8),
                               ],

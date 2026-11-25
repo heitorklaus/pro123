@@ -48,7 +48,8 @@ class SolarCoverCustomizerDialog extends StatefulWidget {
   }
 
   @override
-  State<SolarCoverCustomizerDialog> createState() => _SolarCoverCustomizerDialogState();
+  State<SolarCoverCustomizerDialog> createState() =>
+      _SolarCoverCustomizerDialogState();
 }
 
 class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
@@ -74,6 +75,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
   late final TextEditingController _headerText1Ctrl;
   late final TextEditingController _headerText2Ctrl;
   late final TextEditingController _headerText3Ctrl;
+  late final TextEditingController _pageTitle2Ctrl;
+  late final TextEditingController _pageTitle3Ctrl;
+  late final TextEditingController _pageTitleRoofCtrl;
+  late final TextEditingController _pageTitle4Ctrl;
+  late final TextEditingController _pageTitle5Ctrl;
+  late final TextEditingController _pageTitle6Ctrl;
   late final TextEditingController _footerText1Ctrl;
   late final TextEditingController _footerText2Ctrl;
   late final TextEditingController _footerText3Ctrl;
@@ -98,7 +105,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
   String? _hoveredElementKey;
 
   // Página atualmente inspecionada no estúdio
-  String _activeCustomizerPageId = 'page_1'; // 'page_1', 'page_2', 'page_3', 'page_4', 'page_5', ou 'custom_...'
+  String _activeCustomizerPageId =
+      'page_1'; // 'page_1', 'page_2', 'page_3', 'page_4', 'page_5', ou 'custom_...'
   String? _selectedPage2CardId;
 
   // Galeria de Capas / Fotos
@@ -113,7 +121,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   Uint8List? _getLogoBytes(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
-    final clean = base64Str.contains(',') ? base64Str.split(',').last : base64Str;
+    final clean =
+        base64Str.contains(',') ? base64Str.split(',').last : base64Str;
     if (_cachedLogoBase64 == clean && _cachedLogoBytes != null) {
       return _cachedLogoBytes;
     }
@@ -128,7 +137,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   Uint8List? _getCoverBytes(String? base64Str) {
     if (base64Str == null || base64Str.isEmpty) return null;
-    final clean = base64Str.contains(',') ? base64Str.split(',').last : base64Str;
+    final clean =
+        base64Str.contains(',') ? base64Str.split(',').last : base64Str;
     if (_cachedCoverBase64 == clean && _cachedCoverBytes != null) {
       return _cachedCoverBytes;
     }
@@ -155,12 +165,18 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     });
 
     _headlineCtrl = TextEditingController(text: _current.verticalSplitHeadline);
-    _subheadlineCtrl = TextEditingController(text: _current.verticalSplitSubheadline);
-    _rightTitleCtrl = TextEditingController(text: _current.verticalSplitRightTitle);
-    _rightSubtitleCtrl = TextEditingController(text: _current.verticalSplitRightSubtitle);
-    _rightTaglineCtrl = TextEditingController(text: _current.verticalSplitRightTagline);
-    _leftFooterCtrl = TextEditingController(text: _current.verticalSplitLeftFooter);
-    _rightFooterCtrl = TextEditingController(text: _current.verticalSplitRightFooter);
+    _subheadlineCtrl =
+        TextEditingController(text: _current.verticalSplitSubheadline);
+    _rightTitleCtrl =
+        TextEditingController(text: _current.verticalSplitRightTitle);
+    _rightSubtitleCtrl =
+        TextEditingController(text: _current.verticalSplitRightSubtitle);
+    _rightTaglineCtrl =
+        TextEditingController(text: _current.verticalSplitRightTagline);
+    _leftFooterCtrl =
+        TextEditingController(text: _current.verticalSplitLeftFooter);
+    _rightFooterCtrl =
+        TextEditingController(text: _current.verticalSplitRightFooter);
 
     _coverTitleCtrl = TextEditingController(text: _current.coverTitle);
     _coverSubtitleCtrl = TextEditingController(text: _current.coverSubtitle);
@@ -168,6 +184,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     _headerText1Ctrl = TextEditingController(text: _current.coverHeaderText1);
     _headerText2Ctrl = TextEditingController(text: _current.coverHeaderText2);
     _headerText3Ctrl = TextEditingController(text: _current.coverHeaderText3);
+    _pageTitle2Ctrl = TextEditingController(text: _current.pdfPageTitle2);
+    _pageTitle3Ctrl = TextEditingController(text: _current.pdfPageTitle3);
+    _pageTitleRoofCtrl = TextEditingController(text: _current.pdfPageTitleRoof);
+    _pageTitle4Ctrl = TextEditingController(text: _current.pdfPageTitle4);
+    _pageTitle5Ctrl = TextEditingController(text: _current.pdfPageTitle5);
+    _pageTitle6Ctrl = TextEditingController(text: _current.pdfPageTitle6);
     _footerText1Ctrl = TextEditingController(text: _current.coverFooterText1);
     _footerText2Ctrl = TextEditingController(text: _current.coverFooterText2);
     _footerText3Ctrl = TextEditingController(text: _current.coverFooterText3);
@@ -180,32 +202,38 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     });
     _subheadlineCtrl.addListener(() {
       setState(() {
-        _current = _current.copyWith(verticalSplitSubheadline: _subheadlineCtrl.text);
+        _current =
+            _current.copyWith(verticalSplitSubheadline: _subheadlineCtrl.text);
       });
     });
     _rightTitleCtrl.addListener(() {
       setState(() {
-        _current = _current.copyWith(verticalSplitRightTitle: _rightTitleCtrl.text);
+        _current =
+            _current.copyWith(verticalSplitRightTitle: _rightTitleCtrl.text);
       });
     });
     _rightSubtitleCtrl.addListener(() {
       setState(() {
-        _current = _current.copyWith(verticalSplitRightSubtitle: _rightSubtitleCtrl.text);
+        _current = _current.copyWith(
+            verticalSplitRightSubtitle: _rightSubtitleCtrl.text);
       });
     });
     _rightTaglineCtrl.addListener(() {
       setState(() {
-        _current = _current.copyWith(verticalSplitRightTagline: _rightTaglineCtrl.text);
+        _current = _current.copyWith(
+            verticalSplitRightTagline: _rightTaglineCtrl.text);
       });
     });
     _leftFooterCtrl.addListener(() {
       setState(() {
-        _current = _current.copyWith(verticalSplitLeftFooter: _leftFooterCtrl.text);
+        _current =
+            _current.copyWith(verticalSplitLeftFooter: _leftFooterCtrl.text);
       });
     });
     _rightFooterCtrl.addListener(() {
       setState(() {
-        _current = _current.copyWith(verticalSplitRightFooter: _rightFooterCtrl.text);
+        _current =
+            _current.copyWith(verticalSplitRightFooter: _rightFooterCtrl.text);
       });
     });
 
@@ -233,6 +261,36 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     _headerText3Ctrl.addListener(() {
       setState(() {
         _current = _current.copyWith(coverHeaderText3: _headerText3Ctrl.text);
+      });
+    });
+    _pageTitle2Ctrl.addListener(() {
+      setState(() {
+        _current = _current.copyWith(pdfPageTitle2: _pageTitle2Ctrl.text);
+      });
+    });
+    _pageTitle3Ctrl.addListener(() {
+      setState(() {
+        _current = _current.copyWith(pdfPageTitle3: _pageTitle3Ctrl.text);
+      });
+    });
+    _pageTitleRoofCtrl.addListener(() {
+      setState(() {
+        _current = _current.copyWith(pdfPageTitleRoof: _pageTitleRoofCtrl.text);
+      });
+    });
+    _pageTitle4Ctrl.addListener(() {
+      setState(() {
+        _current = _current.copyWith(pdfPageTitle4: _pageTitle4Ctrl.text);
+      });
+    });
+    _pageTitle5Ctrl.addListener(() {
+      setState(() {
+        _current = _current.copyWith(pdfPageTitle5: _pageTitle5Ctrl.text);
+      });
+    });
+    _pageTitle6Ctrl.addListener(() {
+      setState(() {
+        _current = _current.copyWith(pdfPageTitle6: _pageTitle6Ctrl.text);
       });
     });
     _footerText1Ctrl.addListener(() {
@@ -272,6 +330,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     _headerText1Ctrl.dispose();
     _headerText2Ctrl.dispose();
     _headerText3Ctrl.dispose();
+    _pageTitle2Ctrl.dispose();
+    _pageTitle3Ctrl.dispose();
+    _pageTitleRoofCtrl.dispose();
+    _pageTitle4Ctrl.dispose();
+    _pageTitle5Ctrl.dispose();
+    _pageTitle6Ctrl.dispose();
     _footerText1Ctrl.dispose();
     _footerText2Ctrl.dispose();
     _footerText3Ctrl.dispose();
@@ -298,7 +362,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   int _hexToInt(String hexStr, {int fallback = 0xFF0284C7}) {
     final clean = hexStr.replaceAll('#', '').trim();
-    if (clean.length == 6) return int.tryParse('FF$clean', radix: 16) ?? fallback;
+    if (clean.length == 6)
+      return int.tryParse('FF$clean', radix: 16) ?? fallback;
     if (clean.length == 8) return int.tryParse(clean, radix: 16) ?? fallback;
     return fallback;
   }
@@ -355,7 +420,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     setState(() {
       _current = _current.copyWith(
         // Vertical Split & Modern compartilhados:
-        verticalSplitHeadlineTop: _current.proposalStyle != 'verticalSplit' ? 0.50 : 0.06,
+        verticalSplitHeadlineTop:
+            _current.proposalStyle != 'verticalSplit' ? 0.50 : 0.06,
         verticalSplitHeadlineLeft: 0.06,
         verticalSplitRightBlockTop: _current.proposalStyle != 'verticalSplit'
             ? 0.04
@@ -364,11 +430,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 : _current.verticalSplitDividerType == 2
                     ? 0.16
                     : 0.20,
-        verticalSplitRightBlockRight: _current.proposalStyle != 'verticalSplit' ? 0.48 : 0.08,
-        verticalSplitLeftFooterBottom: _current.proposalStyle != 'verticalSplit' ? 0.26 : 0.04,
+        verticalSplitRightBlockRight:
+            _current.proposalStyle != 'verticalSplit' ? 0.48 : 0.08,
+        verticalSplitLeftFooterBottom:
+            _current.proposalStyle != 'verticalSplit' ? 0.26 : 0.04,
         verticalSplitLeftFooterLeft: 0.06,
         verticalSplitRightFooterBottom: 0.04,
-        verticalSplitRightFooterRight: _current.proposalStyle != 'verticalSplit' ? 0.50 : 0.08,
+        verticalSplitRightFooterRight:
+            _current.proposalStyle != 'verticalSplit' ? 0.50 : 0.08,
         verticalSplitShowHeadline: true,
         verticalSplitShowLeftFooter: true,
         verticalSplitShowRightBlock: true,
@@ -396,8 +465,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         coverShowClientInfo: true,
         // Logo:
         coverShowLogo: true,
-        coverLogoPositionX: _current.proposalStyle != 'verticalSplit' ? 0.78 : 0.65,
-        coverLogoPositionY: _current.proposalStyle != 'verticalSplit' ? 0.78 : 0.05,
+        coverLogoPositionX:
+            _current.proposalStyle != 'verticalSplit' ? 0.78 : 0.65,
+        coverLogoPositionY:
+            _current.proposalStyle != 'verticalSplit' ? 0.78 : 0.05,
         coverLogoWidth: 95.0,
         // Cabeçalho & Rodapé:
         coverShowHeader: true,
@@ -423,14 +494,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       _headerText1Ctrl.text = 'PROPOSTA COMERCIAL';
       _headerText2Ctrl.text = 'ENERGIA SOLAR FOTOVOLTAICA';
       _headerText3Ctrl.text = 'SOLUÇÕES DE ALTA PERFORMANCE';
-      _footerText1Ctrl.text = 'ENERGIA LIMPA • ECONOMIA REAL • SUSTENTABILIDADE';
+      _footerText1Ctrl.text =
+          'ENERGIA LIMPA • ECONOMIA REAL • SUSTENTABILIDADE';
       _footerText2Ctrl.text = '(11) 99999-9999 • contato@empresa.com.br';
       _footerText3Ctrl.text = 'www.suaempresa.com.br';
       _footerText4Ctrl.text = 'Proposta comercial válida por 10 dias corridos.';
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Posições e elementos da capa restaurados para o padrão com sucesso!'),
+        content: Text(
+            'Posições e elementos da capa restaurados para o padrão com sucesso!'),
         backgroundColor: Color(0xFF0F172A),
         duration: Duration(seconds: 2),
       ),
@@ -457,7 +530,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         }
         try {
           final bytes = await files.first.readAsBytes();
-          final b64 = SolarSettingsService.compressImageBytesForFirestore(bytes);
+          final b64 =
+              SolarSettingsService.compressImageBytesForFirestore(bytes);
           await AiUsageTelemetryService.recordUploadOrAgentCost(
             actionType: 'upload_cover',
             bytes: bytes.length,
@@ -517,11 +591,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         children: [
           Row(
             children: [
-              const Icon(Icons.font_download_outlined, color: Color(0xFF38BDF8), size: 16),
+              const Icon(Icons.font_download_outlined,
+                  color: Color(0xFF38BDF8), size: 16),
               const SizedBox(width: 8),
               Text(
                 label,
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFCBD5E1)),
               ),
             ],
           ),
@@ -534,7 +612,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: availableFonts.contains(selectedFont) ? selectedFont : 'Montserrat',
+                value: availableFonts.contains(selectedFont)
+                    ? selectedFont
+                    : 'Montserrat',
                 isDense: true,
                 dropdownColor: const Color(0xFF1E293B),
                 icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
@@ -543,7 +623,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     value: font,
                     child: Text(
                       font,
-                      style: getCoverTextStyle(fontFamily: font, fontSize: 12.5, color: Colors.white),
+                      style: getCoverTextStyle(
+                          fontFamily: font,
+                          fontSize: 12.5,
+                          color: Colors.white),
                     ),
                   );
                 }).toList(),
@@ -603,7 +686,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 width: isSelected ? 2.5 : 1,
               ),
               boxShadow: isSelected
-                  ? [BoxShadow(color: colorVal.withValues(alpha: 0.5), blurRadius: 6, offset: const Offset(0, 2))]
+                  ? [
+                      BoxShadow(
+                          color: colorVal.withValues(alpha: 0.5),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
+                    ]
                   : null,
             ),
             child: isSelected
@@ -625,7 +713,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     required String subtitle,
     required String tagline,
   }) {
-    final isCurrent = _current.verticalSplitRightTitle == title && _current.verticalSplitRightSubtitle == subtitle;
+    final isCurrent = _current.verticalSplitRightTitle == title &&
+        _current.verticalSplitRightSubtitle == subtitle;
     return InkWell(
       onTap: () {
         setState(() {
@@ -643,10 +732,13 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(
-          color: isCurrent ? const Color(0xFFF59E0B).withValues(alpha: 0.25) : const Color(0xFF1E293B),
+          color: isCurrent
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
+              : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isCurrent ? const Color(0xFFF59E0B) : const Color(0xFF334155),
+            color:
+                isCurrent ? const Color(0xFFF59E0B) : const Color(0xFF334155),
             width: isCurrent ? 1.2 : 0.8,
           ),
         ),
@@ -683,29 +775,75 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   void _showIconPickerModal() {
     final availableIcons = [
-      {'key': 'solar_power', 'name': 'Painel Solar', 'icon': Icons.solar_power_rounded},
+      {
+        'key': 'solar_power',
+        'name': 'Painel Solar',
+        'icon': Icons.solar_power_rounded
+      },
       {'key': 'bolt', 'name': 'Raio / Energia', 'icon': Icons.bolt_rounded},
       {'key': 'eco', 'name': 'Sustentabilidade', 'icon': Icons.eco_outlined},
-      {'key': 'shield', 'name': 'Garantia / Proteção', 'icon': Icons.shield_outlined},
-      {'key': 'verified', 'name': 'Qualidade / Check', 'icon': Icons.verified_rounded},
+      {
+        'key': 'shield',
+        'name': 'Garantia / Proteção',
+        'icon': Icons.shield_outlined
+      },
+      {
+        'key': 'verified',
+        'name': 'Qualidade / Check',
+        'icon': Icons.verified_rounded
+      },
       {'key': 'star', 'name': 'Destaque / Estrela', 'icon': Icons.star_rounded},
       {'key': 'home', 'name': 'Residencial', 'icon': Icons.home_outlined},
-      {'key': 'phone', 'name': 'Telefone / WhatsApp', 'icon': Icons.phone_rounded},
-      {'key': 'location', 'name': 'Localização', 'icon': Icons.location_on_rounded},
+      {
+        'key': 'phone',
+        'name': 'Telefone / WhatsApp',
+        'icon': Icons.phone_rounded
+      },
+      {
+        'key': 'location',
+        'name': 'Localização',
+        'icon': Icons.location_on_rounded
+      },
       {'key': 'mail', 'name': 'E-mail', 'icon': Icons.mail_outline_rounded},
-      {'key': 'lightbulb', 'name': 'Lâmpada / Ideia', 'icon': Icons.lightbulb_outline_rounded},
-      {'key': 'handshake', 'name': 'Parceria', 'icon': Icons.handshake_outlined},
-      {'key': 'award', 'name': 'Prêmio / Troféu', 'icon': Icons.emoji_events_outlined},
-      {'key': 'engineering', 'name': 'Engenharia', 'icon': Icons.engineering_rounded},
-      {'key': 'coins', 'name': 'Economia Financeira', 'icon': Icons.monetization_on_outlined},
-      {'key': 'chart', 'name': 'Gráfico de Valorização', 'icon': Icons.bar_chart_rounded},
+      {
+        'key': 'lightbulb',
+        'name': 'Lâmpada / Ideia',
+        'icon': Icons.lightbulb_outline_rounded
+      },
+      {
+        'key': 'handshake',
+        'name': 'Parceria',
+        'icon': Icons.handshake_outlined
+      },
+      {
+        'key': 'award',
+        'name': 'Prêmio / Troféu',
+        'icon': Icons.emoji_events_outlined
+      },
+      {
+        'key': 'engineering',
+        'name': 'Engenharia',
+        'icon': Icons.engineering_rounded
+      },
+      {
+        'key': 'coins',
+        'name': 'Economia Financeira',
+        'icon': Icons.monetization_on_outlined
+      },
+      {
+        'key': 'chart',
+        'name': 'Gráfico de Valorização',
+        'icon': Icons.bar_chart_rounded
+      },
     ];
 
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF334155))),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF334155))),
         child: Container(
           width: 560,
           padding: const EdgeInsets.all(20),
@@ -718,10 +856,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 children: [
                   Text(
                     'Selecione o Ícone para Adicionar na Capa',
-                    style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                    icon:
+                        const Icon(Icons.close_rounded, color: Colors.white70),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -757,11 +899,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(item['icon'] as IconData, color: const Color(0xFFEAB308), size: 28),
+                            Icon(item['icon'] as IconData,
+                                color: const Color(0xFFEAB308), size: 28),
                             const SizedBox(height: 6),
                             Text(
                               item['name'] as String,
-                              style: GoogleFonts.inter(fontSize: 10.5, color: Colors.white70, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.inter(
+                                  fontSize: 10.5,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600),
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -782,29 +928,75 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   void _showBadgeIconPickerModal(int badgeIndex) {
     final availableIcons = [
-      {'key': 'solar_power', 'name': 'Painel Solar', 'icon': Icons.solar_power_rounded},
+      {
+        'key': 'solar_power',
+        'name': 'Painel Solar',
+        'icon': Icons.solar_power_rounded
+      },
       {'key': 'bolt', 'name': 'Raio / Energia', 'icon': Icons.bolt_rounded},
       {'key': 'eco', 'name': 'Sustentabilidade', 'icon': Icons.eco_outlined},
-      {'key': 'shield', 'name': 'Garantia / Proteção', 'icon': Icons.shield_outlined},
-      {'key': 'verified', 'name': 'Qualidade / Check', 'icon': Icons.verified_rounded},
+      {
+        'key': 'shield',
+        'name': 'Garantia / Proteção',
+        'icon': Icons.shield_outlined
+      },
+      {
+        'key': 'verified',
+        'name': 'Qualidade / Check',
+        'icon': Icons.verified_rounded
+      },
       {'key': 'star', 'name': 'Destaque / Estrela', 'icon': Icons.star_rounded},
       {'key': 'home', 'name': 'Residencial', 'icon': Icons.home_outlined},
-      {'key': 'phone', 'name': 'Telefone / WhatsApp', 'icon': Icons.phone_rounded},
-      {'key': 'location', 'name': 'Localização', 'icon': Icons.location_on_rounded},
+      {
+        'key': 'phone',
+        'name': 'Telefone / WhatsApp',
+        'icon': Icons.phone_rounded
+      },
+      {
+        'key': 'location',
+        'name': 'Localização',
+        'icon': Icons.location_on_rounded
+      },
       {'key': 'mail', 'name': 'E-mail', 'icon': Icons.mail_outline_rounded},
-      {'key': 'lightbulb', 'name': 'Lâmpada / Ideia', 'icon': Icons.lightbulb_outline_rounded},
-      {'key': 'handshake', 'name': 'Parceria', 'icon': Icons.handshake_outlined},
-      {'key': 'award', 'name': 'Prêmio / Troféu', 'icon': Icons.emoji_events_outlined},
-      {'key': 'engineering', 'name': 'Engenharia', 'icon': Icons.engineering_rounded},
-      {'key': 'coins', 'name': 'Economia Financeira', 'icon': Icons.monetization_on_outlined},
-      {'key': 'chart', 'name': 'Gráfico de Valorização', 'icon': Icons.bar_chart_rounded},
+      {
+        'key': 'lightbulb',
+        'name': 'Lâmpada / Ideia',
+        'icon': Icons.lightbulb_outline_rounded
+      },
+      {
+        'key': 'handshake',
+        'name': 'Parceria',
+        'icon': Icons.handshake_outlined
+      },
+      {
+        'key': 'award',
+        'name': 'Prêmio / Troféu',
+        'icon': Icons.emoji_events_outlined
+      },
+      {
+        'key': 'engineering',
+        'name': 'Engenharia',
+        'icon': Icons.engineering_rounded
+      },
+      {
+        'key': 'coins',
+        'name': 'Economia Financeira',
+        'icon': Icons.monetization_on_outlined
+      },
+      {
+        'key': 'chart',
+        'name': 'Gráfico de Valorização',
+        'icon': Icons.bar_chart_rounded
+      },
     ];
 
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF334155))),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF334155))),
         child: Container(
           width: 560,
           padding: const EdgeInsets.all(20),
@@ -817,10 +1009,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 children: [
                   Text(
                     'Selecione o Ícone para o Badge',
-                    style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                    icon:
+                        const Icon(Icons.close_rounded, color: Colors.white70),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -844,10 +1040,13 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       onTap: () {
                         Navigator.pop(ctx);
                         setState(() {
-                          final list = List<CoverFooterBadge>.from(_current.verticalSplitFooterBadges);
+                          final list = List<CoverFooterBadge>.from(
+                              _current.verticalSplitFooterBadges);
                           if (badgeIndex >= 0 && badgeIndex < list.length) {
-                            list[badgeIndex] = list[badgeIndex].copyWith(iconKey: item['key'] as String);
-                            _current = _current.copyWith(verticalSplitFooterBadges: list);
+                            list[badgeIndex] = list[badgeIndex]
+                                .copyWith(iconKey: item['key'] as String);
+                            _current = _current.copyWith(
+                                verticalSplitFooterBadges: list);
                           }
                         });
                       },
@@ -862,11 +1061,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(item['icon'] as IconData, color: const Color(0xFFEAB308), size: 28),
+                            Icon(item['icon'] as IconData,
+                                color: const Color(0xFFEAB308), size: 28),
                             const SizedBox(height: 6),
                             Text(
                               item['name'] as String,
-                              style: GoogleFonts.inter(fontSize: 10.5, color: Colors.white70, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.inter(
+                                  fontSize: 10.5,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600),
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -887,7 +1090,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   void _addBadge() {
     setState(() {
-      final list = List<CoverFooterBadge>.from(_current.verticalSplitFooterBadges);
+      final list =
+          List<CoverFooterBadge>.from(_current.verticalSplitFooterBadges);
       list.add(const CoverFooterBadge(iconKey: 'eco', label: 'NOVO BADGE'));
       _current = _current.copyWith(verticalSplitFooterBadges: list);
     });
@@ -895,7 +1099,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
   void _removeBadge(int index) {
     setState(() {
-      final list = List<CoverFooterBadge>.from(_current.verticalSplitFooterBadges);
+      final list =
+          List<CoverFooterBadge>.from(_current.verticalSplitFooterBadges);
       if (index >= 0 && index < list.length) {
         list.removeAt(index);
         _current = _current.copyWith(verticalSplitFooterBadges: list);
@@ -924,7 +1129,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
   void _removeCustomText(String id) {
     setState(() {
       _current = _current.copyWith(
-        customTextItems: _current.customTextItems.where((t) => t.id != id).toList(),
+        customTextItems:
+            _current.customTextItems.where((t) => t.id != id).toList(),
       );
       if (_selectedElementKey == 'customText_$id') {
         _selectedElementKey = null;
@@ -935,7 +1141,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
   void _removeCustomIcon(String id) {
     setState(() {
       _current = _current.copyWith(
-        customIconItems: _current.customIconItems.where((i) => i.id != id).toList(),
+        customIconItems:
+            _current.customIconItems.where((i) => i.id != id).toList(),
       );
       if (_selectedElementKey == 'customIcon_$id') {
         _selectedElementKey = null;
@@ -976,6 +1183,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       coverHeaderText1: _headerText1Ctrl.text,
       coverHeaderText2: _headerText2Ctrl.text,
       coverHeaderText3: _headerText3Ctrl.text,
+      pdfPageTitle2: _pageTitle2Ctrl.text,
+      pdfPageTitle3: _pageTitle3Ctrl.text,
+      pdfPageTitleRoof: _pageTitleRoofCtrl.text,
+      pdfPageTitle4: _pageTitle4Ctrl.text,
+      pdfPageTitle5: _pageTitle5Ctrl.text,
+      pdfPageTitle6: _pageTitle6Ctrl.text,
       coverFooterText1: _footerText1Ctrl.text,
       coverFooterText2: _footerText2Ctrl.text,
       coverFooterText3: _footerText3Ctrl.text,
@@ -1033,7 +1246,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   Expanded(
                     child: Text(
                       'Prévia Instantânea do PDF com o seu Layout Personalizado',
-                      style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                      style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: const Color.fromARGB(255, 255, 255, 255)),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1046,13 +1262,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               const Divider(),
               Expanded(
                 child: PdfPreview(
-                  build: (format) => SolarProposalPdfService.generateSolarProposalPdf(
+                  build: (format) =>
+                      SolarProposalPdfService.generateSolarProposalPdf(
                     sampleProposal,
                     solarSettings: _current,
                   ),
                   allowPrinting: true,
                   allowSharing: true,
                   canChangePageFormat: false,
+                  scrollViewDecoration: TaosLoadingPopup.pdfBackdropDecoration,
+                  loadingWidget: TaosLoadingPopup.pdfLoadingWidget(),
                 ),
               ),
             ],
@@ -1089,7 +1308,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar configurações: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Erro ao salvar configurações: $e'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -1159,10 +1380,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFEAB308), Color(0xFFCA8A04)]),
+              gradient: const LinearGradient(
+                  colors: [Color(0xFFEAB308), Color(0xFFCA8A04)]),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.palette_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.palette_rounded,
+                color: Colors.white, size: 20),
           ),
           const SizedBox(width: 14),
           Column(
@@ -1197,7 +1420,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 side: const BorderSide(color: Color(0xFF475569)),
                 padding: const EdgeInsets.all(10),
                 minimumSize: const Size(38, 38),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               child: const Icon(Icons.restart_alt_rounded, size: 18),
             ),
@@ -1213,7 +1437,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(width: 8),
@@ -1222,14 +1447,19 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           ElevatedButton.icon(
             onPressed: _isSaving ? null : _saveAndApply,
             icon: _isSaving
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.check_circle_rounded, size: 16),
             label: Text(_isSaving ? 'SALVANDO...' : 'SALVAR & APLICAR'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF059669),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(width: 10),
@@ -1293,7 +1523,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         height: canvasH,
                         scale: scale,
                         isSolar: true,
-                        primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
+                        primaryColor: Color(_hexToInt(
+                            _current.verticalSplitAccentColor,
+                            fallback: 0xFFEAB308)),
                         cards: _current.page2Cards,
                         selectedCardId: _selectedPage2CardId,
                         onSelectCard: (cId) {
@@ -1332,7 +1564,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 if (_activeCustomizerPageId.startsWith('custom_')) {
                   final customPage = _current.customPages.firstWhere(
                     (cp) => cp.id == _activeCustomizerPageId,
-                    orElse: () => ProposalCustomPage(id: _activeCustomizerPageId, title: 'Nova Página Personalizada'),
+                    orElse: () => ProposalCustomPage(
+                        id: _activeCustomizerPageId,
+                        title: 'Nova Página Personalizada'),
                   );
                   return Container(
                     width: canvasW,
@@ -1355,7 +1589,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         height: canvasH,
                         scale: scale,
                         page: customPage,
-                        primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
+                        primaryColor: Color(_hexToInt(
+                            _current.verticalSplitAccentColor,
+                            fallback: 0xFFEAB308)),
                         showHeader: _current.coverShowHeader,
                         headerStyle: _current.coverHeaderStyle,
                         headerText1: _current.coverHeaderText1,
@@ -1380,7 +1616,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
                 // Se a aba selecionada for Cabeçalho & Rodapé (index == 2) ou páginas 3, 4, 5
                 // exibe a prévia da folha interna (sem conteúdo da capa) para visualização clara
-                if (_tabController.index == 2 || _activeCustomizerPageId.startsWith('page_3') || _activeCustomizerPageId.startsWith('page_4') || _activeCustomizerPageId.startsWith('page_5')) {
+                if (_tabController.index == 2 ||
+                    _activeCustomizerPageId.startsWith('page_3') ||
+                    _activeCustomizerPageId.startsWith('page_4') ||
+                    _activeCustomizerPageId.startsWith('page_5')) {
                   final pNum = _activeCustomizerPageId.replaceAll('page_', '');
                   return Container(
                     width: canvasW,
@@ -1406,7 +1645,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         headerStyleId: _current.coverHeaderStyle,
                         headerText1: _current.coverHeaderText1,
                         headerText2: _current.coverHeaderText2,
-                        headerText3: _activeCustomizerPageId != 'page_1' ? 'Página $pNum de 5' : _current.coverHeaderText3,
+                        headerText3: _activeCustomizerPageId != 'page_1'
+                            ? 'Página $pNum de 5'
+                            : _current.coverHeaderText3,
                         headerBgColor: _current.coverHeaderBgColor,
                         headerTextColor: _current.coverHeaderTextColor,
                         headerIconColor: _current.coverHeaderIconColor,
@@ -1415,11 +1656,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         footerText1: _current.coverFooterText1,
                         footerText2: _current.coverFooterText2,
                         footerText3: _current.coverFooterText3,
-                        footerText4: _activeCustomizerPageId != 'page_1' ? 'Página $pNum de 5' : _current.coverFooterText4,
+                        footerText4: _activeCustomizerPageId != 'page_1'
+                            ? 'Página $pNum de 5'
+                            : _current.coverFooterText4,
                         footerBgColor: _current.coverFooterBgColor,
                         footerTextColor: _current.coverFooterTextColor,
                         footerIconColor: _current.coverFooterIconColor,
-                        accentColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
+                        accentColor: Color(_hexToInt(
+                            _current.verticalSplitAccentColor,
+                            fallback: 0xFFEAB308)),
                       ),
                     ),
                   );
@@ -1450,38 +1695,57 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           CorporateWaveCoverView(
                             width: canvasW,
                             height: canvasH,
-                            title: _current.coverTitle.isNotEmpty ? _current.coverTitle : 'PROPOSTA\nCOMERCIAL',
-                            subtitle: _current.coverSubtitle.isNotEmpty ? _current.coverSubtitle : 'ENERGIA SOLAR FOTOVOLTAICA',
+                            title: _current.coverTitle.isNotEmpty
+                                ? _current.coverTitle
+                                : 'PROPOSTA\nCOMERCIAL',
+                            subtitle: _current.coverSubtitle.isNotEmpty
+                                ? _current.coverSubtitle
+                                : 'ENERGIA SOLAR FOTOVOLTAICA',
                             clientName: 'João da Silva Santos',
                             locationAndDate: 'Brasil • 2026',
-                            companyName: (_current.companyName != null && _current.companyName!.isNotEmpty) ? _current.companyName! : 'SUA EMPRESA SOLAR',
-                            companyPhone: (_current.companyPhone != null && _current.companyPhone!.isNotEmpty) ? _current.companyPhone! : '(11) 98765-4321',
+                            companyName: (_current.companyName != null &&
+                                    _current.companyName!.isNotEmpty)
+                                ? _current.companyName!
+                                : 'SUA EMPRESA SOLAR',
+                            companyPhone: (_current.companyPhone != null &&
+                                    _current.companyPhone!.isNotEmpty)
+                                ? _current.companyPhone!
+                                : '(11) 98765-4321',
                             companyEmail: 'contato@empresa.com.br',
-                            companyWebsite: (_current.companyWebsite != null && _current.companyWebsite!.isNotEmpty) ? _current.companyWebsite! : 'www.empresa.com.br',
+                            companyWebsite: (_current.companyWebsite != null &&
+                                    _current.companyWebsite!.isNotEmpty)
+                                ? _current.companyWebsite!
+                                : 'www.empresa.com.br',
                             companyLogoBase64: _current.companyLogoBase64,
                             photoUrl: (() {
-                              final target = _current.selectedCoverTemplate.isNotEmpty
-                                  ? _current.selectedCoverTemplate
-                                  : 'modelo_proposta_1.jpg';
+                              final target =
+                                  _current.selectedCoverTemplate.isNotEmpty
+                                      ? _current.selectedCoverTemplate
+                                      : 'modelo_proposta_1.jpg';
                               return (target.startsWith('modelo_') ||
                                       target.contains('energiasolar'))
                                   ? SolarSettingsService.getBigCoverUrl(target)
-                                  : SolarSettingsService.getWebBackgroundUrl(target);
+                                  : SolarSettingsService.getWebBackgroundUrl(
+                                      target);
                             })(),
                             customPhotoBase64: _current.customCoverImageBase64,
-                            primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFF0284C7)),
+                            primaryColor: Color(_hexToInt(
+                                _current.verticalSplitAccentColor,
+                                fallback: 0xFF0284C7)),
                             showLogo: _current.coverShowLogo,
                             logoWidth: _current.coverLogoWidth,
                             logoPositionX: _current.coverLogoPositionX,
                             logoPositionY: _current.coverLogoPositionY,
                             titleColor: Color(_current.coverTitleColorValue),
                             titleFontSize: _current.coverTitleFontSize,
-                            subtitleColor: Color(_current.coverSubtitleColorValue),
+                            subtitleColor:
+                                Color(_current.coverSubtitleColorValue),
                             subtitleFontSize: _current.coverSubtitleFontSize,
                             showHeadline: _current.verticalSplitShowHeadline,
                             headline: _current.verticalSplitHeadline,
                             subheadline: _current.verticalSplitSubheadline,
-                            headlineColor: Color(_current.coverHeadlineColorValue),
+                            headlineColor:
+                                Color(_current.coverHeadlineColorValue),
                             headlineLeft: _current.verticalSplitHeadlineLeft,
                             headlineTop: _current.verticalSplitHeadlineTop,
                             showBadges: _current.verticalSplitShowLeftFooter,
@@ -1489,7 +1753,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                 .map((b) => b.label)
                                 .toList(),
                             badgesLeft: _current.verticalSplitLeftFooterLeft,
-                            badgesBottom: _current.verticalSplitLeftFooterBottom,
+                            badgesBottom:
+                                _current.verticalSplitLeftFooterBottom,
                           ),
                           if (_current.coverShowLogo)
                             _buildDraggableHandle(
@@ -1497,13 +1762,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                               label: '🏢 Logomarca',
                               left: _current.coverLogoPositionX * canvasW,
                               top: _current.coverLogoPositionY * canvasH,
-                              width: (_current.coverLogoWidth * scale).clamp(60.0, canvasW * 0.55),
+                              width: (_current.coverLogoWidth * scale)
+                                  .clamp(60.0, canvasW * 0.55),
                               height: 54 * scale,
-                              onDelete: () => setState(() => _current = _current.copyWith(coverShowLogo: false)),
+                              onDelete: () => setState(() => _current =
+                                  _current.copyWith(coverShowLogo: false)),
                               onDrag: (dx, dy) {
                                 setState(() {
-                                  final newX = ((_current.coverLogoPositionX * canvasW) + dx) / canvasW;
-                                  final newY = ((_current.coverLogoPositionY * canvasH) + dy) / canvasH;
+                                  final newX =
+                                      ((_current.coverLogoPositionX * canvasW) +
+                                              dx) /
+                                          canvasW;
+                                  final newY =
+                                      ((_current.coverLogoPositionY * canvasH) +
+                                              dy) /
+                                          canvasH;
                                   _current = _current.copyWith(
                                     coverLogoPositionX: newX.clamp(0.0, 0.90),
                                     coverLogoPositionY: newY.clamp(0.0, 0.90),
@@ -1515,18 +1788,30 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             _buildDraggableHandle(
                               elementKey: 'headline',
                               label: '📌 Título da Foto',
-                              left: _current.verticalSplitHeadlineLeft * canvasW,
+                              left:
+                                  _current.verticalSplitHeadlineLeft * canvasW,
                               top: _current.verticalSplitHeadlineTop * canvasH,
                               width: canvasW * 0.48,
                               height: 96 * scale,
-                              onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowHeadline: false)),
+                              onDelete: () => setState(() => _current = _current
+                                  .copyWith(verticalSplitShowHeadline: false)),
                               onDrag: (dx, dy) {
                                 setState(() {
-                                  final newLeft = ((_current.verticalSplitHeadlineLeft * canvasW) + dx) / canvasW;
-                                  final newTop = ((_current.verticalSplitHeadlineTop * canvasH) + dy) / canvasH;
+                                  final newLeft =
+                                      ((_current.verticalSplitHeadlineLeft *
+                                                  canvasW) +
+                                              dx) /
+                                          canvasW;
+                                  final newTop =
+                                      ((_current.verticalSplitHeadlineTop *
+                                                  canvasH) +
+                                              dy) /
+                                          canvasH;
                                   _current = _current.copyWith(
-                                    verticalSplitHeadlineLeft: newLeft.clamp(-0.50, 1.50),
-                                    verticalSplitHeadlineTop: newTop.clamp(-0.50, 1.50),
+                                    verticalSplitHeadlineLeft:
+                                        newLeft.clamp(-0.50, 1.50),
+                                    verticalSplitHeadlineTop:
+                                        newTop.clamp(-0.50, 1.50),
                                   );
                                 });
                               },
@@ -1536,23 +1821,41 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             _buildDraggableHandle(
                               elementKey: 'leftFooter',
                               label: '🏷️ Badges / Selos',
-                              left: _current.verticalSplitLeftFooterLeft * canvasW,
-                              top: (canvasH - (_current.verticalSplitLeftFooterBottom * canvasH) - (54 * scale)).clamp(0.0, canvasH - 54 * scale),
+                              left: _current.verticalSplitLeftFooterLeft *
+                                  canvasW,
+                              top: (canvasH -
+                                      (_current.verticalSplitLeftFooterBottom *
+                                          canvasH) -
+                                      (54 * scale))
+                                  .clamp(0.0, canvasH - 54 * scale),
                               width: canvasW * 0.56,
                               height: 54 * scale,
-                              onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowLeftFooter: false)),
+                              onDelete: () => setState(() => _current =
+                                  _current.copyWith(
+                                      verticalSplitShowLeftFooter: false)),
                               onDrag: (dx, dy) {
                                 setState(() {
-                                  final newLeft = ((_current.verticalSplitLeftFooterLeft * canvasW) + dx) / canvasW;
-                                  final newBottom = ((_current.verticalSplitLeftFooterBottom * canvasH) - dy) / canvasH;
+                                  final newLeft =
+                                      ((_current.verticalSplitLeftFooterLeft *
+                                                  canvasW) +
+                                              dx) /
+                                          canvasW;
+                                  final newBottom =
+                                      ((_current.verticalSplitLeftFooterBottom *
+                                                  canvasH) -
+                                              dy) /
+                                          canvasH;
                                   _current = _current.copyWith(
-                                    verticalSplitLeftFooterLeft: newLeft.clamp(0.0, 0.90),
-                                    verticalSplitLeftFooterBottom: newBottom.clamp(0.0, 0.92),
+                                    verticalSplitLeftFooterLeft:
+                                        newLeft.clamp(0.0, 0.90),
+                                    verticalSplitLeftFooterBottom:
+                                        newBottom.clamp(0.0, 0.92),
                                   );
                                 });
                               },
                             ),
-                        ] else if (_current.proposalStyle == 'verticalSplit') ...[
+                        ] else if (_current.proposalStyle ==
+                            'verticalSplit') ...[
                           // Capa Vertical Split Renderizada em tempo real
                           SolarVerticalSplitCoverView(
                             settings: _current,
@@ -1575,449 +1878,611 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           ),
 
                           // Bloco 1: Headline Esquerda
-                        if (_current.verticalSplitShowHeadline)
-                          _buildDraggableHandle(
-                            elementKey: 'headline',
-                            label: '📌 Título da Foto',
-                            left: _current.verticalSplitHeadlineLeft * canvasW,
-                            top: _current.verticalSplitHeadlineTop * canvasH,
-                            width: canvasW * 0.44,
-                            height: 110 * scale,
-                            onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowHeadline: false)),
-                            onDrag: (dx, dy) {
-                              setState(() {
-                                final newLeft = ((_current.verticalSplitHeadlineLeft * canvasW) + dx) / canvasW;
-                                final newTop = ((_current.verticalSplitHeadlineTop * canvasH) + dy) / canvasH;
-                                _current = _current.copyWith(
-                                  verticalSplitHeadlineLeft: newLeft.clamp(-1.50, 2.50),
-                                  verticalSplitHeadlineTop: newTop.clamp(-1.50, 2.50),
+                          if (_current.verticalSplitShowHeadline)
+                            _buildDraggableHandle(
+                              elementKey: 'headline',
+                              label: '📌 Título da Foto',
+                              left:
+                                  _current.verticalSplitHeadlineLeft * canvasW,
+                              top: _current.verticalSplitHeadlineTop * canvasH,
+                              width: canvasW * 0.44,
+                              height: 110 * scale,
+                              onDelete: () => setState(() => _current = _current
+                                  .copyWith(verticalSplitShowHeadline: false)),
+                              onDrag: (dx, dy) {
+                                setState(() {
+                                  final newLeft =
+                                      ((_current.verticalSplitHeadlineLeft *
+                                                  canvasW) +
+                                              dx) /
+                                          canvasW;
+                                  final newTop =
+                                      ((_current.verticalSplitHeadlineTop *
+                                                  canvasH) +
+                                              dy) /
+                                          canvasH;
+                                  _current = _current.copyWith(
+                                    verticalSplitHeadlineLeft:
+                                        newLeft.clamp(-1.50, 2.50),
+                                    verticalSplitHeadlineTop:
+                                        newTop.clamp(-1.50, 2.50),
+                                  );
+                                });
+                              },
+                            ),
+
+                          // Bloco 2: Rodapé Esquerdo
+                          if (_current.verticalSplitShowLeftFooter)
+                            Builder(
+                              builder: (context) {
+                                final footerW = _current
+                                        .verticalSplitLeftFooterWidth
+                                        .clamp(0.20, 0.95) *
+                                    canvasW;
+                                final double footerH;
+                                if (_current.verticalSplitDividerType == 2) {
+                                  footerH = 32.0 * scale;
+                                } else if (_current.verticalSplitBadgesLayout ==
+                                    'vertical') {
+                                  footerH = (math.max(
+                                                  1,
+                                                  _current
+                                                      .verticalSplitFooterBadges
+                                                      .length) *
+                                              24.0 +
+                                          12.0) *
+                                      scale;
+                                } else if (_current.verticalSplitBadgesLayout ==
+                                    'wrap') {
+                                  footerH = 54.0 * scale;
+                                } else {
+                                  footerH = 38.0 * scale;
+                                }
+
+                                return _buildDraggableHandle(
+                                  elementKey: 'leftFooter',
+                                  label: '📌 Rodapé Foto / Badges',
+                                  left: _current.verticalSplitLeftFooterLeft *
+                                      canvasW,
+                                  top: canvasH -
+                                      (_current.verticalSplitLeftFooterBottom *
+                                          canvasH) -
+                                      footerH,
+                                  width: footerW,
+                                  height: footerH,
+                                  onDelete: () => setState(() => _current =
+                                      _current.copyWith(
+                                          verticalSplitShowLeftFooter: false)),
+                                  onResizeWidth: (dw) {
+                                    setState(() {
+                                      final newW =
+                                          ((_current.verticalSplitLeftFooterWidth *
+                                                      canvasW) +
+                                                  dw) /
+                                              canvasW;
+                                      _current = _current.copyWith(
+                                        verticalSplitLeftFooterWidth:
+                                            newW.clamp(0.20, 0.95),
+                                      );
+                                    });
+                                  },
+                                  onDrag: (dx, dy) {
+                                    setState(() {
+                                      final newLeft =
+                                          ((_current.verticalSplitLeftFooterLeft *
+                                                      canvasW) +
+                                                  dx) /
+                                              canvasW;
+                                      final currentBottomPx = _current
+                                              .verticalSplitLeftFooterBottom *
+                                          canvasH;
+                                      final newBottom =
+                                          (currentBottomPx - dy) / canvasH;
+                                      _current = _current.copyWith(
+                                        verticalSplitLeftFooterLeft:
+                                            newLeft.clamp(-1.50, 2.50),
+                                        verticalSplitLeftFooterBottom:
+                                            newBottom.clamp(-1.50, 2.50),
+                                      );
+                                    });
+                                  },
                                 );
-                              });
-                            },
-                          ),
+                              },
+                            ),
 
-                        // Bloco 2: Rodapé Esquerdo
-                        if (_current.verticalSplitShowLeftFooter)
-                          Builder(
-                            builder: (context) {
-                              final footerW = _current.verticalSplitLeftFooterWidth.clamp(0.20, 0.95) * canvasW;
-                              final double footerH;
-                              if (_current.verticalSplitDividerType == 2) {
-                                footerH = 32.0 * scale;
-                              } else if (_current.verticalSplitBadgesLayout == 'vertical') {
-                                footerH = (math.max(1, _current.verticalSplitFooterBadges.length) * 24.0 + 12.0) * scale;
-                              } else if (_current.verticalSplitBadgesLayout == 'wrap') {
-                                footerH = 54.0 * scale;
-                              } else {
-                                footerH = 38.0 * scale;
-                              }
+                          // Bloco 3: Proposta Solar (Direita)
+                          if (_current.verticalSplitShowRightBlock)
+                            _buildDraggableHandle(
+                              elementKey: 'rightBlock',
+                              label: '📌 Proposta Solar',
+                              left: canvasW -
+                                  (_current.verticalSplitRightBlockRight *
+                                      canvasW) -
+                                  (canvasW * 0.42),
+                              top:
+                                  _current.verticalSplitRightBlockTop * canvasH,
+                              width: canvasW * 0.42,
+                              height: 160 * scale,
+                              onDelete: () => setState(() => _current =
+                                  _current.copyWith(
+                                      verticalSplitShowRightBlock: false)),
+                              onDrag: (dx, dy) {
+                                setState(() {
+                                  final currentRightPx =
+                                      _current.verticalSplitRightBlockRight *
+                                          canvasW;
+                                  final newRight =
+                                      (currentRightPx - dx) / canvasW;
+                                  final newTop =
+                                      ((_current.verticalSplitRightBlockTop *
+                                                  canvasH) +
+                                              dy) /
+                                          canvasH;
+                                  _current = _current.copyWith(
+                                    verticalSplitRightBlockRight:
+                                        newRight.clamp(-1.50, 2.50),
+                                    verticalSplitRightBlockTop:
+                                        newTop.clamp(-1.50, 2.50),
+                                  );
+                                });
+                              },
+                            ),
 
-                              return _buildDraggableHandle(
-                                elementKey: 'leftFooter',
-                                label: '📌 Rodapé Foto / Badges',
-                                left: _current.verticalSplitLeftFooterLeft * canvasW,
-                                top: canvasH - (_current.verticalSplitLeftFooterBottom * canvasH) - footerH,
-                                width: footerW,
-                                height: footerH,
-                                onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowLeftFooter: false)),
-                                onResizeWidth: (dw) {
-                                  setState(() {
-                                    final newW = ((_current.verticalSplitLeftFooterWidth * canvasW) + dw) / canvasW;
-                                    _current = _current.copyWith(
-                                      verticalSplitLeftFooterWidth: newW.clamp(0.20, 0.95),
-                                    );
-                                  });
-                                },
-                                onDrag: (dx, dy) {
-                                  setState(() {
-                                    final newLeft = ((_current.verticalSplitLeftFooterLeft * canvasW) + dx) / canvasW;
-                                    final currentBottomPx = _current.verticalSplitLeftFooterBottom * canvasH;
-                                    final newBottom = (currentBottomPx - dy) / canvasH;
-                                    _current = _current.copyWith(
-                                      verticalSplitLeftFooterLeft: newLeft.clamp(-1.50, 2.50),
-                                      verticalSplitLeftFooterBottom: newBottom.clamp(-1.50, 2.50),
-                                    );
-                                  });
-                                },
-                              );
-                            },
-                          ),
-
-                        // Bloco 3: Proposta Solar (Direita)
-                        if (_current.verticalSplitShowRightBlock)
-                          _buildDraggableHandle(
-                            elementKey: 'rightBlock',
-                            label: '📌 Proposta Solar',
-                            left: canvasW - (_current.verticalSplitRightBlockRight * canvasW) - (canvasW * 0.42),
-                            top: _current.verticalSplitRightBlockTop * canvasH,
-                            width: canvasW * 0.42,
-                            height: 160 * scale,
-                            onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowRightBlock: false)),
-                            onDrag: (dx, dy) {
-                              setState(() {
-                                final currentRightPx = _current.verticalSplitRightBlockRight * canvasW;
-                                final newRight = (currentRightPx - dx) / canvasW;
-                                final newTop = ((_current.verticalSplitRightBlockTop * canvasH) + dy) / canvasH;
-                                _current = _current.copyWith(
-                                  verticalSplitRightBlockRight: newRight.clamp(-1.50, 2.50),
-                                  verticalSplitRightBlockTop: newTop.clamp(-1.50, 2.50),
+                          // Bloco 4: Rodapé Direito
+                          if (_current.verticalSplitShowRightFooter)
+                            _buildDraggableHandle(
+                              elementKey: 'rightFooter',
+                              label: '📌 Rodapé Institucional',
+                              left: canvasW -
+                                  (_current.verticalSplitRightFooterRight *
+                                      canvasW) -
+                                  (canvasW * 0.40),
+                              top: canvasH -
+                                  (_current.verticalSplitRightFooterBottom *
+                                      canvasH) -
+                                  (45 * scale),
+                              width: canvasW * 0.40,
+                              height: 45 * scale,
+                              onDelete: () => setState(() => _current =
+                                  _current.copyWith(
+                                      verticalSplitShowRightFooter: false)),
+                              onDrag: (dx, dy) {
+                                setState(() {
+                                  final currentRightPx =
+                                      _current.verticalSplitRightFooterRight *
+                                          canvasW;
+                                  final newRight =
+                                      (currentRightPx - dx) / canvasW;
+                                  final currentBottomPx =
+                                      _current.verticalSplitRightFooterBottom *
+                                          canvasH;
+                                  final newBottom =
+                                      (currentBottomPx - dy) / canvasH;
+                                  _current = _current.copyWith(
+                                    verticalSplitRightFooterRight:
+                                        newRight.clamp(-1.50, 2.50),
+                                    verticalSplitRightFooterBottom:
+                                        newBottom.clamp(-1.50, 2.50),
+                                  );
+                                });
+                              },
+                            ),
+                        ] else ...[
+                          // ── Capa Modern Renderizada em tempo real ──
+                          // 1. Imagem de Fundo (mantém a foto escolhida na galeria ou upload)
+                          if (_current.customCoverImageBase64 != null &&
+                              _current.customCoverImageBase64!.isNotEmpty)
+                            Builder(
+                              builder: (context) {
+                                final bytes = _getCoverBytes(
+                                    _current.customCoverImageBase64);
+                                if (bytes == null)
+                                  return Container(
+                                      color: const Color(0xFF0F172A));
+                                return Image.memory(
+                                  bytes,
+                                  fit: BoxFit.cover,
+                                  width: canvasW,
+                                  height: canvasH,
                                 );
-                              });
-                            },
-                          ),
+                              },
+                            )
+                          else
+                            Image.network(
+                              (() {
+                                final useCleanBg = _current.isCustomCoverMode ||
+                                    _current.customDividerStyle >= 0;
+                                if (useCleanBg) {
+                                  final bg = _current.webBackgroundTemplate;
+                                  final cleanBg = (bg.isNotEmpty &&
+                                          !bg.startsWith('modelo_') &&
+                                          !bg.contains('energiasolar'))
+                                      ? bg
+                                      : SolarSettingsModel
+                                          .availableWebBackgrounds.first;
+                                  return SolarSettingsService
+                                      .getWebBackgroundUrl(cleanBg);
+                                }
+                                final target = _current
+                                        .selectedCoverTemplate.isNotEmpty
+                                    ? _current.selectedCoverTemplate
+                                    : (_current.webBackgroundTemplate.isNotEmpty
+                                        ? _current.webBackgroundTemplate
+                                        : 'modelo_proposta_1.jpg');
+                                return SolarSettingsService.getBigCoverUrl(
+                                    target);
+                              })(),
+                              fit: BoxFit.cover,
+                              width: canvasW,
+                              height: canvasH,
+                              errorBuilder: (_, __, ___) =>
+                                  Container(color: const Color(0xFF0F172A)),
+                            ),
 
-                        // Bloco 4: Rodapé Direito
-                        if (_current.verticalSplitShowRightFooter)
-                          _buildDraggableHandle(
-                            elementKey: 'rightFooter',
-                            label: '📌 Rodapé Institucional',
-                            left: canvasW - (_current.verticalSplitRightFooterRight * canvasW) - (canvasW * 0.40),
-                            top: canvasH - (_current.verticalSplitRightFooterBottom * canvasH) - (45 * scale),
-                            width: canvasW * 0.40,
-                            height: 45 * scale,
-                            onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowRightFooter: false)),
-                            onDrag: (dx, dy) {
-                              setState(() {
-                                final currentRightPx = _current.verticalSplitRightFooterRight * canvasW;
-                                final newRight = (currentRightPx - dx) / canvasW;
-                                final currentBottomPx = _current.verticalSplitRightFooterBottom * canvasH;
-                                final newBottom = (currentBottomPx - dy) / canvasH;
-                                _current = _current.copyWith(
-                                  verticalSplitRightFooterRight: newRight.clamp(-1.50, 2.50),
-                                  verticalSplitRightFooterBottom: newBottom.clamp(-1.50, 2.50),
-                                );
-                              });
-                            },
-                          ),
-                      ] else ...[
-                        // ── Capa Modern Renderizada em tempo real ──
-                        // 1. Imagem de Fundo (mantém a foto escolhida na galeria ou upload)
-                        if (_current.customCoverImageBase64 != null &&
-                            _current.customCoverImageBase64!.isNotEmpty)
-                          Builder(
-                            builder: (context) {
-                              final bytes = _getCoverBytes(_current.customCoverImageBase64);
-                              if (bytes == null) return Container(color: const Color(0xFF0F172A));
-                              return Image.memory(
-                                bytes,
-                                fit: BoxFit.cover,
-                                width: canvasW,
-                                height: canvasH,
-                              );
-                            },
-                          )
-                        else
-                          Image.network(
-                            (() {
-                              final useCleanBg = _current.isCustomCoverMode ||
-                                  _current.customDividerStyle >= 0;
-                              if (useCleanBg) {
-                                final bg = _current.webBackgroundTemplate;
-                                final cleanBg = (bg.isNotEmpty &&
-                                        !bg.startsWith('modelo_') &&
-                                        !bg.contains('energiasolar'))
-                                    ? bg
-                                    : SolarSettingsModel.availableWebBackgrounds.first;
-                                return SolarSettingsService.getWebBackgroundUrl(cleanBg);
-                              }
-                              final target = _current.selectedCoverTemplate.isNotEmpty
-                                  ? _current.selectedCoverTemplate
-                                  : (_current.webBackgroundTemplate.isNotEmpty
-                                      ? _current.webBackgroundTemplate
-                                      : 'modelo_proposta_1.jpg');
-                              return SolarSettingsService.getBigCoverUrl(target);
-                            })(),
-                            fit: BoxFit.cover,
-                            width: canvasW,
-                            height: canvasH,
-                            errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0F172A)),
-                          ),
+                          // 2. Separador Vetorial / Decalque da Foto (SOMENTE se houver divisor selecionado)
+                          if (_current.customDividerStyle >= 0)
+                            CustomPaint(
+                              size: Size(canvasW, canvasH),
+                              painter: SolarCoverDividerPainter(
+                                dividerType: _current.customDividerStyle,
+                                primaryColor: Color(
+                                    _hexToInt(_current.customDividerColor)),
+                                bottomAreaColor: Color(_hexToInt(
+                                    _current.customDividerBottomColor)),
+                                splitYRatio: 0.70,
+                              ),
+                            ),
 
-                        // 2. Separador Vetorial / Decalque da Foto (SOMENTE se houver divisor selecionado)
-                        if (_current.customDividerStyle >= 0)
-                          CustomPaint(
-                            size: Size(canvasW, canvasH),
-                            painter: SolarCoverDividerPainter(
-                              dividerType: _current.customDividerStyle,
-                              primaryColor: Color(_hexToInt(_current.customDividerColor)),
-                              bottomAreaColor: Color(_hexToInt(_current.customDividerBottomColor)),
-                              splitYRatio: 0.70,
+                          // Desselecionar ao clicar na foto da capa
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                if (_selectedElementKey != null) {
+                                  setState(() => _selectedElementKey = null);
+                                }
+                              },
                             ),
                           ),
 
-                        // Desselecionar ao clicar na foto da capa
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              if (_selectedElementKey != null) {
-                                setState(() => _selectedElementKey = null);
-                              }
-                            },
-                          ),
-                        ),
-
-                        // ── ELEMENTOS CUSTOMIZÁVEIS E ARRASTÁVEIS DO ESTILO MODERN ──
-                        // 3. Frase de Impacto / Headline na Área da Foto (como no Split)
-                        if (_current.verticalSplitShowHeadline && _current.verticalSplitHeadline.trim().isNotEmpty) ...[
-                          Positioned(
-                            top: _current.verticalSplitHeadlineTop * canvasH,
-                            left: _current.verticalSplitHeadlineLeft * canvasW,
-                            child: IgnorePointer(
-                              child: SizedBox(
-                                width: canvasW * 0.70,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _current.verticalSplitHeadline.trim(),
-                                      style: getCoverTextStyle(
-                                        fontFamily: _current.coverHeadlineFont,
-                                        fontSize: 20.0 * scale,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(_current.coverHeadlineColorValue),
-                                        height: 1.15,
-                                        letterSpacing: 0.8,
-                                        shadows: const [
-                                          Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2)),
-                                        ],
-                                      ),
-                                    ),
-                                    if (_current.verticalSplitShowHeadlineDivider) ...[
-                                      SizedBox(height: 6 * scale),
-                                      Container(
-                                        width: (_current.verticalSplitHeadlineDividerWidth * 0.9 * scale).clamp(10.0, 300.0),
-                                        height: (_current.verticalSplitHeadlineDividerHeight * 0.9 * scale).clamp(1.0, 20.0),
-                                        decoration: BoxDecoration(
-                                          color: Color(_current.verticalSplitHeadlineDividerColorValue),
-                                          borderRadius: BorderRadius.circular(2),
-                                        ),
-                                      ),
-                                    ],
-                                    if (_current.verticalSplitSubheadline.trim().isNotEmpty) ...[
-                                      SizedBox(height: 8 * scale),
+                          // ── ELEMENTOS CUSTOMIZÁVEIS E ARRASTÁVEIS DO ESTILO MODERN ──
+                          // 3. Frase de Impacto / Headline na Área da Foto (como no Split)
+                          if (_current.verticalSplitShowHeadline &&
+                              _current.verticalSplitHeadline
+                                  .trim()
+                                  .isNotEmpty) ...[
+                            Positioned(
+                              top: _current.verticalSplitHeadlineTop * canvasH,
+                              left:
+                                  _current.verticalSplitHeadlineLeft * canvasW,
+                              child: IgnorePointer(
+                                child: SizedBox(
+                                  width: canvasW * 0.70,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
                                       Text(
-                                        _current.verticalSplitSubheadline.trim(),
+                                        _current.verticalSplitHeadline.trim(),
                                         style: getCoverTextStyle(
-                                          fontFamily: _current.coverHeadlineFont,
-                                          fontSize: 10.0 * scale,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(_current.coverHeadlineColorValue).withValues(alpha: 0.95),
-                                          height: 1.35,
-                                          letterSpacing: 0.6,
+                                          fontFamily:
+                                              _current.coverHeadlineFont,
+                                          fontSize: 20.0 * scale,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(
+                                              _current.coverHeadlineColorValue),
+                                          height: 1.15,
+                                          letterSpacing: 0.8,
                                           shadows: const [
-                                            Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1)),
+                                            Shadow(
+                                                color: Colors.black87,
+                                                blurRadius: 8,
+                                                offset: Offset(0, 2)),
                                           ],
                                         ),
                                       ),
+                                      if (_current
+                                          .verticalSplitShowHeadlineDivider) ...[
+                                        SizedBox(height: 6 * scale),
+                                        Container(
+                                          width: (_current
+                                                      .verticalSplitHeadlineDividerWidth *
+                                                  0.9 *
+                                                  scale)
+                                              .clamp(10.0, 300.0),
+                                          height: (_current
+                                                      .verticalSplitHeadlineDividerHeight *
+                                                  0.9 *
+                                                  scale)
+                                              .clamp(1.0, 20.0),
+                                          decoration: BoxDecoration(
+                                            color: Color(_current
+                                                .verticalSplitHeadlineDividerColorValue),
+                                            borderRadius:
+                                                BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                      ],
+                                      if (_current.verticalSplitSubheadline
+                                          .trim()
+                                          .isNotEmpty) ...[
+                                        SizedBox(height: 8 * scale),
+                                        Text(
+                                          _current.verticalSplitSubheadline
+                                              .trim(),
+                                          style: getCoverTextStyle(
+                                            fontFamily:
+                                                _current.coverHeadlineFont,
+                                            fontSize: 10.0 * scale,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(_current
+                                                    .coverHeadlineColorValue)
+                                                .withValues(alpha: 0.95),
+                                            height: 1.35,
+                                            letterSpacing: 0.6,
+                                            shadows: const [
+                                              Shadow(
+                                                  color: Colors.black87,
+                                                  blurRadius: 6,
+                                                  offset: Offset(0, 1)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                            _buildDraggableHandle(
+                              elementKey: 'headline',
+                              label: '📌 Título da Foto',
+                              left:
+                                  _current.verticalSplitHeadlineLeft * canvasW,
+                              top: _current.verticalSplitHeadlineTop * canvasH,
+                              width: canvasW * 0.70,
+                              height: 110 * scale,
+                              onDelete: () => setState(() => _current = _current
+                                  .copyWith(verticalSplitShowHeadline: false)),
+                              onDrag: (dx, dy) {
+                                setState(() {
+                                  final newLeft =
+                                      ((_current.verticalSplitHeadlineLeft *
+                                                  canvasW) +
+                                              dx) /
+                                          canvasW;
+                                  final newTop =
+                                      ((_current.verticalSplitHeadlineTop *
+                                                  canvasH) +
+                                              dy) /
+                                          canvasH;
+                                  _current = _current.copyWith(
+                                    verticalSplitHeadlineLeft:
+                                        newLeft.clamp(-1.50, 2.50),
+                                    verticalSplitHeadlineTop:
+                                        newTop.clamp(-1.50, 2.50),
+                                  );
+                                });
+                              },
+                            ),
+                          ],
+
+                          // 4. Badges Informativos sobre a foto
+                          ..._buildModernBadges(canvasW, canvasH, scale),
+
+                          // 5. Bloco Institucional Limpo na Área Branca Inferior (Igual ao Split)
+                          ..._buildModernRightBlock(canvasW, canvasH, scale),
+
+                          // 6. Rodapé Informativo na Área Branca Preservada da Capa Modern
+                          ..._buildModernRightFooter(canvasW, canvasH, scale),
+
+                          // 7. Dados do Cliente, CPF/CNPJ e Geração (Arrastável, Redimensionável e Cores Editáveis)
+                          ..._buildModernClientInfo(canvasW, canvasH, scale),
+                        ],
+
+                        // ── 2. LOGOMARCA (COMUM AOS DOIS ESTILOS) ──
+                        if (_current.coverShowLogo &&
+                            _current.companyLogoBase64 != null &&
+                            _current.companyLogoBase64!.isNotEmpty) ...[
+                          if (_current.proposalStyle != 'verticalSplit')
+                            Positioned(
+                              left: (_current.coverLogoPositionX * canvasW)
+                                  .clamp(
+                                      0.0,
+                                      canvasW -
+                                          (_current.coverLogoWidth * scale)),
+                              top: (_current.coverLogoPositionY * canvasH)
+                                  .clamp(0.0, canvasH * 0.85),
+                              child: IgnorePointer(
+                                child: Container(
+                                  width: (_current.coverLogoWidth * scale)
+                                      .clamp(40.0, 250.0),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: const Color(0xFF38BDF8)
+                                          .withValues(alpha: 0.8),
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 6,
+                                          offset: Offset(0, 2)),
+                                    ],
+                                  ),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final bytes = _getLogoBytes(
+                                          _current.companyLogoBase64);
+                                      if (bytes == null)
+                                        return const SizedBox();
+                                      return Image.memory(
+                                        bytes,
+                                        width: (_current.coverLogoWidth * scale)
+                                            .clamp(40.0, 250.0),
+                                        fit: BoxFit.contain,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
                           _buildDraggableHandle(
-                            elementKey: 'headline',
-                            label: '📌 Título da Foto',
-                            left: _current.verticalSplitHeadlineLeft * canvasW,
-                            top: _current.verticalSplitHeadlineTop * canvasH,
-                            width: canvasW * 0.70,
-                            height: 110 * scale,
-                            onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowHeadline: false)),
+                            elementKey: 'logo',
+                            label: '📌 Logomarca',
+                            left: _current.coverLogoPositionX * canvasW,
+                            top: _current.coverLogoPositionY * canvasH,
+                            width: (_current.coverLogoWidth * scale)
+                                .clamp(40.0, 250.0),
+                            height: 50 * scale,
+                            onDelete: () => setState(() => _current =
+                                _current.copyWith(coverShowLogo: false)),
                             onDrag: (dx, dy) {
                               setState(() {
-                                final newLeft = ((_current.verticalSplitHeadlineLeft * canvasW) + dx) / canvasW;
-                                final newTop = ((_current.verticalSplitHeadlineTop * canvasH) + dy) / canvasH;
+                                final newLeft =
+                                    ((_current.coverLogoPositionX * canvasW) +
+                                            dx) /
+                                        canvasW;
+                                final newTop =
+                                    ((_current.coverLogoPositionY * canvasH) +
+                                            dy) /
+                                        canvasH;
                                 _current = _current.copyWith(
-                                  verticalSplitHeadlineLeft: newLeft.clamp(-1.50, 2.50),
-                                  verticalSplitHeadlineTop: newTop.clamp(-1.50, 2.50),
+                                  coverLogoPositionX:
+                                      newLeft.clamp(-1.50, 2.50),
+                                  coverLogoPositionY: newTop.clamp(-1.50, 2.50),
                                 );
                               });
                             },
                           ),
                         ],
 
-                        // 4. Badges Informativos sobre a foto
-                        ..._buildModernBadges(canvasW, canvasH, scale),
-
-                        // 5. Bloco Institucional Limpo na Área Branca Inferior (Igual ao Split)
-                        ..._buildModernRightBlock(canvasW, canvasH, scale),
-
-                        // 6. Rodapé Informativo na Área Branca Preservada da Capa Modern
-                        ..._buildModernRightFooter(canvasW, canvasH, scale),
-
-                        // 7. Dados do Cliente, CPF/CNPJ e Geração (Arrastável, Redimensionável e Cores Editáveis)
-                        ..._buildModernClientInfo(canvasW, canvasH, scale),
-                      ],
-
-                      // ── 2. LOGOMARCA (COMUM AOS DOIS ESTILOS) ──
-                      if (_current.coverShowLogo &&
-                          _current.companyLogoBase64 != null &&
-                          _current.companyLogoBase64!.isNotEmpty) ...[
+                        // ── 3. TEXTOS PERSONALIZADOS EXTRAS (COMUM AOS DOIS ESTILOS) ──
                         if (_current.proposalStyle != 'verticalSplit')
-                          Positioned(
-                            left: (_current.coverLogoPositionX * canvasW)
-                                .clamp(0.0, canvasW - (_current.coverLogoWidth * scale)),
-                            top: (_current.coverLogoPositionY * canvasH)
-                                .clamp(0.0, canvasH * 0.85),
-                            child: IgnorePointer(
-                              child: Container(
-                                width: (_current.coverLogoWidth * scale).clamp(40.0, 250.0),
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.22),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: const Color(0xFF38BDF8).withValues(alpha: 0.8),
-                                    width: 1.5,
+                          for (final textItem in _current.customTextItems)
+                            Positioned(
+                              left: textItem.x * canvasW,
+                              top: textItem.y * canvasH,
+                              child: IgnorePointer(
+                                child: Text(
+                                  textItem.text,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: textItem.fontSize * scale,
+                                    fontWeight: textItem.isBold
+                                        ? FontWeight.w800
+                                        : FontWeight.w500,
+                                    color: Color(textItem.colorValue),
+                                    letterSpacing: 0.5,
                                   ),
-                                  boxShadow: const [
-                                    BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
-                                  ],
-                                ),
-                                child: Builder(
-                                  builder: (context) {
-                                    final bytes = _getLogoBytes(_current.companyLogoBase64);
-                                    if (bytes == null) return const SizedBox();
-                                    return Image.memory(
-                                      bytes,
-                                      width: (_current.coverLogoWidth * scale).clamp(40.0, 250.0),
-                                      fit: BoxFit.contain,
-                                    );
-                                  },
                                 ),
                               ),
                             ),
-                          ),
-                        _buildDraggableHandle(
-                          elementKey: 'logo',
-                          label: '📌 Logomarca',
-                          left: _current.coverLogoPositionX * canvasW,
-                          top: _current.coverLogoPositionY * canvasH,
-                          width: (_current.coverLogoWidth * scale).clamp(40.0, 250.0),
-                          height: 50 * scale,
-                          onDelete: () => setState(() => _current = _current.copyWith(coverShowLogo: false)),
-                          onDrag: (dx, dy) {
-                            setState(() {
-                              final newLeft = ((_current.coverLogoPositionX * canvasW) + dx) / canvasW;
-                              final newTop = ((_current.coverLogoPositionY * canvasH) + dy) / canvasH;
-                              _current = _current.copyWith(
-                                coverLogoPositionX: newLeft.clamp(-1.50, 2.50),
-                                coverLogoPositionY: newTop.clamp(-1.50, 2.50),
-                              );
-                            });
-                          },
-                        ),
-                      ],
-
-                      // ── 3. TEXTOS PERSONALIZADOS EXTRAS (COMUM AOS DOIS ESTILOS) ──
-                      if (_current.proposalStyle != 'verticalSplit')
                         for (final textItem in _current.customTextItems)
-                          Positioned(
+                          _buildDraggableHandle(
+                            elementKey: 'customText_${textItem.id}',
+                            label:
+                                '✏️ ${textItem.text.split('\n').first.trim().isEmpty ? 'Texto' : textItem.text.split('\n').first.trim()}',
                             left: textItem.x * canvasW,
                             top: textItem.y * canvasH,
-                            child: IgnorePointer(
-                              child: Text(
-                                textItem.text,
-                                style: GoogleFonts.outfit(
-                                  fontSize: textItem.fontSize * scale,
-                                  fontWeight: textItem.isBold ? FontWeight.w800 : FontWeight.w500,
-                                  color: Color(textItem.colorValue),
-                                  letterSpacing: 0.5,
+                            width: 140 * scale,
+                            height: (textItem.fontSize * 1.6 + 12) * scale,
+                            onDelete: () => _removeCustomText(textItem.id),
+                            onDrag: (dx, dy) {
+                              setState(() {
+                                final newLeft =
+                                    ((textItem.x * canvasW) + dx) / canvasW;
+                                final newTop =
+                                    ((textItem.y * canvasH) + dy) / canvasH;
+                                _current = _current.copyWith(
+                                  customTextItems:
+                                      _current.customTextItems.map((t) {
+                                    if (t.id == textItem.id) {
+                                      return t.copyWith(
+                                        x: newLeft.clamp(-1.50, 2.50),
+                                        y: newTop.clamp(-1.50, 2.50),
+                                      );
+                                    }
+                                    return t;
+                                  }).toList(),
+                                );
+                              });
+                            },
+                          ),
+
+                        // ── 4. ÍCONES PERSONALIZADOS EXTRAS (COMUM AOS DOIS ESTILOS) ──
+                        if (_current.proposalStyle != 'verticalSplit')
+                          for (final iconItem in _current.customIconItems)
+                            Positioned(
+                              left: iconItem.x * canvasW,
+                              top: iconItem.y * canvasH,
+                              child: IgnorePointer(
+                                child: Icon(
+                                  getCoverBadgeIcon(iconItem.iconKey),
+                                  size: iconItem.size * scale,
+                                  color: Color(iconItem.colorValue),
                                 ),
                               ),
                             ),
-                          ),
-                      for (final textItem in _current.customTextItems)
-                        _buildDraggableHandle(
-                          elementKey: 'customText_${textItem.id}',
-                          label: '✏️ ${textItem.text.split('\n').first.trim().isEmpty ? 'Texto' : textItem.text.split('\n').first.trim()}',
-                          left: textItem.x * canvasW,
-                          top: textItem.y * canvasH,
-                          width: 140 * scale,
-                          height: (textItem.fontSize * 1.6 + 12) * scale,
-                          onDelete: () => _removeCustomText(textItem.id),
-                          onDrag: (dx, dy) {
-                            setState(() {
-                              final newLeft = ((textItem.x * canvasW) + dx) / canvasW;
-                              final newTop = ((textItem.y * canvasH) + dy) / canvasH;
-                              _current = _current.copyWith(
-                                customTextItems: _current.customTextItems.map((t) {
-                                  if (t.id == textItem.id) {
-                                    return t.copyWith(
-                                      x: newLeft.clamp(-1.50, 2.50),
-                                      y: newTop.clamp(-1.50, 2.50),
-                                    );
-                                  }
-                                  return t;
-                                }).toList(),
-                              );
-                            });
-                          },
-                        ),
-
-                      // ── 4. ÍCONES PERSONALIZADOS EXTRAS (COMUM AOS DOIS ESTILOS) ──
-                      if (_current.proposalStyle != 'verticalSplit')
                         for (final iconItem in _current.customIconItems)
-                          Positioned(
+                          _buildDraggableHandle(
+                            elementKey: 'customIcon_${iconItem.id}',
+                            label: '⚡ Ícone',
                             left: iconItem.x * canvasW,
                             top: iconItem.y * canvasH,
-                            child: IgnorePointer(
-                              child: Icon(
-                                getCoverBadgeIcon(iconItem.iconKey),
-                                size: iconItem.size * scale,
-                                color: Color(iconItem.colorValue),
-                              ),
-                            ),
+                            width: (iconItem.size + 14) * scale,
+                            height: (iconItem.size + 14) * scale,
+                            onDelete: () => _removeCustomIcon(iconItem.id),
+                            onDrag: (dx, dy) {
+                              setState(() {
+                                final newLeft =
+                                    ((iconItem.x * canvasW) + (dx * 2.5)) /
+                                        canvasW;
+                                final newTop =
+                                    ((iconItem.y * canvasH) + (dy * 2.5)) /
+                                        canvasH;
+                                _current = _current.copyWith(
+                                  customIconItems:
+                                      _current.customIconItems.map((i) {
+                                    if (i.id == iconItem.id) {
+                                      return i.copyWith(
+                                        x: newLeft.clamp(-1.50, 2.50),
+                                        y: newTop.clamp(-1.50, 2.50),
+                                      );
+                                    }
+                                    return i;
+                                  }).toList(),
+                                );
+                              });
+                            },
                           ),
-                      for (final iconItem in _current.customIconItems)
-                        _buildDraggableHandle(
-                          elementKey: 'customIcon_${iconItem.id}',
-                          label: '⚡ Ícone',
-                          left: iconItem.x * canvasW,
-                          top: iconItem.y * canvasH,
-                          width: (iconItem.size + 14) * scale,
-                          height: (iconItem.size + 14) * scale,
-                          onDelete: () => _removeCustomIcon(iconItem.id),
-                          onDrag: (dx, dy) {
-                            setState(() {
-                              final newLeft = ((iconItem.x * canvasW) + (dx * 2.5)) / canvasW;
-                              final newTop = ((iconItem.y * canvasH) + (dy * 2.5)) / canvasH;
-                              _current = _current.copyWith(
-                                customIconItems: _current.customIconItems.map((i) {
-                                  if (i.id == iconItem.id) {
-                                    return i.copyWith(
-                                      x: newLeft.clamp(-1.50, 2.50),
-                                      y: newTop.clamp(-1.50, 2.50),
-                                    );
-                                  }
-                                  return i;
-                                }).toList(),
-                              );
-                            });
-                          },
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
-  List<Widget> _buildModernBadges(double canvasW, double canvasH, double scale) {
-    if (!_current.verticalSplitShowLeftFooter || _current.verticalSplitFooterBadges.isEmpty) {
+  List<Widget> _buildModernBadges(
+      double canvasW, double canvasH, double scale) {
+    if (!_current.verticalSplitShowLeftFooter ||
+        _current.verticalSplitFooterBadges.isEmpty) {
       return const [];
     }
 
-    final footerW = _current.verticalSplitLeftFooterWidth.clamp(0.20, 0.95) * canvasW;
+    final footerW =
+        _current.verticalSplitLeftFooterWidth.clamp(0.20, 0.95) * canvasW;
     final footerH = 34.0 * scale;
-    final footerTop = canvasH - (_current.verticalSplitLeftFooterBottom * canvasH) - footerH;
+    final footerTop =
+        canvasH - (_current.verticalSplitLeftFooterBottom * canvasH) - footerH;
 
     return [
       Positioned(
@@ -2032,12 +2497,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (int i = 0; i < _current.verticalSplitFooterBadges.length; i++) ...[
+                  for (int i = 0;
+                      i < _current.verticalSplitFooterBadges.length;
+                      i++) ...[
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          getCoverBadgeIcon(_current.verticalSplitFooterBadges[i].iconKey),
+                          getCoverBadgeIcon(
+                              _current.verticalSplitFooterBadges[i].iconKey),
                           color: Color(_current.coverBadgesIconColorValue),
                           size: 14.0 * scale,
                         ),
@@ -2051,7 +2519,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             color: Color(_current.coverBadgesTextColorValue),
                             letterSpacing: 0.6,
                             shadows: const [
-                              Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1)),
+                              Shadow(
+                                  color: Colors.black87,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 1)),
                             ],
                           ),
                         ),
@@ -2078,10 +2549,13 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         top: footerTop,
         width: footerW,
         height: footerH,
-        onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowLeftFooter: false)),
+        onDelete: () => setState(() =>
+            _current = _current.copyWith(verticalSplitShowLeftFooter: false)),
         onResizeWidth: (dw) {
           setState(() {
-            final newW = ((_current.verticalSplitLeftFooterWidth * canvasW) + dw) / canvasW;
+            final newW =
+                ((_current.verticalSplitLeftFooterWidth * canvasW) + dw) /
+                    canvasW;
             _current = _current.copyWith(
               verticalSplitLeftFooterWidth: newW.clamp(0.20, 0.95),
             );
@@ -2089,8 +2563,11 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         },
         onDrag: (dx, dy) {
           setState(() {
-            final newLeft = ((_current.verticalSplitLeftFooterLeft * canvasW) + dx) / canvasW;
-            final currentBottomPx = _current.verticalSplitLeftFooterBottom * canvasH;
+            final newLeft =
+                ((_current.verticalSplitLeftFooterLeft * canvasW) + dx) /
+                    canvasW;
+            final currentBottomPx =
+                _current.verticalSplitLeftFooterBottom * canvasH;
             final newBottom = (currentBottomPx - dy) / canvasH;
             _current = _current.copyWith(
               verticalSplitLeftFooterLeft: newLeft.clamp(-1.50, 2.50),
@@ -2102,10 +2579,13 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     ];
   }
 
-  List<Widget> _buildModernRightBlock(double canvasW, double canvasH, double scale) {
+  List<Widget> _buildModernRightBlock(
+      double canvasW, double canvasH, double scale) {
     if (!_current.verticalSplitShowRightBlock) return const [];
 
-    final blockLeft = canvasW - (_current.verticalSplitRightBlockRight * canvasW) - (canvasW * 0.42);
+    final blockLeft = canvasW -
+        (_current.verticalSplitRightBlockRight * canvasW) -
+        (canvasW * 0.42);
     final blockTop = _current.verticalSplitRightBlockTop * canvasH;
 
     return [
@@ -2123,7 +2603,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   _current.verticalSplitRightTitle,
                   style: getCoverTextStyle(
                     fontFamily: _current.coverRightBlockFont,
-                    fontSize: (_current.verticalSplitRightTitleFontSize * 0.72) * scale,
+                    fontSize:
+                        (_current.verticalSplitRightTitleFontSize * 0.72) *
+                            scale,
                     fontWeight: FontWeight.w700,
                     color: Color(_current.coverRightTitleColorValue),
                     letterSpacing: 4.0,
@@ -2134,7 +2616,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   _current.verticalSplitRightSubtitle,
                   style: getCoverTextStyle(
                     fontFamily: _current.coverRightBlockFont,
-                    fontSize: (_current.verticalSplitRightSubtitleFontSize * 0.72) * scale,
+                    fontSize:
+                        (_current.verticalSplitRightSubtitleFontSize * 0.72) *
+                            scale,
                     fontWeight: FontWeight.w900,
                     color: Color(_current.coverRightSubtitleColorValue),
                     letterSpacing: 1.5,
@@ -2144,10 +2628,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 if (_current.verticalSplitShowRightDivider) ...[
                   SizedBox(height: 8 * scale),
                   Container(
-                    width: (_current.verticalSplitRightDividerWidth * 0.75 * scale).clamp(10.0, 300.0),
-                    height: (_current.verticalSplitRightDividerHeight * 0.8 * scale).clamp(1.0, 20.0),
+                    width:
+                        (_current.verticalSplitRightDividerWidth * 0.75 * scale)
+                            .clamp(10.0, 300.0),
+                    height:
+                        (_current.verticalSplitRightDividerHeight * 0.8 * scale)
+                            .clamp(1.0, 20.0),
                     decoration: BoxDecoration(
-                      color: Color(_current.verticalSplitRightDividerColorValue),
+                      color:
+                          Color(_current.verticalSplitRightDividerColorValue),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -2177,12 +2666,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         top: blockTop,
         width: canvasW * 0.42,
         height: 140 * scale,
-        onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowRightBlock: false)),
+        onDelete: () => setState(() =>
+            _current = _current.copyWith(verticalSplitShowRightBlock: false)),
         onDrag: (dx, dy) {
           setState(() {
-            final currentRightPx = _current.verticalSplitRightBlockRight * canvasW;
+            final currentRightPx =
+                _current.verticalSplitRightBlockRight * canvasW;
             final newRight = (currentRightPx - dx) / canvasW;
-            final newTop = ((_current.verticalSplitRightBlockTop * canvasH) + dy) / canvasH;
+            final newTop =
+                ((_current.verticalSplitRightBlockTop * canvasH) + dy) /
+                    canvasH;
             _current = _current.copyWith(
               verticalSplitRightBlockRight: newRight.clamp(-1.50, 2.50),
               verticalSplitRightBlockTop: newTop.clamp(-1.50, 2.50),
@@ -2193,11 +2686,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     ];
   }
 
-  List<Widget> _buildModernRightFooter(double canvasW, double canvasH, double scale) {
+  List<Widget> _buildModernRightFooter(
+      double canvasW, double canvasH, double scale) {
     if (!_current.verticalSplitShowRightFooter) return const [];
 
-    final footerLeft = canvasW - (_current.verticalSplitRightFooterRight * canvasW) - (canvasW * 0.45);
-    final footerTop = canvasH - (_current.verticalSplitRightFooterBottom * canvasH) - (35 * scale);
+    final footerLeft = canvasW -
+        (_current.verticalSplitRightFooterRight * canvasW) -
+        (canvasW * 0.45);
+    final footerTop = canvasH -
+        (_current.verticalSplitRightFooterBottom * canvasH) -
+        (35 * scale);
 
     return [
       Positioned(
@@ -2225,12 +2723,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         top: footerTop,
         width: canvasW * 0.45,
         height: 35 * scale,
-        onDelete: () => setState(() => _current = _current.copyWith(verticalSplitShowRightFooter: false)),
+        onDelete: () => setState(() =>
+            _current = _current.copyWith(verticalSplitShowRightFooter: false)),
         onDrag: (dx, dy) {
           setState(() {
-            final currentRightPx = _current.verticalSplitRightFooterRight * canvasW;
+            final currentRightPx =
+                _current.verticalSplitRightFooterRight * canvasW;
             final newRight = (currentRightPx - dx) / canvasW;
-            final currentBottomPx = _current.verticalSplitRightFooterBottom * canvasH;
+            final currentBottomPx =
+                _current.verticalSplitRightFooterBottom * canvasH;
             final newBottom = (currentBottomPx - dy) / canvasH;
             _current = _current.copyWith(
               verticalSplitRightFooterRight: newRight.clamp(-1.50, 2.50),
@@ -2242,12 +2743,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     ];
   }
 
-  List<Widget> _buildModernClientInfo(double canvasW, double canvasH, double scale) {
+  List<Widget> _buildModernClientInfo(
+      double canvasW, double canvasH, double scale) {
     if (!_current.coverShowClientInfo) return const [];
 
-    final clientLeft = (_current.coverClientInfoPositionX * canvasW).clamp(0.0, canvasW - 50.0);
-    final clientTop = (_current.coverClientInfoPositionY * canvasH).clamp(0.0, canvasH - 30.0);
-    final clientW = (_current.coverClientInfoWidth * scale).clamp(100.0, canvasW);
+    final clientLeft = (_current.coverClientInfoPositionX * canvasW)
+        .clamp(0.0, canvasW - 50.0);
+    final clientTop = (_current.coverClientInfoPositionY * canvasH)
+        .clamp(0.0, canvasH - 30.0);
+    final clientW =
+        (_current.coverClientInfoWidth * scale).clamp(100.0, canvasW);
     final clientH = 50.0 * scale;
 
     return [
@@ -2308,7 +2813,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         top: clientTop,
         width: clientW,
         height: clientH,
-        onDelete: () => setState(() => _current = _current.copyWith(coverShowClientInfo: false)),
+        onDelete: () => setState(
+            () => _current = _current.copyWith(coverShowClientInfo: false)),
         onResizeWidth: (dw) {
           setState(() {
             final currentPx = _current.coverClientInfoWidth * scale;
@@ -2320,8 +2826,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         },
         onDrag: (dx, dy) {
           setState(() {
-            final newX = ((_current.coverClientInfoPositionX * canvasW) + dx) / canvasW;
-            final newY = ((_current.coverClientInfoPositionY * canvasH) + dy) / canvasH;
+            final newX =
+                ((_current.coverClientInfoPositionX * canvasW) + dx) / canvasW;
+            final newY =
+                ((_current.coverClientInfoPositionY * canvasH) + dy) / canvasH;
             _current = _current.copyWith(
               coverClientInfoPositionX: newX.clamp(-0.5, 1.5),
               coverClientInfoPositionY: newY.clamp(-0.5, 1.5),
@@ -2366,7 +2874,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 children: [
                   Flexible(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0284C7),
                         borderRadius: BorderRadius.circular(4),
@@ -2374,7 +2883,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.open_with_rounded, size: 10, color: Colors.white),
+                          const Icon(Icons.open_with_rounded,
+                              size: 10, color: Colors.white),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
@@ -2400,18 +2910,23 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         behavior: HitTestBehavior.opaque,
                         onTap: onDelete,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: const Color(0xFFDC2626),
                             borderRadius: BorderRadius.circular(4),
                             boxShadow: const [
-                              BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                              BoxShadow(
+                                  color: Colors.black45,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1)),
                             ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.close_rounded, size: 11, color: Colors.white),
+                              const Icon(Icons.close_rounded,
+                                  size: 11, color: Colors.white),
                               const SizedBox(width: 2),
                               Text(
                                 'OCULTAR',
@@ -2433,7 +2948,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             behavior: HitTestBehavior.opaque,
             onTap: () => _selectAndFocusElement(elementKey),
             onPanStart: (_) => _selectAndFocusElement(elementKey),
-            onPanUpdate: (details) => onDrag(details.delta.dx, details.delta.dy),
+            onPanUpdate: (details) =>
+                onDrag(details.delta.dx, details.delta.dy),
             child: MouseRegion(
               cursor: SystemMouseCursors.move,
               onEnter: (_) => setState(() => _hoveredElementKey = elementKey),
@@ -2473,8 +2989,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTap: () => _selectAndFocusElement(elementKey),
-                                onPanStart: (_) => _selectAndFocusElement(elementKey),
-                                onPanUpdate: (details) => onResizeWidth(details.delta.dx),
+                                onPanStart: (_) =>
+                                    _selectAndFocusElement(elementKey),
+                                onPanUpdate: (details) =>
+                                    onResizeWidth(details.delta.dx),
                                 child: MouseRegion(
                                   cursor: SystemMouseCursors.resizeLeftRight,
                                   child: Container(
@@ -2483,10 +3001,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF0284C7),
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.white, width: 1.5),
+                                      border: Border.all(
+                                          color: Colors.white, width: 1.5),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.35),
+                                          color: Colors.black
+                                              .withValues(alpha: 0.35),
                                           blurRadius: 4,
                                         ),
                                       ],
@@ -2527,13 +3047,24 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             indicatorWeight: 3,
             labelColor: const Color(0xFFF8FAFC),
             unselectedLabelColor: const Color(0xFF94A3B8),
-            labelStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
+            labelStyle:
+                GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: const [
-              Tab(icon: Icon(Icons.edit_note_rounded, size: 18), text: 'Textos & Conteúdo'),
-              Tab(icon: Icon(Icons.tune_rounded, size: 18), text: 'Estilo & Divisor'),
-              Tab(icon: Icon(Icons.view_headline_rounded, size: 18), text: 'Cabeçalho & Rodapé'),
-              Tab(icon: Icon(Icons.image_outlined, size: 18), text: 'Logo & Papel de Parede'),
-              Tab(icon: Icon(Icons.auto_stories_rounded, size: 18), text: 'Páginas'),
+              Tab(
+                  icon: Icon(Icons.edit_note_rounded, size: 18),
+                  text: 'Textos & Conteúdo'),
+              Tab(
+                  icon: Icon(Icons.tune_rounded, size: 18),
+                  text: 'Estilo & Divisor'),
+              Tab(
+                  icon: Icon(Icons.view_headline_rounded, size: 18),
+                  text: 'Cabeçalho & Rodapé'),
+              Tab(
+                  icon: Icon(Icons.image_outlined, size: 18),
+                  text: 'Logo & Papel de Parede'),
+              Tab(
+                  icon: Icon(Icons.auto_stories_rounded, size: 18),
+                  text: 'Páginas'),
             ],
           ),
           const Divider(height: 1, color: Color(0xFF334155)),
@@ -2593,7 +3124,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           _current = _current.copyWith(
             page2TemplateId: tpl.id,
             page2IllustrationType: tpl.illustrationKey,
-            page2CardsJson: jsonEncode(tpl.defaultCards.map((c) => c.toMap()).toList()),
+            page2CardsJson:
+                jsonEncode(tpl.defaultCards.map((c) => c.toMap()).toList()),
             verticalSplitAccentColor: tpl.defaultPrimaryColor,
           );
           _activeCustomizerPageId = 'page_2';
@@ -2604,13 +3136,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         setState(() {
           _current = _current.copyWith(
             internalPagesLayoutPreset: preset.id,
+            coverShowHeader: true,
+            coverShowFooter: true,
             coverHeaderStyle: preset.headerStyle,
             coverFooterStyle: preset.footerStyle,
             verticalSplitAccentColor: preset.primaryColorHex,
             coverHeaderBgColor: preset.headerBgColorHex,
             coverHeaderTextColor: preset.headerTextColorHex,
+            coverHeaderIconColor: preset.primaryColorHex,
             coverFooterBgColor: preset.footerBgColorHex,
             coverFooterTextColor: preset.footerTextColorHex,
+            coverFooterIconColor: preset.primaryColorHex,
           );
         });
       },
@@ -2618,6 +3154,44 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       onTogglePage2Illustration: (val) {
         setState(() {
           _current = _current.copyWith(page2ShowIllustration: val);
+        });
+      },
+      showSolarPortfolio: _current.showPortfolioPage,
+      onToggleSolarPortfolio: (val) {
+        setState(() {
+          _current = _current.copyWith(showPortfolioPage: val);
+        });
+      },
+      solarPortfolioTitle: _current.portfolioTitle,
+      onSolarPortfolioTitleChanged: (val) {
+        setState(() {
+          _current = _current.copyWith(portfolioTitle: val);
+        });
+      },
+      solarPortfolioSubtitle: _current.portfolioSubtitle,
+      onSolarPortfolioSubtitleChanged: (val) {
+        setState(() {
+          _current = _current.copyWith(portfolioSubtitle: val);
+        });
+      },
+      solarPortfolioFooterNote: _current.portfolioFooterNote,
+      onSolarPortfolioFooterNoteChanged: (val) {
+        setState(() {
+          _current = _current.copyWith(portfolioFooterNote: val);
+        });
+      },
+      solarPortfolioItems: _current.portfolioItems,
+      onUpdateSolarPortfolioItems: (items) {
+        setState(() {
+          _current = _current.copyWith(
+            portfolioItemsJson: jsonEncode(items.map((e) => e.toMap()).toList()),
+          );
+        });
+      },
+      pageOrder: _current.effectivePageOrder,
+      onUpdatePageOrder: (order) {
+        setState(() {
+          _current = _current.copyWith(pageOrderJson: jsonEncode(order));
         });
       },
       page2IllustrationType: _current.page2IllustrationType,
@@ -2650,7 +3224,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           ),
         );
       },
-      primaryColor: Color(_hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
+      primaryColor: Color(
+          _hexToInt(_current.verticalSplitAccentColor, fallback: 0xFFEAB308)),
     );
   }
 
@@ -2671,6 +3246,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       headerText1Ctrl: _headerText1Ctrl,
       headerText2Ctrl: _headerText2Ctrl,
       headerText3Ctrl: _headerText3Ctrl,
+      pageTitle2Ctrl: _pageTitle2Ctrl,
+      pageTitle3Ctrl: _pageTitle3Ctrl,
+      pageTitleRoofCtrl: _pageTitleRoofCtrl,
+      pageTitle4Ctrl: _pageTitle4Ctrl,
+      pageTitle5Ctrl: _pageTitle5Ctrl,
+      pageTitle6Ctrl: _pageTitle6Ctrl,
       showFooter: _current.coverShowFooter,
       onToggleFooter: (val) {
         setState(() {
@@ -2693,28 +3274,38 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
         setState(() {
           _current = _current.copyWith(
             internalPagesLayoutPreset: preset.id,
+            coverShowHeader: true,
+            coverShowFooter: true,
             coverHeaderStyle: preset.headerStyle,
             coverFooterStyle: preset.footerStyle,
             verticalSplitAccentColor: preset.primaryColorHex,
             coverHeaderBgColor: preset.headerBgColorHex,
             coverHeaderTextColor: preset.headerTextColorHex,
+            coverHeaderIconColor: preset.primaryColorHex,
             coverFooterBgColor: preset.footerBgColorHex,
             coverFooterTextColor: preset.footerTextColorHex,
+            coverFooterIconColor: preset.primaryColorHex,
           );
         });
       },
       headerBgColor: _current.coverHeaderBgColor,
-      onHeaderBgColorChanged: (c) => setState(() => _current = _current.copyWith(coverHeaderBgColor: c)),
+      onHeaderBgColorChanged: (c) =>
+          setState(() => _current = _current.copyWith(coverHeaderBgColor: c)),
       headerTextColor: _current.coverHeaderTextColor,
-      onHeaderTextColorChanged: (c) => setState(() => _current = _current.copyWith(coverHeaderTextColor: c)),
+      onHeaderTextColorChanged: (c) =>
+          setState(() => _current = _current.copyWith(coverHeaderTextColor: c)),
       headerIconColor: _current.coverHeaderIconColor,
-      onHeaderIconColorChanged: (c) => setState(() => _current = _current.copyWith(coverHeaderIconColor: c)),
+      onHeaderIconColorChanged: (c) =>
+          setState(() => _current = _current.copyWith(coverHeaderIconColor: c)),
       footerBgColor: _current.coverFooterBgColor,
-      onFooterBgColorChanged: (c) => setState(() => _current = _current.copyWith(coverFooterBgColor: c)),
+      onFooterBgColorChanged: (c) =>
+          setState(() => _current = _current.copyWith(coverFooterBgColor: c)),
       footerTextColor: _current.coverFooterTextColor,
-      onFooterTextColorChanged: (c) => setState(() => _current = _current.copyWith(coverFooterTextColor: c)),
+      onFooterTextColorChanged: (c) =>
+          setState(() => _current = _current.copyWith(coverFooterTextColor: c)),
       footerIconColor: _current.coverFooterIconColor,
-      onFooterIconColorChanged: (c) => setState(() => _current = _current.copyWith(coverFooterIconColor: c)),
+      onFooterIconColorChanged: (c) =>
+          setState(() => _current = _current.copyWith(coverFooterIconColor: c)),
     );
   }
 
@@ -2737,7 +3328,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     backgroundColor: const Color(0xFF6366F1),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -2751,7 +3343,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     backgroundColor: const Color(0xFFF59E0B),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -2760,16 +3353,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           const SizedBox(height: 18),
 
           // ── SEÇÃO: ELEMENTOS ADICIONAIS CRIADOS PELO USUÁRIO ───────────────
-          if (_current.customTextItems.isNotEmpty || _current.customIconItems.isNotEmpty) ...[
-            _panelSectionTitle('Elementos Adicionais Criados', 'Textos e ícones extras adicionados na capa'),
+          if (_current.customTextItems.isNotEmpty ||
+              _current.customIconItems.isNotEmpty) ...[
+            _panelSectionTitle('Elementos Adicionais Criados',
+                'Textos e ícones extras adicionados na capa'),
             const SizedBox(height: 12),
 
             // Lista de Textos Extras
             for (final textItem in _current.customTextItems) ...[
               Builder(
                 builder: (ctx) {
-                  final fn = _customTextFocusNodes.putIfAbsent(textItem.id, () => FocusNode());
-                  final isSel = _selectedElementKey == 'customText_${textItem.id}';
+                  final fn = _customTextFocusNodes.putIfAbsent(
+                      textItem.id, () => FocusNode());
+                  final isSel =
+                      _selectedElementKey == 'customText_${textItem.id}';
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -2778,7 +3375,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       color: const Color(0xFF0F172A),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isSel ? const Color(0xFF38BDF8) : const Color(0xFF334155),
+                        color: isSel
+                            ? const Color(0xFF38BDF8)
+                            : const Color(0xFF334155),
                         width: isSel ? 2 : 1,
                       ),
                     ),
@@ -2787,7 +3386,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.title_rounded, color: Color(0xFF6366F1), size: 16),
+                            const Icon(Icons.title_rounded,
+                                color: Color(0xFF6366F1), size: 16),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
@@ -2795,23 +3395,31 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: isSel ? const Color(0xFF38BDF8) : Colors.white,
+                                  color: isSel
+                                      ? const Color(0xFF38BDF8)
+                                      : Colors.white,
                                 ),
                               ),
                             ),
                             if (isSel) ...[
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF0284C7),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('SELECIONADO', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                                child: const Text('SELECIONADO',
+                                    style: TextStyle(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white)),
                               ),
                               const SizedBox(width: 6),
                             ],
                             IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                              icon: const Icon(Icons.delete_outline_rounded,
+                                  color: Color(0xFFEF4444), size: 18),
                               tooltip: 'Excluir Texto',
                               onPressed: () => _removeCustomText(textItem.id),
                               constraints: const BoxConstraints(),
@@ -2824,31 +3432,41 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           key: ValueKey('custom_txt_${textItem.id}'),
                           initialValue: textItem.text,
                           focusNode: fn,
-                          onTap: () => setState(() => _selectedElementKey = 'customText_${textItem.id}'),
+                          onTap: () => setState(() => _selectedElementKey =
+                              'customText_${textItem.id}'),
                           onChanged: (val) {
                             setState(() {
                               _current = _current.copyWith(
-                                customTextItems: _current.customTextItems.map((t) {
-                                  if (t.id == textItem.id) return t.copyWith(text: val);
+                                customTextItems:
+                                    _current.customTextItems.map((t) {
+                                  if (t.id == textItem.id)
+                                    return t.copyWith(text: val);
                                   return t;
                                 }).toList(),
                               );
                             });
                           },
-                          style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white),
+                          style: GoogleFonts.inter(
+                              fontSize: 12.5, color: Colors.white),
                           decoration: InputDecoration(
                             hintText: 'Digite o texto...',
-                            hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                            hintStyle: GoogleFonts.inter(
+                                fontSize: 12, color: const Color(0xFF64748B)),
                             filled: true,
                             fillColor: const Color(0xFF1E293B),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide: BorderSide.none),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Text('Tamanho: ${textItem.fontSize.toInt()}px', style: GoogleFonts.inter(fontSize: 11, color: Colors.white70)),
+                            Text('Tamanho: ${textItem.fontSize.toInt()}px',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11, color: Colors.white70)),
                             Expanded(
                               child: Slider(
                                 value: textItem.fontSize.clamp(8.0, 48.0),
@@ -2858,8 +3476,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                 onChanged: (v) {
                                   setState(() {
                                     _current = _current.copyWith(
-                                      customTextItems: _current.customTextItems.map((t) {
-                                        if (t.id == textItem.id) return t.copyWith(fontSize: v);
+                                      customTextItems:
+                                          _current.customTextItems.map((t) {
+                                        if (t.id == textItem.id)
+                                          return t.copyWith(fontSize: v);
                                         return t;
                                       }).toList(),
                                     );
@@ -2871,20 +3491,29 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                               onTap: () {
                                 setState(() {
                                   _current = _current.copyWith(
-                                    customTextItems: _current.customTextItems.map((t) {
-                                      if (t.id == textItem.id) return t.copyWith(isBold: !t.isBold);
+                                    customTextItems:
+                                        _current.customTextItems.map((t) {
+                                      if (t.id == textItem.id)
+                                        return t.copyWith(isBold: !t.isBold);
                                       return t;
                                     }).toList(),
                                   );
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: textItem.isBold ? const Color(0xFF6366F1) : const Color(0xFF1E293B),
+                                  color: textItem.isBold
+                                      ? const Color(0xFF6366F1)
+                                      : const Color(0xFF1E293B),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('B', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12)),
+                                child: const Text('B',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        fontSize: 12)),
                               ),
                             ),
                           ],
@@ -2892,15 +3521,29 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Text('Cor: ', style: GoogleFonts.inter(fontSize: 11, color: Colors.white70)),
-                            for (final colorHex in ['#FFFFFF', '#0F172A', '#EAB308', '#F97316', '#0284C7', '#10B981', '#EF4444']) ...[
+                            Text('Cor: ',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11, color: Colors.white70)),
+                            for (final colorHex in [
+                              '#FFFFFF',
+                              '#0F172A',
+                              '#EAB308',
+                              '#F97316',
+                              '#0284C7',
+                              '#10B981',
+                              '#EF4444'
+                            ]) ...[
                               InkWell(
                                 onTap: () {
-                                  final intVal = int.parse(colorHex.replaceAll('#', 'FF'), radix: 16);
+                                  final intVal = int.parse(
+                                      colorHex.replaceAll('#', 'FF'),
+                                      radix: 16);
                                   setState(() {
                                     _current = _current.copyWith(
-                                      customTextItems: _current.customTextItems.map((t) {
-                                        if (t.id == textItem.id) return t.copyWith(colorValue: intVal);
+                                      customTextItems:
+                                          _current.customTextItems.map((t) {
+                                        if (t.id == textItem.id)
+                                          return t.copyWith(colorValue: intVal);
                                         return t;
                                       }).toList(),
                                     );
@@ -2911,13 +3554,25 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                   width: 18,
                                   height: 18,
                                   decoration: BoxDecoration(
-                                    color: Color(int.parse(colorHex.replaceAll('#', 'FF'), radix: 16)),
+                                    color: Color(int.parse(
+                                        colorHex.replaceAll('#', 'FF'),
+                                        radix: 16)),
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: textItem.colorValue == int.parse(colorHex.replaceAll('#', 'FF'), radix: 16)
+                                      color: textItem.colorValue ==
+                                              int.parse(
+                                                  colorHex.replaceAll(
+                                                      '#', 'FF'),
+                                                  radix: 16)
                                           ? Colors.white
                                           : Colors.white24,
-                                      width: textItem.colorValue == int.parse(colorHex.replaceAll('#', 'FF'), radix: 16) ? 2 : 1,
+                                      width: textItem.colorValue ==
+                                              int.parse(
+                                                  colorHex.replaceAll(
+                                                      '#', 'FF'),
+                                                  radix: 16)
+                                          ? 2
+                                          : 1,
                                     ),
                                   ),
                                 ),
@@ -2944,7 +3599,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     color: _selectedElementKey == 'customIcon_${iconItem.id}'
                         ? const Color(0xFF38BDF8)
                         : const Color(0xFF334155),
-                    width: _selectedElementKey == 'customIcon_${iconItem.id}' ? 2 : 1,
+                    width: _selectedElementKey == 'customIcon_${iconItem.id}'
+                        ? 2
+                        : 1,
                   ),
                 ),
                 child: Column(
@@ -2952,16 +3609,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   children: [
                     Row(
                       children: [
-                        Icon(getCoverBadgeIcon(iconItem.iconKey), color: Color(iconItem.colorValue), size: 20),
+                        Icon(getCoverBadgeIcon(iconItem.iconKey),
+                            color: Color(iconItem.colorValue), size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Ícone: ${iconItem.iconKey.toUpperCase()}',
-                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              color: Color(0xFFEF4444), size: 18),
                           tooltip: 'Excluir Ícone',
                           onPressed: () => _removeCustomIcon(iconItem.id),
                           constraints: const BoxConstraints(),
@@ -2972,7 +3634,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Text('Tamanho: ${iconItem.size.toInt()}px', style: GoogleFonts.inter(fontSize: 11, color: Colors.white70)),
+                        Text('Tamanho: ${iconItem.size.toInt()}px',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: Colors.white70)),
                         Expanded(
                           child: Slider(
                             value: iconItem.size.clamp(14.0, 72.0),
@@ -2982,8 +3646,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             onChanged: (v) {
                               setState(() {
                                 _current = _current.copyWith(
-                                  customIconItems: _current.customIconItems.map((i) {
-                                    if (i.id == iconItem.id) return i.copyWith(size: v);
+                                  customIconItems:
+                                      _current.customIconItems.map((i) {
+                                    if (i.id == iconItem.id)
+                                      return i.copyWith(size: v);
                                     return i;
                                   }).toList(),
                                 );
@@ -2993,46 +3659,70 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         ),
                       ],
                     ),
-                        Row(
-                          children: [
-                            Text('Cor: ', style: GoogleFonts.inter(fontSize: 11, color: Colors.white70)),
-                            for (final colorHex in ['#EAB308', '#F97316', '#FFFFFF', '#0F172A', '#0284C7', '#10B981', '#EF4444']) ...[
-                              InkWell(
-                                onTap: () {
-                                  final intVal = int.parse(colorHex.replaceAll('#', 'FF'), radix: 16);
-                                  setState(() {
-                                    _current = _current.copyWith(
-                                      customIconItems: _current.customIconItems.map((i) {
-                                        if (i.id == iconItem.id) return i.copyWith(colorValue: intVal);
-                                        return i;
-                                      }).toList(),
-                                    );
-                                  });
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(right: 6),
-                                  width: 18,
-                                  height: 18,
-                                  decoration: BoxDecoration(
-                                    color: Color(int.parse(colorHex.replaceAll('#', 'FF'), radix: 16)),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: iconItem.colorValue == int.parse(colorHex.replaceAll('#', 'FF'), radix: 16)
-                                          ? Colors.white
-                                          : Colors.white24,
-                                      width: iconItem.colorValue == int.parse(colorHex.replaceAll('#', 'FF'), radix: 16) ? 2 : 1,
-                                    ),
-                                  ),
+                    Row(
+                      children: [
+                        Text('Cor: ',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: Colors.white70)),
+                        for (final colorHex in [
+                          '#EAB308',
+                          '#F97316',
+                          '#FFFFFF',
+                          '#0F172A',
+                          '#0284C7',
+                          '#10B981',
+                          '#EF4444'
+                        ]) ...[
+                          InkWell(
+                            onTap: () {
+                              final intVal = int.parse(
+                                  colorHex.replaceAll('#', 'FF'),
+                                  radix: 16);
+                              setState(() {
+                                _current = _current.copyWith(
+                                  customIconItems:
+                                      _current.customIconItems.map((i) {
+                                    if (i.id == iconItem.id)
+                                      return i.copyWith(colorValue: intVal);
+                                    return i;
+                                  }).toList(),
+                                );
+                              });
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              width: 18,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                color: Color(int.parse(
+                                    colorHex.replaceAll('#', 'FF'),
+                                    radix: 16)),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: iconItem.colorValue ==
+                                          int.parse(
+                                              colorHex.replaceAll('#', 'FF'),
+                                              radix: 16)
+                                      ? Colors.white
+                                      : Colors.white24,
+                                  width: iconItem.colorValue ==
+                                          int.parse(
+                                              colorHex.replaceAll('#', 'FF'),
+                                              radix: 16)
+                                      ? 2
+                                      : 1,
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ],
+          ],
 
           const SizedBox(height: 18),
 
@@ -3041,7 +3731,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             'Frase de Impacto da Foto',
             'Título e subtítulo destacados na área da imagem',
             onDelete: _current.verticalSplitShowHeadline
-                ? () => setState(() => _current = _current.copyWith(verticalSplitShowHeadline: false))
+                ? () => setState(() => _current =
+                    _current.copyWith(verticalSplitShowHeadline: false))
                 : null,
             deleteTooltip: 'Ocultar Frase de Impacto',
           ),
@@ -3049,23 +3740,29 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           if (!_current.verticalSplitShowHeadline)
             _buildHiddenElementBanner(
               'Frase de Impacto da Foto',
-              () => setState(() => _current = _current.copyWith(verticalSplitShowHeadline: true)),
+              () => setState(() => _current =
+                  _current.copyWith(verticalSplitShowHeadline: true)),
             )
           else ...[
             _buildFontFamilySelector(
               label: 'Fonte do Título e Subtítulo:',
               selectedFont: _current.coverHeadlineFont,
-              onSelect: (f) => setState(() => _current = _current.copyWith(coverHeadlineFont: f)),
+              onSelect: (f) => setState(
+                  () => _current = _current.copyWith(coverHeadlineFont: f)),
             ),
             const SizedBox(height: 6),
             Text(
               'Cor do Texto da Frase:',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverHeadlineColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverHeadlineColor: c)),
+              onSelect: (c) => setState(
+                  () => _current = _current.copyWith(coverHeadlineColor: c)),
             ),
             const SizedBox(height: 12),
             _darkTextField(
@@ -3091,17 +3788,24 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.format_size_rounded, size: 14, color: Color(0xFFEAB308)),
+                    const Icon(Icons.format_size_rounded,
+                        size: 14, color: Color(0xFFEAB308)),
                     const SizedBox(width: 6),
                     Text(
                       'Tamanho da Frase de Impacto: ${_current.verticalSplitHeadlineFontSize.toInt()}px',
-                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFCBD5E1)),
                     ),
                   ],
                 ),
                 Text(
                   '${_current.verticalSplitHeadlineFontSize.toInt()} pt',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFFEAB308)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFEAB308)),
                 ),
               ],
             ),
@@ -3112,7 +3816,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               divisions: 36,
               activeColor: const Color(0xFFEAB308),
               inactiveColor: const Color(0xFF334155),
-              onChanged: (val) => setState(() => _current = _current.copyWith(verticalSplitHeadlineFontSize: val)),
+              onChanged: (val) => setState(() => _current =
+                  _current.copyWith(verticalSplitHeadlineFontSize: val)),
             ),
             const SizedBox(height: 12),
             Container(
@@ -3122,7 +3827,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: _current.verticalSplitShowHeadlineDivider
-                      ? Color(_current.verticalSplitHeadlineDividerColorValue).withValues(alpha: 0.35)
+                      ? Color(_current.verticalSplitHeadlineDividerColorValue)
+                          .withValues(alpha: 0.35)
                       : const Color(0xFF334155),
                   width: 1.5,
                 ),
@@ -3148,7 +3854,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           activeThumbColor: const Color(0xFFF59E0B),
                           onChanged: (val) {
                             setState(() {
-                              _current = _current.copyWith(verticalSplitShowHeadlineDivider: val);
+                              _current = _current.copyWith(
+                                  verticalSplitShowHeadlineDivider: val);
                             });
                           },
                         ),
@@ -3162,11 +3869,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       children: [
                         Text(
                           'Largura da Linha:',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFCBD5E1)),
                         ),
                         Text(
                           '${_current.verticalSplitHeadlineDividerWidth.round()} px',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFF59E0B)),
                         ),
                       ],
                     ),
@@ -3175,17 +3888,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         activeTrackColor: const Color(0xFFD97706),
                         inactiveTrackColor: const Color(0xFF334155),
                         thumbColor: const Color(0xFFF59E0B),
-                        overlayColor: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        overlayColor:
+                            const Color(0xFFF59E0B).withValues(alpha: 0.2),
                         trackHeight: 3,
                       ),
                       child: Slider(
-                        value: _current.verticalSplitHeadlineDividerWidth.clamp(10.0, 200.0),
+                        value: _current.verticalSplitHeadlineDividerWidth
+                            .clamp(10.0, 200.0),
                         min: 10.0,
                         max: 200.0,
                         divisions: 38,
                         onChanged: (val) {
                           setState(() {
-                            _current = _current.copyWith(verticalSplitHeadlineDividerWidth: val);
+                            _current = _current.copyWith(
+                                verticalSplitHeadlineDividerWidth: val);
                           });
                         },
                       ),
@@ -3196,11 +3912,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       children: [
                         Text(
                           'Espessura da Linha:',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFCBD5E1)),
                         ),
                         Text(
                           '${_current.verticalSplitHeadlineDividerHeight.toStringAsFixed(1)} px',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFF59E0B)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFF59E0B)),
                         ),
                       ],
                     ),
@@ -3209,17 +3931,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         activeTrackColor: const Color(0xFFD97706),
                         inactiveTrackColor: const Color(0xFF334155),
                         thumbColor: const Color(0xFFF59E0B),
-                        overlayColor: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        overlayColor:
+                            const Color(0xFFF59E0B).withValues(alpha: 0.2),
                         trackHeight: 3,
                       ),
                       child: Slider(
-                        value: _current.verticalSplitHeadlineDividerHeight.clamp(1.0, 10.0),
+                        value: _current.verticalSplitHeadlineDividerHeight
+                            .clamp(1.0, 10.0),
                         min: 1.0,
                         max: 10.0,
                         divisions: 18,
                         onChanged: (val) {
                           setState(() {
-                            _current = _current.copyWith(verticalSplitHeadlineDividerHeight: val);
+                            _current = _current.copyWith(
+                                verticalSplitHeadlineDividerHeight: val);
                           });
                         },
                       ),
@@ -3227,14 +3952,19 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     const SizedBox(height: 8),
                     Text(
                       'Cor da Linha:',
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFCBD5E1)),
                     ),
                     const SizedBox(height: 6),
                     _buildColorChipsRow(
-                      selectedHex: _current.verticalSplitHeadlineDividerColor.isNotEmpty
-                          ? _current.verticalSplitHeadlineDividerColor
-                          : _current.verticalSplitAccentColor,
-                      onSelect: (c) => setState(() => _current = _current.copyWith(verticalSplitHeadlineDividerColor: c)),
+                      selectedHex:
+                          _current.verticalSplitHeadlineDividerColor.isNotEmpty
+                              ? _current.verticalSplitHeadlineDividerColor
+                              : _current.verticalSplitAccentColor,
+                      onSelect: (c) => setState(() => _current = _current
+                          .copyWith(verticalSplitHeadlineDividerColor: c)),
                     ),
                   ],
                 ],
@@ -3250,7 +3980,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             'Badges Informativos',
             'Configure os selos em destaque na capa',
             onDelete: _current.verticalSplitShowLeftFooter
-                ? () => setState(() => _current = _current.copyWith(verticalSplitShowLeftFooter: false))
+                ? () => setState(() => _current =
+                    _current.copyWith(verticalSplitShowLeftFooter: false))
                 : null,
             deleteTooltip: 'Ocultar Badges Informativos',
           ),
@@ -3258,40 +3989,55 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           if (!_current.verticalSplitShowLeftFooter)
             _buildHiddenElementBanner(
               'Badges Informativos',
-              () => setState(() => _current = _current.copyWith(verticalSplitShowLeftFooter: true)),
+              () => setState(() => _current =
+                  _current.copyWith(verticalSplitShowLeftFooter: true)),
             )
           else ...[
             Text(
               'Cor do Texto dos Badges:',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverBadgesTextColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverBadgesTextColor: c)),
+              onSelect: (c) => setState(
+                  () => _current = _current.copyWith(coverBadgesTextColor: c)),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Text(
                   'Cor dos Ícones dos Badges:',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFCBD5E1)),
                 ),
                 const Spacer(),
                 if (_current.coverBadgesIconColor.isNotEmpty &&
-                    _current.coverBadgesIconColor.toUpperCase() != _current.coverBadgesTextColor.toUpperCase())
+                    _current.coverBadgesIconColor.toUpperCase() !=
+                        _current.coverBadgesTextColor.toUpperCase())
                   InkWell(
-                    onTap: () => setState(() => _current = _current.copyWith(coverBadgesIconColor: '')),
+                    onTap: () => setState(() =>
+                        _current = _current.copyWith(coverBadgesIconColor: '')),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0284C7).withValues(alpha: 0.20),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFF38BDF8), width: 0.8),
+                        border: Border.all(
+                            color: const Color(0xFF38BDF8), width: 0.8),
                       ),
                       child: Text(
                         '🔗 Mesma da fonte',
-                        style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF38BDF8), fontWeight: FontWeight.w600),
+                        style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: const Color(0xFF38BDF8),
+                            fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -3299,8 +4045,11 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
-              selectedHex: _current.coverBadgesIconColor.isNotEmpty ? _current.coverBadgesIconColor : _current.coverBadgesTextColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverBadgesIconColor: c)),
+              selectedHex: _current.coverBadgesIconColor.isNotEmpty
+                  ? _current.coverBadgesIconColor
+                  : _current.coverBadgesTextColor,
+              onSelect: (c) => setState(
+                  () => _current = _current.copyWith(coverBadgesIconColor: c)),
             ),
             const SizedBox(height: 12),
             if (_current.verticalSplitFooterBadges.isNotEmpty) ...[
@@ -3330,8 +4079,11 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           child: _layoutChoiceButton(
                             label: 'Horizontal',
                             icon: Icons.view_headline_rounded,
-                            isSelected: _current.verticalSplitBadgesLayout == 'horizontal',
-                            onTap: () => setState(() => _current = _current.copyWith(verticalSplitBadgesLayout: 'horizontal')),
+                            isSelected: _current.verticalSplitBadgesLayout ==
+                                'horizontal',
+                            onTap: () => setState(() => _current =
+                                _current.copyWith(
+                                    verticalSplitBadgesLayout: 'horizontal')),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -3339,8 +4091,11 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           child: _layoutChoiceButton(
                             label: 'Vertical',
                             icon: Icons.view_agenda_rounded,
-                            isSelected: _current.verticalSplitBadgesLayout == 'vertical',
-                            onTap: () => setState(() => _current = _current.copyWith(verticalSplitBadgesLayout: 'vertical')),
+                            isSelected: _current.verticalSplitBadgesLayout ==
+                                'vertical',
+                            onTap: () => setState(() => _current =
+                                _current.copyWith(
+                                    verticalSplitBadgesLayout: 'vertical')),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -3348,8 +4103,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           child: _layoutChoiceButton(
                             label: 'Quebrar',
                             icon: Icons.wrap_text_rounded,
-                            isSelected: _current.verticalSplitBadgesLayout == 'wrap',
-                            onTap: () => setState(() => _current = _current.copyWith(verticalSplitBadgesLayout: 'wrap')),
+                            isSelected:
+                                _current.verticalSplitBadgesLayout == 'wrap',
+                            onTap: () => setState(() => _current = _current
+                                .copyWith(verticalSplitBadgesLayout: 'wrap')),
                           ),
                         ),
                       ],
@@ -3381,17 +4138,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         activeTrackColor: const Color(0xFF0284C7),
                         inactiveTrackColor: const Color(0xFF334155),
                         thumbColor: const Color(0xFF38BDF8),
-                        overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                        overlayColor:
+                            const Color(0xFF38BDF8).withValues(alpha: 0.2),
                         trackHeight: 4,
                       ),
                       child: Slider(
-                        value: _current.verticalSplitLeftFooterWidth.clamp(0.20, 0.95),
+                        value: _current.verticalSplitLeftFooterWidth
+                            .clamp(0.20, 0.95),
                         min: 0.20,
                         max: 0.95,
                         divisions: 75,
                         onChanged: (val) {
                           setState(() {
-                            _current = _current.copyWith(verticalSplitLeftFooterWidth: val);
+                            _current = _current.copyWith(
+                                verticalSplitLeftFooterWidth: val);
                           });
                         },
                       ),
@@ -3399,11 +4159,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   ],
                 ),
               ),
-              for (int i = 0; i < _current.verticalSplitFooterBadges.length; i++) ...[
+              for (int i = 0;
+                  i < _current.verticalSplitFooterBadges.length;
+                  i++) ...[
                 Builder(
                   builder: (ctx) {
                     final badge = _current.verticalSplitFooterBadges[i];
-                    final fn = _badgeFocusNodes.putIfAbsent(i, () => FocusNode());
+                    final fn =
+                        _badgeFocusNodes.putIfAbsent(i, () => FocusNode());
                     final isSel = _selectedElementKey == 'leftFooter';
 
                     return Container(
@@ -3413,7 +4176,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         color: const Color(0xFF0F172A),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isSel ? const Color(0xFF38BDF8) : const Color(0xFF334155),
+                          color: isSel
+                              ? const Color(0xFF38BDF8)
+                              : const Color(0xFF334155),
                           width: isSel ? 1.5 : 1,
                         ),
                       ),
@@ -3430,18 +4195,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF1E293B),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFF475569)),
+                                  border: Border.all(
+                                      color: const Color(0xFF475569)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       getCoverBadgeIcon(badge.iconKey),
-                                      color: Color(_current.verticalSplitAccentColorValue),
+                                      color: Color(_current
+                                          .verticalSplitAccentColorValue),
                                       size: 18,
                                     ),
                                     const SizedBox(width: 4),
-                                    const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 14),
+                                    const Icon(Icons.arrow_drop_down,
+                                        color: Colors.white70, size: 14),
                                   ],
                                 ),
                               ),
@@ -3455,22 +4223,34 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                               key: ValueKey('badge_txt_${i}_${badge.iconKey}'),
                               initialValue: badge.label,
                               focusNode: fn,
-                              onTap: () => setState(() => _selectedElementKey == 'leftFooter'),
+                              onTap: () => setState(
+                                  () => _selectedElementKey == 'leftFooter'),
                               onChanged: (val) {
                                 setState(() {
-                                  final list = List<CoverFooterBadge>.from(_current.verticalSplitFooterBadges);
-                                  list[i] = list[i].copyWith(label: val.toUpperCase());
-                                  _current = _current.copyWith(verticalSplitFooterBadges: list);
+                                  final list = List<CoverFooterBadge>.from(
+                                      _current.verticalSplitFooterBadges);
+                                  list[i] = list[i]
+                                      .copyWith(label: val.toUpperCase());
+                                  _current = _current.copyWith(
+                                      verticalSplitFooterBadges: list);
                                 });
                               },
-                              style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
                               decoration: InputDecoration(
                                 hintText: 'Texto do badge (ex: ECONOMIA)',
-                                hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                                hintStyle: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xFF64748B)),
                                 filled: true,
                                 fillColor: const Color(0xFF1E293B),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide.none),
                               ),
                             ),
                           ),
@@ -3478,7 +4258,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
                           // Excluir Badge
                           IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                color: Color(0xFFEF4444), size: 18),
                             tooltip: 'Remover Badge',
                             onPressed: () => _removeBadge(i),
                             constraints: const BoxConstraints(),
@@ -3499,8 +4280,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF38BDF8),
                   side: const BorderSide(color: Color(0xFF0284C7)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 ),
               ),
             ],
@@ -3514,7 +4297,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             'Textos Institucionais da Capa',
             'Identidade e mensagem corporativa',
             onDelete: _current.verticalSplitShowRightBlock
-                ? () => setState(() => _current = _current.copyWith(verticalSplitShowRightBlock: false))
+                ? () => setState(() => _current =
+                    _current.copyWith(verticalSplitShowRightBlock: false))
                 : null,
             deleteTooltip: 'Ocultar Proposta Solar e Tagline',
           ),
@@ -3522,43 +4306,57 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           if (!_current.verticalSplitShowRightBlock)
             _buildHiddenElementBanner(
               'Bloco Proposta Solar e Tagline',
-              () => setState(() => _current = _current.copyWith(verticalSplitShowRightBlock: true)),
+              () => setState(() => _current =
+                  _current.copyWith(verticalSplitShowRightBlock: true)),
             )
           else ...[
             _buildFontFamilySelector(
               label: 'Fonte de Proposta Solar:',
               selectedFont: _current.coverRightBlockFont,
-              onSelect: (f) => setState(() => _current = _current.copyWith(coverRightBlockFont: f)),
+              onSelect: (f) => setState(
+                  () => _current = _current.copyWith(coverRightBlockFont: f)),
             ),
             const SizedBox(height: 6),
             Text(
               'Cor do Título ("PROPOSTA"):',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverRightTitleColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverRightTitleColor: c)),
+              onSelect: (c) => setState(
+                  () => _current = _current.copyWith(coverRightTitleColor: c)),
             ),
             const SizedBox(height: 8),
             Text(
               'Cor do Subtítulo ("SOLAR"):',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverRightSubtitleColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverRightSubtitleColor: c)),
+              onSelect: (c) => setState(() =>
+                  _current = _current.copyWith(coverRightSubtitleColor: c)),
             ),
             const SizedBox(height: 8),
             Text(
               'Cor da Tagline / Slogan:',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverRightTaglineColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverRightTaglineColor: c)),
+              onSelect: (c) => setState(() =>
+                  _current = _current.copyWith(coverRightTaglineColor: c)),
             ),
             const SizedBox(height: 12),
             Row(
@@ -3587,7 +4385,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             const SizedBox(height: 10),
             Text(
               'Sugestões de Título & Subtítulo (1 clique):',
-              style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+              style: GoogleFonts.inter(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF94A3B8)),
             ),
             const SizedBox(height: 6),
             Wrap(
@@ -3627,17 +4428,24 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.format_size_rounded, size: 14, color: Color(0xFF38BDF8)),
+                    const Icon(Icons.format_size_rounded,
+                        size: 14, color: Color(0xFF38BDF8)),
                     const SizedBox(width: 6),
                     Text(
                       'Tamanho do Título: ${_current.verticalSplitRightTitleFontSize.toInt()}px',
-                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFCBD5E1)),
                     ),
                   ],
                 ),
                 Text(
                   '${_current.verticalSplitRightTitleFontSize.toInt()} pt',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF38BDF8)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF38BDF8)),
                 ),
               ],
             ),
@@ -3648,7 +4456,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               divisions: 40,
               activeColor: const Color(0xFF38BDF8),
               inactiveColor: const Color(0xFF334155),
-              onChanged: (v) => setState(() => _current = _current.copyWith(verticalSplitRightTitleFontSize: v)),
+              onChanged: (v) => setState(() => _current =
+                  _current.copyWith(verticalSplitRightTitleFontSize: v)),
             ),
             const SizedBox(height: 6),
             // Slider Tamanho da Fonte do Subtítulo / Destaque
@@ -3657,28 +4466,37 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.text_fields_rounded, size: 14, color: Color(0xFFEAB308)),
+                    const Icon(Icons.text_fields_rounded,
+                        size: 14, color: Color(0xFFEAB308)),
                     const SizedBox(width: 6),
                     Text(
                       'Tamanho do Subtítulo: ${_current.verticalSplitRightSubtitleFontSize.toInt()}px',
-                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFFCBD5E1)),
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFCBD5E1)),
                     ),
                   ],
                 ),
                 Text(
                   '${_current.verticalSplitRightSubtitleFontSize.toInt()} pt',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFFEAB308)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFEAB308)),
                 ),
               ],
             ),
             Slider(
-              value: _current.verticalSplitRightSubtitleFontSize.clamp(18.0, 72.0),
+              value:
+                  _current.verticalSplitRightSubtitleFontSize.clamp(18.0, 72.0),
               min: 18.0,
               max: 72.0,
               divisions: 54,
               activeColor: const Color(0xFFEAB308),
               inactiveColor: const Color(0xFF334155),
-              onChanged: (v) => setState(() => _current = _current.copyWith(verticalSplitRightSubtitleFontSize: v)),
+              onChanged: (v) => setState(() => _current =
+                  _current.copyWith(verticalSplitRightSubtitleFontSize: v)),
             ),
             const SizedBox(height: 12),
             Container(
@@ -3699,7 +4517,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           Icon(
                             Icons.horizontal_rule_rounded,
                             color: _current.verticalSplitShowRightDivider
-                                ? Color(_current.verticalSplitRightDividerColorValue)
+                                ? Color(_current
+                                    .verticalSplitRightDividerColorValue)
                                 : const Color(0xFF64748B),
                             size: 20,
                           ),
@@ -3719,7 +4538,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         activeThumbColor: const Color(0xFF38BDF8),
                         onChanged: (val) {
                           setState(() {
-                            _current = _current.copyWith(verticalSplitShowRightDivider: val);
+                            _current = _current.copyWith(
+                                verticalSplitShowRightDivider: val);
                           });
                         },
                       ),
@@ -3732,11 +4552,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       children: [
                         Text(
                           'Largura da Linha:',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFCBD5E1)),
                         ),
                         Text(
                           ' px',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF38BDF8)),
                         ),
                       ],
                     ),
@@ -3745,17 +4571,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         activeTrackColor: const Color(0xFF0284C7),
                         inactiveTrackColor: const Color(0xFF334155),
                         thumbColor: const Color(0xFF38BDF8),
-                        overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                        overlayColor:
+                            const Color(0xFF38BDF8).withValues(alpha: 0.2),
                         trackHeight: 3,
                       ),
                       child: Slider(
-                        value: _current.verticalSplitRightDividerWidth.clamp(15.0, 160.0),
+                        value: _current.verticalSplitRightDividerWidth
+                            .clamp(15.0, 160.0),
                         min: 15.0,
                         max: 160.0,
                         divisions: 29,
                         onChanged: (val) {
                           setState(() {
-                            _current = _current.copyWith(verticalSplitRightDividerWidth: val);
+                            _current = _current.copyWith(
+                                verticalSplitRightDividerWidth: val);
                           });
                         },
                       ),
@@ -3766,11 +4595,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       children: [
                         Text(
                           'Espessura da Linha:',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFCBD5E1)),
                         ),
                         Text(
                           ' px',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF38BDF8)),
                         ),
                       ],
                     ),
@@ -3779,17 +4614,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         activeTrackColor: const Color(0xFF0284C7),
                         inactiveTrackColor: const Color(0xFF334155),
                         thumbColor: const Color(0xFF38BDF8),
-                        overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                        overlayColor:
+                            const Color(0xFF38BDF8).withValues(alpha: 0.2),
                         trackHeight: 3,
                       ),
                       child: Slider(
-                        value: _current.verticalSplitRightDividerHeight.clamp(1.0, 10.0),
+                        value: _current.verticalSplitRightDividerHeight
+                            .clamp(1.0, 10.0),
                         min: 1.0,
                         max: 10.0,
                         divisions: 18,
                         onChanged: (val) {
                           setState(() {
-                            _current = _current.copyWith(verticalSplitRightDividerHeight: val);
+                            _current = _current.copyWith(
+                                verticalSplitRightDividerHeight: val);
                           });
                         },
                       ),
@@ -3797,14 +4635,19 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     const SizedBox(height: 8),
                     Text(
                       'Cor da Linha:',
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFCBD5E1)),
                     ),
                     const SizedBox(height: 6),
                     _buildColorChipsRow(
-                      selectedHex: _current.verticalSplitRightDividerColor.isNotEmpty
-                          ? _current.verticalSplitRightDividerColor
-                          : _current.verticalSplitAccentColor,
-                      onSelect: (c) => setState(() => _current = _current.copyWith(verticalSplitRightDividerColor: c)),
+                      selectedHex:
+                          _current.verticalSplitRightDividerColor.isNotEmpty
+                              ? _current.verticalSplitRightDividerColor
+                              : _current.verticalSplitAccentColor,
+                      onSelect: (c) => setState(() => _current =
+                          _current.copyWith(verticalSplitRightDividerColor: c)),
                     ),
                   ],
                 ],
@@ -3854,7 +4697,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             'Rodapé Institucional',
             'Mensagem no rodapé da folha',
             onDelete: _current.verticalSplitShowRightFooter
-                ? () => setState(() => _current = _current.copyWith(verticalSplitShowRightFooter: false))
+                ? () => setState(() => _current =
+                    _current.copyWith(verticalSplitShowRightFooter: false))
                 : null,
             deleteTooltip: 'Ocultar Rodapé Institucional',
           ),
@@ -3862,23 +4706,29 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           if (!_current.verticalSplitShowRightFooter)
             _buildHiddenElementBanner(
               'Rodapé Institucional',
-              () => setState(() => _current = _current.copyWith(verticalSplitShowRightFooter: true)),
+              () => setState(() => _current =
+                  _current.copyWith(verticalSplitShowRightFooter: true)),
             )
           else ...[
             _buildFontFamilySelector(
               label: 'Fonte do Rodapé:',
               selectedFont: _current.coverFooterFont,
-              onSelect: (f) => setState(() => _current = _current.copyWith(coverFooterFont: f)),
+              onSelect: (f) => setState(
+                  () => _current = _current.copyWith(coverFooterFont: f)),
             ),
             const SizedBox(height: 6),
             Text(
               'Cor do Texto do Rodapé:',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverFooterColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverFooterColor: c)),
+              onSelect: (c) => setState(
+                  () => _current = _current.copyWith(coverFooterColor: c)),
             ),
             const SizedBox(height: 12),
             _darkTextField(
@@ -3899,7 +4749,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             'Dados do Cliente & CPF/CNPJ',
             'Posição, cores e dimensões dos dados do cliente e geração na capa',
             onDelete: _current.coverShowClientInfo
-                ? () => setState(() => _current = _current.copyWith(coverShowClientInfo: false))
+                ? () => setState(() =>
+                    _current = _current.copyWith(coverShowClientInfo: false))
                 : null,
             deleteTooltip: 'Ocultar Dados do Cliente',
           ),
@@ -3907,27 +4758,36 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           if (!_current.coverShowClientInfo)
             _buildHiddenElementBanner(
               'Dados do Cliente & CPF/CNPJ',
-              () => setState(() => _current = _current.copyWith(coverShowClientInfo: true)),
+              () => setState(() =>
+                  _current = _current.copyWith(coverShowClientInfo: true)),
             )
           else ...[
             Text(
               'Cor Principal (Nome do Cliente):',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverClientInfoColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverClientInfoColor: c)),
+              onSelect: (c) => setState(
+                  () => _current = _current.copyWith(coverClientInfoColor: c)),
             ),
             const SizedBox(height: 12),
             Text(
               'Cor Secundária (CPF/CNPJ e Geração):',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFCBD5E1)),
             ),
             const SizedBox(height: 6),
             _buildColorChipsRow(
               selectedHex: _current.coverClientInfoSecondaryColor,
-              onSelect: (c) => setState(() => _current = _current.copyWith(coverClientInfoSecondaryColor: c)),
+              onSelect: (c) => setState(() => _current =
+                  _current.copyWith(coverClientInfoSecondaryColor: c)),
             ),
             const SizedBox(height: 12),
             Row(
@@ -3935,11 +4795,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               children: [
                 Text(
                   'Tamanho da Fonte:',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFCBD5E1)),
                 ),
                 Text(
                   '${_current.coverClientInfoFontSize.toStringAsFixed(1)} pt',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF38BDF8)),
                 ),
               ],
             ),
@@ -3969,11 +4835,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               children: [
                 Text(
                   'Largura da Caixa:',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFCBD5E1)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFCBD5E1)),
                 ),
                 Text(
                   '${_current.coverClientInfoWidth.toInt()} pt',
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF38BDF8)),
                 ),
               ],
             ),
@@ -4016,22 +4888,26 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _panelSectionTitle('Tipo de Corte do Divisor', 'Selecione a geometria do divisor vetorial da capa'),
+          _panelSectionTitle('Tipo de Corte do Divisor',
+              'Selecione a geometria do divisor vetorial da capa'),
           const SizedBox(height: 14),
           Row(
             children: [
-              _buildDividerTypeCard(0, '📐 Corte Diagonal', 'Clássico e arrojado'),
+              _buildDividerTypeCard(
+                  0, '📐 Corte Diagonal', 'Clássico e arrojado'),
               const SizedBox(width: 10),
-              _buildDividerTypeCard(1, '⚡ Raio de Energia', 'Dinâmico em zig-zag'),
+              _buildDividerTypeCard(
+                  1, '⚡ Raio de Energia', 'Dinâmico em zig-zag'),
               const SizedBox(width: 10),
-              _buildDividerTypeCard(2, '☀️ Sol Radiante', 'Arco com auréola solar'),
+              _buildDividerTypeCard(
+                  2, '☀️ Sol Radiante', 'Arco com auréola solar'),
             ],
           ),
           const SizedBox(height: 24),
           const Divider(color: Color(0xFF334155)),
           const SizedBox(height: 16),
-
-          _panelSectionTitle('Cor de Destaque / Acento', 'Cor da barra de título e linha do divisor'),
+          _panelSectionTitle('Cor de Destaque / Acento',
+              'Cor da barra de título e linha do divisor'),
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -4089,10 +4965,15 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             (nextWebBg.isEmpty ||
                                 nextWebBg.startsWith('modelo_') ||
                                 nextWebBg.contains('energiasolar'))) {
-                          final numMatch = RegExp(r'\d+').firstMatch(_current.selectedCoverTemplate);
-                          final idx = ((int.tryParse(numMatch?.group(0) ?? '1') ?? 1) - 1) %
-                              SolarSettingsModel.availableWebBackgrounds.length;
-                          nextWebBg = SolarSettingsModel.availableWebBackgrounds[idx];
+                          final numMatch = RegExp(r'\d+')
+                              .firstMatch(_current.selectedCoverTemplate);
+                          final idx =
+                              ((int.tryParse(numMatch?.group(0) ?? '1') ?? 1) -
+                                      1) %
+                                  SolarSettingsModel
+                                      .availableWebBackgrounds.length;
+                          nextWebBg =
+                              SolarSettingsModel.availableWebBackgrounds[idx];
                         }
                         _current = _current.copyWith(
                           customDividerStyle: divId,
@@ -4105,10 +4986,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF0F172A).withValues(alpha: 0.5),
+                          color: isSelected
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF0F172A).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFFEAB308) : const Color(0xFF334155),
+                            color: isSelected
+                                ? const Color(0xFFEAB308)
+                                : const Color(0xFF334155),
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -4122,7 +5007,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                 color: const Color(0xFF0F172A),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: isSelected ? const Color(0xFFEAB308) : const Color(0xFF334155),
+                                  color: isSelected
+                                      ? const Color(0xFFEAB308)
+                                      : const Color(0xFF334155),
                                   width: isSelected ? 1.5 : 1,
                                 ),
                               ),
@@ -4133,14 +5020,19 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                         child: Icon(
                                           Icons.fullscreen_rounded,
                                           size: 22,
-                                          color: isSelected ? const Color(0xFFEAB308) : const Color(0xFF94A3B8),
+                                          color: isSelected
+                                              ? const Color(0xFFEAB308)
+                                              : const Color(0xFF94A3B8),
                                         ),
                                       )
                                     : CustomPaint(
                                         painter: SolarCoverDividerPainter(
                                           dividerType: divId,
-                                          primaryColor: Color(_hexToInt(_current.customDividerColor)),
-                                          bottomAreaColor: Color(_hexToInt(_current.customDividerBottomColor)),
+                                          primaryColor: Color(_hexToInt(
+                                              _current.customDividerColor)),
+                                          bottomAreaColor: Color(_hexToInt(
+                                              _current
+                                                  .customDividerBottomColor)),
                                           splitYRatio: 0.58,
                                         ),
                                       ),
@@ -4155,17 +5047,24 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                   Row(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4, vertical: 1),
                                         decoration: BoxDecoration(
-                                          color: isSelected ? const Color(0xFFEAB308).withValues(alpha: 0.2) : const Color(0xFF1E293B),
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: isSelected
+                                              ? const Color(0xFFEAB308)
+                                                  .withValues(alpha: 0.2)
+                                              : const Color(0xFF1E293B),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
                                         ),
                                         child: Text(
                                           divId < 0 ? 'OFF' : '#${divId + 1}',
                                           style: GoogleFonts.outfit(
                                             fontSize: 9,
                                             fontWeight: FontWeight.bold,
-                                            color: isSelected ? const Color(0xFFEAB308) : const Color(0xFF94A3B8),
+                                            color: isSelected
+                                                ? const Color(0xFFEAB308)
+                                                : const Color(0xFF94A3B8),
                                           ),
                                         ),
                                       ),
@@ -4176,7 +5075,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                           style: GoogleFonts.inter(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
-                                            color: isSelected ? const Color(0xFFEAB308) : Colors.white,
+                                            color: isSelected
+                                                ? const Color(0xFFEAB308)
+                                                : Colors.white,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -4187,7 +5088,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                   const SizedBox(height: 2),
                                   Text(
                                     div['desc'] as String,
-                                    style: GoogleFonts.inter(fontSize: 9.5, color: const Color(0xFF94A3B8)),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 9.5,
+                                        color: const Color(0xFF94A3B8)),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -4216,7 +5119,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           const SizedBox(height: 12),
           _buildColorChipsRow(
             selectedHex: _current.customDividerColor,
-            onSelect: (c) => setState(() => _current = _current.copyWith(customDividerColor: c)),
+            onSelect: (c) => setState(
+                () => _current = _current.copyWith(customDividerColor: c)),
           ),
 
           const SizedBox(height: 20),
@@ -4229,7 +5133,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           const SizedBox(height: 12),
           _buildColorChipsRow(
             selectedHex: _current.customDividerBottomColor,
-            onSelect: (c) => setState(() => _current = _current.copyWith(customDividerBottomColor: c)),
+            onSelect: (c) => setState(() =>
+                _current = _current.copyWith(customDividerBottomColor: c)),
           ),
 
           const SizedBox(height: 24),
@@ -4257,7 +5162,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     color: const Color(0xFF059669).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF10B981), size: 22),
+                  child: const Icon(Icons.cloud_upload_rounded,
+                      color: Color(0xFF10B981), size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -4266,15 +5172,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     children: [
                       Text(
                         'Foto Personalizada',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.white),
                       ),
                       Text(
-                        _current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty
+                        _current.customCoverImageBase64 != null &&
+                                _current.customCoverImageBase64!.isNotEmpty
                             ? '✅ Foto customizada carregada e ativa'
                             : 'Usando imagem padrão do sistema',
                         style: GoogleFonts.inter(
                           fontSize: 11.5,
-                          color: _current.customCoverImageBase64 != null ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                          color: _current.customCoverImageBase64 != null
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],
@@ -4283,11 +5195,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 ElevatedButton.icon(
                   onPressed: _pickCustomCoverPhoto,
                   icon: const Icon(Icons.folder_open_rounded, size: 16),
-                  label: Text(_current.customCoverImageBase64 != null ? 'TROCAR FOTO' : 'ESCOLHER FOTO'),
+                  label: Text(_current.customCoverImageBase64 != null
+                      ? 'TROCAR FOTO'
+                      : 'ESCOLHER FOTO'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF059669),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
@@ -4319,7 +5234,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _panelSectionTitle('Logomarca da Empresa na Capa', 'Exiba sua marca no topo da capa'),
+          _panelSectionTitle('Logomarca da Empresa na Capa',
+              'Exiba sua marca no topo da capa'),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
@@ -4333,13 +5249,17 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 Switch.adaptive(
                   value: _current.coverShowLogo,
                   activeTrackColor: const Color(0xFFEAB308),
-                  onChanged: (val) => setState(() => _current = _current.copyWith(coverShowLogo: val)),
+                  onChanged: (val) => setState(
+                      () => _current = _current.copyWith(coverShowLogo: val)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Exibir logomarca da empresa na folha de capa',
-                    style: GoogleFonts.inter(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
                 ElevatedButton.icon(
@@ -4349,7 +5269,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
@@ -4371,7 +5292,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               color: const Color(0xFF0F172A),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                color: (_current.customCoverImageBase64 != null &&
+                        _current.customCoverImageBase64!.isNotEmpty)
                     ? const Color(0xFF10B981)
                     : const Color(0xFF334155),
               ),
@@ -4381,16 +5303,19 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                    color: (_current.customCoverImageBase64 != null &&
+                            _current.customCoverImageBase64!.isNotEmpty)
                         ? const Color(0xFF10B981).withValues(alpha: 0.2)
                         : const Color(0xFF0284C7).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                    (_current.customCoverImageBase64 != null &&
+                            _current.customCoverImageBase64!.isNotEmpty)
                         ? Icons.check_circle_rounded
                         : Icons.add_photo_alternate_rounded,
-                    color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                    color: (_current.customCoverImageBase64 != null &&
+                            _current.customCoverImageBase64!.isNotEmpty)
                         ? const Color(0xFF10B981)
                         : const Color(0xFF38BDF8),
                     size: 24,
@@ -4403,16 +5328,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     children: [
                       Text(
                         'Foto Personalizada como Background',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.white),
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                        (_current.customCoverImageBase64 != null &&
+                                _current.customCoverImageBase64!.isNotEmpty)
                             ? '✅ Foto do usuário aplicada como plano de fundo da capa'
                             : 'Envie uma foto da sua máquina (.jpg, .png, .webp) para ser a capa',
                         style: GoogleFonts.inter(
                           fontSize: 11.5,
-                          color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                          color: (_current.customCoverImageBase64 != null &&
+                                  _current.customCoverImageBase64!.isNotEmpty)
                               ? const Color(0xFF34D399)
                               : const Color(0xFF94A3B8),
                         ),
@@ -4420,10 +5350,12 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     ],
                   ),
                 ),
-                if (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty) ...[
+                if (_current.customCoverImageBase64 != null &&
+                    _current.customCoverImageBase64!.isNotEmpty) ...[
                   IconButton(
                     tooltip: 'Remover foto personalizada e voltar ao catálogo',
-                    icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                    icon: const Icon(Icons.delete_outline_rounded,
+                        color: Color(0xFFEF4444), size: 20),
                     onPressed: () {
                       setState(() {
                         _current = _current.copyWith(
@@ -4438,16 +5370,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 ElevatedButton.icon(
                   onPressed: _pickCustomCoverPhoto,
                   icon: const Icon(Icons.cloud_upload_rounded, size: 16),
-                  label: Text((_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                  label: Text((_current.customCoverImageBase64 != null &&
+                          _current.customCoverImageBase64!.isNotEmpty)
                       ? 'TROCAR FOTO'
                       : 'ENVIAR FOTO'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                    backgroundColor: (_current.customCoverImageBase64 != null &&
+                            _current.customCoverImageBase64!.isNotEmpty)
                         ? const Color(0xFF059669)
                         : const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
@@ -4481,7 +5417,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: _selectedCoverGalleryTab == 0 ? const Color(0xFFEAB308) : Colors.transparent,
+                        color: _selectedCoverGalleryTab == 0
+                            ? const Color(0xFFEAB308)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
@@ -4491,7 +5429,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           Icon(
                             Icons.description_outlined,
                             size: 15,
-                            color: _selectedCoverGalleryTab == 0 ? Colors.black : Colors.white70,
+                            color: _selectedCoverGalleryTab == 0
+                                ? Colors.black
+                                : Colors.white70,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -4499,7 +5439,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             style: GoogleFonts.inter(
                               fontSize: 11.5,
                               fontWeight: FontWeight.bold,
-                              color: _selectedCoverGalleryTab == 0 ? Colors.black : Colors.white70,
+                              color: _selectedCoverGalleryTab == 0
+                                  ? Colors.black
+                                  : Colors.white70,
                             ),
                           ),
                         ],
@@ -4516,7 +5458,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: _selectedCoverGalleryTab == 1 ? const Color(0xFFEAB308) : Colors.transparent,
+                        color: _selectedCoverGalleryTab == 1
+                            ? const Color(0xFFEAB308)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
@@ -4526,7 +5470,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           Icon(
                             Icons.wallpaper_rounded,
                             size: 15,
-                            color: _selectedCoverGalleryTab == 1 ? Colors.black : Colors.white70,
+                            color: _selectedCoverGalleryTab == 1
+                                ? Colors.black
+                                : Colors.white70,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -4534,7 +5480,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                             style: GoogleFonts.inter(
                               fontSize: 11.5,
                               fontWeight: FontWeight.bold,
-                              color: _selectedCoverGalleryTab == 1 ? Colors.black : Colors.white70,
+                              color: _selectedCoverGalleryTab == 1
+                                  ? Colors.black
+                                  : Colors.white70,
                             ),
                           ),
                         ],
@@ -4550,12 +5498,14 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                        color: (_current.customCoverImageBase64 != null &&
+                                _current.customCoverImageBase64!.isNotEmpty)
                             ? const Color(0xFF059669)
                             : const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                          color: (_current.customCoverImageBase64 != null &&
+                                  _current.customCoverImageBase64!.isNotEmpty)
                               ? const Color(0xFF10B981)
                               : const Color(0xFF334155),
                         ),
@@ -4567,19 +5517,23 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           Icon(
                             Icons.add_photo_alternate_rounded,
                             size: 15,
-                            color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                            color: (_current.customCoverImageBase64 != null &&
+                                    _current.customCoverImageBase64!.isNotEmpty)
                                 ? Colors.white
                                 : const Color(0xFF38BDF8),
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                            (_current.customCoverImageBase64 != null &&
+                                    _current.customCoverImageBase64!.isNotEmpty)
                                 ? 'Sua Foto Ativa'
                                 : 'Enviar Minha Foto',
                             style: GoogleFonts.inter(
                               fontSize: 11.5,
                               fontWeight: FontWeight.bold,
-                              color: (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+                              color: (_current.customCoverImageBase64 != null &&
+                                      _current
+                                          .customCoverImageBase64!.isNotEmpty)
                                   ? Colors.white
                                   : const Color(0xFF38BDF8),
                             ),
@@ -4600,42 +5554,56 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Buscar número da capa (ex: 1, 15, 88)...',
-              hintStyle: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12),
-              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 18),
+              hintStyle: GoogleFonts.inter(
+                  color: const Color(0xFF64748B), fontSize: 12),
+              prefixIcon: const Icon(Icons.search_rounded,
+                  color: Color(0xFF94A3B8), size: 18),
               suffixIcon: _coverSearchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, color: Colors.white54, size: 16),
+                      icon: const Icon(Icons.clear_rounded,
+                          color: Colors.white54, size: 16),
                       onPressed: () => setState(() => _coverSearchQuery = ''),
                     )
                   : null,
               filled: true,
               fillColor: const Color(0xFF0F172A),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF334155))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF334155))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFEAB308))),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF334155))),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF334155))),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFEAB308))),
             ),
           ),
           const SizedBox(height: 14),
 
           // Aviso se houver foto personalizada ativa
-          if (_current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty)
+          if (_current.customCoverImageBase64 != null &&
+              _current.customCoverImageBase64!.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFF059669).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: Color(0xFF10B981), size: 18),
+                  const Icon(Icons.info_outline_rounded,
+                      color: Color(0xFF10B981), size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Você está usando uma foto personalizada. Clique em qualquer capa abaixo para voltar ao catálogo.',
-                      style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFFD1FAE5)),
+                      style: GoogleFonts.inter(
+                          fontSize: 11.5, color: const Color(0xFFD1FAE5)),
                     ),
                   ),
                 ],
@@ -4655,17 +5623,21 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             itemCount: filteredList.length,
             itemBuilder: (ctx, idx) {
               final item = filteredList[idx];
-              final isCustomActive = _current.customCoverImageBase64 != null && _current.customCoverImageBase64!.isNotEmpty;
+              final isCustomActive = _current.customCoverImageBase64 != null &&
+                  _current.customCoverImageBase64!.isNotEmpty;
               final isSel = !isCustomActive &&
-                  (_current.selectedCoverTemplate == item || _current.webBackgroundTemplate == item);
+                  (_current.selectedCoverTemplate == item ||
+                      _current.webBackgroundTemplate == item);
 
               final rawUrl = isCoversMode
                   ? SolarSettingsService.getSmallCoverUrl(item)
                   : SolarSettingsService.getWebBackgroundUrl(item);
-              final thumbUrl = 'https://wsrv.nl/?url=${Uri.encodeComponent(rawUrl)}&w=300&output=webp';
+              final thumbUrl =
+                  'https://wsrv.nl/?url=${Uri.encodeComponent(rawUrl)}&w=300&output=webp';
 
               final numMatch = RegExp(r'\d+').firstMatch(item);
-              final displayNum = numMatch != null ? numMatch.group(0) : '${idx + 1}';
+              final displayNum =
+                  numMatch != null ? numMatch.group(0) : '${idx + 1}';
 
               return InkWell(
                 onTap: () {
@@ -4677,7 +5649,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                       isCustomCoverMode: !isCoversMode,
                       customDividerStyle: isCoversMode
                           ? -1
-                          : (_current.customDividerStyle >= 0 ? _current.customDividerStyle : 0),
+                          : (_current.customDividerStyle >= 0
+                              ? _current.customDividerStyle
+                              : 0),
                     );
                   });
                 },
@@ -4688,13 +5662,16 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                     color: const Color(0xFF0F172A),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isSel ? const Color(0xFFEAB308) : const Color(0xFF334155),
+                      color: isSel
+                          ? const Color(0xFFEAB308)
+                          : const Color(0xFF334155),
                       width: isSel ? 2.5 : 1,
                     ),
                     boxShadow: isSel
                         ? [
                             BoxShadow(
-                              color: const Color(0xFFEAB308).withValues(alpha: 0.40),
+                              color: const Color(0xFFEAB308)
+                                  .withValues(alpha: 0.40),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
@@ -4718,7 +5695,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                 child: SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFEAB308)),
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Color(0xFFEAB308)),
                                 ),
                               ),
                             );
@@ -4732,9 +5710,13 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.image_outlined, color: Colors.white24, size: 22),
+                                    const Icon(Icons.image_outlined,
+                                        color: Colors.white24, size: 22),
                                     const SizedBox(height: 4),
-                                    Text('#$displayNum', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                                    Text('#$displayNum',
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 10)),
                                   ],
                                 ),
                               ),
@@ -4753,7 +5735,10 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.85)
+                                ],
                               ),
                             ),
                           ),
@@ -4764,11 +5749,13 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           top: 6,
                           left: 6,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.75),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.white24, width: 0.5),
+                              border:
+                                  Border.all(color: Colors.white24, width: 0.5),
                             ),
                             child: Text(
                               '#$displayNum',
@@ -4806,7 +5793,9 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                           right: 4,
                           bottom: 5,
                           child: Text(
-                            isCoversMode ? 'Capa #$displayNum' : 'Foto #$displayNum',
+                            isCoversMode
+                                ? 'Capa #$displayNum'
+                                : 'Foto #$displayNum',
                             style: GoogleFonts.inter(
                               color: Colors.white,
                               fontSize: 9.5,
@@ -4834,15 +5823,20 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
 
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _current = _current.copyWith(verticalSplitDividerType: type)),
+        onTap: () => setState(
+            () => _current = _current.copyWith(verticalSplitDividerType: type)),
         borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF0F172A).withValues(alpha: 0.5),
+            color: isSelected
+                ? const Color(0xFF0F172A)
+                : const Color(0xFF0F172A).withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isSelected ? const Color(0xFFEAB308) : const Color(0xFF334155),
+              color: isSelected
+                  ? const Color(0xFFEAB308)
+                  : const Color(0xFF334155),
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -4860,7 +5854,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF94A3B8)),
+                style: GoogleFonts.inter(
+                    fontSize: 10.5, color: const Color(0xFF94A3B8)),
               ),
             ],
           ),
@@ -4906,7 +5901,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           children: palette.map((item) {
             final hex = item['hex']!;
             final isSel = selectedHex.trim().toUpperCase() == hex.toUpperCase();
-            final color = Color(int.parse(hex.replaceAll('#', 'FF'), radix: 16));
+            final color =
+                Color(int.parse(hex.replaceAll('#', 'FF'), radix: 16));
             return Tooltip(
               message: item['name']!,
               child: InkWell(
@@ -4934,7 +5930,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                         : null,
                   ),
                   child: isSel
-                      ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                      ? const Icon(Icons.check_rounded,
+                          size: 16, color: Colors.white)
                       : null,
                 ),
               ),
@@ -4946,7 +5943,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
   }
 
   Widget _buildColorOption(String hex, String name) {
-    final isSelected = _current.verticalSplitAccentColor.toLowerCase() == hex.toLowerCase();
+    final isSelected =
+        _current.verticalSplitAccentColor.toLowerCase() == hex.toLowerCase();
     final color = Color(int.parse(hex.replaceAll('#', 'FF'), radix: 16));
 
     return InkWell(
@@ -4989,22 +5987,30 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
     );
   }
 
-  Widget _panelSectionTitle(String title, String subtitle, {VoidCallback? onDelete, String? deleteTooltip}) {
+  Widget _panelSectionTitle(String title, String subtitle,
+      {VoidCallback? onDelete, String? deleteTooltip}) {
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(title,
+                  style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white)),
               const SizedBox(height: 2),
-              Text(subtitle, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8))),
+              Text(subtitle,
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: const Color(0xFF94A3B8))),
             ],
           ),
         ),
         if (onDelete != null)
           IconButton(
-            icon: const Icon(Icons.visibility_off_outlined, color: Color(0xFF94A3B8), size: 18),
+            icon: const Icon(Icons.visibility_off_outlined,
+                color: Color(0xFF94A3B8), size: 18),
             tooltip: deleteTooltip ?? 'Ocultar Elemento',
             onPressed: onDelete,
             constraints: const BoxConstraints(),
@@ -5030,7 +6036,8 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
           color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? const Color(0xFF38BDF8) : const Color(0xFF475569),
+            color:
+                isSelected ? const Color(0xFF38BDF8) : const Color(0xFF475569),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -5068,19 +6075,30 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
       ),
       child: Row(
         children: [
-          const Icon(Icons.visibility_off_rounded, color: Color(0xFF94A3B8), size: 16),
+          const Icon(Icons.visibility_off_rounded,
+              color: Color(0xFF94A3B8), size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               '$title (Ocultado)',
-              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8), fontStyle: FontStyle.italic),
+              style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF94A3B8),
+                  fontStyle: FontStyle.italic),
             ),
           ),
           TextButton.icon(
             onPressed: onRestore,
-            icon: const Icon(Icons.restore_rounded, size: 14, color: Color(0xFF38BDF8)),
-            label: const Text('EXIBIR', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11.5, fontWeight: FontWeight.bold)),
-            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+            icon: const Icon(Icons.restore_rounded,
+                size: 14, color: Color(0xFF38BDF8)),
+            label: const Text('EXIBIR',
+                style: TextStyle(
+                    color: Color(0xFF38BDF8),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold)),
+            style: TextButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
           ),
         ],
       ),
@@ -5114,18 +6132,25 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
                 style: GoogleFonts.inter(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
-                  color: isHighlighted ? const Color(0xFF38BDF8) : const Color(0xFFCBD5E1),
+                  color: isHighlighted
+                      ? const Color(0xFF38BDF8)
+                      : const Color(0xFFCBD5E1),
                 ),
               ),
               if (isHighlighted) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0284C7),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('SELECIONADO NO CANVAS', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                  child: const Text('SELECIONADO NO CANVAS',
+                      style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
                 ),
               ],
             ],
@@ -5138,17 +6163,23 @@ class _SolarCoverCustomizerDialogState extends State<SolarCoverCustomizerDialog>
             style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+              hintStyle: GoogleFonts.inter(
+                  fontSize: 12, color: const Color(0xFF64748B)),
               filled: true,
               fillColor: const Color(0xFF0F172A),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: isHighlighted ? const Color(0xFF38BDF8) : const Color(0xFF334155)),
+                borderSide: BorderSide(
+                    color: isHighlighted
+                        ? const Color(0xFF38BDF8)
+                        : const Color(0xFF334155)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFEAB308), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xFFEAB308), width: 1.5),
               ),
             ),
           ),

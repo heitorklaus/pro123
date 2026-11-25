@@ -84,6 +84,14 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
       (acc, b) => acc + _effectiveAccumulatedBalanceKwh(b, filteredBills),
     );
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final innerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textBody = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -91,9 +99,9 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: cardBg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF334155)),
+            border: Border.all(color: borderColor),
           ),
           child: Wrap(
             spacing: 16,
@@ -125,14 +133,14 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                         style: GoogleFonts.outfit(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: textPrimary,
                         ),
                       ),
                       Text(
                         'Identifique quais clientes estão sobrando saldo e quais precisam de mais % na Energisa',
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: const Color(0xFF94A3B8),
+                          color: textSecondary,
                         ),
                       ),
                     ],
@@ -143,16 +151,16 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: innerBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF334155)),
+                  border: Border.all(color: borderColor),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: activePlants.any((p) => p.id == _selectedPlantId)
                         ? _selectedPlantId
                         : 'all',
-                    dropdownColor: const Color(0xFF0F172A),
+                    dropdownColor: cardBg,
                     icon: const Icon(
                       Icons.keyboard_arrow_down_rounded,
                       color: Color(0xFF38BDF8),
@@ -165,7 +173,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: textPrimary,
                           ),
                         ),
                       ),
@@ -177,7 +185,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                              color: textPrimary,
                             ),
                           ),
                         ),
@@ -268,9 +276,9 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: cardBg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF334155)),
+            border: Border.all(color: borderColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,14 +299,14 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                           style: GoogleFonts.outfit(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: textPrimary,
                           ),
                         ),
                         Text(
                           'Compare visualmente quanto cada cliente consome, quanto recebe da usina e quanto já acumulou de saldo no rodapé',
                           style: GoogleFonts.inter(
                             fontSize: 12,
-                            color: const Color(0xFF94A3B8),
+                            color: textSecondary,
                           ),
                         ),
                       ],
@@ -385,7 +393,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                       margin: const EdgeInsets.only(bottom: 14),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
+                        color: innerBg,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: diagnosis.statusColor.withValues(alpha: 0.4),
@@ -405,7 +413,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                                       style: GoogleFonts.inter(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                        color: textPrimary,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -416,16 +424,17 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                                           vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF1E293B),
+                                          color: cardBg,
                                           borderRadius:
                                               BorderRadius.circular(6),
+                                          border: isDark ? null : Border.all(color: borderColor),
                                         ),
                                         child: Text(
                                           'UC: ${b.ucNumber} • ${b.allPlantsSummaryLabel}',
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.inter(
                                             fontSize: 11,
-                                            color: const Color(0xFF94A3B8),
+                                            color: textSecondary,
                                           ),
                                         ),
                                       ),
@@ -491,8 +500,9 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: cardBg,
                               borderRadius: BorderRadius.circular(10),
+                              border: isDark ? null : Border.all(color: borderColor),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -502,7 +512,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                                     '💡 ${diagnosis.recommendationText}',
                                     style: GoogleFonts.inter(
                                       fontSize: 12,
-                                      color: const Color(0xFFE2E8F0),
+                                      color: textBody,
                                     ),
                                   ),
                                 ),
@@ -682,6 +692,10 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
     final ratio = (valueKwh / maxKwh).clamp(0.02, 1.0);
     return LayoutBuilder(
       builder: (context, constraints) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final labelColor = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
+        final valColor = isDark ? Colors.white : const Color(0xFF0F172A);
+        final trackBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
         final isMobileBar = constraints.maxWidth < 480;
         if (isMobileBar) {
           return Column(
@@ -696,7 +710,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 11.5,
-                        color: const Color(0xFFCBD5E1),
+                        color: labelColor,
                       ),
                     ),
                   ),
@@ -706,7 +720,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                     style: GoogleFonts.inter(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: valColor,
                     ),
                   ),
                 ],
@@ -716,7 +730,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                 borderRadius: BorderRadius.circular(6),
                 child: Container(
                   height: 10,
-                  color: const Color(0xFF1E293B),
+                  color: trackBg,
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
                     widthFactor: ratio,
@@ -742,7 +756,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                 label,
                 style: GoogleFonts.inter(
                   fontSize: 12,
-                  color: const Color(0xFFCBD5E1),
+                  color: labelColor,
                 ),
               ),
             ),
@@ -751,7 +765,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                 borderRadius: BorderRadius.circular(6),
                 child: Container(
                   height: 12,
-                  color: const Color(0xFF1E293B),
+                  color: trackBg,
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
                     widthFactor: ratio,
@@ -775,7 +789,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: valColor,
                 ),
               ),
             ),
@@ -786,6 +800,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
   }
 
   Widget _buildLegendDot(String label, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -799,7 +814,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
           label,
           style: GoogleFonts.inter(
             fontSize: 11.5,
-            color: const Color(0xFFCBD5E1),
+            color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
           ),
         ),
       ],
@@ -813,12 +828,15 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
     required IconData icon,
     required Color color,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,7 +850,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
                   style: GoogleFonts.inter(
                     fontSize: 10.5,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF94A3B8),
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                     letterSpacing: 0.6,
                   ),
                 ),
@@ -846,7 +864,7 @@ class _SolarCreditAnalyticsTabState extends State<SolarCreditAnalyticsTab> {
             style: GoogleFonts.outfit(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
             ),
           ),
           const SizedBox(height: 4),

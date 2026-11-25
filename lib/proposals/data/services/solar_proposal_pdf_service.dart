@@ -215,7 +215,13 @@ class SolarProposalPdfService {
         (effectiveStudy != null && !hiddenPages.contains('page_4'))
             ? (1 + effectivePhotos.length)
             : 0;
+    final portfolioItems = settings.portfolioItems;
+    final portfolioPagesCount = settings.showPortfolioPage
+        ? (portfolioItems.isEmpty ? 1 : (portfolioItems.length / 6).ceil())
+        : 0;
+
     int totalPages = 1; // page_1 (Capa)
+    totalPages += portfolioPagesCount;
     if (!hiddenPages.contains('page_2')) totalPages++;
     if (!hiddenPages.contains('page_3')) totalPages++;
     totalPages += studyPagesCount;
@@ -360,6 +366,23 @@ class SolarProposalPdfService {
             double.tryParse(kwhMatch.group(1)!.replaceAll(',', '.')) ?? 0.0;
       }
     }
+    // Fallback: busca generationKwh diretamente do produto no Firestore
+    // (caso a proposta tenha sido salva antes de registrar estimatedMonthlyKwh)
+    if (generationMonthly <= 0 && solarPlantItem.productId != null) {
+      try {
+        final productDoc = await FirebaseFirestore.instance
+            .collection('products')
+            .doc(solarPlantItem.productId)
+            .get();
+        if (productDoc.exists) {
+          final attrs = productDoc.data()?['specificAttributes'] as Map<String, dynamic>?;
+          final rawGen = attrs?['generationKwh'] ?? attrs?['estimatedMonthlyKwh'];
+          if (rawGen is num && rawGen > 0) {
+            generationMonthly = rawGen.toDouble();
+          }
+        }
+      } catch (_) {}
+    }
     if (generationMonthly <= 0) {
       generationMonthly = (kwp * 115.2).clamp(100.0, 50000.0);
     }
@@ -446,16 +469,59 @@ class SolarProposalPdfService {
     // Capa (Página 1)
     curPage++;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA 2: PROPOSTA COMERCIAL & ESCOPO DO PROJETO
-    // ─────────────────────────────────────────────────────────────────────────
-    if (!hiddenPages.contains('page_2')) {
+    Future<void> addPortfolioPages() async {
+      if (!settings.showPortfolioPage) return;
+      final totalChunks = portfolioItems.isEmpty
+          ? 1
+          : (portfolioItems.length / 6).ceil();
+      for (int c = 0; c < totalChunks; c++) {
+        final start = c * 6;
+        final end = (start + 6) > portfolioItems.length
+            ? portfolioItems.length
+            : (start + 6);
+        final chunk = portfolioItems.isEmpty
+            ? const <SolarPortfolioItem>[]
+            : portfolioItems.sublist(start, end);
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: pw.EdgeInsets.zero,
+            build: (context) => _buildProgrammaticPageLayout(
+              pageTitle: settings.portfolioTitle.trim().isNotEmpty
+                  ? settings.portfolioTitle.trim().toUpperCase()
+                  : 'PORTFÓLIO DE CLIENTES',
+              pageNumber: curPage++,
+              totalPages: totalPages,
+              primaryColor: primaryColor,
+              settings: settings,
+              proposal: proposal,
+              fullBleedContent: true,
+              content: _buildPortfolioPageContent(
+                items: chunk,
+                title: settings.portfolioTitle,
+                subtitle: settings.portfolioSubtitle,
+                footerNote: settings.portfolioFooterNote,
+                primaryColor: primaryColor,
+                secondaryColor: secondaryColor,
+                fontBold: fontMontserratBold,
+                fontSemiBold: fontMontserratSemiBold,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    Future<void> addPage2() async {
+      if (hiddenPages.contains('page_2')) return;
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
           build: (context) => _buildProgrammaticPageLayout(
-            pageTitle: 'PROPOSTA COMERCIAL',
+            pageTitle: settings.pdfPageTitle2.trim().isNotEmpty
+                ? settings.pdfPageTitle2.trim().toUpperCase()
+                : 'PROPOSTA COMERCIAL',
             pageNumber: curPage++,
             totalPages: totalPages,
             primaryColor: primaryColor,
@@ -471,10 +537,8 @@ class SolarProposalPdfService {
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA 3: SUA USINA (FICHA TÉCNICA)
-    // ─────────────────────────────────────────────────────────────────────────
-    if (!hiddenPages.contains('page_3')) {
+    Future<void> addPage3() async {
+      if (hiddenPages.contains('page_3')) return;
       if (_cachedPage3HouseBytes == null) {
         try {
           final bd =
@@ -488,7 +552,9 @@ class SolarProposalPdfService {
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
           build: (context) => _buildProgrammaticPageLayout(
-            pageTitle: 'SUA USINA SOLAR',
+            pageTitle: settings.pdfPageTitle3.trim().isNotEmpty
+                ? settings.pdfPageTitle3.trim().toUpperCase()
+                : 'SUA USINA SOLAR',
             pageNumber: curPage++,
             totalPages: totalPages,
             primaryColor: primaryColor,
@@ -513,19 +579,16 @@ class SolarProposalPdfService {
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ESTUDO SOLAR DE TELHADO & SOMBREAMENTO (SE VINCULADO)
-    // INSERIDO EXATAMENTE ANTES DA PÁGINA "ITENS DA USINA & PAGAMENTO"
-    // COM CABEÇALHO E RODAPÉ PADRONIZADOS DA PROPOSTA
-    // ─────────────────────────────────────────────────────────────────────────
-    if (effectiveStudy != null && !hiddenPages.contains('page_4')) {
-      // 1. Folha do Estudo Técnico de Telhado & Sombreamento
+    Future<void> addPage4Study() async {
+      if (effectiveStudy == null || hiddenPages.contains('page_4')) return;
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
           build: (context) => _buildProgrammaticPageLayout(
-            pageTitle: 'ESTUDO DE TELHADO & SOMBREAMENTO',
+            pageTitle: settings.pdfPageTitleRoof.trim().isNotEmpty
+                ? settings.pdfPageTitleRoof.trim().toUpperCase()
+                : 'ESTUDO DE TELHADO & SOMBREAMENTO',
             pageNumber: curPage++,
             totalPages: totalPages,
             primaryColor: primaryColor,
@@ -541,7 +604,6 @@ class SolarProposalPdfService {
         ),
       );
 
-      // 2. Folhas Individuais Dedicadas para Cada Foto da Simulação Solar
       for (int i = 0; i < effectivePhotos.length; i++) {
         final photo = effectivePhotos[i];
         pdf.addPage(
@@ -567,16 +629,16 @@ class SolarProposalPdfService {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA: ITENS DA USINA & FORMA DE PAGAMENTO
-    // ─────────────────────────────────────────────────────────────────────────
-    if (!hiddenPages.contains('page_5')) {
+    Future<void> addPage5Items() async {
+      if (hiddenPages.contains('page_5')) return;
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
           build: (context) => _buildProgrammaticPageLayout(
-            pageTitle: 'ITENS DA USINA & PAGAMENTO',
+            pageTitle: settings.pdfPageTitle4.trim().isNotEmpty
+                ? settings.pdfPageTitle4.trim().toUpperCase()
+                : 'ITENS DA USINA & PAGAMENTO',
             pageNumber: curPage++,
             totalPages: totalPages,
             primaryColor: primaryColor,
@@ -599,16 +661,16 @@ class SolarProposalPdfService {
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA: ANÁLISE DE INVESTIMENTO & TABELA DE 20 ANOS
-    // ─────────────────────────────────────────────────────────────────────────
-    if (!hiddenPages.contains('page_6')) {
+    Future<void> addPage6Investment() async {
+      if (hiddenPages.contains('page_6')) return;
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
           build: (context) => _buildProgrammaticPageLayout(
-            pageTitle: 'ANÁLISE DE INVESTIMENTO',
+            pageTitle: settings.pdfPageTitle5.trim().isNotEmpty
+                ? settings.pdfPageTitle5.trim().toUpperCase()
+                : 'ANÁLISE DE INVESTIMENTO',
             pageNumber: curPage++,
             totalPages: totalPages,
             primaryColor: primaryColor,
@@ -629,16 +691,16 @@ class SolarProposalPdfService {
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINA: FINANCIAMENTO BANCÁRIO & CARTÃO DE CRÉDITO
-    // ─────────────────────────────────────────────────────────────────────────
-    if (!hiddenPages.contains('page_7')) {
+    Future<void> addPage7Financing() async {
+      if (hiddenPages.contains('page_7')) return;
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
           build: (context) => _buildProgrammaticPageLayout(
-            pageTitle: 'FINANCIAMENTO & CONDIÇÕES',
+            pageTitle: settings.pdfPageTitle6.trim().isNotEmpty
+                ? settings.pdfPageTitle6.trim().toUpperCase()
+                : 'FINANCIAMENTO & CONDIÇÕES',
             pageNumber: curPage++,
             totalPages: totalPages,
             primaryColor: primaryColor,
@@ -656,26 +718,52 @@ class SolarProposalPdfService {
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PÁGINAS PERSONALIZADAS DO USUÁRIO
-    // ─────────────────────────────────────────────────────────────────────────
-    for (final cp in customPages) {
-      if (!hiddenPages.contains(cp.id)) {
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            margin: pw.EdgeInsets.zero,
-            build: (context) => _buildProgrammaticPageLayout(
-              pageTitle: cp.title.toUpperCase(),
-              pageNumber: curPage++,
-              totalPages: totalPages,
-              primaryColor: primaryColor,
-              settings: settings,
-              proposal: proposal,
-              content: _buildCustomPageContent(cp, primaryColor),
-            ),
-          ),
-        );
+    for (final pageKey in settings.effectivePageOrder) {
+      switch (pageKey) {
+        case 'portfolio':
+          await addPortfolioPages();
+          break;
+        case 'page_2':
+          await addPage2();
+          break;
+        case 'page_3':
+          await addPage3();
+          break;
+        case 'page_4':
+          await addPage4Study();
+          break;
+        case 'page_5':
+          await addPage5Items();
+          break;
+        case 'page_6':
+          await addPage6Investment();
+          break;
+        case 'page_7':
+          await addPage7Financing();
+          break;
+        default:
+          final cpMatch = customPages.where((c) => c.id == pageKey);
+          if (cpMatch.isNotEmpty) {
+            final cp = cpMatch.first;
+            if (!hiddenPages.contains(cp.id)) {
+              pdf.addPage(
+                pw.Page(
+                  pageFormat: PdfPageFormat.a4,
+                  margin: pw.EdgeInsets.zero,
+                  build: (context) => _buildProgrammaticPageLayout(
+                    pageTitle: cp.title.toUpperCase(),
+                    pageNumber: curPage++,
+                    totalPages: totalPages,
+                    primaryColor: primaryColor,
+                    settings: settings,
+                    proposal: proposal,
+                    content: _buildCustomPageContent(cp, primaryColor),
+                  ),
+                ),
+              );
+            }
+          }
+          break;
       }
     }
 
@@ -1710,7 +1798,7 @@ class SolarProposalPdfService {
                       const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: pw.BoxDecoration(
                     color: isDark
-                        ? const PdfColor.fromInt(0x30FFFFFF)
+                        ? _lightenPdfColor(bg, 0.14)
                         : PdfColor.fromHex('#F1F5F9'),
                     borderRadius: pw.BorderRadius.circular(4),
                     border: pw.Border.all(
@@ -1950,7 +2038,7 @@ class SolarProposalPdfService {
                       const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: pw.BoxDecoration(
                     color: isDark
-                        ? const PdfColor.fromInt(0x30FFFFFF)
+                        ? _lightenPdfColor(bg, 0.14)
                         : PdfColor.fromHex('#0F172A'),
                     borderRadius: pw.BorderRadius.circular(4),
                   ),
@@ -2881,7 +2969,7 @@ class SolarProposalPdfService {
         : null;
 
     pw.Widget topHeader;
-    if (settings.coverShowHeader) {
+    if (settings.coverShowHeader && settings.coverHeaderStyle != 11) {
       topHeader = _buildPdfCoverHeader(
         styleId: settings.coverHeaderStyle,
         text1: settings.coverHeaderText1.isNotEmpty
@@ -2983,6 +3071,8 @@ class SolarProposalPdfService {
         customTextColor: customFooterTxt,
         customIconColor: customFooterIcon,
       );
+    } else if (!settings.showPdfSloganFooter) {
+      bottomFooter = pw.SizedBox.shrink();
     } else {
       bottomFooter = pw.Padding(
         padding: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 12),
@@ -3633,6 +3723,316 @@ class SolarProposalPdfService {
   // ───────────────────────────────────────────────────────────────────────────
   // PÁGINA 2: APRESENTAÇÃO & ESCOPO (DINÂMICOS & TEMPLATES)
   // ───────────────────────────────────────────────────────────────────────────
+  static pw.Widget _buildPortfolioPageContent({
+    required List<SolarPortfolioItem> items,
+    required String title,
+    required String subtitle,
+    required String footerNote,
+    required PdfColor primaryColor,
+    required PdfColor secondaryColor,
+    pw.Font? fontBold,
+    pw.Font? fontSemiBold,
+  }) {
+    final safeTitle =
+        title.trim().isNotEmpty ? title.trim() : 'Portfólio de clientes';
+    final safeSubtitle = subtitle.trim().isNotEmpty
+        ? subtitle.trim()
+        : 'Instalações residenciais, comerciais e rurais';
+    final bannerAccentHex =
+        '#${(primaryColor.red * 255).round().toRadixString(16).padLeft(2, '0')}${(primaryColor.green * 255).round().toRadixString(16).padLeft(2, '0')}${(primaryColor.blue * 255).round().toRadixString(16).padLeft(2, '0')}';
+
+    final solarPanelBannerSvg = '''
+<svg width="72" height="52" viewBox="0 0 72 52" fill="none" stroke="$bannerAccentHex" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <polygon points="14,6 58,6 66,38 6,38" fill="none"/>
+  <line x1="25" y1="6" x2="21" y2="38"/>
+  <line x1="36" y1="6" x2="36" y2="38"/>
+  <line x1="47" y1="6" x2="51" y2="38"/>
+  <line x1="11" y1="17" x2="61" y2="17"/>
+  <line x1="8" y1="28" x2="64" y2="28"/>
+  <line x1="36" y1="38" x2="36" y2="48"/>
+  <line x1="24" y1="48" x2="48" y2="48"/>
+</svg>
+''';
+
+    final rows = <pw.Widget>[];
+    for (int i = 0; i < items.length; i += 2) {
+      final left = items[i];
+      final right = (i + 1) < items.length ? items[i + 1] : null;
+      rows.add(
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: _buildPortfolioCard(
+                item: left,
+                primaryColor: primaryColor,
+                secondaryColor: secondaryColor,
+                fontBold: fontBold,
+                fontSemiBold: fontSemiBold,
+              ),
+            ),
+            pw.SizedBox(width: 12),
+            pw.Expanded(
+              child: right != null
+                  ? _buildPortfolioCard(
+                      item: right,
+                      primaryColor: primaryColor,
+                      secondaryColor: secondaryColor,
+                      fontBold: fontBold,
+                      fontSemiBold: fontSemiBold,
+                    )
+                  : pw.SizedBox(),
+            ),
+          ],
+        ),
+      );
+      if (i + 2 < items.length) {
+        rows.add(pw.SizedBox(height: 10));
+      }
+    }
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.fromLTRB(26, 10, 26, 8),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // Banner Escuro Superior
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: pw.BoxDecoration(
+              color: secondaryColor,
+              borderRadius: pw.BorderRadius.circular(10),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: [
+                      pw.Text(
+                        safeTitle,
+                        style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 18,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        safeSubtitle,
+                        style: pw.TextStyle(
+                          font: fontSemiBold,
+                          fontSize: 9.5,
+                          color: PdfColor.fromHex('#CBD5E1'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(width: 12),
+                pw.SvgImage(svg: solarPanelBannerSvg, width: 64, height: 44),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          if (items.isEmpty)
+            pw.Expanded(
+              child: pw.Center(
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.all(24),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#F8FAFC'),
+                    borderRadius: pw.BorderRadius.circular(10),
+                    border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1')),
+                  ),
+                  child: pw.Text(
+                    'Adicione fotos e projetos do seu portfólio no editor de páginas para exibi-los aqui.',
+                    style: pw.TextStyle(
+                      font: fontSemiBold,
+                      fontSize: 11,
+                      color: PdfColor.fromHex('#475569'),
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            ...rows,
+            pw.Spacer(),
+          ],
+          if (footerNote.trim().isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            pw.Text(
+              footerNote.trim(),
+              style: pw.TextStyle(
+                font: fontSemiBold,
+                fontSize: 8,
+                color: PdfColor.fromHex('#64748B'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildPortfolioCard({
+    required SolarPortfolioItem item,
+    required PdfColor primaryColor,
+    required PdfColor secondaryColor,
+    pw.Font? fontBold,
+    pw.Font? fontSemiBold,
+  }) {
+    pw.MemoryImage? imgProvider;
+    if (item.imageBase64 != null && item.imageBase64!.trim().isNotEmpty) {
+      try {
+        final raw = item.imageBase64!.contains(',')
+            ? item.imageBase64!.split(',').last
+            : item.imageBase64!;
+        imgProvider = pw.MemoryImage(base64Decode(raw));
+      } catch (_) {}
+    }
+
+    final specs = <MapEntry<String, String>>[];
+    if (item.modules.trim().isNotEmpty) {
+      specs.add(MapEntry('Módulos', item.modules.trim()));
+    }
+    if (item.inverter.trim().isNotEmpty) {
+      specs.add(MapEntry('Inversor', item.inverter.trim()));
+    }
+    if (item.generation.trim().isNotEmpty) {
+      specs.add(MapEntry('Geração', item.generation.trim()));
+    }
+    if (item.extraInfo.trim().isNotEmpty) {
+      specs.add(MapEntry('Detalhes', item.extraInfo.trim()));
+    }
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: PdfColors.white,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.8),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          // Foto com Badge de Potência no canto inferior direito
+          pw.ClipRRect(
+            horizontalRadius: 7.5,
+            verticalRadius: 7.5,
+            child: pw.Container(
+              height: 92,
+              color: secondaryColor,
+              child: pw.Stack(
+                fit: pw.StackFit.expand,
+                children: [
+                  if (imgProvider != null)
+                    pw.Image(imgProvider, fit: pw.BoxFit.cover)
+                  else
+                    pw.Center(
+                      child: pw.Text(
+                        'FOTO DA OBRA',
+                        style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 9,
+                          color: PdfColor.fromHex('#94A3B8'),
+                        ),
+                      ),
+                    ),
+                  if (item.powerBadge.trim().isNotEmpty)
+                    pw.Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: pw.BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Text(
+                          item.powerBadge.trim(),
+                          style: pw.TextStyle(
+                            font: fontBold,
+                            fontSize: 8.5,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // Corpo do Card (Cliente + Especificações)
+          pw.Padding(
+            padding: const pw.EdgeInsets.fromLTRB(10, 7, 10, 8),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                pw.Text(
+                  item.title.trim().isNotEmpty ? item.title.trim() : 'Projeto Solar',
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 10.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromHex('#0F172A'),
+                  ),
+                  maxLines: 1,
+                ),
+                if (specs.isNotEmpty) ...[
+                  pw.SizedBox(height: 4),
+                  pw.Container(height: 0.6, color: PdfColor.fromHex('#E2E8F0')),
+                  pw.SizedBox(height: 4),
+                  ...specs.map(
+                    (e) => pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 2.5),
+                      child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(
+                            e.key,
+                            style: pw.TextStyle(
+                              font: fontSemiBold,
+                              fontSize: 7.5,
+                              color: PdfColor.fromHex('#64748B'),
+                            ),
+                          ),
+                          pw.SizedBox(width: 8),
+                          pw.Expanded(
+                            child: pw.Text(
+                              e.value,
+                              textAlign: pw.TextAlign.right,
+                              style: pw.TextStyle(
+                                font: fontBold,
+                                fontSize: 7.8,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColor.fromHex('#0F172A'),
+                              ),
+                              maxLines: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   static pw.Widget _buildPage2Content(
     PdfColor primaryColor, {
     List<ProposalPageCard>? customCards,
@@ -4679,22 +5079,83 @@ class SolarProposalPdfService {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(
-                      'Investimento total da usina',
-                      style: const pw.TextStyle(
-                        fontSize: 9.5,
-                        color: PdfColor.fromInt(0xFFC3E6F4),
+                    if (proposal.showSeparatedPricing) ...[
+                      // Busca item solar para obter os preços separados
+                      () {
+                        final solarItem = proposal.items.firstWhere(
+                          (i) => i.isSolarPlant,
+                          orElse: () => proposal.items.first,
+                        );
+                        final equipPrice = solarItem.solarEquipmentPrice;
+                        final servPrice = solarItem.solarServicePrice;
+                        return pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            if (equipPrice != null) ...[
+                              pw.Row(
+                                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                children: [
+                                  pw.Text(
+                                    '\u25A0 Equipamentos: ${_currencyFormat.format(equipPrice)}',
+                                    style: const pw.TextStyle(
+                                      fontSize: 9.0,
+                                      color: PdfColor.fromInt(0xFF38BDF8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              pw.SizedBox(height: 4),
+                            ],
+                            if (servPrice != null) ...[
+                              pw.Row(
+                                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                                children: [
+                                  pw.Text(
+                                    '\u25A0 Serviços: ${_currencyFormat.format(servPrice)}',
+                                    style: const pw.TextStyle(
+                                      fontSize: 9.0,
+                                      color: PdfColor.fromInt(0xFF34D399),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              pw.SizedBox(height: 6),
+                            ],
+                            pw.Container(
+                              width: 110,
+                              height: 1,
+                              color: const PdfColor.fromInt(0x33FFFFFF),
+                              margin: const pw.EdgeInsets.only(bottom: 5),
+                            ),
+                            pw.Text(
+                              'Total: ${_currencyFormat.format(proposal.totalAmount)}',
+                              style: pw.TextStyle(
+                                fontSize: 18.0,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.white,
+                              ),
+                            ),
+                          ],
+                        );
+                      }(),
+                    ] else ...[
+                      pw.Text(
+                        'Investimento total da usina',
+                        style: const pw.TextStyle(
+                          fontSize: 9.5,
+                          color: PdfColor.fromInt(0xFFC3E6F4),
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      _currencyFormat.format(proposal.totalAmount),
-                      style: pw.TextStyle(
-                        fontSize: 20.5,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        _currencyFormat.format(proposal.totalAmount),
+                        style: pw.TextStyle(
+                          fontSize: 20.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
                 if (proposal.deliveryTime != null &&
@@ -4858,7 +5319,20 @@ class SolarProposalPdfService {
               pw.Expanded(
                 child: _buildEconomyKpiCard(
                   label: 'Investimento',
-                  value: _currencyFormat.format(proposal.totalAmount),
+                  value: proposal.showSeparatedPricing
+                      ? (() {
+                          final solarItem = proposal.items.firstWhere(
+                            (i) => i.isSolarPlant,
+                            orElse: () => proposal.items.first,
+                          );
+                          final eq = solarItem.solarEquipmentPrice;
+                          final sv = solarItem.solarServicePrice;
+                          if (eq != null && sv != null) {
+                            return 'Equip: ${_currencyFormat.format(eq)}\nServ: ${_currencyFormat.format(sv)}';
+                          }
+                          return _currencyFormat.format(proposal.totalAmount);
+                        })()
+                      : _currencyFormat.format(proposal.totalAmount),
                   svgIcon: SolarPdfIcons.calendarTable('#FFFFFF'),
                   primaryColor: primaryColor,
                 ),

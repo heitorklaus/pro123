@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/visibility_selector_card.dart';
+import '../../app/widgets/feature_guided_tour.dart';
 import '../../auth/data/repositories/auth_repository.dart';
 import '../../auth/domain/models/user_model.dart';
 import '../../suppliers/data/repositories/supplier_repository.dart';
@@ -305,6 +306,8 @@ class _ProductTableViewState extends State<_ProductTableView> {
   String? _companyId;
   UserModel? _currentUser;
   final Set<String> _expandedProductIds = {};
+  final GlobalKey<FeatureGuidedTourBannerState> _solarTourKey =
+      GlobalKey<FeatureGuidedTourBannerState>();
   static const _filterSectorStorageKey = 'mavis_saved_product_filter_sector';
 
   @override
@@ -415,6 +418,165 @@ class _ProductTableViewState extends State<_ProductTableView> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_showSolarComponentsStorageKey, val);
     } catch (_) {}
+  }
+
+  List<TourStep> _buildSolarTourSteps(bool isDark, bool isMobile) {
+    return [
+      TourStep(
+        title: 'Olá! Seja bem-vindo à central de Usinas Solares! ☀️',
+        description:
+            'Aqui você gerencia todo o seu catálogo fotovoltaico com máxima agilidade e precisão. Preparamos este guia rápido de 3 passos para você dominar as principais ferramentas desta tela e acelerar suas propostas!',
+        icon: Icons.wb_sunny_rounded,
+        iconColor: const Color(0xFFF59E0B),
+        badgeText: 'PASSO 1 DE 3 • BEM-VINDO',
+        badgeColor: const Color(0xFFF59E0B),
+      ),
+      TourStep(
+        title: 'Ver Usinas Completas ou Componentes Avulsos 📦',
+        description:
+            'Por padrão, esta tabela foca nas suas Usinas Solares e Kits prontos para venda.\nQuer consultar inversores, módulos, trilhos e estruturas separadamente? Basta clicar no botão "Mostrar Itens de Usinas"!\nPara voltar a ver somente as usinas montadas, basta clicar no mesmo botão novamente.',
+        icon: Icons.inventory_2_rounded,
+        iconColor: const Color(0xFF6366F1),
+        badgeText: 'PASSO 2 DE 3 • FILTRAGEM INTELIGENTE',
+        badgeColor: const Color(0xFF6366F1),
+        previewWidget: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _showSolarComponents
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _showSolarComponents
+                  ? const Color(0xFFF59E0B)
+                  : const Color(0xFFCBD5E1),
+              width: 1.2,
+            ),
+          ),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 6,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _showSolarComponents
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_outlined,
+                    size: 16,
+                    color: _showSolarComponents
+                        ? const Color(0xFFB45309)
+                        : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Mostrar Itens de Usinas: ${_showSolarComponents ? "LIGADO (vendo itens avulsos)" : "DESLIGADO (vendo somente kits)"}',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _showSolarComponents
+                          ? const Color(0xFFB45309)
+                          : const Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: () {
+                  final newVal = !_showSolarComponents;
+                  setState(() {
+                    _showSolarComponents = newVal;
+                    _currentPage = 1;
+                  });
+                  _saveShowSolarComponents(newVal);
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Alternar agora 👆',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      TourStep(
+        title: 'Estudo de Telhado por Satélite do Google 🛰️',
+        description:
+            'Economize visitas técnicas demoradas! Com o botão "ESTUDO DE TELHADO", você localiza o imóvel do cliente diretamente pelo satélite em alta resolução do Google, desenha as águas do telhado e o sistema calcula automaticamente quantas placas solares cabem com precisão milimétrica em 2D e 3D, calculando o sombreamento e a geração estimada antes mesmo de ir ao local!',
+        icon: Icons.satellite_alt_rounded,
+        iconColor: const Color(0xFF0284C7),
+        badgeText: 'PASSO 3 DE 3 • ENGENHARIA 3D',
+        badgeColor: const Color(0xFF0284C7),
+        previewWidget: InkWell(
+          onTap: widget.onOpenRoofStudies,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0284C7), Color(0xFF0EA5E9)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.satellite_alt_rounded,
+                    size: 16, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(
+                  'ESTUDO DE TELHADO 🛰️',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Clique para abrir o mapa 🌍',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   @override
@@ -618,17 +780,27 @@ class _ProductTableViewState extends State<_ProductTableView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      _filterSector == ProductSector.homeAutomation
-                          ? 'Estudos de Proposta'
-                          : (_filterSector == ProductSector.solarPlant
-                              ? 'Usinas Solares & Kits'
-                              : 'Produtos & Serviços'),
-                      style: GoogleFonts.outfit(
-                        fontSize: isMobile ? 20 : 26,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          _filterSector == ProductSector.homeAutomation
+                              ? 'Estudos de Proposta'
+                              : (_filterSector == ProductSector.solarPlant
+                                  ? 'Usinas Solares & Kits'
+                                  : 'Produtos & Serviços'),
+                          style: GoogleFonts.outfit(
+                            fontSize: isMobile ? 20 : 26,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                        if (_filterSector == ProductSector.solarPlant) ...[
+                          const SizedBox(width: 10),
+                          FeatureTourHelpButton(
+                            onTap: () => _solarTourKey.currentState?.reopen(),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -815,6 +987,14 @@ class _ProductTableViewState extends State<_ProductTableView> {
           ),
 
           SizedBox(height: isMobile ? 12 : 20),
+
+          // ── Balão de Tour Educativo Guiado (Usinas Solares) ──────────────
+          if (_filterSector == ProductSector.solarPlant)
+            FeatureGuidedTourBanner(
+              key: _solarTourKey,
+              tourKey: 'solar_plants_view_tour',
+              steps: _buildSolarTourSteps(isDark, isMobile),
+            ),
 
           // ── Barra de Busca & Filtros ─────────────────────────────────────
           if (isMobile) ...[

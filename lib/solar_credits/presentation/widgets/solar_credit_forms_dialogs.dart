@@ -163,13 +163,18 @@ class _GeneratorPlantFormDialogState extends State<GeneratorPlantFormDialog> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.plant != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Dialog(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: dialogBg,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Color(0xFF334155)),
+        side: BorderSide(color: borderColor),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680),
@@ -208,14 +213,14 @@ class _GeneratorPlantFormDialogState extends State<GeneratorPlantFormDialog> {
                             style: GoogleFonts.outfit(
                               fontSize: 19,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: textPrimary,
                             ),
                           ),
                           Text(
                             'Cadastre a usina de onde saem os créditos distribuídos na concessionária',
                             style: GoogleFonts.inter(
                               fontSize: 12,
-                              color: const Color(0xFF94A3B8),
+                              color: textSecondary,
                             ),
                           ),
                         ],
@@ -223,7 +228,7 @@ class _GeneratorPlantFormDialogState extends State<GeneratorPlantFormDialog> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: Icon(Icons.close, color: textSecondary),
                     ),
                   ],
                 ),
@@ -450,6 +455,7 @@ class _GeneratorPlantFormDialogState extends State<GeneratorPlantFormDialog> {
     required Color color,
   }) {
     final isSelected = _regime == regime;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: () => setState(() => _regime = regime),
       borderRadius: BorderRadius.circular(12),
@@ -458,10 +464,12 @@ class _GeneratorPlantFormDialogState extends State<GeneratorPlantFormDialog> {
         decoration: BoxDecoration(
           color: isSelected
               ? color.withValues(alpha: 0.15)
-              : const Color(0xFF1E293B),
+              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC)),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? color : const Color(0xFF334155),
+            color: isSelected
+                ? color
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
             width: isSelected ? 1.8 : 1,
           ),
         ),
@@ -484,14 +492,16 @@ class _GeneratorPlantFormDialogState extends State<GeneratorPlantFormDialog> {
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                      color: isSelected
+                          ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                          : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
                     ),
                   ),
                   Text(
                     subtitle,
                     style: GoogleFonts.inter(
                       fontSize: 11,
-                      color: const Color(0xFF94A3B8),
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                     ),
                   ),
                 ],
@@ -926,13 +936,20 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.beneficiary != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textLabel = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
 
     return Dialog(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: dialogBg,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Color(0xFF334155)),
+        side: BorderSide(color: borderColor),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 780),
@@ -971,14 +988,14 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                             style: GoogleFonts.outfit(
                               fontSize: 19,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: textPrimary,
                             ),
                           ),
                           Text(
                             'Vincule o cliente real, o titular na concessionária, a usina de origem, % de rateio e deságio',
                             style: GoogleFonts.inter(
                               fontSize: 12,
-                              color: const Color(0xFF94A3B8),
+                              color: textSecondary,
                             ),
                           ),
                         ],
@@ -986,7 +1003,7 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: Icon(Icons.close, color: textSecondary),
                     ),
                   ],
                 ),
@@ -1202,7 +1219,9 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B).withValues(alpha: 0.6),
+                      color: isDark
+                          ? const Color(0xFF1E293B).withValues(alpha: 0.6)
+                          : const Color(0xFFFFFBEB),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
@@ -1223,7 +1242,7 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFFCBD5E1),
+                                  color: textLabel,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -1231,10 +1250,10 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF0F172A),
+                                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(0xFF334155),
+                                    color: borderColor,
                                   ),
                                 ),
                                 child: DropdownButtonHideUnderline(
@@ -1244,14 +1263,14 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                                         ? draft.plant?.id
                                         : null,
                                     isExpanded: true,
-                                    dropdownColor: const Color(0xFF0F172A),
+                                    dropdownColor: isDark ? const Color(0xFF0F172A) : Colors.white,
                                     hint: Text(
                                       draft.fallbackPlantName.isNotEmpty
                                           ? '${draft.fallbackPlantName} (${draft.regime.shortLabel})'
                                           : 'Selecione a Usina Geradora',
                                       style: GoogleFonts.inter(
                                         fontSize: 13,
-                                        color: Colors.white,
+                                        color: textPrimary,
                                       ),
                                     ),
                                     items: _plants.map((p) {
@@ -1261,7 +1280,7 @@ class _BeneficiaryFormDialogState extends State<BeneficiaryFormDialog> {
                                           '${p.name} • [${p.regime.shortLabel}] • Geração: ${p.estimatedMonthlyGenerationKwh.toStringAsFixed(0)} kWh/mês',
                                           style: GoogleFonts.inter(
                                             fontSize: 13,
-                                            color: Colors.white,
+                                            color: textPrimary,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -1446,49 +1465,58 @@ Widget _buildTextField({
   String? Function(String?)? validator,
   ValueChanged<String>? onChanged,
 }) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFCBD5E1),
-        ),
-      ),
-      const SizedBox(height: 6),
-      TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        validator: validator,
-        onChanged: onChanged,
-        style: GoogleFonts.inter(color: Colors.white, fontSize: 13.5),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: GoogleFonts.inter(
-            color: const Color(0xFF64748B),
-            fontSize: 12.5,
+  return Builder(
+    builder: (context) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+            ),
           ),
-          prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 18),
-          filled: true,
-          fillColor: const Color(0xFF1E293B),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF334155)),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            validator: validator,
+            onChanged: onChanged,
+            style: GoogleFonts.inter(
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+              fontSize: 13.5,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: GoogleFonts.inter(
+                color: const Color(0xFF64748B),
+                fontSize: 12.5,
+              ),
+              prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 18),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: borderColor),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: borderColor),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+              ),
+            ),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF334155)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
-          ),
-        ),
-      ),
-    ],
+        ],
+      );
+    },
   );
 }
