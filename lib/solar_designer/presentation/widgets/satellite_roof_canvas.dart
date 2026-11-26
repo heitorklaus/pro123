@@ -114,6 +114,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
   final double currentSimulationHour;
   final int dayOfYear;
   final bool hideSunPath;
+  final bool hideHudForCapture;
   final Map<String, ModuleShadingStatus> moduleShadingStatuses;
   final SolarPathDial? solarPathDial;
   final ValueChanged<SolarPathDial>? onUpdateSolarPathDial;
@@ -192,6 +193,7 @@ class SatelliteRoofCanvas extends StatefulWidget {
     this.currentSimulationHour = 12.0,
     this.dayOfYear = 172,
     this.hideSunPath = false,
+    this.hideHudForCapture = false,
     this.moduleShadingStatuses = const {},
     this.solarPathDial,
     this.onUpdateSolarPathDial,
@@ -1657,7 +1659,7 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       ),
 
                       // 4. Seletor de Águas / Quedas no Topo (Pills navegáveis sempre visíveis desde o início)
-                      if (widget.sections.isNotEmpty) ...[
+                      if (!widget.hideHudForCapture && widget.sections.isNotEmpty) ...[
                         Positioned(
                           top: 68,
                           left: 20,
@@ -1666,7 +1668,8 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       ],
 
                       // 5. Toolbar Horizontal fixa abaixo do menu de pills (ramificada do seletor)
-                      if (widget.isEditingActiveSection &&
+                      if (!widget.hideHudForCapture &&
+                          widget.isEditingActiveSection &&
                           widget.modules.isNotEmpty &&
                           _selectionLevel != CanvasSelectionLevel.none) ...[
                         // 5.1 Barra de ação compacta logo abaixo dos pills
@@ -1678,21 +1681,24 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       ],
 
                       // 5.2 Controles do Nível 1: FORA do Polígono (ROTATE e MOVE Global à mão livre)
-                      if (_selectionLevel == CanvasSelectionLevel.polygon &&
+                      if (!widget.hideHudForCapture &&
+                          _selectionLevel == CanvasSelectionLevel.polygon &&
                           widget.modules.isNotEmpty &&
                           modulesBbox != null) ...[
                         ..._buildOuterPolygonControls(canvasSize, modulesBbox),
                       ],
 
                       // 5.3 Controles do Nível 2: DENTRO do Polígono (ROTATE e MOVE da Fileira à mão livre)
-                      if (_selectionLevel == CanvasSelectionLevel.row &&
+                      if (!widget.hideHudForCapture &&
+                          _selectionLevel == CanvasSelectionLevel.row &&
                           _selectedRowId != null &&
                           widget.modules.isNotEmpty) ...[
                         _buildInnerRowControls(canvasSize, centerOffset),
                       ],
 
                       // 5.4 Controles do Nível 3: Mini Barra Flutuante da Placa Selecionada Individualmente
-                      if (_selectionLevel == CanvasSelectionLevel.module &&
+                      if (!widget.hideHudForCapture &&
+                          _selectionLevel == CanvasSelectionLevel.module &&
                           _selectedModuleIndex >= 0 &&
                           _selectedModuleIndex < widget.modules.length) ...[
                         _buildSelectedModuleFloatingBar(
@@ -1700,7 +1706,8 @@ class _SatelliteRoofCanvasState extends State<SatelliteRoofCanvas> {
                       ],
 
                       // 7. Rosa dos Ventos Flutuante (Norte Geográfico - apenas em satélite)
-                      if (widget.backgroundMode != BackgroundLayerMode.dronePhoto)
+                      if (!widget.hideHudForCapture &&
+                          widget.backgroundMode != BackgroundLayerMode.dronePhoto)
                         Positioned(
                           top: 16,
                           right: 16,

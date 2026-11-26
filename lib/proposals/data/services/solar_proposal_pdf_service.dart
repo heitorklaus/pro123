@@ -440,6 +440,20 @@ class SolarProposalPdfService {
 
     final occupiedArea = modulesCount * 2.6; // m² médio por módulo comercial
 
+    final allPage4Items = _resolvePage4EquipmentItems(
+      proposal: proposal,
+      solarPlantItem: solarPlantItem,
+      modulesCount: modulesCount,
+      moduleWatts: moduleWatts,
+      inverterModel: inverterModel,
+      inverterKw: inverterKw,
+      roofType: roofType,
+    );
+    final page4Chunks = _splitEquipmentItemsIntoPages(allPage4Items);
+    if (!hiddenPages.contains('page_5') && page4Chunks.length > 1) {
+      totalPages += page4Chunks.length - 1;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // PÁGINA 1: CAPA COM O TEMPLATE DO FIREBASE STORAGE
     // ─────────────────────────────────────────────────────────────────────────
@@ -631,34 +645,40 @@ class SolarProposalPdfService {
 
     Future<void> addPage5Items() async {
       if (hiddenPages.contains('page_5')) return;
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: pw.EdgeInsets.zero,
-          build: (context) => _buildProgrammaticPageLayout(
-            pageTitle: settings.pdfPageTitle4.trim().isNotEmpty
-                ? settings.pdfPageTitle4.trim().toUpperCase()
-                : 'ITENS DA USINA & PAGAMENTO',
-            pageNumber: curPage++,
-            totalPages: totalPages,
-            primaryColor: primaryColor,
-            settings: settings,
-            proposal: proposal,
-            fullBleedContent: true,
-            content: _buildPage4Content(
-              proposal: proposal,
-              solarPlantItem: solarPlantItem,
+      final baseTitle = settings.pdfPageTitle4.trim().isNotEmpty
+          ? settings.pdfPageTitle4.trim().toUpperCase()
+          : 'ITENS DA USINA & PAGAMENTO';
+      for (int c = 0; c < page4Chunks.length; c++) {
+        final isFirst = c == 0;
+        final isLast = c == page4Chunks.length - 1;
+        final pageNum = curPage++;
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: pw.EdgeInsets.zero,
+            build: (context) => _buildProgrammaticPageLayout(
+              pageTitle: isFirst ? baseTitle : '$baseTitle (CONTINUAÇÃO)',
+              pageNumber: pageNum,
+              totalPages: totalPages,
               primaryColor: primaryColor,
-              secondaryColor: secondaryColor,
-              modulesCount: modulesCount,
-              moduleWatts: moduleWatts,
-              inverterModel: inverterModel,
-              inverterKw: inverterKw,
-              roofType: roofType,
+              settings: settings,
+              proposal: proposal,
+              fullBleedContent: true,
+              content: _buildPage4Content(
+                proposal: proposal,
+                solarPlantItem: solarPlantItem,
+                primaryColor: primaryColor,
+                secondaryColor: secondaryColor,
+                equipmentItems: page4Chunks[c],
+                showHeroBanner: isFirst,
+                showFooterCards: isLast,
+                showContinueHint: !isLast,
+                isContinuation: !isFirst,
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     Future<void> addPage6Investment() async {
@@ -4696,11 +4716,9 @@ class SolarProposalPdfService {
   // ───────────────────────────────────────────────────────────────────────────
   // PÁGINA 4: ITENS DA USINA & CONDIÇÕES
   // ───────────────────────────────────────────────────────────────────────────
-  static pw.Widget _buildPage4Content({
+  static List<String> _resolvePage4EquipmentItems({
     required ProposalModel proposal,
     required ProposalItemModel solarPlantItem,
-    required PdfColor primaryColor,
-    required PdfColor secondaryColor,
     int modulesCount = 12,
     int moduleWatts = 620,
     String inverterModel = 'Inversor Solar Grid-Tie',
@@ -4746,7 +4764,6 @@ class SolarProposalPdfService {
       ]);
     }
 
-    // Inclui também quaisquer outros itens/produtos adicionados depois da usina principal
     for (final extraItem in proposal.items) {
       if (identical(extraItem, solarPlantItem)) continue;
       if (extraItem.solarComponents != null &&
@@ -4764,6 +4781,46 @@ class SolarProposalPdfService {
         equipmentItems.add('${qtyStr}x ${extraItem.name.trim()}');
       }
     }
+    return equipmentItems;
+  }
+
+  static List<List<String>> _splitEquipmentItemsIntoPages(List<String> items) {
+    if (items.length <= 8) return [items];
+    final List<List<String>> chunks = [];
+    // Página 1 (com Hero Banner e sem cards inferiores): até 10 itens
+    final firstEnd = items.length < 10 ? items.length : 10;
+    chunks.add(items.sublist(0, firstEnd));
+    int idx = firstEnd;
+    while (idx < items.length) {
+      final remaining = items.length - idx;
+      if (remaining <= 10) {
+        // Última página com cards de garantia e barra de investimento
+        chunks.add(items.sublist(idx));
+        break;
+      } else if (remaining <= 13) {
+        // Divide equilibradamente para a última página ter <= 10 itens
+        final take = remaining - 4;
+        chunks.add(items.sublist(idx, idx + take));
+        idx += take;
+      } else {
+        chunks.add(items.sublist(idx, idx + 13));
+        idx += 13;
+      }
+    }
+    return chunks;
+  }
+
+  static pw.Widget _buildPage4Content({
+    required ProposalModel proposal,
+    required ProposalItemModel solarPlantItem,
+    required PdfColor primaryColor,
+    required PdfColor secondaryColor,
+    required List<String> equipmentItems,
+    bool showHeroBanner = true,
+    bool showFooterCards = true,
+    bool showContinueHint = false,
+    bool isContinuation = false,
+  }) {
 
     final primaryHex = _pdfColorToHex(primaryColor);
     final heroIllustrationSvg = '''
@@ -4787,6 +4844,7 @@ class SolarProposalPdfService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
+          if (showHeroBanner) ...[
           // 1. Hero Banner Escuro com Ilustração Vetorial
           pw.Container(
             padding:
@@ -4840,10 +4898,13 @@ class SolarProposalPdfService {
           ),
 
           pw.SizedBox(height: 14),
+          ],
 
           // 2. Seção: Itens inclusos no conjunto
           pw.Text(
-            'Itens inclusos no conjunto',
+            isContinuation
+                ? 'Itens inclusos no conjunto (continuação)'
+                : 'Itens inclusos no conjunto',
             style: pw.TextStyle(
               fontSize: 15,
               fontWeight: pw.FontWeight.bold,
@@ -4921,6 +4982,22 @@ class SolarProposalPdfService {
             ),
           ),
 
+          if (showContinueHint) ...[
+            pw.Spacer(),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                'Lista continua na próxima página...',
+                style: pw.TextStyle(
+                  fontSize: 9.5,
+                  fontStyle: pw.FontStyle.italic,
+                  color: const PdfColor.fromInt(0xFF64748B),
+                ),
+              ),
+            ),
+          ],
+
+          if (showFooterCards) ...[
           pw.Spacer(),
 
           // 3. Seção: Formas de pagamento (2 Cards Lado a Lado)
@@ -5184,6 +5261,7 @@ class SolarProposalPdfService {
               ],
             ),
           ),
+          ],
         ],
       ),
     );

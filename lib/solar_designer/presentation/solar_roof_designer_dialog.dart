@@ -124,6 +124,7 @@ enum RowDirection {
 
 class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
   final GlobalKey _canvasKey = GlobalKey();
+  bool _hideHudForCapture = false;
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _cepController = TextEditingController();
   final TextEditingController _hspController = TextEditingController();
@@ -4351,42 +4352,50 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       String? thumbnailBase64;
       String? base64Snapshot;
       try {
-        final boundary = _canvasKey.currentContext?.findRenderObject()
-            as RenderRepaintBoundary?;
-        if (boundary != null && boundary.size.width > 0) {
-          // Thumbnail para listagem (ícone super leve)
-          final thumbWidth = 320.0;
-          final thumbScale =
-              (thumbWidth / boundary.size.width).clamp(0.15, 0.6);
-          final thumbImage = await boundary.toImage(pixelRatio: thumbScale);
-          final thumbByteData =
-              await thumbImage.toByteData(format: ui.ImageByteFormat.png);
-          if (thumbByteData != null) {
-            thumbnailBase64 = base64Encode(thumbByteData.buffer.asUint8List());
-          }
+        final captured =
+            await _runCleanCanvasCapture<(String?, String?)>(() async {
+          String? thumb;
+          String? hd;
+          final boundary = _canvasKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+          if (boundary != null && boundary.size.width > 0) {
+            // Thumbnail para listagem (ícone super leve)
+            final thumbWidth = 320.0;
+            final thumbScale =
+                (thumbWidth / boundary.size.width).clamp(0.15, 0.6);
+            final thumbImage = await boundary.toImage(pixelRatio: thumbScale);
+            final thumbByteData =
+                await thumbImage.toByteData(format: ui.ImageByteFormat.png);
+            if (thumbByteData != null) {
+              thumb = base64Encode(thumbByteData.buffer.asUint8List());
+            }
 
-          // Imagem Otimizada para Fotos e PDF em Alta Definição (~1000px JPEG leve e nítido)
-          final targetWidth = 1000.0;
-          final scaleRatio =
-              (targetWidth / boundary.size.width).clamp(0.9, 1.4);
-          final image = await boundary.toImage(pixelRatio: scaleRatio);
-          final byteData =
-              await image.toByteData(format: ui.ImageByteFormat.png);
-          final rawPng = byteData?.buffer.asUint8List();
-          if (rawPng != null && rawPng.isNotEmpty) {
-            try {
-              final decoded = img.decodeImage(rawPng);
-              if (decoded != null) {
-                final jpeg = img.encodeJpg(decoded, quality: 82);
-                base64Snapshot = base64Encode(jpeg);
-              } else {
-                base64Snapshot = base64Encode(rawPng);
+            // Imagem Otimizada para Fotos e PDF em Alta Definição (~1000px JPEG leve e nítido)
+            final targetWidth = 1000.0;
+            final scaleRatio =
+                (targetWidth / boundary.size.width).clamp(0.9, 1.4);
+            final image = await boundary.toImage(pixelRatio: scaleRatio);
+            final byteData =
+                await image.toByteData(format: ui.ImageByteFormat.png);
+            final rawPng = byteData?.buffer.asUint8List();
+            if (rawPng != null && rawPng.isNotEmpty) {
+              try {
+                final decoded = img.decodeImage(rawPng);
+                if (decoded != null) {
+                  final jpeg = img.encodeJpg(decoded, quality: 82);
+                  hd = base64Encode(jpeg);
+                } else {
+                  hd = base64Encode(rawPng);
+                }
+              } catch (_) {
+                hd = base64Encode(rawPng);
               }
-            } catch (_) {
-              base64Snapshot = base64Encode(rawPng);
             }
           }
-        }
+          return (thumb, hd);
+        });
+        thumbnailBase64 = captured.$1;
+        base64Snapshot = captured.$2;
       } catch (e) {
         debugPrint('[SolarRoofDesigner] Erro ao capturar snapshot: $e');
       }
@@ -4410,6 +4419,23 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
       if (_capturedStudyPhotos.isEmpty &&
           base64Snapshot != null &&
           base64Snapshot.isNotEmpty) {
+        final autoSun = SolarShadingEngine.calculateSunPosition(
+          hourOfDay: _currentSimulationHour,
+          latitude: _latitude,
+          dayOfYear: _selectedDayOfYear,
+        );
+        final autoSim = SolarShadingEngine.simulateFullDay(
+          sections: _sections,
+          currentHour: _currentSimulationHour,
+          latitude: _latitude,
+          northRotationRadians: _activeNorthRotationRadians,
+          dayOfYear: _selectedDayOfYear,
+        );
+        final autoTotal = autoSim.totalModulesCount;
+        final autoShaded = autoSim.shadedAtCurrentHourCount;
+        final autoRatio =
+            autoTotal > 0 ? ((autoTotal - autoShaded) / autoTotal) : 1.0;
+
         _capturedStudyPhotos.add(
           RoofStudyPhoto(
             id: 'main_roof_layout',
@@ -4417,6 +4443,11 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             hourOfDay: _currentSimulationHour,
             imageBase64: base64Snapshot,
             capturedAt: DateTime.now(),
+            sunElevation: autoSun.elevationDegrees,
+            sunAzimuth: autoSun.azimuthDegrees,
+            sunRatio: autoRatio,
+            totalModules: autoTotal,
+            shadedCount: autoShaded,
           ),
         );
       }
@@ -4509,35 +4540,53 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     }
   }
 
+  /// Oculta temporariamente overlays (barra de telhados, Norte, toolbars) durante captura
+  Future<T> _runCleanCanvasCapture<T>(Future<T> Function() captureFn) async {
+    if (!mounted) return await captureFn();
+    setState(() => _hideHudForCapture = true);
+    await WidgetsBinding.instance.endOfFrame;
+    try {
+      return await captureFn();
+    } finally {
+      if (mounted) {
+        setState(() => _hideHudForCapture = false);
+      }
+    }
+  }
+
   /// Captura snapshot em alta resolução otimizada do canvas (nítida para PDF sem estourar memória)
   Future<Uint8List?> _captureCanvasSnapshot({double pixelRatio = 1.6}) async {
     try {
-      final boundary = _canvasKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary != null && boundary.size.width > 0) {
-        // Resolução de alta fidelidade (~1000px) otimizada para PDF ultra leve (PDF final < 1 MB)
-        final targetWidth = 1000.0;
-        final ratio = (targetWidth / boundary.size.width).clamp(0.9, 1.4);
-        final image = await boundary.toImage(pixelRatio: ratio);
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-        final rawPngBytes = byteData?.buffer.asUint8List();
-        if (rawPngBytes == null || rawPngBytes.isEmpty) return null;
+      return await _runCleanCanvasCapture<Uint8List?>(() async {
+        final boundary = _canvasKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+        if (boundary != null && boundary.size.width > 0) {
+          // Resolução de alta fidelidade (~1000px) otimizada para PDF ultra leve (PDF final < 1 MB)
+          final targetWidth = 1000.0;
+          final ratio = (targetWidth / boundary.size.width).clamp(0.9, 1.4);
+          final image = await boundary.toImage(pixelRatio: ratio);
+          final byteData =
+              await image.toByteData(format: ui.ImageByteFormat.png);
+          final rawPngBytes = byteData?.buffer.asUint8List();
+          if (rawPngBytes == null || rawPngBytes.isEmpty) return null;
 
-        // Comprime para JPEG de alta nitidez (qualidade 82) reduzindo o arquivo para ~150KB - 200KB
-        try {
-          final decoded = img.decodeImage(rawPngBytes);
-          if (decoded != null) {
-            final jpegBytes = img.encodeJpg(decoded, quality: 82);
-            return Uint8List.fromList(jpegBytes);
-          }
-        } catch (_) {}
+          // Comprime para JPEG de alta nitidez (qualidade 82) reduzindo o arquivo para ~150KB - 200KB
+          try {
+            final decoded = img.decodeImage(rawPngBytes);
+            if (decoded != null) {
+              final jpegBytes = img.encodeJpg(decoded, quality: 82);
+              return Uint8List.fromList(jpegBytes);
+            }
+          } catch (_) {}
 
-        return rawPngBytes;
-      }
+          return rawPngBytes;
+        }
+        return null;
+      });
     } catch (e) {
       debugPrint('[SolarRoofDesigner] Erro ao capturar snapshot do canvas: $e');
+      return null;
     }
-    return null;
   }
 
   bool _isCapturingSidebarPhoto = false;
@@ -5399,17 +5448,20 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
     String? base64Snapshot = studyToClone.thumbnailBase64;
     if (base64Snapshot == null) {
       try {
-        final boundary = _canvasKey.currentContext?.findRenderObject()
-            as RenderRepaintBoundary?;
-        if (boundary != null && boundary.size.width > 0) {
-          final scaleRatio = (1920.0 / boundary.size.width).clamp(1.5, 2.5);
-          final image = await boundary.toImage(pixelRatio: scaleRatio);
-          final byteData =
-              await image.toByteData(format: ui.ImageByteFormat.png);
-          if (byteData != null) {
-            base64Snapshot = base64Encode(byteData.buffer.asUint8List());
+        base64Snapshot = await _runCleanCanvasCapture<String?>(() async {
+          final boundary = _canvasKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+          if (boundary != null && boundary.size.width > 0) {
+            final scaleRatio = (1920.0 / boundary.size.width).clamp(1.5, 2.5);
+            final image = await boundary.toImage(pixelRatio: scaleRatio);
+            final byteData =
+                await image.toByteData(format: ui.ImageByteFormat.png);
+            if (byteData != null) {
+              return base64Encode(byteData.buffer.asUint8List());
+            }
           }
-        }
+          return null;
+        });
       } catch (e) {
         debugPrint('[SolarRoofDesigner] Erro ao capturar snapshot: $e');
       }
@@ -6039,6 +6091,7 @@ class _SolarRoofDesignerDialogState extends State<SolarRoofDesignerDialog> {
             droneImageBytes: _droneImageBytes,
             droneImageUrl: _droneImageUrl,
             isAnalyzingDrone: (_isAnalyzingDrone || _isLoadingDronePhoto),
+            hideHudForCapture: _hideHudForCapture,
             metersPerPixel: _metersPerPixel,
             onCanvasTap: _handleCanvasTap,
             onCanvasDoubleTap: (_) => _handleCanvasDoubleTap(),

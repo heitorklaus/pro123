@@ -70,7 +70,7 @@ Analise visualmente o documento enviado (PDF ou Imagem) de ponta a ponta e extra
 
 Você DEVE identificar obrigatoriamente:
 1. TODOS OS PRODUTOS/EQUIPAMENTOS DO KIT: Para cada item da tabela ou lista, extraia o NOME DO PRODUTO completo e a QUANTIDADE com sua UNIDADE (ex: 14 PC, 1 UN, 2 JG, 35 M, 10 PT, etc.). Não omita nenhum item listado no documento.
-2. VALOR TOTAL FINAL DO ORÇAMENTO: Localize o valor total consolidado no final do documento (Valor Total, Total Geral, Total da Proposta, Total com Frete). Esse valor é soberano.
+2. VALOR TOTAL FINAL DO ORÇAMENTO ("totalAmount"): Localize o valor total consolidado impresso no final do documento (ex: "Valor total", "Total Geral", "Total da Proposta", "Total do Pedido"). COPIE EXATAMENTE esse número impresso como "totalAmount". ATENÇÃO CRÍTICA: NUNCA some "Valor do Frete" ou impostos por cima do "Valor total" — na BelEnergy e na maioria das distribuidoras, o "Valor total" JÁ INCLUI Produtos + Frete + Impostos (ex: se Produtos = 55.761,94, Frete = 3.786,40 e Valor total = 59.548,34, retorne EXATAMENTE 59548.34 e NÃO 63334.74). Só some Produtos + Frete manualmente se o documento NÃO tiver um campo "Valor total" impresso. Esse valor é soberano.
 3. POTÊNCIA DA USINA (kWp): Potência nominal pico total da usina fotovoltaica em kWp (ex: 25.83 kWp, 8.68 kWp ou a soma da potência dos módulos em Watts dividida por 1000). Preencha no campo "kilowatts".
 4. GERAÇÃO MÉDIA ESTIMADA (kWh/mês): Se o documento contiver estimativa de geração mensal em kWh (ex: 3200 kWh/mês), extraia no campo "generationKwh". Se não constar, preencha null.
 5. TIPO DE COBERTURA / TELHADO: Cerâmico, Metálico, Fibrocimento, Isotérmico, Solo, Laje ou Sem Estrutura.

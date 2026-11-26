@@ -488,29 +488,51 @@ class SolarStudyPdfService {
     required int pageIndex,
     required int totalPages,
   }) {
-    final sun = SolarShadingEngine.calculateSunPosition(
-      hourOfDay: photo.hourOfDay,
-      latitude: latitude,
-    );
+    final hasPhotoMetrics = photo.totalModules != null &&
+        photo.totalModules! > 0 &&
+        photo.shadedCount != null &&
+        photo.sunRatio != null;
 
-    final sim = SolarShadingEngine.simulateFullDay(
-      sections: sections,
-      currentHour: photo.hourOfDay,
-      latitude: latitude,
-      northRotationRadians: northRad,
-    );
+    final needsFallbackSun =
+        photo.sunElevation == null || photo.sunAzimuth == null;
+    final fallbackSun = needsFallbackSun
+        ? SolarShadingEngine.calculateSunPosition(
+            hourOfDay: photo.hourOfDay,
+            latitude: latitude,
+          )
+        : null;
 
-    final totalMods = sim.totalModulesCount > 0 ? sim.totalModulesCount : totalModules;
-    final shadedCount = sim.shadedAtCurrentHourCount;
-    final sunCount = (totalMods - shadedCount).clamp(0, totalMods);
-    final sunRatio = totalMods > 0 ? (sunCount / totalMods) : 1.0;
+    final elevationDeg = photo.sunElevation ?? fallbackSun!.elevationDegrees;
+    final azimuthDeg = photo.sunAzimuth ?? fallbackSun!.azimuthDegrees;
+
+    final DailyShadingSimulationResult? fallbackSim = hasPhotoMetrics
+        ? null
+        : SolarShadingEngine.simulateFullDay(
+            sections: sections,
+            currentHour: photo.hourOfDay,
+            latitude: latitude,
+            northRotationRadians: northRad,
+          );
+
+    final int totalMods = hasPhotoMetrics
+        ? photo.totalModules!
+        : (fallbackSim!.totalModulesCount > 0
+            ? fallbackSim.totalModulesCount
+            : totalModules);
+    final int shadedCount = hasPhotoMetrics
+        ? photo.shadedCount!.clamp(0, totalMods)
+        : fallbackSim!.shadedAtCurrentHourCount.clamp(0, totalMods);
+    final int sunCount = (totalMods - shadedCount).clamp(0, totalMods);
+    final double sunRatio = hasPhotoMetrics
+        ? photo.sunRatio!.clamp(0.0, 1.0)
+        : (totalMods > 0 ? (sunCount / totalMods) : 1.0);
     final hourFormatted = _formatHour(photo.hourOfDay);
-    final cardinalDirection = _getCardinalDirection(sun.azimuthDegrees);
+    final cardinalDirection = _getCardinalDirection(azimuthDeg);
 
     final narrative = _generateHourNarrative(
       hourOfDay: photo.hourOfDay,
-      elevationDegrees: sun.elevationDegrees,
-      azimuthDegrees: sun.azimuthDegrees,
+      elevationDegrees: elevationDeg,
+      azimuthDegrees: azimuthDeg,
       totalModules: totalMods,
       shadedCount: shadedCount,
       sunRatio: sunRatio,
@@ -649,7 +671,7 @@ class SolarStudyPdfService {
                           pw.SvgImage(svg: _svgCamera, width: 10, height: 10),
                           pw.SizedBox(width: 5),
                           pw.Text(
-                            'Modelagem Tridimensional às $hourFormatted (Azimute: ${sun.azimuthDegrees.toStringAsFixed(0)}° • Alt: ${sun.elevationDegrees.toStringAsFixed(1)}°)',
+                            'Modelagem Tridimensional às $hourFormatted (Azimute: ${azimuthDeg.toStringAsFixed(0)}° • Alt: ${elevationDeg.toStringAsFixed(1)}°)',
                             style: pw.TextStyle(
                               fontSize: 7.5,
                               fontWeight: pw.FontWeight.bold,
@@ -680,15 +702,15 @@ class SolarStudyPdfService {
           children: [
             _buildInstantKpiCard(
               title: 'ALTITUDE SOLAR',
-              value: '${sun.elevationDegrees.toStringAsFixed(1)}°',
-              subtitle: 'Zênite: ${(90.0 - sun.elevationDegrees).clamp(0.0, 90.0).toStringAsFixed(1)}°',
+              value: '${elevationDeg.toStringAsFixed(1)}°',
+              subtitle: 'Zênite: ${(90.0 - elevationDeg).clamp(0.0, 90.0).toStringAsFixed(1)}°',
               accentColor: warningAmber,
               iconSvg: _svgSun,
             ),
             pw.SizedBox(width: 8),
             _buildInstantKpiCard(
               title: 'AZIMUTE SOLAR',
-              value: '${sun.azimuthDegrees.toStringAsFixed(0)}°',
+              value: '${azimuthDeg.toStringAsFixed(0)}°',
               subtitle: cardinalDirection,
               accentColor: accentIndigo,
               iconSvg: _svgCompass,
@@ -1218,18 +1240,36 @@ class SolarStudyPdfService {
             final idx = entry.key;
             final photo = entry.value.key;
             final sheetNumber = idx + 2;
-            final sun = SolarShadingEngine.calculateSunPosition(
-              hourOfDay: photo.hourOfDay,
-              latitude: latitude,
-            );
-            final sim = SolarShadingEngine.simulateFullDay(
-              sections: sections,
-              currentHour: photo.hourOfDay,
-              latitude: latitude,
-              northRotationRadians: northRad,
-            );
-            final sunCount = sim.totalModulesCount - sim.shadedAtCurrentHourCount;
-            final ratio = sim.totalModulesCount > 0 ? (sunCount / sim.totalModulesCount) : 1.0;
+            final hasMetrics = photo.totalModules != null &&
+                photo.totalModules! > 0 &&
+                photo.shadedCount != null &&
+                photo.sunRatio != null;
+            final fallbackSun =
+                (photo.sunElevation == null || photo.sunAzimuth == null)
+                    ? SolarShadingEngine.calculateSunPosition(
+                        hourOfDay: photo.hourOfDay,
+                        latitude: latitude,
+                      )
+                    : null;
+            final elev = photo.sunElevation ?? fallbackSun!.elevationDegrees;
+            final azim = photo.sunAzimuth ?? fallbackSun!.azimuthDegrees;
+            final fallbackSim = hasMetrics
+                ? null
+                : SolarShadingEngine.simulateFullDay(
+                    sections: sections,
+                    currentHour: photo.hourOfDay,
+                    latitude: latitude,
+                    northRotationRadians: northRad,
+                  );
+            final shaded = hasMetrics
+                ? photo.shadedCount!
+                : fallbackSim!.shadedAtCurrentHourCount;
+            final ratio = hasMetrics
+                ? photo.sunRatio!.clamp(0.0, 1.0)
+                : (fallbackSim!.totalModulesCount > 0
+                    ? ((fallbackSim.totalModulesCount - shaded) /
+                        fallbackSim.totalModulesCount)
+                    : 1.0);
 
             return pw.Padding(
               padding: const pw.EdgeInsets.symmetric(vertical: 2),
@@ -1253,7 +1293,7 @@ class SolarStudyPdfService {
                   ),
                   pw.SizedBox(width: 6),
                   pw.Text(
-                    '•  Alt: ${sun.elevationDegrees.toStringAsFixed(1)}°  •  Az: ${sun.azimuthDegrees.toStringAsFixed(0)}°  •  Aproveitamento: ${(ratio * 100).toStringAsFixed(1)}% de Sol (${sim.shadedAtCurrentHourCount > 0 ? '${sim.shadedAtCurrentHourCount} placas sob sombra' : '100% sem sombra'})',
+                    '•  Alt: ${elev.toStringAsFixed(1)}°  •  Az: ${azim.toStringAsFixed(0)}°  •  Aproveitamento: ${(ratio * 100).toStringAsFixed(1)}% de Sol (${shaded > 0 ? '$shaded placas sob sombra' : '100% sem sombra'})',
                     style: const pw.TextStyle(fontSize: 7.2, color: textMuted),
                   ),
                 ],
