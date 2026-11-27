@@ -80,6 +80,7 @@ class _ProposalClientAutocompleteState extends State<ProposalClientAutocomplete>
     return RawAutocomplete<ClientModel>(
       textEditingController: _textCtrl,
       focusNode: _focusNode,
+      optionsViewOpenDirection: OptionsViewOpenDirection.up,
       displayStringForOption: (ClientModel option) => option.name,
       optionsBuilder: (TextEditingValue textEditingValue) {
         if (textEditingValue.text.isEmpty) {
@@ -192,8 +193,10 @@ class _ProposalClientAutocompleteState extends State<ProposalClientAutocomplete>
       },
       optionsViewBuilder: (context, onSelected, options) {
         return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Material(
             elevation: 12,
             borderRadius: BorderRadius.circular(14),
             color: Colors.white,
@@ -378,6 +381,7 @@ class _ProposalClientAutocompleteState extends State<ProposalClientAutocomplete>
                 ],
               ),
             ),
+          ),
           ),
         );
       },

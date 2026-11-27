@@ -16,6 +16,7 @@ class SolarCreditDueAlertDialog extends StatefulWidget {
   final SolarCreditRepository repository;
   final String? focusBillId;
   final VoidCallback? onOpenSolarCredits;
+  final VoidCallback? onClose;
 
   const SolarCreditDueAlertDialog({
     super.key,
@@ -23,6 +24,7 @@ class SolarCreditDueAlertDialog extends StatefulWidget {
     required this.repository,
     this.focusBillId,
     this.onOpenSolarCredits,
+    this.onClose,
   });
 
   /// Evita repetir o popup automaticamente várias vezes na mesma sessão
@@ -34,6 +36,25 @@ class SolarCreditDueAlertDialog extends StatefulWidget {
   /// Futuro: quando o módulo GD for liberado para Admins de conta, incluir `user.isAdmin`.
   static bool isUserEligibleForAlerts(UserModel user) {
     return user.isSuperAdmin;
+  }
+
+  /// Busca faturas pendentes com vencimento <= 10 dias ainda não dispensadas na sessão.
+  static Future<List<SolarCreditBillModel>> fetchPendingAlerts({
+    required UserModel currentUser,
+    SolarCreditRepository? repository,
+    bool forceShow = false,
+  }) async {
+    if (!isUserEligibleForAlerts(currentUser)) return [];
+    final repo = repository ?? SolarCreditRepository();
+    final nearDue = await repo.getPendingBillsNearDue(
+      companyId: currentUser.effectiveCompanyId,
+      maxDays: 10,
+    );
+    return forceShow
+        ? nearDue
+        : nearDue
+            .where((b) => !_sessionDismissedBillIds.contains(b.id))
+            .toList();
   }
 
   /// Verifica no Firestore as faturas pendentes com vencimento <= 10 dias
@@ -106,6 +127,14 @@ class _SolarCreditDueAlertDialogState extends State<SolarCreditDueAlertDialog> {
     _bills = List<SolarCreditBillModel>.from(widget.bills);
   }
 
+  void _closeDialog() {
+    if (widget.onClose != null) {
+      widget.onClose!();
+    } else if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   Future<void> _markAsPaid(SolarCreditBillModel bill) async {
     setState(() => _busyBillIds.add(bill.id));
     try {
@@ -124,7 +153,7 @@ class _SolarCreditDueAlertDialogState extends State<SolarCreditDueAlertDialog> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (_bills.isEmpty && mounted) Navigator.pop(context);
+      if (_bills.isEmpty && mounted) _closeDialog();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,7 +182,7 @@ class _SolarCreditDueAlertDialogState extends State<SolarCreditDueAlertDialog> {
         behavior: SnackBarBehavior.floating,
       ),
     );
-    if (_bills.isEmpty && mounted) Navigator.pop(context);
+    if (_bills.isEmpty && mounted) _closeDialog();
   }
 
   Future<void> _rescheduleOnlyThisBill(SolarCreditBillModel bill) async {
@@ -207,7 +236,7 @@ class _SolarCreditDueAlertDialogState extends State<SolarCreditDueAlertDialog> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (_bills.isEmpty && mounted) Navigator.pop(context);
+      if (_bills.isEmpty && mounted) _closeDialog();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -293,7 +322,7 @@ class _SolarCreditDueAlertDialogState extends State<SolarCreditDueAlertDialog> {
                         SolarCreditDueAlertDialog._sessionDismissedBillIds
                             .add(b.id);
                       }
-                      Navigator.pop(context);
+                      _closeDialog();
                     },
                     icon: Icon(Icons.close_rounded, color: textSecondary),
                   ),
@@ -542,7 +571,7 @@ class _SolarCreditDueAlertDialogState extends State<SolarCreditDueAlertDialog> {
                   if (widget.onOpenSolarCredits != null)
                     TextButton.icon(
                       onPressed: () {
-                        Navigator.pop(context);
+                        _closeDialog();
                         widget.onOpenSolarCredits?.call();
                       },
                       icon: const Icon(Icons.open_in_new_rounded, size: 16),
@@ -555,7 +584,7 @@ class _SolarCreditDueAlertDialogState extends State<SolarCreditDueAlertDialog> {
                         SolarCreditDueAlertDialog._sessionDismissedBillIds
                             .add(b.id);
                       }
-                      Navigator.pop(context);
+                      _closeDialog();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isDark

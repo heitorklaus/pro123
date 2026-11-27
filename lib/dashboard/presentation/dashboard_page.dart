@@ -26,6 +26,8 @@ import '../../proposals/presentation/proposals_view.dart';
 import '../../contracts/data/repositories/contract_repository.dart';
 import '../../contracts/domain/models/contract_model.dart';
 import '../../contracts/presentation/contracts_view.dart';
+import '../../solar_credits/data/repositories/solar_credit_repository.dart';
+import '../../solar_credits/domain/models/solar_credit_models.dart';
 import '../../solar_credits/presentation/solar_credits_view.dart';
 import '../../solar_credits/presentation/widgets/solar_credit_due_alert_dialog.dart';
 import '../../suppliers/presentation/suppliers_view.dart';
@@ -59,6 +61,9 @@ class _DashboardPageState extends State<DashboardPage> {
   UserModel? _currentUser;
   bool _profitAlertChecked = false;
   bool _solarCreditAlertChecked = false;
+  bool _solarCreditStartupGateDone = false;
+  List<SolarCreditBillModel> _startupSolarAlertBills = [];
+  SolarCreditRepository? _startupSolarAlertRepo;
   bool _pushInitialized = false;
   bool _usersSortByHighestConsumption = false;
 
@@ -68,6 +73,7 @@ class _DashboardPageState extends State<DashboardPage> {
   ClientModel? _pendingProposalClient;
   RoofStudyModel? _pendingRoofStudy;
   bool _pendingNewSolarPlant = false;
+  SolarCatalogViewFilter _solarCatalogFilter = SolarCatalogViewFilter.plants;
   bool _pendingNewProposal = false;
   ProductSector? _preferredSector = ProductSector.solarPlant;
 
@@ -159,22 +165,38 @@ class _DashboardPageState extends State<DashboardPage> {
           }
           if (!_solarCreditAlertChecked) {
             _solarCreditAlertChecked = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              SolarCreditDueAlertDialog.checkAndShowIfNeeded(
-                context,
-                currentUser: user,
-                onOpenSolarCredits: () {
-                  if (mounted) {
-                    setState(() => _activeItem = AppSidebarItem.solarCredits);
-                  }
-                },
-              );
-            });
+            _checkStartupSolarAlerts(user);
           }
         }
       }
     });
+  }
+
+  Future<void> _checkStartupSolarAlerts(UserModel user) async {
+    if (!SolarCreditDueAlertDialog.isUserEligibleForAlerts(user)) {
+      if (mounted) {
+        setState(() => _solarCreditStartupGateDone = true);
+      }
+      return;
+    }
+    try {
+      final repo = SolarCreditRepository();
+      final bills = await SolarCreditDueAlertDialog.fetchPendingAlerts(
+        currentUser: user,
+        repository: repo,
+      );
+      if (mounted) {
+        setState(() {
+          _startupSolarAlertRepo = repo;
+          _startupSolarAlertBills = bills;
+          _solarCreditStartupGateDone = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _solarCreditStartupGateDone = true);
+      }
+    }
   }
 
   @override
@@ -299,7 +321,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isCheckingOnboarding) {
+    final waitingSolarGate = _currentUser != null &&
+        SolarCreditDueAlertDialog.isUserEligibleForAlerts(_currentUser!) &&
+        !_solarCreditStartupGateDone;
+
+    if (_isCheckingOnboarding || waitingSolarGate) {
       return Scaffold(
         backgroundColor: const Color(0xFF0F172A),
         body: Center(
@@ -344,6 +370,32 @@ class _DashboardPageState extends State<DashboardPage> {
       );
     }
 
+    if (_startupSolarAlertBills.isNotEmpty && _startupSolarAlertRepo != null) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+        body: Center(
+          child: SolarCreditDueAlertDialog(
+            bills: _startupSolarAlertBills,
+            repository: _startupSolarAlertRepo!,
+            onClose: () {
+              if (mounted) {
+                setState(() => _startupSolarAlertBills = []);
+              }
+            },
+            onOpenSolarCredits: () {
+              if (mounted) {
+                setState(() {
+                  _startupSolarAlertBills = [];
+                  _activeItem = AppSidebarItem.solarCredits;
+                });
+              }
+            },
+          ),
+        ),
+      );
+    }
+
     final isMobile = MediaQuery.of(context).size.width < 768;
     final isSolar = _preferredSector == ProductSector.solarPlant;
     final isHomeAutomation = _preferredSector == ProductSector.homeAutomation;
@@ -385,10 +437,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   productsIcon: productsIcon,
                   currentUser: _currentUser,
                   onItemSelected: (item) {
-                    setState(() {
-                      _activeItem = item;
-                    });
                     Navigator.pop(context);
+                    _handleSidebarItemSelected(item);
                   },
                 ),
               ),
@@ -674,11 +724,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   productsTitle: productsTitle,
                   productsIcon: productsIcon,
                   currentUser: _currentUser,
-                  onItemSelected: (item) {
-                    setState(() {
-                      _activeItem = item;
-                    });
-                  },
+                  onItemSelected: _handleSidebarItemSelected,
                 ),
                 Expanded(
                   child: LayoutBuilder(
@@ -709,8 +755,201 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  void _handleSidebarItemSelected(AppSidebarItem item) {
+    if (item == AppSidebarItem.products) {
+      _showSolarCatalogMenuDialog();
+      return;
+    }
+    setState(() {
+      _activeItem = item;
+    });
+  }
+
+  Future<void> _showSolarCatalogMenuDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chosen = await showDialog<SolarCatalogViewFilter>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          width: 440,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.solar_power_rounded, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Usinas Solares & Equipamentos',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          'Escolha o que deseja gerenciar no catálogo',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _buildSolarMenuOption(
+                ctx: ctx,
+                isDark: isDark,
+                filter: SolarCatalogViewFilter.plants,
+                icon: Icons.solar_power_rounded,
+                color: const Color(0xFFD97706),
+                title: 'Usinas',
+                subtitle: 'Usinas solares completas e kits fotovoltaicos',
+              ),
+              const SizedBox(height: 10),
+              _buildSolarMenuOption(
+                ctx: ctx,
+                isDark: isDark,
+                filter: SolarCatalogViewFilter.modules,
+                icon: Icons.grid_view_rounded,
+                color: const Color(0xFFF59E0B),
+                title: 'Módulos',
+                subtitle: 'Painéis e placas fotovoltaicas (cadastrar e editar)',
+              ),
+              const SizedBox(height: 10),
+              _buildSolarMenuOption(
+                ctx: ctx,
+                isDark: isDark,
+                filter: SolarCatalogViewFilter.inverters,
+                icon: Icons.offline_bolt_rounded,
+                color: const Color(0xFF0284C7),
+                title: 'Inversores',
+                subtitle: 'Inversores string e microinversores (cadastrar e editar)',
+              ),
+              const SizedBox(height: 10),
+              _buildSolarMenuOption(
+                ctx: ctx,
+                isDark: isDark,
+                filter: SolarCatalogViewFilter.otherItems,
+                icon: Icons.handyman_rounded,
+                color: const Color(0xFF6366F1),
+                title: 'Outros Itens',
+                subtitle: 'Estruturas, cabos, conectores, baterias e acessórios',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (chosen != null && mounted) {
+      setState(() {
+        _pendingNewSolarPlant = false;
+        _solarCatalogFilter = chosen;
+        _activeItem = AppSidebarItem.products;
+      });
+    }
+  }
+
+  Widget _buildSolarMenuOption({
+    required BuildContext ctx,
+    required bool isDark,
+    required SolarCatalogViewFilter filter,
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.pop(ctx, filter),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 15,
+                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _quickNewSolarPlant() {
     setState(() {
+      _solarCatalogFilter = SolarCatalogViewFilter.plants;
       _pendingNewSolarPlant = true;
       _activeItem = AppSidebarItem.products;
     });
@@ -796,6 +1035,7 @@ class _DashboardPageState extends State<DashboardPage> {
           currentUser: _currentUser,
           onProceedToProposal: _navigateToProposalWithItem,
           startWithNewSolarPlant: _pendingNewSolarPlant,
+          solarCatalogFilter: _solarCatalogFilter,
           onConsumeStartFlag: () {
             if (_pendingNewSolarPlant && mounted) {
               setState(() => _pendingNewSolarPlant = false);

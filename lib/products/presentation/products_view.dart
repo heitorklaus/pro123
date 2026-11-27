@@ -21,6 +21,13 @@ import '../../solar_designer/presentation/roof_studies_view.dart';
 import 'solar_plant_form_card.dart';
 import 'automation_study_form_card.dart';
 
+enum SolarCatalogViewFilter {
+  plants,
+  modules,
+  inverters,
+  otherItems,
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT: View principal integrada ao SPA Master do Dashboard
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,6 +36,7 @@ class ProductsView extends StatefulWidget {
   final ProceedToProposalCallback? onProceedToProposal;
   final bool startWithNewSolarPlant;
   final VoidCallback? onConsumeStartFlag;
+  final SolarCatalogViewFilter solarCatalogFilter;
 
   const ProductsView({
     super.key,
@@ -36,6 +44,7 @@ class ProductsView extends StatefulWidget {
     this.onProceedToProposal,
     this.startWithNewSolarPlant = false,
     this.onConsumeStartFlag,
+    this.solarCatalogFilter = SolarCatalogViewFilter.plants,
   });
 
   @override
@@ -53,6 +62,21 @@ class _ProductsViewState extends State<ProductsView> {
   _ProductsViewMode _mode = _ProductsViewMode.table;
   CategoryModel _selectedCategory = CategoryModel.nativeCategories.first;
   ProductModel? _editingProduct;
+  bool _creatingStandaloneSolarItem = false;
+  String? _initialSolarSubcategory;
+
+  @override
+  void didUpdateWidget(covariant ProductsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.solarCatalogFilter != oldWidget.solarCatalogFilter) {
+      setState(() {
+        _mode = _ProductsViewMode.table;
+        _editingProduct = null;
+        _creatingStandaloneSolarItem = false;
+        _initialSolarSubcategory = null;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -61,21 +85,6 @@ class _ProductsViewState extends State<ProductsView> {
       _editingProduct = null;
       _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
       _mode = _ProductsViewMode.form;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onConsumeStartFlag?.call();
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant ProductsView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.startWithNewSolarPlant && !oldWidget.startWithNewSolarPlant) {
-      setState(() {
-        _editingProduct = null;
-        _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
-        _mode = _ProductsViewMode.form;
-      });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onConsumeStartFlag?.call();
       });
@@ -92,6 +101,25 @@ class _ProductsViewState extends State<ProductsView> {
   void _startNewSolarPlant() {
     setState(() {
       _editingProduct = null;
+      _creatingStandaloneSolarItem = false;
+      _initialSolarSubcategory = null;
+      _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
+      _mode = _ProductsViewMode.form;
+    });
+  }
+
+  void _startNewSolarComponent() {
+    final filter = widget.solarCatalogFilter;
+    String subcat = 'OUTRO';
+    if (filter == SolarCatalogViewFilter.modules) {
+      subcat = 'MÓDULO SOLAR';
+    } else if (filter == SolarCatalogViewFilter.inverters) {
+      subcat = 'INVERSOR SOLAR';
+    }
+    setState(() {
+      _editingProduct = null;
+      _creatingStandaloneSolarItem = true;
+      _initialSolarSubcategory = subcat;
       _selectedCategory = CategoryModel.fromSector(ProductSector.solarPlant);
       _mode = _ProductsViewMode.form;
     });
@@ -100,7 +128,8 @@ class _ProductsViewState extends State<ProductsView> {
   void _startNewAutomationStudy() {
     setState(() {
       _editingProduct = null;
-      _selectedCategory = CategoryModel.fromSector(ProductSector.homeAutomation);
+      _selectedCategory =
+          CategoryModel.fromSector(ProductSector.homeAutomation);
       _mode = _ProductsViewMode.form;
     });
   }
@@ -121,6 +150,8 @@ class _ProductsViewState extends State<ProductsView> {
   void _onEditProduct(ProductModel product) {
     setState(() {
       _editingProduct = product;
+      _creatingStandaloneSolarItem = false;
+      _initialSolarSubcategory = null;
       _selectedCategory = CategoryModel.fromSector(product.sector).copyWith(
         title: product.displaySectorTitle,
       );
@@ -131,6 +162,8 @@ class _ProductsViewState extends State<ProductsView> {
   void _backToTable() {
     setState(() {
       _editingProduct = null;
+      _creatingStandaloneSolarItem = false;
+      _initialSolarSubcategory = null;
       _mode = _ProductsViewMode.table;
     });
   }
@@ -152,8 +185,10 @@ class _ProductsViewState extends State<ProductsView> {
               height: constraints.maxHeight,
               child: _ProductTableView(
                 currentUser: widget.currentUser,
+                solarCatalogFilter: widget.solarCatalogFilter,
                 onAddNew: _startNewProduct,
                 onAddNewSolarPlant: _startNewSolarPlant,
+                onAddNewSolarComponent: _startNewSolarComponent,
                 onAddNewAutomationStudy: _startNewAutomationStudy,
                 onOpenRoofStudies: _openRoofStudies,
                 onEdit: _onEditProduct,
@@ -175,6 +210,7 @@ class _ProductsViewState extends State<ProductsView> {
             final isSolarPlant =
                 (_editingProduct != null && _editingProduct!.isSolarPlantKit) ||
                     (_editingProduct == null &&
+                        !_creatingStandaloneSolarItem &&
                         (_selectedCategory.matchingSector ==
                                 ProductSector.solarPlant ||
                             _selectedCategory.id == 'solarPlant' ||
@@ -182,15 +218,15 @@ class _ProductsViewState extends State<ProductsView> {
                                 .toLowerCase()
                                 .contains('solar')));
 
-            final isAutomationStudy =
-                (_editingProduct != null && _editingProduct!.isAutomationStudy) ||
-                    (_editingProduct == null &&
-                        (_selectedCategory.matchingSector ==
-                                ProductSector.homeAutomation ||
-                            _selectedCategory.id == 'homeAutomation' ||
-                            _selectedCategory.title
-                                .toLowerCase()
-                                .contains('automação')));
+            final isAutomationStudy = (_editingProduct != null &&
+                    _editingProduct!.isAutomationStudy) ||
+                (_editingProduct == null &&
+                    (_selectedCategory.matchingSector ==
+                            ProductSector.homeAutomation ||
+                        _selectedCategory.id == 'homeAutomation' ||
+                        _selectedCategory.title
+                            .toLowerCase()
+                            .contains('automação')));
 
             Widget formCard;
             if (isSolarPlant) {
@@ -199,9 +235,8 @@ class _ProductsViewState extends State<ProductsView> {
                 product: _editingProduct,
                 currentUser: widget.currentUser,
                 onBack: _backToTable,
-                onChangeSector: _editingProduct == null
-                    ? _backToSectorSelection
-                    : null,
+                onChangeSector:
+                    _editingProduct == null ? _backToSectorSelection : null,
                 onSuccess: _backToTable,
                 onProceedToProposal: widget.onProceedToProposal,
               );
@@ -211,9 +246,8 @@ class _ProductsViewState extends State<ProductsView> {
                 product: _editingProduct,
                 currentUser: widget.currentUser,
                 onBack: _backToTable,
-                onChangeSector: _editingProduct == null
-                    ? _backToSectorSelection
-                    : null,
+                onChangeSector:
+                    _editingProduct == null ? _backToSectorSelection : null,
                 onSuccess: _backToTable,
                 onProceedToProposal: widget.onProceedToProposal,
               );
@@ -221,11 +255,13 @@ class _ProductsViewState extends State<ProductsView> {
               formCard = _ProductFormCard(
                 category: _selectedCategory,
                 product: _editingProduct,
+                initialSubcategory: _initialSolarSubcategory,
                 currentUser: widget.currentUser,
                 onBack: _backToTable,
-                onChangeSector: _editingProduct == null
-                    ? _backToSectorSelection
-                    : null,
+                onChangeSector:
+                    (_editingProduct == null && !_creatingStandaloneSolarItem)
+                        ? _backToSectorSelection
+                        : null,
                 onSuccess: _backToTable,
               );
             }
@@ -265,16 +301,20 @@ class _ProductsViewState extends State<ProductsView> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProductTableView extends StatefulWidget {
   final UserModel? currentUser;
+  final SolarCatalogViewFilter solarCatalogFilter;
   final VoidCallback onAddNew;
   final VoidCallback? onAddNewSolarPlant;
+  final VoidCallback? onAddNewSolarComponent;
   final VoidCallback? onAddNewAutomationStudy;
   final VoidCallback? onOpenRoofStudies;
   final ValueChanged<ProductModel> onEdit;
 
   const _ProductTableView({
     this.currentUser,
+    this.solarCatalogFilter = SolarCatalogViewFilter.plants,
     required this.onAddNew,
     this.onAddNewSolarPlant,
+    this.onAddNewSolarComponent,
     this.onAddNewAutomationStudy,
     this.onOpenRoofStudies,
     required this.onEdit,
@@ -783,18 +823,32 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     Row(
                       children: [
                         Text(
-                          _filterSector == ProductSector.homeAutomation
-                              ? 'Estudos de Proposta'
-                              : (_filterSector == ProductSector.solarPlant
-                                  ? 'Usinas Solares & Kits'
-                                  : 'Produtos & Serviços'),
+                          widget.solarCatalogFilter ==
+                                  SolarCatalogViewFilter.modules
+                              ? 'Módulos Solares'
+                              : widget.solarCatalogFilter ==
+                                      SolarCatalogViewFilter.inverters
+                                  ? 'Inversores & Microinversores'
+                                  : widget.solarCatalogFilter ==
+                                          SolarCatalogViewFilter.otherItems
+                                      ? 'Outros Itens Solares'
+                                      : (_filterSector ==
+                                              ProductSector.homeAutomation
+                                          ? 'Estudos de Proposta'
+                                          : (_filterSector ==
+                                                  ProductSector.solarPlant
+                                              ? 'Usinas Solares & Kits'
+                                              : 'Produtos & Serviços')),
                           style: GoogleFonts.outfit(
                             fontSize: isMobile ? 20 : 26,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color:
+                                isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
                         ),
-                        if (_filterSector == ProductSector.solarPlant) ...[
+                        if (_filterSector == ProductSector.solarPlant &&
+                            widget.solarCatalogFilter ==
+                                SolarCatalogViewFilter.plants) ...[
                           const SizedBox(width: 10),
                           FeatureTourHelpButton(
                             onTap: () => _solarTourKey.currentState?.reopen(),
@@ -804,11 +858,22 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _filterSector == ProductSector.homeAutomation
-                          ? 'Estudos técnicos e dimensionamentos de automação por ambientes'
-                          : (_filterSector == ProductSector.solarPlant
-                              ? 'Catálogo de usinas solares e kits fotovoltaicos'
-                              : 'Catálogo inteligente de produtos e serviços'),
+                      widget.solarCatalogFilter ==
+                              SolarCatalogViewFilter.modules
+                          ? 'Catálogo de módulos e placas fotovoltaicas (cadastro, edição e estoque)'
+                          : widget.solarCatalogFilter ==
+                                  SolarCatalogViewFilter.inverters
+                              ? 'Catálogo de inversores string e microinversores (cadastro, edição e estoque)'
+                              : widget.solarCatalogFilter ==
+                                      SolarCatalogViewFilter.otherItems
+                                  ? 'Estruturas, cabos, conectores, baterias, string box e acessórios'
+                                  : (_filterSector ==
+                                          ProductSector.homeAutomation
+                                      ? 'Estudos técnicos e dimensionamentos de automação por ambientes'
+                                      : (_filterSector ==
+                                              ProductSector.solarPlant
+                                          ? 'Catálogo de usinas solares e kits fotovoltaicos'
+                                          : 'Catálogo inteligente de produtos e serviços')),
                       style: GoogleFonts.inter(
                           fontSize: isMobile ? 12 : 14,
                           color: isDark
@@ -831,9 +896,14 @@ class _ProductTableViewState extends State<_ProductTableView> {
                     // Botão Estudo de Telhado & Novo Produto / Nova Usina / Novo Estudo
                     Builder(builder: (context) {
                       final isSolarFiltered =
-                          _filterSector == ProductSector.solarPlant;
+                          _filterSector == ProductSector.solarPlant &&
+                              widget.solarCatalogFilter ==
+                                  SolarCatalogViewFilter.plants;
+                      final isSolarComponentView = widget.solarCatalogFilter !=
+                          SolarCatalogViewFilter.plants;
                       final isHomeAutomationFiltered =
-                          _filterSector == ProductSector.homeAutomation;
+                          _filterSector == ProductSector.homeAutomation &&
+                              !isSolarComponentView;
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -896,13 +966,16 @@ class _ProductTableViewState extends State<_ProductTableView> {
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: isHomeAutomationFiltered
-                                  ? (widget.onAddNewAutomationStudy ??
+                              onTap: isSolarComponentView
+                                  ? (widget.onAddNewSolarComponent ??
                                       widget.onAddNew)
-                                  : (isSolarFiltered
-                                      ? (widget.onAddNewSolarPlant ??
+                                  : isHomeAutomationFiltered
+                                      ? (widget.onAddNewAutomationStudy ??
                                           widget.onAddNew)
-                                      : widget.onAddNew),
+                                      : (isSolarFiltered
+                                          ? (widget.onAddNewSolarPlant ??
+                                              widget.onAddNew)
+                                          : widget.onAddNew),
                               borderRadius: BorderRadius.circular(12),
                               child: Ink(
                                 decoration: BoxDecoration(
@@ -947,23 +1020,41 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                             ? Icons.sensors_rounded
                                             : (isSolarFiltered
                                                 ? Icons.solar_power_rounded
-                                                : Icons.add_shopping_cart_rounded),
+                                                : Icons
+                                                    .add_shopping_cart_rounded),
                                         size: isMobile ? 16 : 18,
                                         color: Colors.white,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        isHomeAutomationFiltered
+                                        widget.solarCatalogFilter ==
+                                                SolarCatalogViewFilter.modules
                                             ? (isMobile
-                                                ? 'ESTUDO'
-                                                : 'NOVO ESTUDO')
-                                            : (isSolarFiltered
+                                                ? 'MÓDULO'
+                                                : 'NOVO MÓDULO')
+                                            : widget.solarCatalogFilter ==
+                                                    SolarCatalogViewFilter
+                                                        .inverters
                                                 ? (isMobile
-                                                    ? 'USINA'
-                                                    : 'NOVA USINA')
-                                                : (isMobile
-                                                    ? 'NOVO'
-                                                    : 'NOVO PRODUTO')),
+                                                    ? 'INVERSOR'
+                                                    : 'NOVO INVERSOR')
+                                                : widget.solarCatalogFilter ==
+                                                        SolarCatalogViewFilter
+                                                            .otherItems
+                                                    ? (isMobile
+                                                        ? 'ITEM'
+                                                        : 'NOVO ITEM')
+                                                    : isHomeAutomationFiltered
+                                                        ? (isMobile
+                                                            ? 'ESTUDO'
+                                                            : 'NOVO ESTUDO')
+                                                        : (isSolarFiltered
+                                                            ? (isMobile
+                                                                ? 'USINA'
+                                                                : 'NOVA USINA')
+                                                            : (isMobile
+                                                                ? 'NOVO'
+                                                                : 'NOVO PRODUTO')),
                                         style: GoogleFonts.inter(
                                           fontWeight: FontWeight.bold,
                                           fontSize: isMobile ? 12 : 13,
@@ -1465,8 +1556,10 @@ class _ProductTableViewState extends State<_ProductTableView> {
                   ),
                 ],
 
-                // Botão Toggle "Mostrar Itens de Usinas" (Aparece apenas quando USINA SOLAR estiver selecionada)
-                if (_filterSector == ProductSector.solarPlant) ...[
+                // Botão Toggle "Mostrar Itens de Usinas" (Aparece apenas na aba de Usinas)
+                if (_filterSector == ProductSector.solarPlant &&
+                    widget.solarCatalogFilter ==
+                        SolarCatalogViewFilter.plants) ...[
                   const SizedBox(width: 12),
                   Material(
                     color: Colors.transparent,
@@ -1633,7 +1726,51 @@ class _ProductTableViewState extends State<_ProductTableView> {
                         return false;
                       }
 
-                      if (_filterSector == ProductSector.solarPlant) {
+                      if (widget.solarCatalogFilter !=
+                          SolarCatalogViewFilter.plants) {
+                        if (p.isSolarPlantKit || p.isAutomationStudy) {
+                          return false;
+                        }
+                        final sub = (p.subcategory ??
+                                p.specificAttributes['subcategory']
+                                    ?.toString() ??
+                                '')
+                            .toUpperCase();
+                        final nameLower = p.name.toLowerCase();
+                        final comp = p.specificAttributes['componentType']
+                                ?.toString()
+                                .toLowerCase() ??
+                            '';
+                        final isMod = comp == 'module' ||
+                            sub.contains('MÓDULO') ||
+                            sub.contains('MODULO') ||
+                            sub.contains('PAINEL') ||
+                            sub.contains('PLACA') ||
+                            nameLower.contains('modulo') ||
+                            nameLower.contains('módulo') ||
+                            nameLower.contains('painel') ||
+                            nameLower.contains('placa') ||
+                            nameLower.contains('bifacial');
+                        final isInv = comp == 'inverter' ||
+                            sub.contains('INVERSOR') ||
+                            nameLower.contains('inversor') ||
+                            nameLower.contains('microinversor');
+
+                        if (widget.solarCatalogFilter ==
+                            SolarCatalogViewFilter.modules) {
+                          return isMod;
+                        }
+                        if (widget.solarCatalogFilter ==
+                            SolarCatalogViewFilter.inverters) {
+                          return isInv;
+                        }
+                        if (widget.solarCatalogFilter ==
+                            SolarCatalogViewFilter.otherItems) {
+                          return p.sector == ProductSector.solarPlant &&
+                              !isMod &&
+                              !isInv;
+                        }
+                      } else if (_filterSector == ProductSector.solarPlant) {
                         if (!_showSolarComponents && p.isSolarComponent) {
                           return false;
                         }
@@ -1682,17 +1819,19 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                         return _ProductMobileCard(
                                           product: item,
                                           isExpanded: isExpanded,
-                                          onToggleExpand: (item.isSolarPlantKit || item.isAutomationStudy)
-                                              ? () => setState(() {
-                                                    if (isExpanded) {
-                                                      _expandedProductIds
-                                                          .remove(item.id);
-                                                    } else {
-                                                      _expandedProductIds
-                                                          .add(item.id);
-                                                    }
-                                                  })
-                                              : null,
+                                          onToggleExpand:
+                                              (item.isSolarPlantKit ||
+                                                      item.isAutomationStudy)
+                                                  ? () => setState(() {
+                                                        if (isExpanded) {
+                                                          _expandedProductIds
+                                                              .remove(item.id);
+                                                        } else {
+                                                          _expandedProductIds
+                                                              .add(item.id);
+                                                        }
+                                                      })
+                                                  : null,
                                           onEdit: () => widget.onEdit(item),
                                           onDelete: () =>
                                               _showDeleteDialog(item),
@@ -1713,17 +1852,19 @@ class _ProductTableViewState extends State<_ProductTableView> {
                                         return _ProductRow(
                                           product: item,
                                           isExpanded: isExpanded,
-                                          onToggleExpand: (item.isSolarPlantKit || item.isAutomationStudy)
-                                              ? () => setState(() {
-                                                    if (isExpanded) {
-                                                      _expandedProductIds
-                                                          .remove(item.id);
-                                                    } else {
-                                                      _expandedProductIds
-                                                          .add(item.id);
-                                                    }
-                                                  })
-                                              : null,
+                                          onToggleExpand:
+                                              (item.isSolarPlantKit ||
+                                                      item.isAutomationStudy)
+                                                  ? () => setState(() {
+                                                        if (isExpanded) {
+                                                          _expandedProductIds
+                                                              .remove(item.id);
+                                                        } else {
+                                                          _expandedProductIds
+                                                              .add(item.id);
+                                                        }
+                                                      })
+                                                  : null,
                                           onEdit: () => widget.onEdit(item),
                                           onDelete: () =>
                                               _showDeleteDialog(item),
@@ -2028,11 +2169,15 @@ class _ProductRow extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: isExpanded
                                   ? (isAutomation
-                                      ? const Color(0xFF6366F1).withValues(alpha: 0.15)
-                                      : const Color(0xFFEA580C).withValues(alpha: 0.15))
+                                      ? const Color(0xFF6366F1)
+                                          .withValues(alpha: 0.15)
+                                      : const Color(0xFFEA580C)
+                                          .withValues(alpha: 0.15))
                                   : (isAutomation
-                                      ? const Color(0xFF6366F1).withValues(alpha: 0.12)
-                                      : const Color(0xFFF59E0B).withValues(alpha: 0.15)),
+                                      ? const Color(0xFF6366F1)
+                                          .withValues(alpha: 0.12)
+                                      : const Color(0xFFF59E0B)
+                                          .withValues(alpha: 0.15)),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isExpanded
@@ -2332,7 +2477,8 @@ class _ProductRow extends StatelessWidget {
         if (isPlant && isExpanded) _SolarPlantKitDetails(product: product),
 
         // Bloco Expansível do Estudo de Automação com Ambientes e Equipamentos
-        if (isAutomation && isExpanded) _AutomationStudyDetails(product: product),
+        if (isAutomation && isExpanded)
+          _AutomationStudyDetails(product: product),
       ],
     );
   }
@@ -2813,8 +2959,7 @@ class _AutomationStudyDetails extends StatelessWidget {
                         child: Column(
                           children: env.items.map((item) {
                             return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(vertical: 4),
                               child: Row(
                                 children: [
                                   Tooltip(
@@ -2827,8 +2972,7 @@ class _AutomationStudyDetails extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Icon(item.categoryIcon,
-                                          size: 13,
-                                          color: item.categoryColor),
+                                          size: 13, color: item.categoryColor),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -4724,6 +4868,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
 class _ProductFormCard extends StatefulWidget {
   final CategoryModel category;
   final ProductModel? product;
+  final String? initialSubcategory;
   final UserModel? currentUser;
   final VoidCallback onBack;
   final VoidCallback? onChangeSector;
@@ -4732,6 +4877,7 @@ class _ProductFormCard extends StatefulWidget {
   const _ProductFormCard({
     required this.category,
     this.product,
+    this.initialSubcategory,
     this.currentUser,
     required this.onBack,
     this.onChangeSector,
@@ -4817,6 +4963,9 @@ class _ProductFormCardState extends State<_ProductFormCard> {
           _dynamicControllers[key]!.text = val.toString();
         }
       });
+    } else if (widget.initialSubcategory != null &&
+        widget.initialSubcategory!.trim().isNotEmpty) {
+      _subcategoryCtrl.text = widget.initialSubcategory!.trim();
     }
   }
 
