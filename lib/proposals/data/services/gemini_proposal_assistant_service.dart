@@ -348,9 +348,14 @@ class GeminiProposalAssistantService {
       '\nSe houver Conta de Energia, extraia também dentro de "client": '
       '"connectionType" ("Monofásico", "Bifásico" ou "Trifásico") e '
       '"publicLightingValueRs" (valor numérico em R\$ da Contribuição de Iluminação Pública CIP/COSIP).\n'
-      'Se houver Cotação de Kit Solar, em "solarPlant.productsPrice" coloque SEMPRE o VALOR TOTAL FINAL do orçamento '
-      'JÁ COM FRETE, seguro e impostos inclusos (ex: "Valor Total: R\$ 18.990,92"), NUNCA apenas o subtotal sem frete. '
-      'Se houver dúvida, considere sempre o MAIOR valor total do orçamento.',
+      'Se houver Cotação de Kit Solar, considere SEMPRE o "Valor total" (o maior valor final consolidado impresso no orçamento), '
+      'pois na BelEnergy e demais distribuidoras o "Valor total" JÁ INCLUI Produtos + Frete + Impostos. '
+      'NUNCA some o frete novamente por cima do "Valor total" já impresso (ex: se Total de Produtos = 42.572,17, Valor do Frete = 2.802,26 e Valor total = 45.374,44, '
+      'o valor final é 45374.44 e NUNCA 48176.70). Extraia dentro de "solarPlant": '
+      '"productsSubtotal" (apenas os produtos antes do frete, ex: 42572.17), '
+      '"shippingFee" (apenas o frete, ex: 2802.26, ou 0 se não houver), '
+      '"totalQuotePrice" e "totalAmount" (o Valor Total impresso no orçamento, ex: 45374.44), '
+      'e "productsPrice" igual a esse Valor Total impresso (ex: 45374.44).\n',
     );
 
     parts.add({
@@ -543,13 +548,36 @@ class GeminiProposalAssistantService {
         (clientDoc != null && clientDoc.trim().isNotEmpty);
 
     final genKwh = (solarMap?['generationKwh'] ?? map['generationKwh'] as num?)?.toDouble();
+    final productsSubtotal = (solarMap?['productsSubtotal'] ?? map['productsSubtotal'] as num?)?.toDouble() ?? 0.0;
     final rawProdPrice = (solarMap?['productsPrice'] ?? map['productsPrice'] as num?)?.toDouble() ?? 0.0;
     final servPrice = (solarMap?['servicePrice'] ?? map['servicePrice'] as num?)?.toDouble() ?? 0.0;
     final shipFee = (solarMap?['shippingFee'] ?? map['shippingFee'] as num?)?.toDouble() ?? 0.0;
     final quoteTotal = (solarMap?['totalQuotePrice'] ?? map['totalQuotePrice'] as num?)?.toDouble() ?? 0.0;
-    final prodPrice = [rawProdPrice, quoteTotal, rawProdPrice + shipFee].reduce((a, b) => a > b ? a : b);
-    final effectiveShipFee = (prodPrice >= rawProdPrice + shipFee && shipFee > 0) ? 0.0 : shipFee;
-    final totAmount = (solarMap?['totalAmount'] ?? map['totalAmount'] as num?)?.toDouble() ?? (prodPrice + servPrice + effectiveShipFee);
+    final rawTotalAmount = (solarMap?['totalAmount'] ?? map['totalAmount'] as num?)?.toDouble() ?? 0.0;
+
+    final printedTotal = quoteTotal > 0
+        ? quoteTotal
+        : (rawTotalAmount > 0 ? rawTotalAmount : rawProdPrice);
+
+    double prodPrice = printedTotal;
+    if (productsSubtotal > 0 && shipFee > 0) {
+      final expectedWithShipping = productsSubtotal + shipFee;
+      final doubledShipping = productsSubtotal + (shipFee * 2);
+      if (printedTotal <= 0) {
+        prodPrice = expectedWithShipping;
+      } else if ((printedTotal - doubledShipping).abs() <= (shipFee * 0.15 + 1.0)) {
+        // Evita frete somado em duplicidade pela IA
+        prodPrice = expectedWithShipping;
+      } else if ((printedTotal - productsSubtotal).abs() <= 1.0) {
+        // Documento listou apenas subtotal dos produtos + frete separado sem total consolidado
+        prodPrice = expectedWithShipping;
+      }
+    } else if (prodPrice <= 0 && productsSubtotal > 0) {
+      prodPrice = productsSubtotal + shipFee;
+    }
+
+    final effectiveShipFee = 0.0;
+    final totAmount = prodPrice + servPrice;
 
     final proposalNum = (solarMap?['proposalNumber'] ?? map['proposalNumber']) as String?;
     final distributorName = (solarMap?['distributorName'] ?? map['distributorName']) as String?;

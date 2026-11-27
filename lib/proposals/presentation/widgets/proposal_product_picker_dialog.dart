@@ -58,6 +58,7 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
   String? _selectedSupplierName;
   String _selectedSubcategory = 'MÓDULO SOLAR';
   bool _isSavingNewProduct = false;
+  ProductModel? _editingProduct;
 
   // Subcategorias Pré-cadastradas
   static const List<Map<String, dynamic>> _solarSubcategoryOptions = [
@@ -234,6 +235,91 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
     Navigator.pop(context);
   }
 
+  void _resetProductForm() {
+    _editingProduct = null;
+    _regNameCtrl.clear();
+    _regSkuCtrl.clear();
+    _regSalePriceCtrl.clear();
+    _regCostPriceCtrl.clear();
+    _regStockCtrl.text = '10';
+    _regUnit = ProductUnit.un;
+    _selectedSupplierId = null;
+    _selectedSupplierName = null;
+    _selectedSubcategory = 'MÓDULO SOLAR';
+
+    _modWattsCtrl.clear();
+    _modEffWarrCtrl.text = '25';
+    _modMfgWarrCtrl.text = '12';
+    _invPowerCtrl.clear();
+    _invOverloadCtrl.clear();
+    _invMfgWarrCtrl.text = '10';
+    _microPowerCtrl.clear();
+    _microOverloadCtrl.clear();
+    _microMfgWarrCtrl.text = '12';
+    _batCapacityCtrl.clear();
+    _batVoltageCtrl.clear();
+    _batMfgWarrCtrl.text = '10';
+  }
+
+  void _openEditProduct(ProductModel p) {
+    final attrs = p.specificAttributes;
+    String matchedSub = 'OUTRO';
+    final rawSub = (p.subcategory ?? attrs['subcategory']?.toString() ?? '').trim().toUpperCase();
+    final validLabels = _solarSubcategoryOptions.map((e) => e['label'] as String).toSet();
+
+    if (validLabels.contains(rawSub)) {
+      matchedSub = rawSub;
+    } else {
+      final lower = p.name.toLowerCase();
+      if (lower.contains('modulo') || lower.contains('módulo') || lower.contains('painel') || lower.contains('placa')) {
+        matchedSub = 'MÓDULO SOLAR';
+      } else if (lower.contains('microinversor')) {
+        matchedSub = 'MICROINVERSOR';
+      } else if (lower.contains('inversor')) {
+        matchedSub = 'INVERSOR SOLAR';
+      } else if (lower.contains('bateria') || lower.contains('litio') || lower.contains('lifepo4')) {
+        matchedSub = 'BATERIA';
+      } else if (lower.contains('estrutura') || lower.contains('perfil') || lower.contains('trilho') || lower.contains('grampo')) {
+        matchedSub = 'ESTRUTURA';
+      } else if (lower.contains('cabo') || lower.contains('conector') || lower.contains('mc4')) {
+        matchedSub = 'CABOS & CONECTORES';
+      } else if (lower.contains('string box') || lower.contains('dps') || lower.contains('disjuntor')) {
+        matchedSub = 'STRING BOX';
+      }
+    }
+
+    setState(() {
+      _editingProduct = p;
+      _selectedSubcategory = matchedSub;
+      _regNameCtrl.text = p.name;
+      _regSkuCtrl.text = p.sku ?? '';
+      _regSalePriceCtrl.text = p.salePrice > 0 ? p.salePrice.toStringAsFixed(2).replaceAll('.', ',') : '0,00';
+      _regCostPriceCtrl.text = (p.costPrice != null && p.costPrice! > 0) ? p.costPrice!.toStringAsFixed(2).replaceAll('.', ',') : '';
+      _regStockCtrl.text = p.stockQuantity.toStringAsFixed(0);
+      _regUnit = p.unit;
+      _selectedSupplierId = p.supplierId;
+      _selectedSupplierName = p.supplierName;
+
+      _modWattsCtrl.text = attrs['moduleWatts']?.toString() ?? '';
+      _modEffWarrCtrl.text = attrs['efficiencyWarrantyYears']?.toString() ?? '25';
+      _modMfgWarrCtrl.text = attrs['mfgWarrantyYears']?.toString() ?? '12';
+
+      _invPowerCtrl.text = attrs['inverterPowerKwp']?.toString() ?? '';
+      _invOverloadCtrl.text = attrs['overloadMaxKwp']?.toString() ?? '';
+      _invMfgWarrCtrl.text = attrs['mfgWarrantyYears']?.toString() ?? '10';
+
+      _microPowerCtrl.text = attrs['microPowerKwp']?.toString() ?? '';
+      _microOverloadCtrl.text = attrs['overloadMaxKwp']?.toString() ?? '';
+      _microMfgWarrCtrl.text = attrs['mfgWarrantyYears']?.toString() ?? '12';
+
+      _batCapacityCtrl.text = attrs['batteryCapacityKwh']?.toString() ?? '';
+      _batVoltageCtrl.text = attrs['batteryVoltage']?.toString() ?? '';
+      _batMfgWarrCtrl.text = attrs['mfgWarrantyYears']?.toString() ?? '10';
+
+      _viewMode = _PickerViewMode.registerItem;
+    });
+  }
+
   Future<void> _submitNewProduct() async {
     final name = _regNameCtrl.text.trim();
     final salePrice = double.tryParse(_regSalePriceCtrl.text.replaceAll(',', '.')) ?? 0.0;
@@ -296,6 +382,36 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
         if (_batMfgWarrCtrl.text.trim().isNotEmpty) {
           specificAttributes['mfgWarrantyYears'] = int.tryParse(_batMfgWarrCtrl.text) ?? _batMfgWarrCtrl.text.trim();
         }
+      }
+
+      if (_editingProduct != null) {
+        final mergedAttrs = Map<String, dynamic>.from(_editingProduct!.specificAttributes)..addAll(specificAttributes);
+        final updatedProduct = _editingProduct!.copyWith(
+          name: name,
+          sku: _regSkuCtrl.text.trim().isNotEmpty ? _regSkuCtrl.text.trim() : null,
+          subcategory: _selectedSubcategory,
+          supplierId: _selectedSupplierId,
+          supplierName: _selectedSupplierName,
+          salePrice: salePrice,
+          costPrice: costPrice,
+          stockQuantity: stock,
+          unit: _regUnit,
+          specificAttributes: mergedAttrs,
+        );
+        await _repo.updateProduct(updatedProduct);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Item "$name" atualizado com sucesso!'),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ));
+          setState(() {
+            _editingProduct = null;
+            _viewMode = _PickerViewMode.catalog;
+          });
+        }
+        return;
       }
 
       final createdProduct = await _repo.createProduct(
@@ -373,7 +489,7 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                   ),
                   child: Icon(
                     _viewMode == _PickerViewMode.registerItem
-                        ? Icons.add_circle_rounded
+                        ? (_editingProduct != null ? Icons.edit_rounded : Icons.add_circle_rounded)
                         : _viewMode == _PickerViewMode.quickCustom
                             ? Icons.edit_note_rounded
                             : Icons.add_shopping_cart_rounded,
@@ -388,7 +504,7 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                     children: [
                       Text(
                         _viewMode == _PickerViewMode.registerItem
-                            ? 'Novo Cadastro de Equipamento / Item'
+                            ? (_editingProduct != null ? 'Editar Equipamento / Item' : 'Novo Cadastro de Equipamento / Item')
                             : _viewMode == _PickerViewMode.quickCustom
                                 ? 'Incluir Item / Serviço Sob Medida'
                                 : (widget.excludeSolarPlants
@@ -402,7 +518,9 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                       ),
                       Text(
                         _viewMode == _PickerViewMode.registerItem
-                            ? 'Cadastre no catálogo com ficha técnica e adicione automaticamente'
+                            ? (_editingProduct != null
+                                ? 'Atualize os dados e ficha técnica do produto no catálogo'
+                                : 'Cadastre no catálogo com ficha técnica e adicione automaticamente')
                             : _viewMode == _PickerViewMode.quickCustom
                                 ? 'Digite os detalhes para um item avulso ou serviço sob medida'
                                 : 'Selecione produtos existentes ou cadastre novos equipamentos',
@@ -417,7 +535,10 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => setState(() => _viewMode = _PickerViewMode.registerItem),
+                      onTap: () {
+                        _resetProductForm();
+                        setState(() => _viewMode = _PickerViewMode.registerItem);
+                      },
                       borderRadius: BorderRadius.circular(10),
                       child: Ink(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
@@ -472,7 +593,10 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                 ] else ...[
                   // Botão Voltar para o Catálogo
                   TextButton.icon(
-                    onPressed: () => setState(() => _viewMode = _PickerViewMode.catalog),
+                    onPressed: () => setState(() {
+                      _editingProduct = null;
+                      _viewMode = _PickerViewMode.catalog;
+                    }),
                     icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppColors.primary),
                     label: Text(
                       'Ver Catálogo',
@@ -540,8 +664,19 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
 
               final all = snap.data ?? [];
               final filtered = all.where((p) {
-                if (widget.excludeSolarPlants && p.isSolarPlantKit) {
-                  return false;
+                if (widget.excludeSolarPlants) {
+                  final upperSub = (p.subcategory ?? '').toUpperCase();
+                  final lowerName = p.name.toLowerCase();
+                  if (p.isSolarPlantKit ||
+                      p.isAutomationStudy ||
+                      upperSub.contains('USINA') ||
+                      upperSub.contains('KIT SOLAR') ||
+                      lowerName.startsWith('usina ') ||
+                      lowerName.contains('usina solar') ||
+                      lowerName.contains('usina fotovoltaica') ||
+                      lowerName.startsWith('kit solar')) {
+                    return false;
+                  }
                 }
                 if (_query.isEmpty) return true;
                 return p.name.toLowerCase().contains(_query) ||
@@ -677,7 +812,7 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                                         ? '☀️ Usina Solar Fotovoltaica${p.solarKilowatts != null ? ' • ⚡ ${p.solarKilowatts!.toStringAsFixed(1)} kWp' : ''} • 📦 ${p.solarKitItems.length} equipamentos no kit'
                                         : isAutomation
                                             ? '⚡ Estudo de Solução em Automação${p.specificAttributes['environmentsCount'] != null ? ' • 🏠 ${p.specificAttributes['environmentsCount']} ambientes' : ''}${p.specificAttributes['totalItemsCount'] != null ? ' • 📦 ${p.specificAttributes['totalItemsCount']} itens' : ''}'
-                                            : '${p.sector.title}${p.sku != null ? ' • SKU: ${p.sku}' : ''} • Estoque: ${p.stockQuantity.toStringAsFixed(0)} ${p.unit.symbol}',
+                                            : '${(p.subcategory != null && p.subcategory!.trim().isNotEmpty) ? p.subcategory! : p.sector.title}${p.sku != null ? ' • SKU: ${p.sku}' : ''} • Estoque: ${p.stockQuantity.toStringAsFixed(0)} ${p.unit.symbol}',
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
                                       fontWeight: (isPlant || isAutomation) ? FontWeight.w500 : FontWeight.normal,
@@ -703,6 +838,17 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                               ],
                             ),
                             const SizedBox(width: 8),
+                            if (widget.canCreateProduct && !isPlant && !isAutomation) ...[
+                              IconButton(
+                                tooltip: 'Editar produto',
+                                onPressed: () => _openEditProduct(p),
+                                icon: const Icon(Icons.edit_outlined, color: Color(0xFF64748B), size: 18),
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
                             const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 20),
                           ],
                         ),
@@ -975,7 +1121,10 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => setState(() => _viewMode = _PickerViewMode.catalog),
+                  onPressed: () => setState(() {
+                    _editingProduct = null;
+                    _viewMode = _PickerViewMode.catalog;
+                  }),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1003,7 +1152,7 @@ class _ProposalProductPickerDialogState extends State<ProposalProductPickerDialo
                             const Icon(Icons.check_circle_rounded, size: 18),
                             const SizedBox(width: 8),
                             Text(
-                              'SALVAR E ADICIONAR AO CONJUNTO',
+                              _editingProduct != null ? 'SALVAR ALTERAÇÕES' : 'SALVAR E ADICIONAR AO CONJUNTO',
                               style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, letterSpacing: 0.3),
                             ),
                           ],

@@ -70,7 +70,10 @@ Analise visualmente o documento enviado (PDF ou Imagem) de ponta a ponta e extra
 
 Você DEVE identificar obrigatoriamente:
 1. TODOS OS PRODUTOS/EQUIPAMENTOS DO KIT: Para cada item da tabela ou lista, extraia o NOME DO PRODUTO completo e a QUANTIDADE com sua UNIDADE (ex: 14 PC, 1 UN, 2 JG, 35 M, 10 PT, etc.). Não omita nenhum item listado no documento.
-2. VALOR TOTAL FINAL DO ORÇAMENTO ("totalAmount"): Localize o valor total consolidado impresso no final do documento (ex: "Valor total", "Total Geral", "Total da Proposta", "Total do Pedido"). COPIE EXATAMENTE esse número impresso como "totalAmount". ATENÇÃO CRÍTICA: NUNCA some "Valor do Frete" ou impostos por cima do "Valor total" — na BelEnergy e na maioria das distribuidoras, o "Valor total" JÁ INCLUI Produtos + Frete + Impostos (ex: se Produtos = 55.761,94, Frete = 3.786,40 e Valor total = 59.548,34, retorne EXATAMENTE 59548.34 e NÃO 63334.74). Só some Produtos + Frete manualmente se o documento NÃO tiver um campo "Valor total" impresso. Esse valor é soberano.
+2. VALORES FINANCEIROS DO ORÇAMENTO:
+   - "productsSubtotal": Valor apenas dos produtos/equipamentos antes do frete (ex: "Total Produtos", "Subtotal"). Se não constar separado, informe 0.0.
+   - "shippingFee": Valor do frete (ex: "Frete", "Valor do Frete"). Se não houver frete ou for grátis, informe 0.0.
+   - "printedTotalAmount": Localize o valor total consolidado EXATO impresso no final do documento (ex: "Valor total", "Total Geral", "Total da Proposta", "Total do Pedido"). COPIE EXATAMENTE esse número impresso, SEM somar o frete novamente por cima dele. Na maioria das distribuidoras (ex: BelEnergy, Aldo, Edeltec), o "Valor total" JÁ INCLUI Produtos + Frete + Impostos. Só deixe igual ao subtotal se o documento realmente não tiver um total final somado.
 3. POTÊNCIA DA USINA (kWp): Potência nominal pico total da usina fotovoltaica em kWp (ex: 25.83 kWp, 8.68 kWp ou a soma da potência dos módulos em Watts dividida por 1000). Preencha no campo "kilowatts".
 4. GERAÇÃO MÉDIA ESTIMADA (kWh/mês): Se o documento contiver estimativa de geração mensal em kWh (ex: 3200 kWh/mês), extraia no campo "generationKwh". Se não constar, preencha null.
 5. TIPO DE COBERTURA / TELHADO: Cerâmico, Metálico, Fibrocimento, Isotérmico, Solo, Laje ou Sem Estrutura.
@@ -84,8 +87,9 @@ Retorne ESTRITAMENTE um objeto JSON válido (sem tags markdown e sem texto antes
   "kilowatts": 25.83,
   "generationKwh": 3200.0,
   "roofType": "Cerâmico | Metálico | Fibrocimento | Isotérmico | Solo | Laje | Sem Estrutura",
-  "totalAmount": 12062.30,
+  "productsSubtotal": 11302.08,
   "shippingFee": 760.22,
+  "printedTotalAmount": 12062.30,
   "items": [
     {
       "name": "Nome e descrição completa do produto/equipamento",
@@ -265,8 +269,30 @@ Regras de classificação dos componentes ("componentType"):
       }
     }
 
-    final totalAmount = double.tryParse(parsedJson['totalAmount']?.toString() ?? '0') ?? 0.0;
+    final productsSubtotal = double.tryParse(parsedJson['productsSubtotal']?.toString() ?? '0') ?? 0.0;
     final shippingFee = double.tryParse(parsedJson['shippingFee']?.toString() ?? '0') ?? 0.0;
+    final printedTotalAmount = double.tryParse(
+          (parsedJson['printedTotalAmount'] ?? parsedJson['totalAmount'])?.toString() ?? '0',
+        ) ??
+        0.0;
+
+    // Validação determinística: evita frete somado em duplicidade pela IA,
+    // mas soma produtos + frete caso o orçamento traga os dois separados sem total consolidado.
+    double totalAmount = printedTotalAmount;
+    if (productsSubtotal > 0 && shippingFee > 0) {
+      final expectedWithShipping = productsSubtotal + shippingFee;
+      final doubledShipping = productsSubtotal + (shippingFee * 2);
+      if (printedTotalAmount <= 0) {
+        totalAmount = expectedWithShipping;
+      } else if ((printedTotalAmount - doubledShipping).abs() <= (shippingFee * 0.15 + 1.0)) {
+        totalAmount = expectedWithShipping;
+      } else if ((printedTotalAmount - productsSubtotal).abs() <= 1.0) {
+        totalAmount = expectedWithShipping;
+      }
+    } else if (totalAmount <= 0 && productsSubtotal > 0) {
+      totalAmount = productsSubtotal + shippingFee;
+    }
+
     final kilowatts = double.tryParse(parsedJson['kilowatts']?.toString() ?? '0') ?? 0.0;
     final generationKwh = double.tryParse(parsedJson['generationKwh']?.toString() ?? '');
 

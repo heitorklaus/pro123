@@ -1129,7 +1129,7 @@ class _LoginPageState extends State<LoginPage> {
   // ─────────────────────────────────────────────────────────────────────────
   Widget _buildBrandLogo({required bool isDarkBackground}) {
     return TaosLogo(
-      height: isDarkBackground ? 150 : 90,
+      height: isDarkBackground ? 100 : 70,
       isDarkBackground: isDarkBackground,
     );
   }

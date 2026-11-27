@@ -156,7 +156,7 @@ REGRAS DE IDENTIFICAÇÃO E CLASSIFICAÇÃO AUTOMÁTICA DE MÚLTIPLOS DOCUMENTOS
 
 2. COTAÇÃO FOTOVOLTAICA / ORÇAMENTO DE DISTRIBUIDORA / KIT SOLAR:
    - Se um dos arquivos for cotação de distribuidora (BelEnergy, Edeltec, Fortlev, WEG, Aldo, Sou Energy, Canadian, Elgin, etc.) ou lista de equipamentos:
-   - Extraia o código/número da proposta ("proposalNumber"), nome da distribuidora ("distributorName"), tipo de telhado/cobertura ("roofType": "Cerâmico" | "Metálico" | "Fibrocimento" | "Isotérmico" | "Solo" | "Laje" | "Sem Estrutura"), valor dos produtos ("productsPrice"), potência da usina em kWp ("kilowatts"), estimativa de geração mensal em kWh ("generationKwh") e TODOS os componentes na lista "items".
+   - Extraia o código/número da proposta ("proposalNumber"), nome da distribuidora ("distributorName"), tipo de telhado/cobertura ("roofType": "Cerâmico" | "Metálico" | "Fibrocimento" | "Isotérmico" | "Solo" | "Laje" | "Sem Estrutura"), subtotal apenas dos produtos ("productsSubtotal"), frete separado ("shippingFee"), VALOR TOTAL FINAL DO ORÇAMENTO ("totalQuotePrice" e "productsPrice" — ATENÇÃO CRÍTICA: use SEMPRE o "Valor total" / maior valor consolidado impresso no orçamento, que já inclui Produtos + Frete + Impostos; NUNCA some o frete novamente por cima do "Valor total", ex.: se Total de Produtos = 42.572,17, Frete = 2.802,26 e Valor total = 45.374,44, retorne 45374.44 e NUNCA 48176.70), potência da usina em kWp ("kilowatts"), estimativa de geração mensal em kWh ("generationKwh") e TODOS os componentes na lista "items".
 
 3. PROMPT EM TEXTO LIVRE (OU INSTRUÇÕES ENVIADAS POR PARTES):
    - Se o usuário escrever em linguagem natural (ex: "Monte uma proposta pra mim com 15 placas de 615W e 1 inversor AUXSOL de 8kw, com geração de 1000kwh mes e valor de servico R$ 10.000" ou colar mensagens de WhatsApp):
@@ -204,9 +204,11 @@ Retorne ESTRITAMENTE um objeto JSON válido (sem markdown ```json e sem texto an
     "moduleCount": 15,
     "moduleBrand": "Canadian Solar",
     "inverterBrand": "AUXSOL",
+    "productsSubtotal": 17739.78,
+    "shippingFee": 760.22,
+    "totalQuotePrice": 18500.0,
     "productsPrice": 18500.0,
     "servicePrice": 6500.0,
-    "shippingFee": 0.0,
     "items": [
       {
         "name": "Módulo Fotovoltaico Canadian 615W Bifacial N-Type",
